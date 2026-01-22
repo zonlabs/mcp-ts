@@ -126,6 +126,11 @@ export interface UseMcpReturn {
    * Manually disconnect SSE
    */
   disconnectSSE: () => void;
+
+  /**
+   * Complete OAuth authorization
+   */
+  finishAuth: (sessionId: string, code: string) => Promise<any>;
 }
 
 /**
@@ -229,6 +234,20 @@ export function useMcp(options: UseMcpOptions): UseMcpReturn {
           );
         }
 
+        case 'auth_required': {
+          // Handle OAuth redirect
+          if (event.authUrl) {
+            onLog?.('info', `OAuth required - redirecting to ${event.authUrl}`, { authUrl: event.authUrl });
+            // Redirect user to OAuth authorization URL
+            if (typeof window !== 'undefined') {
+              window.location.href = event.authUrl;
+            }
+          }
+          return prev.map((c: McpConnection) =>
+            c.sessionId === event.sessionId ? { ...c, state: 'AUTHENTICATING' } : c
+          );
+        }
+
         case 'error': {
           return prev.map((c: McpConnection) =>
             c.sessionId === event.sessionId ? { ...c, state: 'FAILED', error: event.error } : c
@@ -243,7 +262,7 @@ export function useMcp(options: UseMcpOptions): UseMcpReturn {
           return prev;
       }
     });
-  }, []);
+  }, [onLog]);
 
   /**
    * Load sessions from server
@@ -350,6 +369,17 @@ export function useMcp(options: UseMcpOptions): UseMcpReturn {
     clientRef.current?.disconnect();
   }, []);
 
+  /**
+   * Complete OAuth authorization
+   */
+  const finishAuth = useCallback(async (sessionId: string, code: string): Promise<any> => {
+    if (!clientRef.current) {
+      throw new Error('SSE client not initialized');
+    }
+
+    return await clientRef.current.finishAuth(sessionId, code);
+  }, []);
+
   // Utility functions
   const getConnection = useCallback(
     (sessionId: string) => connections.find((c: McpConnection) => c.sessionId === sessionId),
@@ -390,5 +420,6 @@ export function useMcp(options: UseMcpOptions): UseMcpReturn {
     refresh,
     connectSSE,
     disconnectSSE,
+    finishAuth,
   };
 }

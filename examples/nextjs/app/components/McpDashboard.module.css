@@ -1,0 +1,367 @@
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.header h1 {
+  margin: 0;
+  color: #111827;
+}
+
+.statusBadge {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+}
+
+.statusBadge[data-status="connected"] {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.statusBadge[data-status="connecting"] {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.statusBadge[data-status="disconnected"] {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.statusBadge[data-status="error"] {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #111827;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formGroup label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.formGroup input {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+.formGroup input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.formGroup input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.select {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  background-color: white;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.select:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.button {
+  padding: 0.75rem 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.button:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.error {
+  padding: 0.75rem;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-radius: 0.375rem;
+  border: 1px solid #fecaca;
+  font-size: 0.875rem;
+}
+
+.helpText {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.formGroup .helpText {
+  margin-top: 0.25rem;
+  text-align: left;
+}
+
+.loading {
+  text-align: center;
+  color: #6b7280;
+  padding: 2rem;
+}
+
+.emptyState {
+  text-align: center;
+  color: #6b7280;
+  padding: 2rem;
+  background-color: #f9fafb;
+  border-radius: 0.375rem;
+}
+
+.connection {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  margin-bottom: 1rem;
+}
+
+.connection:last-child {
+  margin-bottom: 0;
+}
+
+.connectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.connectionHeader h3 {
+  margin: 0 0 0.5rem 0;
+  color: #111827;
+  font-size: 1.125rem;
+}
+
+.connectionMeta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.sessionId {
+  color: #6b7280;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.stateBadge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.stateCONNECTED {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.stateCONNECTING,
+.stateAUTHENTICATING,
+.stateDISCOVERING,
+.stateVALIDATING {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.stateFAILED,
+.stateDISCONNECTED {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.disconnectBtn {
+  background-color: #ef4444;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.disconnectBtn:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+.connectionError {
+  padding: 0.75rem;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  border: 1px solid #fecaca;
+  font-size: 0.875rem;
+}
+
+.tools {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 0.375rem;
+}
+
+.tools h4 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #374151;
+  font-size: 1rem;
+}
+
+.tools ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.tools li {
+  margin-bottom: 0.5rem;
+  color: #4b5563;
+}
+
+.tools li:last-child {
+  margin-bottom: 0;
+}
+
+.toolDescription {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.details {
+  margin-top: 1rem;
+  cursor: pointer;
+}
+
+.details summary {
+  font-weight: 600;
+  color: #374151;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  user-select: none;
+}
+
+.details summary:hover {
+  background-color: #f3f4f6;
+}
+
+.details dl {
+  margin: 0.5rem 0 0 0;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 0.375rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.details dt {
+  font-weight: 600;
+  color: #374151;
+}
+
+.details dd {
+  margin: 0;
+  color: #6b7280;
+}
+
+.monospace {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+}
+
+.infoCard {
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.infoCard h2,
+.infoCard h3 {
+  color: #0c4a6e;
+}
+
+.infoCard h3 {
+  font-size: 1rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.infoCard ul,
+.infoCard ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.infoCard li {
+  margin: 0.25rem 0;
+  color: #075985;
+}
+
+.infoCard code {
+  background-color: #e0f2fe;
+  color: #0c4a6e;
+}

@@ -1,0 +1,426 @@
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+header h1 {
+  margin: 0;
+  color: #111827;
+}
+
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+}
+
+.status-badge[data-status="connected"] {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge[data-status="connecting"] {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge[data-status="disconnected"] {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+section h2 {
+  margin-top: 0;
+  color: #111827;
+}
+
+.connect-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  ring: 2px;
+}
+
+.form-group input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.error-message {
+  padding: 0.75rem;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-radius: 0.375rem;
+  border: 1px solid #fecaca;
+}
+
+.help-text {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.connection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.connection-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+}
+
+.connection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.connection-info h3 {
+  margin: 0 0 0.5rem 0;
+  color: #111827;
+}
+
+.connection-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.session-id {
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.state-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.state-connected {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.state-connecting,
+.state-authenticating,
+.state-discovering {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.state-failed,
+.state-disconnected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.disconnect-btn {
+  background-color: #ef4444;
+}
+
+.disconnect-btn:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+.connection-error {
+  padding: 0.75rem;
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  border: 1px solid #fecaca;
+}
+
+.auth-required {
+  padding: 0.75rem;
+  background-color: #dbeafe;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  border: 1px solid #bfdbfe;
+}
+
+.auth-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #3b82f6;
+  color: white;
+  text-decoration: none;
+  border-radius: 0.375rem;
+  font-weight: 600;
+}
+
+.auth-link:hover {
+  background-color: #2563eb;
+}
+
+.connection-tools {
+  margin: 1rem 0;
+}
+
+.connection-tools h4 {
+  margin-top: 0;
+  color: #374151;
+}
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tool-item {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+}
+
+.tool-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tool-header:hover {
+  background-color: #f9fafb;
+}
+
+.tool-name {
+  font-weight: 600;
+  color: #111827;
+  font-family: monospace;
+}
+
+.tool-toggle {
+  color: #6b7280;
+  font-weight: bold;
+}
+
+.tool-details {
+  padding: 0 0.75rem 0.75rem 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tool-description {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0.5rem 0;
+}
+
+.tool-schema {
+  margin: 1rem 0;
+}
+
+.tool-schema h5 {
+  margin: 0 0 0.5rem 0;
+  color: #374151;
+}
+
+.tool-schema pre {
+  background-color: #f3f4f6;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+}
+
+.tool-call {
+  margin: 1rem 0;
+}
+
+.tool-call h5 {
+  margin: 0 0 0.5rem 0;
+  color: #374151;
+}
+
+.tool-call textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-family: monospace;
+  font-size: 0.875rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.tool-call textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.tool-call button {
+  margin-top: 0.5rem;
+}
+
+.tool-result {
+  margin: 1rem 0;
+}
+
+.tool-result h5 {
+  margin: 0 0 0.5rem 0;
+  color: #374151;
+}
+
+.tool-result pre {
+  background-color: #f0fdf4;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  border: 1px solid #bbf7d0;
+}
+
+.connection-details {
+  margin-top: 1rem;
+}
+
+.connection-details details {
+  cursor: pointer;
+}
+
+.connection-details summary {
+  font-weight: 600;
+  color: #374151;
+  padding: 0.5rem;
+}
+
+.connection-details summary:hover {
+  background-color: #f9fafb;
+}
+
+.connection-details dl {
+  margin: 0.5rem 0 0 0;
+  padding: 0.5rem;
+  background-color: white;
+  border-radius: 0.375rem;
+}
+
+.connection-details dt {
+  font-weight: 600;
+  color: #374151;
+  margin-top: 0.5rem;
+}
+
+.connection-details dd {
+  margin: 0.25rem 0 0 0;
+  color: #6b7280;
+}
+
+.connection-details .monospace {
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.info-section {
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.info-section h3,
+.info-section h4 {
+  color: #0c4a6e;
+}
+
+.info-section code {
+  background-color: #e0f2fe;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.info-section ul,
+.info-section ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.info-section li {
+  margin: 0.25rem 0;
+  color: #075985;
+}

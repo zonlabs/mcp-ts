@@ -1,6 +1,9 @@
 {
   "name": "@mcp-assistant/mcp-redis",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Redis-backed MCP (Model Context Protocol) client with OAuth 2.0 and real-time SSE connections for serverless environments",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -36,7 +39,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist",
+    "clean": "rimraf dist",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
@@ -56,7 +59,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ashen-dusk/mcp-redis"
+    "url": "git+https://github.com/ashen-dusk/mcp-redis.git"
   },
   "bugs": {
     "url": "https://github.com/ashen-dusk/mcp-redis/issues"
@@ -79,6 +82,7 @@
     "@types/node": "^25.0.10",
     "@types/react": "^18.3.18",
     "react": "^18.3.1",
+    "rimraf": "^6.1.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   },

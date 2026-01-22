@@ -138,7 +138,7 @@ export type ToolInfo = {
 // SSE/RPC types
 export interface McpRpcRequest {
   id: string;
-  method: 'connect' | 'disconnect' | 'listTools' | 'callTool' | 'getSessions' | 'refreshSession';
+  method: 'connect' | 'disconnect' | 'listTools' | 'callTool' | 'getSessions' | 'refreshSession' | 'finishAuth';
   params?: any;
 }
 

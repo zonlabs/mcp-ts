@@ -1,0 +1,23 @@
+{
+  "name": "mcp-redis-nextjs-example",
+  "version": "1.0.0",
+  "description": "Next.js example for @mcp-assistant/mcp-redis",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@mcp-assistant/mcp-redis": "^1.0.0-beta.1",
+    "@types/node": "^25.0.10",
+    "@types/react": "^19.2.9",
+    "next": "^16.1.4",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}

@@ -92,6 +92,10 @@ export class SSEConnectionManager {
           result = await this.refreshSession(request.params);
           break;
 
+        case 'finishAuth':
+          result = await this.finishAuth(request.params);
+          break;
+
         default:
           throw new Error(`Unknown method: ${request.method}`);
       }
@@ -116,6 +120,23 @@ export class SSEConnectionManager {
    */
   private async getSessions(): Promise<any> {
     const sessions = await sessionStore.getUserSessionsData(this.userId);
+
+    this.sendEvent({
+      level: 'debug',
+      message: `Retrieved ${sessions.length} sessions for user ${this.userId}`,
+      timestamp: Date.now(),
+      metadata: {
+        userId: this.userId,
+        sessionCount: sessions.length,
+        sessions: sessions.map(s => ({
+          sessionId: s.sessionId,
+          serverId: s.serverId,
+          serverName: s.serverName,
+          active: s.active,
+        })),
+      },
+    });
+
     return {
       sessions: sessions.map((s) => ({
         sessionId: s.sessionId,
@@ -303,11 +324,38 @@ export class SSEConnectionManager {
   private async refreshSession(params: { sessionId: string }): Promise<any> {
     const { sessionId } = params;
 
+    this.sendEvent({
+      level: 'debug',
+      message: `Starting session refresh for ${sessionId}`,
+      timestamp: Date.now(),
+      metadata: { sessionId, userId: this.userId },
+    });
+
     // Emit validating state
     const session = await sessionStore.getSession(this.userId, sessionId);
     if (!session) {
+      this.sendEvent({
+        level: 'error',
+        message: `Session not found: ${sessionId}`,
+        timestamp: Date.now(),
+        metadata: { sessionId, userId: this.userId },
+      });
       throw new Error('Session not found');
     }
+
+    this.sendEvent({
+      level: 'debug',
+      message: `Session found in Redis`,
+      timestamp: Date.now(),
+      metadata: {
+        sessionId,
+        serverId: session.serverId,
+        serverName: session.serverName,
+        serverUrl: session.serverUrl,
+        transportType: session.transportType,
+        active: session.active,
+      },
+    });
 
     this.emitConnectionEvent({
       type: 'state_changed',
@@ -363,6 +411,84 @@ export class SSEConnectionManager {
         serverId: session.serverId || 'unknown',
         error: error instanceof Error ? error.message : 'Validation failed',
         errorType: 'validation',
+        timestamp: Date.now(),
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Complete OAuth authorization
+   */
+  private async finishAuth(params: { sessionId: string; code: string }): Promise<any> {
+    const { sessionId, code } = params;
+
+    this.sendEvent({
+      level: 'debug',
+      message: `Completing OAuth for session ${sessionId}`,
+      timestamp: Date.now(),
+      metadata: { sessionId, userId: this.userId },
+    });
+
+    const session = await sessionStore.getSession(this.userId, sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    this.emitConnectionEvent({
+      type: 'state_changed',
+      sessionId,
+      serverId: session.serverId || 'unknown',
+      serverName: session.serverName || 'Unknown',
+      state: 'AUTHENTICATING',
+      previousState: 'DISCONNECTED',
+      timestamp: Date.now(),
+    });
+
+    try {
+      const client = new MCPClient({
+        userId: this.userId,
+        sessionId,
+      });
+
+      // Subscribe to events
+      client.onConnectionEvent((event) => {
+        this.emitConnectionEvent(event);
+      });
+
+      await client.finishAuth(code);
+      this.clients.set(sessionId, client);
+
+      const tools = await client.listTools();
+
+      this.emitConnectionEvent({
+        type: 'state_changed',
+        sessionId,
+        serverId: session.serverId || 'unknown',
+        serverName: session.serverName || 'Unknown',
+        state: 'CONNECTED',
+        previousState: 'AUTHENTICATING',
+        timestamp: Date.now(),
+      });
+
+      this.emitConnectionEvent({
+        type: 'tools_discovered',
+        sessionId,
+        serverId: session.serverId || 'unknown',
+        toolCount: tools.tools.length,
+        tools: tools.tools,
+        timestamp: Date.now(),
+      });
+
+      return { success: true, toolCount: tools.tools.length };
+    } catch (error) {
+      this.emitConnectionEvent({
+        type: 'error',
+        sessionId,
+        serverId: session.serverId || 'unknown',
+        error: error instanceof Error ? error.message : 'OAuth completion failed',
+        errorType: 'auth',
         timestamp: Date.now(),
       });
 

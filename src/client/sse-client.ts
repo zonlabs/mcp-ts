@@ -52,6 +52,8 @@ export class SSEClient {
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
   private isManuallyDisconnected: boolean = false;
+  private connectionPromise: Promise<void> | null = null;
+  private connectionResolver: (() => void) | null = null;
 
   constructor(private options: SSEClientOptions) {}
 
@@ -66,8 +68,14 @@ export class SSEClient {
     this.isManuallyDisconnected = false;
     this.options.onStatusChange?.('connecting');
 
+    // Create connection promise
+    this.connectionPromise = new Promise((resolve) => {
+      this.connectionResolver = resolve;
+    });
+
     // Build URL with query params
-    const url = new URL(this.options.url);
+    // Handle both relative and absolute URLs
+    const url = new URL(this.options.url, typeof window !== 'undefined' ? window.location.origin : undefined);
     url.searchParams.set('userId', this.options.userId);
     if (this.options.authToken) {
       url.searchParams.set('token', this.options.authToken);
@@ -83,10 +91,16 @@ export class SSEClient {
       this.options.onStatusChange?.('connected');
     });
 
-    // Handle 'connected' event
+    // Handle 'connected' event - server confirms manager is ready
     this.eventSource.addEventListener('connected', (e: MessageEvent) => {
       const data = JSON.parse(e.data);
-      console.log('[SSEClient] Initial connection:', data);
+      console.log('[SSEClient] Server ready:', data);
+
+      // Resolve connection promise - now safe to send requests
+      if (this.connectionResolver) {
+        this.connectionResolver();
+        this.connectionResolver = null;
+      }
     });
 
     // Handle 'connection' events (MCP connection state changes)
@@ -136,6 +150,10 @@ export class SSEClient {
       this.eventSource = null;
     }
 
+    // Reset connection promise
+    this.connectionPromise = null;
+    this.connectionResolver = null;
+
     // Reject all pending requests
     for (const [id, { reject }] of this.pendingRequests.entries()) {
       reject(new Error('Connection closed'));
@@ -150,6 +168,11 @@ export class SSEClient {
    * Note: SSE is unidirectional (server->client), so we need to send requests via POST
    */
   private async sendRequest(method: string, params?: any): Promise<any> {
+    // Wait for connection to be fully established
+    if (this.connectionPromise) {
+      await this.connectionPromise;
+    }
+
     const id = `${++this.requestId}`;
 
     const request: McpRpcRequest = {
@@ -173,7 +196,8 @@ export class SSEClient {
 
     // Send request via POST to same endpoint
     try {
-      const url = new URL(this.options.url);
+      // Handle both relative and absolute URLs
+      const url = new URL(this.options.url, typeof window !== 'undefined' ? window.location.origin : undefined);
       url.searchParams.set('userId', this.options.userId);
 
       await fetch(url.toString(), {
@@ -259,6 +283,13 @@ export class SSEClient {
    */
   async refreshSession(sessionId: string): Promise<any> {
     return this.sendRequest('refreshSession', { sessionId });
+  }
+
+  /**
+   * Complete OAuth authorization
+   */
+  async finishAuth(sessionId: string, code: string): Promise<any> {
+    return this.sendRequest('finishAuth', { sessionId, code });
   }
 
   /**

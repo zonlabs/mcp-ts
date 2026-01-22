@@ -206,10 +206,14 @@ export class MCPClient {
    */
   private async initialize(): Promise<void> {
     if (this.client && this.oauthProvider && this.transport) {
+      this.emitProgress('Client already initialized, skipping...');
       return;
     }
 
+    this.emitProgress('Loading session configuration...');
+
     if (!this.serverUrl || !this.callbackUrl || !this.serverId) {
+      this.emitProgress('Loading configuration from Redis...');
       const sessionData = await sessionStore.getSession(this.userId, this.sessionId);
       if (!sessionData) {
         throw new Error(`Session not found: ${this.sessionId}`);
@@ -221,11 +225,28 @@ export class MCPClient {
       this.serverName = this.serverName || sessionData.serverName;
       this.serverId = this.serverId || sessionData.serverId || 'unknown';
       this.headers = this.headers || sessionData.headers;
+
+      this.emitProgress(`Loaded config - Server: ${this.serverUrl}, Transport: ${this.transportType}`);
     }
 
     if (!this.serverUrl || !this.callbackUrl || !this.serverId) {
       throw new Error('Missing required connection metadata');
     }
+
+    this._onObservabilityEvent.fire({
+      level: 'debug',
+      message: 'Connection configuration',
+      sessionId: this.sessionId,
+      serverId: this.serverId,
+      metadata: {
+        serverUrl: this.serverUrl,
+        callbackUrl: this.callbackUrl,
+        transportType: this.transportType,
+        hasHeaders: !!this.headers,
+        headers: this.headers,
+      },
+      timestamp: Date.now(),
+    });
 
     const clientMetadata: OAuthClientMetadata = {
       client_name: 'MCP Assistant',
@@ -278,16 +299,33 @@ export class MCPClient {
     if (!this.transport) {
       const baseUrl = new URL(this.serverUrl);
       const tt = this.transportType || 'streamable_http';
+
+      this._onObservabilityEvent.fire({
+        level: 'debug',
+        message: `Creating ${tt} transport`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        metadata: {
+          baseUrl: baseUrl.toString(),
+          transportType: tt,
+          hasAuthProvider: !!this.oauthProvider,
+          hasHeaders: !!this.headers,
+        },
+        timestamp: Date.now(),
+      });
+
       if (tt === 'sse') {
         this.transport = new SSEClientTransport(baseUrl, {
           authProvider: this.oauthProvider!,
           ...(this.headers && { headers: this.headers }),
         });
+        this.emitProgress('SSE transport created');
       } else {
         this.transport = new StreamableHTTPClientTransport(baseUrl, {
           authProvider: this.oauthProvider!,
           ...(this.headers && { headers: this.headers }),
         });
+        this.emitProgress('StreamableHTTP transport created');
       }
     }
   }
@@ -336,10 +374,40 @@ export class MCPClient {
 
     try {
       this.emitProgress('Validating OAuth tokens...');
-      await this.getValidTokens();
+      const hasValidTokens = await this.getValidTokens();
+
+      this._onObservabilityEvent.fire({
+        level: 'debug',
+        message: `Token validation result: ${hasValidTokens}`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        metadata: { hasValidTokens },
+        timestamp: Date.now(),
+      });
 
       this.emitProgress('Connecting to MCP server...');
+
+      this._onObservabilityEvent.fire({
+        level: 'debug',
+        message: 'Initiating client.connect()',
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        metadata: {
+          transportType: this.transportType,
+          serverUrl: this.serverUrl,
+        },
+        timestamp: Date.now(),
+      });
+
       await this.client.connect(this.transport);
+
+      this._onObservabilityEvent.fire({
+        level: 'debug',
+        message: 'client.connect() completed successfully',
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        timestamp: Date.now(),
+      });
 
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
@@ -349,29 +417,84 @@ export class MCPClient {
         await this.saveSession(true);
       }
     } catch (error) {
+      // Log detailed error information
+      this._onObservabilityEvent.fire({
+        level: 'error',
+        message: 'Connection error caught',
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        metadata: {
+          error: error instanceof Error ? error.message : String(error),
+          errorName: error instanceof Error ? error.constructor.name : typeof error,
+          errorStack: error instanceof Error ? error.stack : undefined,
+          serverUrl: this.serverUrl,
+          transportType: this.transportType,
+        },
+        timestamp: Date.now(),
+      });
+
       if (
         error instanceof SDKUnauthorizedError ||
         (error instanceof Error && error.message.toLowerCase().includes('unauthorized'))
       ) {
+        this._onObservabilityEvent.fire({
+          level: 'info',
+          message: 'OAuth authorization required - generating authorization URL',
+          sessionId: this.sessionId,
+          serverId: this.serverId,
+          timestamp: Date.now(),
+        });
+
         this.emitStateChange('AUTHENTICATING');
         await this.saveSession(false);
 
-        // Emit auth required event
+        // Get OAuth authorization URL from provider
+        let authUrl = '';
+        if (this.oauthProvider) {
+          authUrl = this.oauthProvider.authUrl || '';
+
+          if (authUrl) {
+            this._onObservabilityEvent.fire({
+              level: 'debug',
+              message: 'OAuth authorization URL available',
+              sessionId: this.sessionId,
+              serverId: this.serverId,
+              metadata: { authUrl },
+              timestamp: Date.now(),
+            });
+          } else {
+            this._onObservabilityEvent.fire({
+              level: 'warn',
+              message: 'OAuth provider has no authorization URL yet - will be generated on first connection attempt',
+              sessionId: this.sessionId,
+              serverId: this.serverId,
+              timestamp: Date.now(),
+            });
+          }
+        }
+
+        // Emit auth required event with URL
         if (this.serverId) {
           this._onConnectionEvent.fire({
             type: 'auth_required',
             sessionId: this.sessionId,
             serverId: this.serverId,
-            authUrl: '', // Will be provided by caller
+            authUrl,
             timestamp: Date.now(),
           });
+
+          // Call onRedirect callback if provided
+          if (authUrl && this.onRedirect) {
+            this.onRedirect(authUrl);
+          }
         }
 
         throw new UnauthorizedError('OAuth authorization required');
       }
 
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
-      this.emitError(errorMessage, 'connection');
+      const detailedError = `${errorMessage} (Server: ${this.serverUrl}, Transport: ${this.transportType})`;
+      this.emitError(detailedError, 'connection');
       this.emitStateChange('FAILED');
       throw error;
     }
