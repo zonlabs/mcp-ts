@@ -12,6 +12,7 @@ Redis-backed MCP (Model Context Protocol) client with OAuth 2.0 and real-time SS
 - **📦 Redis-Backed**: Stateless session management with 12-hour TTL
 - **⚡ Serverless-Ready**: Works in serverless environments (Vercel, AWS Lambda, etc.)
 - **⚛️ React Hook**: `useMcp` hook for easy React integration
+- **🛠️ MCP Protocol Support**: Full support for tools, prompts, and resources
 - **🎯 Observable State**: Cloudflare agents-inspired event system
 - **📘 TypeScript**: Full type safety with exported types
 - **🚀 Dual Exports**: Separate server and client packages
@@ -56,6 +57,7 @@ function MyComponent() {
     status,
     connect,
     disconnect,
+    callTool,
     isInitializing,
   } = useMcp({
     url: '/api/mcp/sse',
@@ -76,6 +78,17 @@ function MyComponent() {
     console.log('Connected with session:', sessionId);
   };
 
+  const handleCallTool = async (sessionId: string, toolName: string) => {
+    try {
+      const result = await callTool(sessionId, toolName, {
+        // Tool arguments
+      });
+      console.log('Tool result:', result);
+    } catch (error) {
+      console.error('Tool call failed:', error);
+    }
+  };
+
   return (
     <div>
       <h2>MCP Connections</h2>
@@ -90,9 +103,19 @@ function MyComponent() {
           <p>State: {conn.state}</p>
           <p>Tools: {conn.tools.length}</p>
           {conn.state === 'CONNECTED' && (
-            <button onClick={() => disconnect(conn.sessionId)}>
-              Disconnect
-            </button>
+            <>
+              {conn.tools.map((tool) => (
+                <button
+                  key={tool.name}
+                  onClick={() => handleCallTool(conn.sessionId, tool.name)}
+                >
+                  {tool.name}
+                </button>
+              ))}
+              <button onClick={() => disconnect(conn.sessionId)}>
+                Disconnect
+              </button>
+            </>
           )}
         </div>
       ))}
@@ -266,6 +289,19 @@ const {
   refresh,         // Reload all sessions
   connectSSE,      // Manually connect SSE
   disconnectSSE,   // Manually disconnect SSE
+  finishAuth,      // Complete OAuth authorization
+
+  // Tool Operations
+  callTool,        // Call a tool from a session
+  listTools,       // List available tools for a session
+
+  // Prompt Operations
+  listPrompts,     // List available prompts for a session
+  getPrompt,       // Get a specific prompt with arguments
+
+  // Resource Operations
+  listResources,   // List available resources for a session
+  readResource,    // Read a specific resource
 
   // Utilities
   getConnection,         // Get connection by sessionId
@@ -337,11 +373,265 @@ const toolResult = await client.callTool(sessionId, 'tool_name', {
   arg1: 'value',
 });
 
+// List prompts
+const prompts = await client.listPrompts(sessionId);
+
+// Get a prompt
+const prompt = await client.getPrompt(sessionId, 'prompt_name', {
+  arg1: 'value',
+});
+
+// List resources
+const resources = await client.listResources(sessionId);
+
+// Read a resource
+const resource = await client.readResource(sessionId, 'file://path/to/resource');
+
 // Disconnect
 await client.disconnectFromServer(sessionId);
 
 // Close SSE connection
 client.disconnect();
+```
+
+### Calling Tools
+
+Once connected to an MCP server, you can call tools using the `callTool` method.
+
+#### Using the useMcp Hook
+
+```typescript
+import { useMcp } from '@mcp-assistant/mcp-redis/client';
+
+function ToolCaller() {
+  const { connections, callTool } = useMcp({
+    url: '/api/mcp',
+    userId: 'user-123',
+  });
+
+  const executeWeatherTool = async () => {
+    // Get the first connected session
+    const connection = connections.find(c => c.state === 'CONNECTED');
+
+    if (!connection) {
+      console.error('No connected sessions');
+      return;
+    }
+
+    try {
+      // Call the tool with arguments
+      const result = await callTool(
+        connection.sessionId,
+        'get_weather',
+        {
+          location: 'San Francisco',
+          units: 'celsius',
+        }
+      );
+
+      console.log('Weather data:', result);
+    } catch (error) {
+      console.error('Tool call failed:', error);
+    }
+  };
+
+  return (
+    <div>
+      {connections.map(conn => (
+        <div key={conn.sessionId}>
+          <h3>{conn.serverName}</h3>
+          {conn.tools.map(tool => (
+            <button
+              key={tool.name}
+              onClick={() => callTool(conn.sessionId, tool.name, {})}
+            >
+              {tool.name}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+#### Calling Multiple Tools in Sequence
+
+```typescript
+const performAnalysis = async (sessionId: string) => {
+  try {
+    // Step 1: Fetch data
+    const data = await callTool(sessionId, 'fetch_data', {
+      source: 'api',
+    });
+
+    // Step 2: Process data
+    const processed = await callTool(sessionId, 'process_data', {
+      data: data.result,
+      format: 'json',
+    });
+
+    // Step 3: Save results
+    const saved = await callTool(sessionId, 'save_results', {
+      results: processed,
+      filename: 'analysis.json',
+    });
+
+    console.log('Analysis complete:', saved);
+  } catch (error) {
+    console.error('Analysis failed:', error);
+  }
+};
+```
+
+#### Tool Arguments and Schema
+
+Tools have a defined schema that describes their arguments:
+
+```typescript
+// Access tool schema
+const connection = connections[0];
+const tool = connection.tools.find(t => t.name === 'my_tool');
+
+if (tool?.inputSchema) {
+  console.log('Tool properties:', tool.inputSchema.properties);
+  console.log('Required fields:', tool.inputSchema.required);
+}
+
+// Validate arguments before calling
+const validateArgs = (tool: ToolInfo, args: any) => {
+  const required = tool.inputSchema?.required || [];
+  for (const field of required) {
+    if (!(field in args)) {
+      throw new Error(`Missing required field: ${field}`);
+    }
+  }
+};
+```
+
+#### Error Handling for Tool Calls
+
+```typescript
+const safeToolCall = async (
+  sessionId: string,
+  toolName: string,
+  args: Record<string, unknown>
+) => {
+  try {
+    const result = await callTool(sessionId, toolName, args);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error(`Tool ${toolName} failed:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+// Usage
+const result = await safeToolCall(sessionId, 'get_user', { userId: 123 });
+
+if (result.success) {
+  console.log('User data:', result.data);
+} else {
+  console.error('Failed:', result.error);
+}
+```
+
+### Working with Prompts
+
+MCP servers can provide reusable prompts with dynamic arguments.
+
+#### List Available Prompts
+
+```typescript
+const { listPrompts, getPrompt } = useMcp({ ... });
+
+// List all prompts
+const { prompts } = await listPrompts(sessionId);
+
+prompts.forEach(prompt => {
+  console.log(`Prompt: ${prompt.name}`);
+  console.log(`Description: ${prompt.description}`);
+  console.log(`Arguments:`, prompt.arguments);
+});
+```
+
+#### Get a Prompt with Arguments
+
+```typescript
+// Get a prompt with specific arguments
+const prompt = await getPrompt(
+  sessionId,
+  'code-review',
+  {
+    language: 'typescript',
+    style: 'detailed',
+    focus: 'security'
+  }
+);
+
+// Use the prompt messages
+prompt.messages.forEach(msg => {
+  console.log(`${msg.role}: ${msg.content.text}`);
+});
+```
+
+### Working with Resources
+
+MCP servers can expose resources (files, data, etc.) that can be read by clients.
+
+#### List Available Resources
+
+```typescript
+const { listResources, readResource } = useMcp({ ... });
+
+// List all resources
+const { resources } = await listResources(sessionId);
+
+resources.forEach(resource => {
+  console.log(`Resource: ${resource.name}`);
+  console.log(`URI: ${resource.uri}`);
+  console.log(`Type: ${resource.mimeType}`);
+});
+```
+
+#### Read Resource Content
+
+```typescript
+// Read a specific resource
+const resource = await readResource(sessionId, 'file:///path/to/file.txt');
+
+// Access the resource content
+resource.contents.forEach(content => {
+  if (content.text) {
+    console.log('Text content:', content.text);
+  }
+  if (content.blob) {
+    console.log('Binary content:', content.blob);
+  }
+});
+```
+
+#### Example: Load Configuration from Resource
+
+```typescript
+const loadConfig = async (sessionId: string) => {
+  try {
+    // Read config resource
+    const resource = await readResource(sessionId, 'config://app.json');
+
+    // Parse JSON content
+    const config = JSON.parse(resource.contents[0].text);
+
+    console.log('Config loaded:', config);
+    return config;
+  } catch (error) {
+    console.error('Failed to load config:', error);
+    throw error;
+  }
+};
 ```
 
 ## Connection States
@@ -549,11 +839,14 @@ try {
 ## Best Practices
 
 1. **Always handle OAuth redirects**: Listen for `auth_required` events
-2. **Validate sessions on load**: Use `refreshSession` to validate stored sessions
+2. **Validate sessions on load**: Use `restoreSession` to validate stored sessions
 3. **Handle SSE reconnection**: Show UI feedback during reconnection
 4. **Use error boundaries**: Wrap SSE connections in React error boundaries
 5. **Clean up on unmount**: The `useMcp` hook handles this automatically
 6. **Monitor heartbeats**: Set appropriate heartbeat intervals for your use case
+7. **Check connection state before calling tools**: Ensure `state === 'CONNECTED'` before calling `callTool`
+8. **Validate tool arguments**: Check tool schema and required fields before execution
+9. **Handle tool errors gracefully**: Wrap `callTool` in try-catch blocks for better error handling
 
 ## Troubleshooting
 

@@ -3,6 +3,7 @@
  * Browser-side client that connects to SSE endpoint
  */
 
+import { nanoid } from 'nanoid';
 import type { McpConnectionEvent, McpObservabilityEvent } from '../shared/events';
 import type { McpRpcRequest, McpRpcResponse } from '../shared/types';
 
@@ -47,7 +48,6 @@ export class SSEClient {
     string,
     { resolve: (value: any) => void; reject: (error: Error) => void }
   > = new Map();
-  private requestId: number = 0;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
@@ -173,7 +173,8 @@ export class SSEClient {
       await this.connectionPromise;
     }
 
-    const id = `${++this.requestId}`;
+    // Generate unique request ID using nanoid (e.g., "rpc_V1StGXR8_Z5jdHi")
+    const id = `rpc_${nanoid(10)}`;
 
     const request: McpRpcRequest = {
       id,
@@ -281,8 +282,8 @@ export class SSEClient {
   /**
    * Refresh/validate a session
    */
-  async refreshSession(sessionId: string): Promise<any> {
-    return this.sendRequest('refreshSession', { sessionId });
+  async restoreSession(sessionId: string): Promise<any> {
+    return this.sendRequest('restoreSession', { sessionId });
   }
 
   /**
@@ -290,6 +291,34 @@ export class SSEClient {
    */
   async finishAuth(sessionId: string, code: string): Promise<any> {
     return this.sendRequest('finishAuth', { sessionId, code });
+  }
+
+  /**
+   * List available prompts
+   */
+  async listPrompts(sessionId: string): Promise<any> {
+    return this.sendRequest('listPrompts', { sessionId });
+  }
+
+  /**
+   * Get a specific prompt with arguments
+   */
+  async getPrompt(sessionId: string, name: string, args?: Record<string, string>): Promise<any> {
+    return this.sendRequest('getPrompt', { sessionId, name, args });
+  }
+
+  /**
+   * List available resources
+   */
+  async listResources(sessionId: string): Promise<any> {
+    return this.sendRequest('listResources', { sessionId });
+  }
+
+  /**
+   * Read a specific resource
+   */
+  async readResource(sessionId: string, uri: string): Promise<any> {
+    return this.sendRequest('readResource', { sessionId, uri });
   }
 
   /**

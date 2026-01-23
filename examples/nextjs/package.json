@@ -12,7 +12,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@mcp-assistant/mcp-redis": "^1.0.0-beta.1",
+    "@mcp-assistant/mcp-redis": "file:../..",
     "@types/node": "^25.0.10",
     "@types/react": "^19.2.9",
     "next": "^16.1.4",

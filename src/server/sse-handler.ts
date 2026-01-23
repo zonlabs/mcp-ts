@@ -88,12 +88,28 @@ export class SSEConnectionManager {
           result = await this.callTool(request.params);
           break;
 
-        case 'refreshSession':
-          result = await this.refreshSession(request.params);
+        case 'restoreSession':
+          result = await this.restoreSession(request.params);
           break;
 
         case 'finishAuth':
           result = await this.finishAuth(request.params);
+          break;
+
+        case 'listPrompts':
+          result = await this.listPrompts(request.params);
+          break;
+
+        case 'getPrompt':
+          result = await this.getPrompt(request.params);
+          break;
+
+        case 'listResources':
+          result = await this.listResources(request.params);
+          break;
+
+        case 'readResource':
+          result = await this.readResource(request.params);
           break;
 
         default:
@@ -321,7 +337,7 @@ export class SSEConnectionManager {
   /**
    * Refresh/validate a session
    */
-  private async refreshSession(params: { sessionId: string }): Promise<any> {
+  private async restoreSession(params: { sessionId: string }): Promise<any> {
     const { sessionId } = params;
 
     this.sendEvent({
@@ -494,6 +510,90 @@ export class SSEConnectionManager {
 
       throw error;
     }
+  }
+
+  /**
+   * List prompts from a session
+   */
+  private async listPrompts(params: { sessionId: string }): Promise<any> {
+    const { sessionId } = params;
+    let client = this.clients.get(sessionId);
+
+    if (!client) {
+      client = new MCPClient({
+        userId: this.userId,
+        sessionId,
+      });
+      await client.connect();
+      this.clients.set(sessionId, client);
+    }
+
+    const result = await client.listPrompts();
+    return { prompts: result.prompts };
+  }
+
+  /**
+   * Get a specific prompt
+   */
+  private async getPrompt(params: {
+    sessionId: string;
+    name: string;
+    args?: Record<string, string>;
+  }): Promise<any> {
+    const { sessionId, name, args } = params;
+    let client = this.clients.get(sessionId);
+
+    if (!client) {
+      client = new MCPClient({
+        userId: this.userId,
+        sessionId,
+      });
+      await client.connect();
+      this.clients.set(sessionId, client);
+    }
+
+    const result = await client.getPrompt(name, args);
+    return result;
+  }
+
+  /**
+   * List resources from a session
+   */
+  private async listResources(params: { sessionId: string }): Promise<any> {
+    const { sessionId } = params;
+    let client = this.clients.get(sessionId);
+
+    if (!client) {
+      client = new MCPClient({
+        userId: this.userId,
+        sessionId,
+      });
+      await client.connect();
+      this.clients.set(sessionId, client);
+    }
+
+    const result = await client.listResources();
+    return { resources: result.resources };
+  }
+
+  /**
+   * Read a specific resource
+   */
+  private async readResource(params: { sessionId: string; uri: string }): Promise<any> {
+    const { sessionId, uri } = params;
+    let client = this.clients.get(sessionId);
+
+    if (!client) {
+      client = new MCPClient({
+        userId: this.userId,
+        sessionId,
+      });
+      await client.connect();
+      this.clients.set(sessionId, client);
+    }
+
+    const result = await client.readResource(uri);
+    return result;
   }
 
   /**

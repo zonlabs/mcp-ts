@@ -60,7 +60,7 @@ export interface McpConnection {
   connectedAt?: Date;
 }
 
-export interface UseMcpReturn {
+export interface McpClient {
   /**
    * All connections
    */
@@ -131,12 +131,46 @@ export interface UseMcpReturn {
    * Complete OAuth authorization
    */
   finishAuth: (sessionId: string, code: string) => Promise<any>;
+
+  /**
+   * Call a tool from a session
+   */
+  callTool: (
+    sessionId: string,
+    toolName: string,
+    toolArgs: Record<string, unknown>
+  ) => Promise<any>;
+
+  /**
+   * List available tools for a session
+   */
+  listTools: (sessionId: string) => Promise<any>;
+
+  /**
+   * List available prompts for a session
+   */
+  listPrompts: (sessionId: string) => Promise<any>;
+
+  /**
+   * Get a specific prompt with arguments
+   */
+  getPrompt: (sessionId: string, name: string, args?: Record<string, string>) => Promise<any>;
+
+  /**
+   * List available resources for a session
+   */
+  listResources: (sessionId: string) => Promise<any>;
+
+  /**
+   * Read a specific resource
+   */
+  readResource: (sessionId: string, uri: string) => Promise<any>;
 }
 
 /**
  * React hook for MCP connection management with SSE
  */
-export function useMcp(options: UseMcpOptions): UseMcpReturn {
+export function useMcp(options: UseMcpOptions): McpClient {
   const {
     url,
     userId,
@@ -295,7 +329,7 @@ export function useMcp(options: UseMcpOptions): UseMcpReturn {
       for (const session of sessions) {
         if (clientRef.current) {
           try {
-            await clientRef.current.refreshSession(session.sessionId);
+            await clientRef.current.restoreSession(session.sessionId);
           } catch (error) {
             console.error(`[useMcp] Failed to validate session ${session.sessionId}:`, error);
           }
@@ -380,6 +414,82 @@ export function useMcp(options: UseMcpOptions): UseMcpReturn {
     return await clientRef.current.finishAuth(sessionId, code);
   }, []);
 
+  /**
+   * Call a tool
+   */
+  const callTool = useCallback(
+    async (
+      sessionId: string,
+      toolName: string,
+      toolArgs: Record<string, unknown>
+    ): Promise<any> => {
+      if (!clientRef.current) {
+        throw new Error('SSE client not initialized');
+      }
+
+      return await clientRef.current.callTool(sessionId, toolName, toolArgs);
+    },
+    []
+  );
+
+  /**
+   * List tools (refresh tool list)
+   */
+  const listTools = useCallback(async (sessionId: string): Promise<any> => {
+    if (!clientRef.current) {
+      throw new Error('SSE client not initialized');
+    }
+
+    return await clientRef.current.listTools(sessionId);
+  }, []);
+
+  /**
+   * List prompts
+   */
+  const listPrompts = useCallback(async (sessionId: string): Promise<any> => {
+    if (!clientRef.current) {
+      throw new Error('SSE client not initialized');
+    }
+
+    return await clientRef.current.listPrompts(sessionId);
+  }, []);
+
+  /**
+   * Get a specific prompt
+   */
+  const getPrompt = useCallback(
+    async (sessionId: string, name: string, args?: Record<string, string>): Promise<any> => {
+      if (!clientRef.current) {
+        throw new Error('SSE client not initialized');
+      }
+
+      return await clientRef.current.getPrompt(sessionId, name, args);
+    },
+    []
+  );
+
+  /**
+   * List resources
+   */
+  const listResources = useCallback(async (sessionId: string): Promise<any> => {
+    if (!clientRef.current) {
+      throw new Error('SSE client not initialized');
+    }
+
+    return await clientRef.current.listResources(sessionId);
+  }, []);
+
+  /**
+   * Read a specific resource
+   */
+  const readResource = useCallback(async (sessionId: string, uri: string): Promise<any> => {
+    if (!clientRef.current) {
+      throw new Error('SSE client not initialized');
+    }
+
+    return await clientRef.current.readResource(sessionId, uri);
+  }, []);
+
   // Utility functions
   const getConnection = useCallback(
     (sessionId: string) => connections.find((c: McpConnection) => c.sessionId === sessionId),
@@ -421,5 +531,11 @@ export function useMcp(options: UseMcpOptions): UseMcpReturn {
     connectSSE,
     disconnectSSE,
     finishAuth,
+    callTool,
+    listTools,
+    listPrompts,
+    getPrompt,
+    listResources,
+    readResource,
   };
 }

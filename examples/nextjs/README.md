@@ -47,20 +47,31 @@ examples/nextjs/
 
 ## Installation
 
-1. **Install dependencies**:
+### Using Local Package (Development)
+
+1. **Build the main package** (from repository root):
    ```bash
+   cd ../..
+   npm run build
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   cd examples/nextjs
    npm install
    ```
 
-2. **Set up environment variables**:
+3. **Set up environment variables**:
    ```bash
    cp .env.example .env
    ```
 
-3. **Configure Redis** in `.env`:
+4. **Configure Redis** in `.env`:
    ```env
    REDIS_URL=redis://localhost:6379
    ```
+
+**Note**: The example is configured to use the local package via `"@mcp-assistant/mcp-redis": "file:../.."` in package.json. Whenever you make changes to the main package, rebuild it before testing.
 
 ## Running the Example
 
@@ -205,7 +216,26 @@ Once connected (state: `CONNECTED`):
 - Each tool displays its name and description
 - Click "Connection Details" to see full session info
 
-### 4. Disconnect
+### 4. Execute Tools
+
+Once connected:
+- Click **Execute** on any tool
+- Enter tool arguments as JSON in the modal (e.g., `{"location": "San Francisco"}`)
+- Click **Run Tool**
+- View the result in the modal
+
+**Programmatic Usage**:
+```typescript
+const { callTool } = useMcp({ ... });
+
+const result = await callTool(
+  sessionId,
+  'tool_name',
+  { arg1: 'value1' }
+);
+```
+
+### 5. Disconnect
 
 Click the "Disconnect" button on any connection to close it. The session will be removed from Redis.
 

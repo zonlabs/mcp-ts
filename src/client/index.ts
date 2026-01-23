@@ -7,7 +7,7 @@
 export { SSEClient, type SSEClientOptions } from './sse-client';
 
 // React hook
-export { useMcp, type UseMcpOptions, type UseMcpReturn, type McpConnection } from './useMcp';
+export { useMcp, type UseMcpOptions, type McpClient, type McpConnection } from './useMcp';
 
 // Re-export shared types
 export type {

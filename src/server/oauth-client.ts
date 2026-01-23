@@ -15,6 +15,18 @@ import {
   CallToolRequest,
   CallToolResult,
   CallToolResultSchema,
+  ListPromptsRequest,
+  ListPromptsResult,
+  ListPromptsResultSchema,
+  GetPromptRequest,
+  GetPromptResult,
+  GetPromptResultSchema,
+  ListResourcesRequest,
+  ListResourcesResult,
+  ListResourcesResultSchema,
+  ReadResourceRequest,
+  ReadResourceResult,
+  ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OAuthClientMetadata, OAuthTokens, OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { RedisOAuthClientProvider, type AgentsOAuthProvider } from './redis-oauth-client-provider.js';
@@ -629,6 +641,86 @@ export class MCPClient {
     };
 
     return await this.client.request(request, CallToolResultSchema);
+  }
+
+  /**
+   * Lists all available prompts from the connected MCP server
+   * @returns List of available prompts
+   * @throws {Error} When client is not connected
+   */
+  async listPrompts(): Promise<ListPromptsResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: ListPromptsRequest = {
+      method: 'prompts/list',
+      params: {},
+    };
+
+    return await this.client.request(request, ListPromptsResultSchema);
+  }
+
+  /**
+   * Gets a specific prompt with arguments
+   * @param name - Name of the prompt
+   * @param args - Arguments for the prompt
+   * @returns Prompt content
+   * @throws {Error} When client is not connected
+   */
+  async getPrompt(name: string, args?: Record<string, string>): Promise<GetPromptResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: GetPromptRequest = {
+      method: 'prompts/get',
+      params: {
+        name,
+        arguments: args,
+      },
+    };
+
+    return await this.client.request(request, GetPromptResultSchema);
+  }
+
+  /**
+   * Lists all available resources from the connected MCP server
+   * @returns List of available resources
+   * @throws {Error} When client is not connected
+   */
+  async listResources(): Promise<ListResourcesResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: ListResourcesRequest = {
+      method: 'resources/list',
+      params: {},
+    };
+
+    return await this.client.request(request, ListResourcesResultSchema);
+  }
+
+  /**
+   * Reads a specific resource
+   * @param uri - URI of the resource to read
+   * @returns Resource content
+   * @throws {Error} When client is not connected
+   */
+  async readResource(uri: string): Promise<ReadResourceResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: ReadResourceRequest = {
+      method: 'resources/read',
+      params: {
+        uri,
+      },
+    };
+
+    return await this.client.request(request, ReadResourceResultSchema);
   }
 
   /**

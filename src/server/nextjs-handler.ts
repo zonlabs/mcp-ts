@@ -19,9 +19,10 @@ export interface NextMcpHandlerOptions {
   getAuthToken?: (request: Request) => string | null;
 
   /**
-   * Validate authentication (optional)
+   * Authenticate user and verify access (optional)
+   * Return true if user is authenticated, false otherwise
    */
-  validateAuth?: (userId: string, token: string | null) => Promise<boolean> | boolean;
+  authenticate?: (userId: string, token: string | null) => Promise<boolean> | boolean;
 
   /**
    * Heartbeat interval in milliseconds (default: 30000)
@@ -50,7 +51,7 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
       const url = new URL(request.url);
       return url.searchParams.get('token') || request.headers.get('authorization');
     },
-    validateAuth = () => true,
+    authenticate = () => true,
     heartbeatInterval = 30000,
   } = options;
 
@@ -66,7 +67,7 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
     }
 
     // Validate auth
-    const isAuthorized = await validateAuth(userId, authToken);
+    const isAuthorized = await authenticate(userId, authToken);
     if (!isAuthorized) {
       return new Response('Unauthorized', { status: 401 });
     }
@@ -87,10 +88,10 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
     // Send initial connection event
     sendSSE('connected', { timestamp: Date.now() });
 
-    // Dispose old manager if exists
-    const oldManager = managers.get(userId);
-    if (oldManager) {
-      oldManager.dispose();
+    // Clean up previous manager if exists (prevents memory leaks on reconnect)
+    const previousManager = managers.get(userId);
+    if (previousManager) {
+      previousManager.dispose();
     }
 
     // Create new manager
@@ -149,7 +150,7 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
     }
 
     // Validate auth
-    const isAuthorized = await validateAuth(userId, authToken);
+    const isAuthorized = await authenticate(userId, authToken);
     if (!isAuthorized) {
       return Response.json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 401 });
     }

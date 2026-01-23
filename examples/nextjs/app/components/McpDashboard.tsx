@@ -14,6 +14,8 @@ export default function McpDashboard() {
     isInitializing,
     connect,
     disconnect,
+    callTool,
+    listTools,
   } = useMcp({
     url: '/api/mcp',
     userId,
@@ -32,6 +34,15 @@ export default function McpDashboard() {
   const [transportType, setTransportType] = useState<'sse' | 'streamable_http'>('streamable_http');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Tool execution state
+  const [selectedTool, setSelectedTool] = useState<{
+    sessionId: string;
+    toolName: string;
+  } | null>(null);
+  const [toolArgs, setToolArgs] = useState('{}');
+  const [toolResult, setToolResult] = useState<any>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +69,26 @@ export default function McpDashboard() {
       await disconnect(sessionId);
     } catch (err) {
       console.error('Failed to disconnect:', err);
+    }
+  };
+
+  const handleExecuteTool = async () => {
+    if (!selectedTool) return;
+
+    setIsExecuting(true);
+    setToolResult(null);
+
+    try {
+      // Parse args from JSON input
+      const args = JSON.parse(toolArgs);
+      const result = await callTool(selectedTool.sessionId, selectedTool.toolName, args);
+      setToolResult(result);
+    } catch (err) {
+      setToolResult({
+        error: err instanceof Error ? err.message : 'Tool execution failed'
+      });
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -134,7 +165,6 @@ export default function McpDashboard() {
                 value={transportType}
                 onChange={(e) => setTransportType(e.target.value as 'sse' | 'streamable_http')}
                 disabled={connecting}
-                className={styles.select}
               >
                 <option value="streamable_http">Streamable HTTP (Recommended)</option>
                 <option value="sse">Server-Sent Events (SSE)</option>
@@ -210,12 +240,27 @@ export default function McpDashboard() {
                   <ul>
                     {connection.tools.map((tool) => (
                       <li key={tool.name}>
-                        <code>{tool.name}</code>
-                        {tool.description && (
-                          <span className={styles.toolDescription}>
-                            {' - ' + tool.description}
-                          </span>
-                        )}
+                        <div className={styles.toolInfo}>
+                          <code>{tool.name}</code>
+                          {tool.description && (
+                            <span className={styles.toolDescription}>
+                              {tool.description}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedTool({
+                              sessionId: connection.sessionId,
+                              toolName: tool.name,
+                            });
+                            setToolArgs('{}');
+                            setToolResult(null);
+                          }}
+                          className={styles.executeBtn}
+                        >
+                          Execute
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -269,6 +314,56 @@ export default function McpDashboard() {
           </ol>
         </section>
       </div>
+
+      {/* Tool Execution Panel */}
+      {selectedTool && (
+        <div className={styles.modal}>
+          <h3>Execute Tool: {selectedTool.toolName}</h3>
+
+          <div className={styles.modalContent}>
+            <label className={styles.modalLabel}>
+              Tool Arguments (JSON):
+            </label>
+            <textarea
+              value={toolArgs}
+              onChange={(e) => setToolArgs(e.target.value)}
+              placeholder='{"arg1": "value1", "arg2": "value2"}'
+              className={styles.modalTextarea}
+            />
+          </div>
+
+          {toolResult && (
+            <div className={`${styles.modalResult} ${toolResult.error ? styles.error : styles.success}`}>
+              <h4>Result:</h4>
+              <pre>{JSON.stringify(toolResult, null, 2)}</pre>
+            </div>
+          )}
+
+          <div className={styles.modalActions}>
+            <button
+              onClick={() => setSelectedTool(null)}
+              className={styles.buttonSecondary}
+            >
+              Close
+            </button>
+            <button
+              onClick={handleExecuteTool}
+              disabled={isExecuting}
+              className={styles.button}
+            >
+              {isExecuting ? 'Executing...' : 'Run Tool'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Overlay */}
+      {selectedTool && (
+        <div
+          onClick={() => setSelectedTool(null)}
+          className={styles.overlay}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI assista
 
 `@mcp-assistant/mcp-redis` is an npm package that provides Redis-backed MCP (Model Context Protocol) client functionality with OAuth 2.0 authentication and real-time SSE (Server-Sent Events) connections. It's designed for serverless environments and follows the Cloudflare agents pattern for observable state management.
 
+## Recent Changes (v1.0.0-beta.2+)
+
+### API Improvements
+- **Renamed `validateAuth` → `authenticate`**: More conventional naming following industry standards
+- **Renamed `refreshSession` → `restoreSession`**: Better describes the action of restoring session from storage
+- **Renamed `UseMcpReturn` → `McpClient`**: More conventional interface naming pattern
+
+### New Features
+- **Prompts Support**: Added `listPrompts()` and `getPrompt()` methods for working with MCP prompts
+- **Resources Support**: Added `listResources()` and `readResource()` methods for accessing MCP resources
+- **Improved Request IDs**: Request IDs now use `nanoid` with `rpc_` prefix (e.g., `rpc_V1StGXR8`) for better traceability
+
+### Developer Experience
+- **Better Memory Management**: Renamed `oldManager` → `previousManager` for clarity in connection cleanup
+- **Full MCP Protocol**: Complete implementation of tools, prompts, and resources from MCP SDK
+
 ## Architecture
 
 The package is structured into three main parts:
@@ -337,7 +353,7 @@ import type { OAuthTokens, OAuthClientInformation } from '@mcp-assistant/mcp-red
 ## Best Practices
 
 1. **Always handle OAuth redirects**: Check for `auth_required` events
-2. **Use session validation**: Call `refreshSession` on app load to validate stored sessions
+2. **Use session validation**: Call `restoreSession` on app load to validate stored sessions
 3. **Handle SSE reconnection**: The client auto-reconnects, but show UI feedback
 4. **Clean up on unmount**: React hooks handle this automatically
 5. **Don't commit Redis keys**: Sessions expire automatically via TTL
