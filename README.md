@@ -741,51 +741,32 @@ import type {
 ### Next.js Full Integration
 
 ```typescript
-// app/api/mcp/sse/route.ts
-import { createSSEHandler } from '@mcp-assistant/mcp-redis/server';
-import { NextRequest } from 'next/server';
+// app/api/mcp/route.ts
+import { createNextMcpHandler } from '@mcp-assistant/mcp-redis/server';
 
-export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId');
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 });
-  }
+export const { GET, POST } = createNextMcpHandler({
+  // Optional: customize authentication
+  authenticate: async (userId, token) => {
+    // Verify token with your auth system
+    return true; // or check against your database
+  },
 
-  const handler = createSSEHandler({ userId });
+  // Optional: customize user ID extraction
+  getUserId: (request) => {
+    return new URL(request.url).searchParams.get('userId');
+  },
 
-  // Convert Next.js Request to Node.js request
-  return new Response(
-    new ReadableStream({
-      start(controller) {
-        const write = (data: string) => {
-          controller.enqueue(new TextEncoder().encode(data));
-        };
+  // Optional: customize auth token extraction
+  getAuthToken: (request) => {
+    return request.headers.get('authorization');
+  },
 
-        const mockRes = {
-          writeHead: () => {},
-          write,
-          end: () => controller.close(),
-        };
-
-        handler(req as any, mockRes as any);
-      },
-    }),
-    {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    }
-  );
-}
-
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  // Handle RPC requests
-  // ... (forward to same SSE handler)
-}
+  // Optional: heartbeat interval (default: 30000ms)
+  heartbeatInterval: 30000,
+});
 ```
 
 ```typescript
