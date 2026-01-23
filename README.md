@@ -100,45 +100,14 @@ REDIS_URL=rediss://default:password@host.upstash.io:6379
 
 This package uses **Server-Sent Events (SSE)** instead of WebSockets:
 
-```
 ┌─────────┐                    ┌──────────┐
 │ Browser │◄───SSE Events──────│  Server  │
 │         │                    │          │
-│         ├────HTTP POST───────►│  (Node)  │
+│         ├────HTTP POST──────►│  (Node)  │
 └─────────┘   (RPC calls)      └──────────┘
-```
-
-**Benefits:**
-- Serverless-friendly (no persistent WebSocket connections)
 - Works behind corporate firewalls
 - Built-in reconnection in browsers
 - Simpler than WebSockets
-
-## Package Structure
-
-```
-@mcp-ts/redis
-├── /server       # Node.js server-side
-│   ├── MCPClient
-│   ├── SessionStore
-│   └── createSSEHandler
-├── /client       # Browser/React client
-│   ├── SSEClient
-│   └── useMcp (React hook)
-└── /shared       # Common types/utils
-```
-
-## TypeScript Support
-
-Fully typed with TypeScript. Import types as needed:
-
-```typescript
-import type {
-  McpConnectionEvent,
-  McpConnectionState,
-  ToolInfo,
-} from '@mcp-ts/redis/shared';
-```
 
 ## Contributing
 
