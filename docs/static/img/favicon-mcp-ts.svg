@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simplified version of logo for favicon -->
+  <rect width="32" height="32" rx="4" fill="#DC382D"/>
+
+  <!-- Two connection nodes -->
+  <circle cx="11" cy="16" r="4" fill="white"/>
+  <circle cx="21" cy="16" r="4" fill="white"/>
+
+  <!-- Connection line -->
+  <line x1="15" y1="16" x2="17" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Inner circles -->
+  <circle cx="11" cy="16" r="2" fill="#DC382D"/>
+  <circle cx="21" cy="16" r="2" fill="#DC382D"/>
+</svg>

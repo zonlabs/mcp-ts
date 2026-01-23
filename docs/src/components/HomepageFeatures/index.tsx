@@ -18,10 +18,10 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: 'OAuth 2.0 & Redis',
+    title: 'Redis Sessions',
     description: (
       <>
-        Full OAuth 2.0 support with automatic token refresh, backed by Redis for stateless and scalable session management.
+        Redis-backed session management for stateless and scalable MCP connections with automatic TTL.
       </>
     ),
   },

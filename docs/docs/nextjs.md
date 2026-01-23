@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Next.js Integration
 
-Complete guide for integrating mcp-redis with Next.js applications (App Router and Pages Router).
+Complete guide for integrating mcp-ts with Next.js applications (App Router and Pages Router).
 
 ## App Router (Recommended)
 
@@ -318,4 +318,4 @@ export function McpClient({ userId }: { userId: string }) {
 
 - [React Hook API](./react-hook.md) - Detailed hook documentation
 - [API Reference](./api-reference.md) - Complete API reference
-- [Examples](https://github.com/ashen-dusk/mcp-redis/tree/main/examples) - More code examples
+- [Examples](https://github.com/ashen-dusk/mcp-ts/tree/main/examples) - More code examples

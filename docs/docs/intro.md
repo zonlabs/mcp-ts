@@ -5,9 +5,9 @@ slug: /
 
 # Getting Started
 
-**mcp-redis** is a lightweight MCP (Model Context Protocol) client library for JavaScript applications. It provides seamless integration for both server-side and client-side MCP connections with real-time updates.
+**mcp-ts** is a lightweight MCP (Model Context Protocol) client library for JavaScript applications. It provides seamless integration for both server-side and client-side MCP connections with real-time updates.
 
-## Why mcp-redis?
+## Why mcp-ts?
 
 - **🎯 Simple API** - Easy-to-use methods for connecting to MCP servers
 - **⚛️ React Ready** - Built-in React hook for effortless integration

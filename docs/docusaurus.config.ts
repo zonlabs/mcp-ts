@@ -5,9 +5,9 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'mcp-redis',
+  title: 'mcp-ts',
   tagline: 'Lightweight MCP client library for JavaScript applications',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon-mcp-ts.svg',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
@@ -64,15 +64,15 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    // Social card for sharing
+    image: 'img/logo.svg',
     colorMode: {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'mcp-redis',
+      title: 'mcp-ts',
       logo: {
-        alt: 'mcp-redis Logo',
+        alt: 'mcp-ts Logo',
         src: 'img/logo.svg',
       },
       items: [
@@ -126,7 +126,7 @@ const config: Config = {
               href: 'https://github.com/ashen-dusk/mcp-redis/discussions',
             },
             {
-              label: 'Issues',
+              label: 'Report an Issue',
               href: 'https://github.com/ashen-dusk/mcp-redis/issues',
             },
           ],
@@ -161,7 +161,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} MCP Assistant Contributors. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} MCP Assistant.`,
     },
     prism: {
       theme: prismThemes.github,

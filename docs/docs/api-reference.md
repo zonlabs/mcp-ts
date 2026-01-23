@@ -4,7 +4,7 @@ sidebar_position: 5
 
 # API Reference
 
-Complete API documentation for mcp-redis.
+Complete API documentation for mcp-ts.
 
 ## Server-Side API
 
@@ -469,5 +469,5 @@ try {
 
 ## Next Steps
 
-- [Examples](https://github.com/ashen-dusk/mcp-redis/tree/main/examples) - Practical code examples
-- [GitHub Repository](https://github.com/ashen-dusk/mcp-redis) - Source code
+- [Examples](https://github.com/ashen-dusk/mcp-ts/tree/main/examples) - Practical code examples
+- [GitHub Repository](https://github.com/ashen-dusk/mcp-ts) - Source code

@@ -338,4 +338,4 @@ import type {
 ## Next Steps
 
 - [API Reference](./api-reference.md) - Complete API documentation
-- [Examples](https://github.com/ashen-dusk/mcp-redis/tree/main/examples) - More practical examples
+- [Examples](https://github.com/ashen-dusk/mcp-ts/tree/main/examples) - More practical examples

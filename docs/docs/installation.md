@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Installation
 
-Get started with mcp-redis in your JavaScript or TypeScript project.
+Get started with mcp-ts in your JavaScript or TypeScript project.
 
 ## Prerequisites
 
