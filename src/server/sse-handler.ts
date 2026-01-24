@@ -5,7 +5,28 @@
  */
 
 import type { McpConnectionEvent, McpObservabilityEvent } from '../shared/events';
-import type { McpRpcRequest, McpRpcResponse } from '../shared/types';
+import type {
+  McpRpcRequest,
+  McpRpcResponse,
+  // RPC Param types
+  ConnectParams,
+  DisconnectParams,
+  SessionParams,
+  CallToolParams,
+  GetPromptParams,
+  ReadResourceParams,
+  FinishAuthParams,
+  // RPC Result types
+  SessionListResult,
+  ConnectResult,
+  DisconnectResult,
+  RestoreSessionResult,
+  FinishAuthResult,
+  ListToolsRpcResult,
+  ListPromptsResult,
+  ListResourcesResult,
+} from '../shared/types';
+import { RpcErrorCodes } from '../shared/errors';
 import { MCPClient } from './oauth-client';
 import { sessionStore } from './session-store';
 
@@ -104,7 +125,7 @@ export class SSEConnectionManager {
    */
   async handleRequest(request: McpRpcRequest): Promise<void> {
     try {
-      let result: any;
+      let result: SessionListResult | ConnectResult | DisconnectResult | RestoreSessionResult | FinishAuthResult | ListToolsRpcResult | ListPromptsResult | ListResourcesResult | unknown;
 
       switch (request.method) {
         case 'getSessions':
@@ -112,43 +133,43 @@ export class SSEConnectionManager {
           break;
 
         case 'connect':
-          result = await this.connect(request.params);
+          result = await this.connect(request.params as ConnectParams);
           break;
 
         case 'disconnect':
-          result = await this.disconnect(request.params);
+          result = await this.disconnect(request.params as DisconnectParams);
           break;
 
         case 'listTools':
-          result = await this.listTools(request.params);
+          result = await this.listTools(request.params as SessionParams);
           break;
 
         case 'callTool':
-          result = await this.callTool(request.params);
+          result = await this.callTool(request.params as CallToolParams);
           break;
 
         case 'restoreSession':
-          result = await this.restoreSession(request.params);
+          result = await this.restoreSession(request.params as SessionParams);
           break;
 
         case 'finishAuth':
-          result = await this.finishAuth(request.params);
+          result = await this.finishAuth(request.params as FinishAuthParams);
           break;
 
         case 'listPrompts':
-          result = await this.listPrompts(request.params);
+          result = await this.listPrompts(request.params as SessionParams);
           break;
 
         case 'getPrompt':
-          result = await this.getPrompt(request.params);
+          result = await this.getPrompt(request.params as GetPromptParams);
           break;
 
         case 'listResources':
-          result = await this.listResources(request.params);
+          result = await this.listResources(request.params as SessionParams);
           break;
 
         case 'readResource':
-          result = await this.readResource(request.params);
+          result = await this.readResource(request.params as ReadResourceParams);
           break;
 
         default:
@@ -163,7 +184,7 @@ export class SSEConnectionManager {
       this.sendEvent({
         id: request.id,
         error: {
-          code: 'EXECUTION_ERROR',
+          code: RpcErrorCodes.EXECUTION_ERROR,
           message: error instanceof Error ? error.message : 'Unknown error',
         },
       });
@@ -173,7 +194,7 @@ export class SSEConnectionManager {
   /**
    * Get all user sessions
    */
-  private async getSessions(): Promise<any> {
+  private async getSessions(): Promise<SessionListResult> {
     const sessions = await sessionStore.getIdentitySessionsData(this.identity);
 
     this.sendEvent({
@@ -207,14 +228,8 @@ export class SSEConnectionManager {
   /**
    * Connect to an MCP server
    */
-  private async connect(params: {
-    serverId: string;
-    serverName: string;
-    serverUrl: string;
-    callbackUrl: string;
-    transportType?: 'sse' | 'streamable_http';
-  }): Promise<any> {
-    const { serverId, serverName, serverUrl, callbackUrl, transportType = 'sse' } = params;
+  private async connect(params: ConnectParams): Promise<ConnectResult> {
+    const { serverId, serverName, serverUrl, callbackUrl, transportType } = params;
 
     // Generate session ID
     const sessionId = sessionStore.generateSessionId();
@@ -271,16 +286,8 @@ export class SSEConnectionManager {
       // Attempt connection
       await client.connect();
 
-      // Emit connected state
-      this.emitConnectionEvent({
-        type: 'state_changed',
-        sessionId,
-        serverId,
-        serverName,
-        state: 'CONNECTED',
-        previousState: 'CONNECTING',
-        timestamp: Date.now(),
-      });
+      // Emit connected state - Handled by client event
+
 
       // Fetch tools
       const tools = await client.listTools();
@@ -318,7 +325,7 @@ export class SSEConnectionManager {
   /**
    * Disconnect from an MCP server
    */
-  private async disconnect(params: { sessionId: string }): Promise<any> {
+  private async disconnect(params: DisconnectParams): Promise<DisconnectResult> {
     const { sessionId } = params;
     const client = this.clients.get(sessionId);
 
@@ -332,22 +339,39 @@ export class SSEConnectionManager {
   }
 
   /**
-   * List tools from a session
+   * Helper to get or restore a client
    */
-  private async listTools(params: { sessionId: string }): Promise<any> {
-    const { sessionId } = params;
+  private async getOrCreateClient(sessionId: string): Promise<MCPClient> {
     let client = this.clients.get(sessionId);
 
-    // If client not in memory, try to restore from session
     if (!client) {
       client = new MCPClient({
         identity: this.identity,
         sessionId,
       });
+
+      // Subscribe to events
+      client.onConnectionEvent((event) => {
+        this.emitConnectionEvent(event);
+      });
+
+      client.onObservabilityEvent((event) => {
+        this.sendEvent(event);
+      });
+
       await client.connect();
       this.clients.set(sessionId, client);
     }
 
+    return client;
+  }
+
+  /**
+   * List tools from a session
+   */
+  private async listTools(params: SessionParams): Promise<ListToolsRpcResult> {
+    const { sessionId } = params;
+    const client = await this.getOrCreateClient(sessionId);
     const result = await client.listTools();
     return { tools: result.tools };
   }
@@ -355,32 +379,16 @@ export class SSEConnectionManager {
   /**
    * Call a tool
    */
-  private async callTool(params: {
-    sessionId: string;
-    toolName: string;
-    toolArgs: Record<string, unknown>;
-  }): Promise<any> {
+  private async callTool(params: CallToolParams): Promise<unknown> {
     const { sessionId, toolName, toolArgs } = params;
-    let client = this.clients.get(sessionId);
-
-    // If client not in memory, try to restore from session
-    if (!client) {
-      client = new MCPClient({
-        identity: this.identity,
-        sessionId,
-      });
-      await client.connect();
-      this.clients.set(sessionId, client);
-    }
-
-    const result = await client.callTool(toolName, toolArgs);
-    return result;
+    const client = await this.getOrCreateClient(sessionId);
+    return await client.callTool(toolName, toolArgs);
   }
 
   /**
    * Refresh/validate a session
    */
-  private async restoreSession(params: { sessionId: string }): Promise<any> {
+  private async restoreSession(params: SessionParams): Promise<RestoreSessionResult> {
     const { sessionId } = params;
 
     this.sendEvent({
@@ -437,25 +445,21 @@ export class SSEConnectionManager {
         ...clientMetadata, // Include metadata for consistency
       });
 
-      await client.connect();
-      this.clients.set(sessionId, client);
-
       // Subscribe to events
       client.onConnectionEvent((event) => {
         this.emitConnectionEvent(event);
       });
 
+      client.onObservabilityEvent((event) => {
+        this.sendEvent(event);
+      });
+
+      await client.connect();
+      this.clients.set(sessionId, client);
+
       const tools = await client.listTools();
 
-      this.emitConnectionEvent({
-        type: 'state_changed',
-        sessionId,
-        serverId: session.serverId || 'unknown',
-        serverName: session.serverName || 'Unknown',
-        state: 'CONNECTED',
-        previousState: 'VALIDATING',
-        timestamp: Date.now(),
-      });
+
 
       this.emitConnectionEvent({
         type: 'tools_discovered',
@@ -484,7 +488,7 @@ export class SSEConnectionManager {
   /**
    * Complete OAuth authorization
    */
-  private async finishAuth(params: { sessionId: string; code: string }): Promise<any> {
+  private async finishAuth(params: FinishAuthParams): Promise<FinishAuthResult> {
     const { sessionId, code } = params;
 
     this.sendEvent({
@@ -525,15 +529,7 @@ export class SSEConnectionManager {
 
       const tools = await client.listTools();
 
-      this.emitConnectionEvent({
-        type: 'state_changed',
-        sessionId,
-        serverId: session.serverId || 'unknown',
-        serverName: session.serverName || 'Unknown',
-        state: 'CONNECTED',
-        previousState: 'AUTHENTICATING',
-        timestamp: Date.now(),
-      });
+
 
       this.emitConnectionEvent({
         type: 'tools_discovered',
@@ -562,19 +558,9 @@ export class SSEConnectionManager {
   /**
    * List prompts from a session
    */
-  private async listPrompts(params: { sessionId: string }): Promise<any> {
+  private async listPrompts(params: SessionParams): Promise<ListPromptsResult> {
     const { sessionId } = params;
-    let client = this.clients.get(sessionId);
-
-    if (!client) {
-      client = new MCPClient({
-        identity: this.identity,
-        sessionId,
-      });
-      await client.connect();
-      this.clients.set(sessionId, client);
-    }
-
+    const client = await this.getOrCreateClient(sessionId);
     const result = await client.listPrompts();
     return { prompts: result.prompts };
   }
@@ -582,43 +568,18 @@ export class SSEConnectionManager {
   /**
    * Get a specific prompt
    */
-  private async getPrompt(params: {
-    sessionId: string;
-    name: string;
-    args?: Record<string, string>;
-  }): Promise<any> {
+  private async getPrompt(params: GetPromptParams): Promise<unknown> {
     const { sessionId, name, args } = params;
-    let client = this.clients.get(sessionId);
-
-    if (!client) {
-      client = new MCPClient({
-        identity: this.identity,
-        sessionId,
-      });
-      await client.connect();
-      this.clients.set(sessionId, client);
-    }
-
-    const result = await client.getPrompt(name, args);
-    return result;
+    const client = await this.getOrCreateClient(sessionId);
+    return await client.getPrompt(name, args);
   }
 
   /**
    * List resources from a session
    */
-  private async listResources(params: { sessionId: string }): Promise<any> {
+  private async listResources(params: SessionParams): Promise<ListResourcesResult> {
     const { sessionId } = params;
-    let client = this.clients.get(sessionId);
-
-    if (!client) {
-      client = new MCPClient({
-        identity: this.identity,
-        sessionId,
-      });
-      await client.connect();
-      this.clients.set(sessionId, client);
-    }
-
+    const client = await this.getOrCreateClient(sessionId);
     const result = await client.listResources();
     return { resources: result.resources };
   }
@@ -626,21 +587,10 @@ export class SSEConnectionManager {
   /**
    * Read a specific resource
    */
-  private async readResource(params: { sessionId: string; uri: string }): Promise<any> {
+  private async readResource(params: ReadResourceParams): Promise<unknown> {
     const { sessionId, uri } = params;
-    let client = this.clients.get(sessionId);
-
-    if (!client) {
-      client = new MCPClient({
-        identity: this.identity,
-        sessionId,
-      });
-      await client.connect();
-      this.clients.set(sessionId, client);
-    }
-
-    const result = await client.readResource(uri);
-    return result;
+    const client = await this.getOrCreateClient(sessionId);
+    return await client.readResource(uri);
   }
 
   /**

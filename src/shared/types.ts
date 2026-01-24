@@ -135,29 +135,141 @@ export type ToolInfo = {
   inputSchema?: unknown;
 };
 
+// Transport type
+export type TransportType = 'sse' | 'streamable_http';
+
 // SSE/RPC types
+export type McpRpcMethod =
+  | 'connect'
+  | 'disconnect'
+  | 'listTools'
+  | 'callTool'
+  | 'getSessions'
+  | 'restoreSession'
+  | 'finishAuth'
+  | 'listPrompts'
+  | 'getPrompt'
+  | 'listResources'
+  | 'readResource';
+
 export interface McpRpcRequest {
   id: string;
-  method:
-    | 'connect'
-    | 'disconnect'
-    | 'listTools'
-    | 'callTool'
-    | 'getSessions'
-    | 'restoreSession'
-    | 'finishAuth'
-    | 'listPrompts'
-    | 'getPrompt'
-    | 'listResources'
-    | 'readResource';
-  params?: any;
+  method: McpRpcMethod;
+  params?: McpRpcParams;
 }
 
-export interface McpRpcResponse {
+export interface McpRpcResponse<T = unknown> {
   id: string;
-  result?: any;
+  result?: T;
   error?: {
     code: string;
     message: string;
   };
+}
+
+// RPC Parameter Types
+export interface ConnectParams {
+  serverId: string;
+  serverName: string;
+  serverUrl: string;
+  callbackUrl: string;
+  transportType?: TransportType;
+}
+
+export interface DisconnectParams {
+  sessionId: string;
+}
+
+export interface SessionParams {
+  sessionId: string;
+}
+
+export interface CallToolParams {
+  sessionId: string;
+  toolName: string;
+  toolArgs: Record<string, unknown>;
+}
+
+export interface GetPromptParams {
+  sessionId: string;
+  name: string;
+  args?: Record<string, string>;
+}
+
+export interface ReadResourceParams {
+  sessionId: string;
+  uri: string;
+}
+
+export interface FinishAuthParams {
+  sessionId: string;
+  code: string;
+}
+
+export type McpRpcParams =
+  | ConnectParams
+  | DisconnectParams
+  | SessionParams
+  | CallToolParams
+  | GetPromptParams
+  | ReadResourceParams
+  | FinishAuthParams
+  | undefined;
+
+// RPC Result Types
+export interface SessionInfo {
+  sessionId: string;
+  serverId?: string;
+  serverName?: string;
+  serverUrl: string;
+  transport: TransportType;
+  active: boolean;
+}
+
+export interface SessionListResult {
+  sessions: SessionInfo[];
+}
+
+export interface ConnectResult {
+  sessionId: string;
+  success: boolean;
+}
+
+export interface DisconnectResult {
+  success: boolean;
+}
+
+export interface RestoreSessionResult {
+  success: boolean;
+  toolCount: number;
+}
+
+export interface FinishAuthResult {
+  success: boolean;
+  toolCount: number;
+}
+
+export interface ListToolsRpcResult {
+  tools: Tool[];
+}
+
+export interface ListPromptsResult {
+  prompts: Array<{
+    name: string;
+    description?: string;
+    arguments?: Array<{
+      name: string;
+      description?: string;
+      required?: boolean;
+    }>;
+  }>;
+}
+
+export interface ListResourcesResult {
+  resources: Array<{
+    uri: string;
+    name: string;
+    description?: string;
+    mimeType?: string;
+  }>;
 }

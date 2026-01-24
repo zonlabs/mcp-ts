@@ -100,14 +100,42 @@ REDIS_URL=rediss://default:password@host.upstash.io:6379
 
 This package uses **Server-Sent Events (SSE)** instead of WebSockets:
 
-┌─────────┐                    ┌──────────┐
-│ Browser │◄───SSE Events──────│  Server  │
-│         │                    │          │
-│         ├────HTTP POST──────►│  (Node)  │
-└─────────┘   (RPC calls)      └──────────┘
-- Works behind corporate firewalls
-- Built-in reconnection in browsers
-- Simpler than WebSockets
+
+```mermaid
+graph TD
+    subgraph Client ["Browser (React)"]
+        UI[UI Components]
+        Hook[useMcp Hook]
+        UI <--> Hook
+    end
+
+    subgraph Server ["Next.js Server (Node.js)"]
+        API[API Route /api/mcp]
+        SSE[SSE Handler]
+        ClientMgr[MCP Client Manager]
+        
+        API <--> ClientMgr
+        ClientMgr --> SSE
+    end
+
+    subgraph Infrastructure
+        Redis[(Redis Session Store)]
+    end
+
+    subgraph External ["External MCP Servers"]
+        TargetServer[Target MCP Server]
+    end
+
+    Hook -- "HTTP POST (RPC)" --> API
+    SSE -- "Server-Sent Events" --> Hook
+    ClientMgr -- "Persist State" <--> Redis
+    ClientMgr -- "MCP Protocol" <--> TargetServer
+```
+
+- **Browser**: React application using the `useMcp` hook for state management.
+- **Next.js Server**: Acts as a bridge, maintaining connections to external MCP servers.
+- **Redis**: Persists session state, OAuth tokens, and connection details.
+- **SSE**: Delivers real-time updates (logs, tool list changes) to the client.
 
 ## Contributing
 
@@ -117,14 +145,5 @@ Contributions are welcome! Please read [CLAUDE.md](./CLAUDE.md) for development 
 
 MIT © MCP Assistant
 
-## Links
-
-- **[Documentation](https://ashen-dusk.github.io/mcp-ts/)** - Full docs
-- **[npm Package](https://www.npmjs.com/package/@mcp-ts/redis)** - Install from npm
-- **[GitHub Repository](https://github.com/ashen-dusk/mcp-redis)** - Source code
-- **[Issues](https://github.com/ashen-dusk/mcp-redis/issues)** - Report bugs
-- **[MCP Protocol](https://modelcontextprotocol.io)** - Learn about MCP
-
----
 
 

@@ -7,7 +7,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { SSEClient, type SSEClientOptions } from './sse-client';
 import type { McpConnectionEvent, McpConnectionState } from '../shared/events';
-import type { ToolInfo } from '../shared/types';
+import type {
+  ToolInfo,
+  FinishAuthResult,
+  ListToolsRpcResult,
+  ListPromptsResult,
+  ListResourcesResult,
+  SessionInfo,
+} from '../shared/types';
 
 export interface UseMcpOptions {
   /**
@@ -45,7 +52,7 @@ export interface UseMcpOptions {
   /**
    * Debug logging callback
    */
-  onLog?: (level: string, message: string, metadata?: any) => void;
+  onLog?: (level: string, message: string, metadata?: Record<string, unknown>) => void;
 }
 
 export interface McpConnection {
@@ -130,7 +137,7 @@ export interface McpClient {
   /**
    * Complete OAuth authorization
    */
-  finishAuth: (sessionId: string, code: string) => Promise<any>;
+  finishAuth: (sessionId: string, code: string) => Promise<FinishAuthResult>;
 
   /**
    * Call a tool from a session
@@ -139,32 +146,32 @@ export interface McpClient {
     sessionId: string,
     toolName: string,
     toolArgs: Record<string, unknown>
-  ) => Promise<any>;
+  ) => Promise<unknown>;
 
   /**
    * List available tools for a session
    */
-  listTools: (sessionId: string) => Promise<any>;
+  listTools: (sessionId: string) => Promise<ListToolsRpcResult>;
 
   /**
    * List available prompts for a session
    */
-  listPrompts: (sessionId: string) => Promise<any>;
+  listPrompts: (sessionId: string) => Promise<ListPromptsResult>;
 
   /**
    * Get a specific prompt with arguments
    */
-  getPrompt: (sessionId: string, name: string, args?: Record<string, string>) => Promise<any>;
+  getPrompt: (sessionId: string, name: string, args?: Record<string, string>) => Promise<unknown>;
 
   /**
    * List available resources for a session
    */
-  listResources: (sessionId: string) => Promise<any>;
+  listResources: (sessionId: string) => Promise<ListResourcesResult>;
 
   /**
    * Read a specific resource
    */
-  readResource: (sessionId: string, uri: string) => Promise<any>;
+  readResource: (sessionId: string, uri: string) => Promise<unknown>;
 }
 
 /**
@@ -208,7 +215,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
         onConnectionEvent?.(event);
       },
       onObservabilityEvent: (event) => {
-        onLog?.(event.level, event.message, event.metadata);
+        onLog?.(event.level || 'info', event.message || event.displayMessage || 'No message', event.metadata);
       },
       onStatusChange: (newStatus) => {
         if (isMountedRef.current) {
@@ -264,7 +271,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
 
         case 'tools_discovered': {
           return prev.map((c: McpConnection) =>
-            c.sessionId === event.sessionId ? { ...c, tools: event.tools, state: 'CONNECTED' } : c
+            c.sessionId === event.sessionId ? { ...c, tools: event.tools, state: 'READY' } : c
           );
         }
 
@@ -313,10 +320,10 @@ export function useMcp(options: UseMcpOptions): McpClient {
       // Initialize connections
       if (isMountedRef.current) {
         setConnections(
-          sessions.map((s: any) => ({
+          sessions.map((s: SessionInfo) => ({
             sessionId: s.sessionId,
-            serverId: s.serverId,
-            serverName: s.serverName,
+            serverId: s.serverId ?? 'unknown',
+            serverName: s.serverName ?? 'Unknown Server',
             serverUrl: s.serverUrl,
             transport: s.transport,
             state: 'VALIDATING' as McpConnectionState,
@@ -406,7 +413,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
   /**
    * Complete OAuth authorization
    */
-  const finishAuth = useCallback(async (sessionId: string, code: string): Promise<any> => {
+  const finishAuth = useCallback(async (sessionId: string, code: string): Promise<FinishAuthResult> => {
     if (!clientRef.current) {
       throw new Error('SSE client not initialized');
     }
@@ -422,7 +429,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
       sessionId: string,
       toolName: string,
       toolArgs: Record<string, unknown>
-    ): Promise<any> => {
+    ): Promise<unknown> => {
       if (!clientRef.current) {
         throw new Error('SSE client not initialized');
       }
@@ -435,7 +442,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
   /**
    * List tools (refresh tool list)
    */
-  const listTools = useCallback(async (sessionId: string): Promise<any> => {
+  const listTools = useCallback(async (sessionId: string): Promise<ListToolsRpcResult> => {
     if (!clientRef.current) {
       throw new Error('SSE client not initialized');
     }
@@ -446,7 +453,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
   /**
    * List prompts
    */
-  const listPrompts = useCallback(async (sessionId: string): Promise<any> => {
+  const listPrompts = useCallback(async (sessionId: string): Promise<ListPromptsResult> => {
     if (!clientRef.current) {
       throw new Error('SSE client not initialized');
     }
@@ -458,7 +465,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
    * Get a specific prompt
    */
   const getPrompt = useCallback(
-    async (sessionId: string, name: string, args?: Record<string, string>): Promise<any> => {
+    async (sessionId: string, name: string, args?: Record<string, string>): Promise<unknown> => {
       if (!clientRef.current) {
         throw new Error('SSE client not initialized');
       }
@@ -471,7 +478,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
   /**
    * List resources
    */
-  const listResources = useCallback(async (sessionId: string): Promise<any> => {
+  const listResources = useCallback(async (sessionId: string): Promise<ListResourcesResult> => {
     if (!clientRef.current) {
       throw new Error('SSE client not initialized');
     }
@@ -482,7 +489,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
   /**
    * Read a specific resource
    */
-  const readResource = useCallback(async (sessionId: string, uri: string): Promise<any> => {
+  const readResource = useCallback(async (sessionId: string, uri: string): Promise<unknown> => {
     if (!clientRef.current) {
       throw new Error('SSE client not initialized');
     }

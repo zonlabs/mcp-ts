@@ -67,14 +67,16 @@ export class Emitter<T> {
  */
 export type McpConnectionState =
   | 'DISCONNECTED'      // Not connected
-  | 'CONNECTING'        // Initial connection attempt
+  | 'CONNECTING'        // Establishing transport connection to MCP server
   | 'AUTHENTICATING'    // OAuth flow in progress
   | 'AUTHENTICATED'     // OAuth complete, pre-connect
-  | 'DISCOVERING'       // Fetching tools from server
-  | 'CONNECTED'         // Fully connected with tools
+  | 'DISCOVERING'       // Discovering server capabilities (tools, resources, prompts)
+  | 'CONNECTED'         // Transport connection established
+  | 'READY'             // Fully connected and ready to use
   | 'VALIDATING'        // Validating existing session
   | 'RECONNECTING'      // Attempting to reconnect
-  | 'FAILED';           // Connection error
+  | 'INITIALIZING'      // Initializing session or connection
+  | 'FAILED';           // Connection error at some point
 
 /**
  * MCP Connection Event Types
@@ -82,62 +84,66 @@ export type McpConnectionState =
  */
 export type McpConnectionEvent =
   | {
-      type: 'state_changed';
-      sessionId: string;
-      serverId: string;
-      serverName: string;
-      state: McpConnectionState;
-      previousState: McpConnectionState;
-      timestamp: number;
-    }
+    type: 'state_changed';
+    sessionId: string;
+    serverId: string;
+    serverName: string;
+    state: McpConnectionState;
+    previousState: McpConnectionState;
+    timestamp: number;
+  }
   | {
-      type: 'tools_discovered';
-      sessionId: string;
-      serverId: string;
-      toolCount: number;
-      tools: any[];
-      timestamp: number;
-    }
+    type: 'tools_discovered';
+    sessionId: string;
+    serverId: string;
+    toolCount: number;
+    tools: any[];
+    timestamp: number;
+  }
   | {
-      type: 'auth_required';
-      sessionId: string;
-      serverId: string;
-      authUrl: string;
-      timestamp: number;
-    }
+    type: 'auth_required';
+    sessionId: string;
+    serverId: string;
+    authUrl: string;
+    timestamp: number;
+  }
   | {
-      type: 'error';
-      sessionId: string;
-      serverId: string;
-      error: string;
-      errorType: 'connection' | 'auth' | 'validation' | 'unknown';
-      timestamp: number;
-    }
+    type: 'error';
+    sessionId: string;
+    serverId: string;
+    error: string;
+    errorType: 'connection' | 'auth' | 'validation' | 'unknown';
+    timestamp: number;
+  }
   | {
-      type: 'disconnected';
-      sessionId: string;
-      serverId: string;
-      reason?: string;
-      timestamp: number;
-    }
+    type: 'disconnected';
+    sessionId: string;
+    serverId: string;
+    reason?: string;
+    timestamp: number;
+  }
   | {
-      type: 'progress';
-      sessionId: string;
-      serverId: string;
-      message: string;
-      timestamp: number;
-    };
+    type: 'progress';
+    sessionId: string;
+    serverId: string;
+    message: string;
+    timestamp: number;
+  };
 
 /**
  * Observability event for debugging and monitoring
  */
 export interface McpObservabilityEvent {
-  level: 'debug' | 'info' | 'warn' | 'error';
-  message: string;
+  type?: string;
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  message?: string;
+  displayMessage?: string;
   sessionId?: string;
   serverId?: string;
-  metadata?: Record<string, any>;
+  payload?: Record<string, any>;
+  metadata?: Record<string, any>; // Kept for backward compatibility
   timestamp: number;
+  id?: string;
 }
 
 /**

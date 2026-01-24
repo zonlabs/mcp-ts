@@ -28,6 +28,8 @@ const { GET, POST } = createNextMcpHandler({
 - `getAuthToken` - Function to extract auth token from request (optional)
 - `authenticate` - Custom authentication logic (optional)
 - `heartbeatInterval` - SSE heartbeat interval in ms (default: 30000)
+- `clientDefaults` - Static OAuth client metadata (optional)
+- `getClientMetadata` - Dynamic OAuth metadata getter (optional, overrides defaults)
 
 **Returns:** `{ GET, POST }` - HTTP method handlers
 
@@ -51,6 +53,8 @@ const handler = createSSEHandler({
 - `identity` - User/Client identifier (required)
 - `onAuth` - Authentication callback (optional)
 - `heartbeatInterval` - Heartbeat interval in ms (default: 30000)
+- `clientDefaults` - Static OAuth client metadata (optional)
+- `getClientMetadata` - Dynamic OAuth metadata getter (optional)
 
 **Returns:** Request handler function
 
@@ -69,8 +73,13 @@ const client = new MCPClient({
   serverId?: string,
   serverUrl?: string,
   callbackUrl?: string,
-  transportType?: 'sse',
+  transportType?: 'sse' | 'streamable_http',
   onRedirect?: (authUrl: string) => void,
+  // OAuth Metadata
+  clientName?: string,
+  clientUri?: string,
+  logoUri?: string,
+  policyUri?: string,
 });
 ```
 
@@ -200,7 +209,7 @@ await sessionStore.saveSession({
   serverName: 'My Server',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: 'https://myapp.com/callback',
-  transportType: 'sse',
+  transportType: 'sse' | 'streamable_http',
   active: true,
 });
 ```
@@ -442,7 +451,7 @@ interface SessionData {
   serverName: string;
   serverUrl: string;
   callbackUrl: string;
-  transportType: 'sse';
+  transportType: 'sse' | 'streamable_http';
   active: boolean;
   tokens?: OAuthTokens;
   clientInformation?: OAuthClientInformation;

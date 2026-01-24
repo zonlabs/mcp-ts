@@ -29,6 +29,4 @@ export default defineConfig({
   // Preserve module structure for better tree-shaking
   bundle: true,
   minify: false,
-  // Keep JSX for React components (though we don't have any in this package)
-  jsx: 'preserve',
 });

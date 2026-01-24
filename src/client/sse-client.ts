@@ -5,7 +5,21 @@
 
 import { nanoid } from 'nanoid';
 import type { McpConnectionEvent, McpObservabilityEvent } from '../shared/events';
-import type { McpRpcRequest, McpRpcResponse } from '../shared/types';
+import type {
+  McpRpcRequest,
+  McpRpcResponse,
+  McpRpcMethod,
+  McpRpcParams,
+  ConnectParams,
+  SessionListResult,
+  ConnectResult,
+  DisconnectResult,
+  RestoreSessionResult,
+  FinishAuthResult,
+  ListToolsRpcResult,
+  ListPromptsResult,
+  ListResourcesResult,
+} from '../shared/types';
 
 export interface SSEClientOptions {
   /**
@@ -46,7 +60,7 @@ export class SSEClient {
   private eventSource: EventSource | null = null;
   private pendingRequests: Map<
     string,
-    { resolve: (value: any) => void; reject: (error: Error) => void }
+    { resolve: (value: unknown) => void; reject: (error: Error) => void }
   > = new Map();
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
@@ -167,7 +181,7 @@ export class SSEClient {
    * Send RPC request via SSE
    * Note: SSE is unidirectional (server->client), so we need to send requests via POST
    */
-  private async sendRequest(method: string, params?: any): Promise<any> {
+  private async sendRequest<T = unknown>(method: McpRpcMethod, params?: McpRpcParams): Promise<T> {
     // Wait for connection to be fully established
     if (this.connectionPromise) {
       await this.connectionPromise;
@@ -178,13 +192,13 @@ export class SSEClient {
 
     const request: McpRpcRequest = {
       id,
-      method: method as any,
+      method,
       params,
     };
 
     // Create promise for response
-    const promise = new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+    const promise = new Promise<T>((resolve, reject) => {
+      this.pendingRequests.set(id, { resolve: resolve as (value: unknown) => void, reject });
 
       // Timeout after 30 seconds
       setTimeout(() => {
@@ -237,35 +251,29 @@ export class SSEClient {
   /**
    * Get all user sessions
    */
-  async getSessions(): Promise<any> {
-    return this.sendRequest('getSessions');
+  async getSessions(): Promise<SessionListResult> {
+    return this.sendRequest<SessionListResult>('getSessions');
   }
 
   /**
    * Connect to an MCP server
    */
-  async connectToServer(params: {
-    serverId: string;
-    serverName: string;
-    serverUrl: string;
-    callbackUrl: string;
-    transportType?: 'sse' | 'streamable_http';
-  }): Promise<any> {
-    return this.sendRequest('connect', params);
+  async connectToServer(params: ConnectParams): Promise<ConnectResult> {
+    return this.sendRequest<ConnectResult>('connect', params);
   }
 
   /**
    * Disconnect from an MCP server
    */
-  async disconnectFromServer(sessionId: string): Promise<any> {
-    return this.sendRequest('disconnect', { sessionId });
+  async disconnectFromServer(sessionId: string): Promise<DisconnectResult> {
+    return this.sendRequest<DisconnectResult>('disconnect', { sessionId });
   }
 
   /**
    * List tools from a session
    */
-  async listTools(sessionId: string): Promise<any> {
-    return this.sendRequest('listTools', { sessionId });
+  async listTools(sessionId: string): Promise<ListToolsRpcResult> {
+    return this.sendRequest<ListToolsRpcResult>('listTools', { sessionId });
   }
 
   /**
@@ -275,49 +283,49 @@ export class SSEClient {
     sessionId: string,
     toolName: string,
     toolArgs: Record<string, unknown>
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.sendRequest('callTool', { sessionId, toolName, toolArgs });
   }
 
   /**
    * Refresh/validate a session
    */
-  async restoreSession(sessionId: string): Promise<any> {
-    return this.sendRequest('restoreSession', { sessionId });
+  async restoreSession(sessionId: string): Promise<RestoreSessionResult> {
+    return this.sendRequest<RestoreSessionResult>('restoreSession', { sessionId });
   }
 
   /**
    * Complete OAuth authorization
    */
-  async finishAuth(sessionId: string, code: string): Promise<any> {
-    return this.sendRequest('finishAuth', { sessionId, code });
+  async finishAuth(sessionId: string, code: string): Promise<FinishAuthResult> {
+    return this.sendRequest<FinishAuthResult>('finishAuth', { sessionId, code });
   }
 
   /**
    * List available prompts
    */
-  async listPrompts(sessionId: string): Promise<any> {
-    return this.sendRequest('listPrompts', { sessionId });
+  async listPrompts(sessionId: string): Promise<ListPromptsResult> {
+    return this.sendRequest<ListPromptsResult>('listPrompts', { sessionId });
   }
 
   /**
    * Get a specific prompt with arguments
    */
-  async getPrompt(sessionId: string, name: string, args?: Record<string, string>): Promise<any> {
+  async getPrompt(sessionId: string, name: string, args?: Record<string, string>): Promise<unknown> {
     return this.sendRequest('getPrompt', { sessionId, name, args });
   }
 
   /**
    * List available resources
    */
-  async listResources(sessionId: string): Promise<any> {
-    return this.sendRequest('listResources', { sessionId });
+  async listResources(sessionId: string): Promise<ListResourcesResult> {
+    return this.sendRequest<ListResourcesResult>('listResources', { sessionId });
   }
 
   /**
    * Read a specific resource
    */
-  async readResource(sessionId: string, uri: string): Promise<any> {
+  async readResource(sessionId: string, uri: string): Promise<unknown> {
     return this.sendRequest('readResource', { sessionId, uri });
   }
 

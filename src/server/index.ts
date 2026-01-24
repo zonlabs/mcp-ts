@@ -4,7 +4,8 @@
  */
 
 // Core MCP client and session management
-export { MCPClient, UnauthorizedError } from './oauth-client';
+export { MCPClient } from './oauth-client';
+export { UnauthorizedError } from '../shared/errors';
 export { SessionStore, sessionStore } from './session-store';
 export { RedisOAuthClientProvider } from './redis-oauth-client-provider';
 

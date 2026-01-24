@@ -86,7 +86,7 @@ const sessionId = await connect({
   serverName: 'My Server',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: window.location.origin + '/callback',
-  transportType: 'sse',
+  // transportType: 'auto', // optional: defaults to auto-negotiate (Streamable -> SSE)
 });
 
 // Disconnect from a server
