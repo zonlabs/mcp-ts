@@ -116,7 +116,7 @@ export class MCPClient {
     this.identity = options.identity;
     this.serverId = options.serverId;
     this.sessionId = options.sessionId;
-    this.transportType = options.transportType || 'streamable_http';
+    this.transportType = options.transportType;
     this.tokens = options.tokens;
     this.tokenExpiresAt = options.tokenExpiresAt;
     this.clientInformation = options.clientInformation;
