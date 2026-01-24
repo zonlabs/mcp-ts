@@ -14,11 +14,21 @@ export {
   type McpObservabilityEvent,
 } from './events';
 
+// Constants
+export * from './constants';
+
+// Errors
+export * from './errors';
+
 // Types
 export type {
   ToolInfo,
   McpRpcRequest,
   McpRpcResponse,
+  McpRpcMethod,
+  McpRpcParams,
+  TransportType,
+  // API types
   ConnectRequest,
   ConnectResponse,
   ConnectSuccessResponse,
@@ -27,7 +37,25 @@ export type {
   ListToolsResponse,
   CallToolRequest,
   CallToolResponse,
- } from './types';
+  // RPC param types
+  ConnectParams,
+  DisconnectParams,
+  SessionParams,
+  CallToolParams,
+  GetPromptParams,
+  ReadResourceParams,
+  FinishAuthParams,
+  // RPC result types
+  SessionInfo,
+  SessionListResult,
+  ConnectResult,
+  DisconnectResult,
+  RestoreSessionResult,
+  FinishAuthResult,
+  ListToolsRpcResult,
+  ListPromptsResult,
+  ListResourcesResult,
+} from './types';
 
 export {
   isConnectSuccess,
@@ -36,3 +64,7 @@ export {
   isListToolsSuccess,
   isCallToolSuccess,
 } from './types';
+
+// Utilities
+export { sanitizeServerLabel } from './utils';
+

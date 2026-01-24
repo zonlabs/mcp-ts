@@ -1,4 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { nanoid } from 'nanoid';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import {
@@ -32,6 +33,7 @@ import type { OAuthClientMetadata, OAuthTokens, OAuthClientInformationFull } fro
 import { RedisOAuthClientProvider, type AgentsOAuthProvider } from './redis-oauth-client-provider.js';
 import { sanitizeServerLabel } from '../shared/utils.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../shared/events.js';
+import { UnauthorizedError } from '../shared/errors.js';
 import { sessionStore } from './session-store.js';
 
 /**
@@ -60,16 +62,6 @@ export interface MCPOAuthClientOptions {
   clientUri?: string;
   logoUri?: string;
   policyUri?: string;
-}
-
-/**
- * Custom error thrown when OAuth authorization is required
- */
-export class UnauthorizedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'UnauthorizedError';
-  }
 }
 
 /**
@@ -159,11 +151,15 @@ export class MCPClient {
     });
 
     this._onObservabilityEvent.fire({
+      type: 'mcp:client:state_change',
       level: 'info',
       message: `Connection state: ${previousState} → ${newState}`,
+      displayMessage: `State changed to ${newState}`,
       sessionId: this.sessionId,
       serverId: this.serverId,
+      payload: { previousState, newState },
       timestamp: Date.now(),
+      id: nanoid(),
     });
   }
 
@@ -184,12 +180,15 @@ export class MCPClient {
     });
 
     this._onObservabilityEvent.fire({
+      type: 'mcp:client:error',
       level: 'error',
       message: error,
+      displayMessage: error,
       sessionId: this.sessionId,
       serverId: this.serverId,
-      metadata: { errorType },
+      payload: { errorType, error },
       timestamp: Date.now(),
+      id: nanoid(),
     });
   }
 
@@ -209,11 +208,14 @@ export class MCPClient {
     });
 
     this._onObservabilityEvent.fire({
+      type: 'mcp:client:trace',
       level: 'debug',
       message,
+      displayMessage: message,
       sessionId: this.sessionId,
       serverId: this.serverId,
       timestamp: Date.now(),
+      id: nanoid(),
     });
   }
 
@@ -236,6 +238,7 @@ export class MCPClient {
       return;
     }
 
+    this.emitStateChange('INITIALIZING');
     this.emitProgress('Loading session configuration...');
 
     if (!this.serverUrl || !this.callbackUrl || !this.serverId) {
@@ -386,9 +389,6 @@ export class MCPClient {
    * @throws {Error} When connection fails for other reasons
    */
   async connect(): Promise<void> {
-    this.emitStateChange('CONNECTING');
-    this.emitProgress('Initializing connection...');
-
     await this.initialize();
 
     if (!this.client || !this.transport) {
@@ -411,7 +411,7 @@ export class MCPClient {
         timestamp: Date.now(),
       });
 
-      this.emitProgress('Connecting to MCP server...');
+      this.emitStateChange('CONNECTING');
 
       this._onObservabilityEvent.fire({
         level: 'debug',
@@ -437,6 +437,21 @@ export class MCPClient {
 
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:connect',
+        displayMessage: `Connection established for ${this.serverId}`,
+        level: 'info',
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          url: this.serverUrl,
+          transport: this.transportType,
+          state: 'CONNECTED',
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
 
       const existingSession = await sessionStore.getSession(this.identity, this.sessionId);
       if (!existingSession) {
@@ -574,11 +589,25 @@ export class MCPClient {
         });
       }
 
-      this.emitProgress('Connecting with authenticated client...');
+      this.emitStateChange('CONNECTING');
       await this.client.connect(this.transport);
 
       this.emitStateChange('CONNECTED');
-      this.emitProgress('Authentication completed successfully');
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:connect',
+        displayMessage: `Authentication completed for ${this.serverId}`,
+        level: 'info',
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          url: this.serverUrl,
+          transport: this.transportType,
+          state: 'CONNECTED',
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
 
       await this.saveSession(true);
     } catch (error) {
@@ -622,8 +651,24 @@ export class MCPClient {
         });
       }
 
-      this.emitStateChange('CONNECTED');
+      this.emitStateChange('READY');
       this.emitProgress(`Discovered ${result.tools.length} tools`);
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:discovery',
+        level: 'info',
+        message: `Discovered ${result.tools.length} tools`,
+        displayMessage: `Discovered ${result.tools.length} tools`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          type: 'tools',
+          count: result.tools.length,
+          items: result.tools.map((t) => t.name),
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
 
       return result;
     } catch (error) {
@@ -654,7 +699,47 @@ export class MCPClient {
       },
     };
 
-    return await this.client.request(request, CallToolResultSchema);
+    try {
+      const result = await this.client.request(request, CallToolResultSchema);
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:tool_call',
+        level: 'info',
+        message: `Tool ${toolName} called successfully`,
+        displayMessage: `Called tool ${toolName}`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          toolName,
+          args: toolArgs,
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to call tool ${toolName}`;
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:error',
+        level: 'error',
+        message: errorMessage,
+        displayMessage: `Failed to call tool ${toolName}`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          errorType: 'tool_execution',
+          error: errorMessage,
+          toolName,
+          args: toolArgs,
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
+
+      throw error;
+    }
   }
 
   /**
@@ -667,12 +752,43 @@ export class MCPClient {
       throw new Error('Not connected to server');
     }
 
-    const request: ListPromptsRequest = {
-      method: 'prompts/list',
-      params: {},
-    };
+    this.emitStateChange('DISCOVERING');
+    this.emitProgress('Discovering prompts...');
 
-    return await this.client.request(request, ListPromptsResultSchema);
+    try {
+      const request: ListPromptsRequest = {
+        method: 'prompts/list',
+        params: {},
+      };
+
+      const result = await this.client.request(request, ListPromptsResultSchema);
+
+      this.emitStateChange('READY');
+      this.emitProgress(`Discovered ${result.prompts.length} prompts`);
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:discovery',
+        level: 'info',
+        message: `Discovered ${result.prompts.length} prompts`,
+        displayMessage: `Discovered ${result.prompts.length} prompts`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          type: 'prompts',
+          count: result.prompts.length,
+          items: result.prompts.map((p) => p.name),
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to list prompts';
+      this.emitError(errorMessage, 'validation');
+      this.emitStateChange('FAILED');
+      throw error;
+    }
   }
 
   /**
@@ -708,12 +824,43 @@ export class MCPClient {
       throw new Error('Not connected to server');
     }
 
-    const request: ListResourcesRequest = {
-      method: 'resources/list',
-      params: {},
-    };
+    this.emitStateChange('DISCOVERING');
+    this.emitProgress('Discovering resources...');
 
-    return await this.client.request(request, ListResourcesResultSchema);
+    try {
+      const request: ListResourcesRequest = {
+        method: 'resources/list',
+        params: {},
+      };
+
+      const result = await this.client.request(request, ListResourcesResultSchema);
+
+      this.emitStateChange('READY');
+      this.emitProgress(`Discovered ${result.resources.length} resources`);
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:discovery',
+        level: 'info',
+        message: `Discovered ${result.resources.length} resources`,
+        displayMessage: `Discovered ${result.resources.length} resources`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          type: 'resources',
+          count: result.resources.length,
+          items: result.resources.map((r) => r.uri),
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to list resources';
+      this.emitError(errorMessage, 'validation');
+      this.emitStateChange('FAILED');
+      throw error;
+    }
   }
 
   /**
@@ -886,6 +1033,19 @@ export class MCPClient {
         serverId: this.serverId,
         reason,
         timestamp: Date.now(),
+      });
+
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:disconnect',
+        level: 'info',
+        message: `Disconnected from ${this.serverId}`,
+        sessionId: this.sessionId,
+        serverId: this.serverId,
+        payload: {
+          reason: reason || 'unknown',
+        },
+        timestamp: Date.now(),
+        id: nanoid(),
       });
     }
 

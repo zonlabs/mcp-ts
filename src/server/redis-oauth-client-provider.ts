@@ -7,9 +7,7 @@ import type {
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { nanoid } from "nanoid";
 import { redis } from "./redis";
-
-const STATE_EXPIRATION_MS = 10 * 60 * 1000; // 10 minutes
-const SESSION_TTL = 43200; // 12 hours
+import { SESSION_TTL_SECONDS, TOKEN_EXPIRY_BUFFER_MS } from '../shared/constants';
 
 interface StoredState {
     nonce: string;
@@ -40,10 +38,10 @@ export interface AgentsOAuthProvider extends OAuthClientProvider {
  * All data is persisted alongside session metadata for stateless operation
  */
 export class RedisOAuthClientProvider implements AgentsOAuthProvider {
-    private _authUrl_: string | undefined;
-    private _clientId_: string | undefined;
-    private _onRedirect?: (url: string) => void;
-    private _tokenExpiresAt?: number;
+    private _authUrl: string | undefined;
+    private _clientId: string | undefined;
+    private onRedirectCallback?: (url: string) => void;
+    private tokenExpiresAt?: number;
 
     /**
      * Creates a new Redis-backed OAuth provider
@@ -62,7 +60,7 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
         public baseRedirectUrl: string,
         onRedirect?: (url: string) => void
     ) {
-        this._onRedirect = onRedirect;
+        this.onRedirectCallback = onRedirect;
     }
 
     get clientMetadata(): OAuthClientMetadata {
@@ -73,7 +71,7 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
             redirect_uris: [this.redirectUrl],
             response_types: ["code"],
             token_endpoint_auth_method: "none",
-            ...(this._clientId_ ? { client_id: this._clientId_ } : {})
+            ...(this._clientId ? { client_id: this._clientId } : {})
         };
     }
 
@@ -86,11 +84,11 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
     }
 
     get clientId() {
-        return this._clientId_;
+        return this._clientId;
     }
 
     set clientId(clientId_: string | undefined) {
-        this._clientId_ = clientId_;
+        this._clientId = clientId_;
     }
 
     /**
@@ -143,7 +141,7 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
             ...data,
         };
 
-        await redis.setex(this.getSessionKey(), SESSION_TTL, JSON.stringify(mergedData));
+        await redis.setex(this.getSessionKey(), SESSION_TTL_SECONDS, JSON.stringify(mergedData));
     }
 
     /**
@@ -153,8 +151,8 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
     async clientInformation(): Promise<OAuthClientInformation | undefined> {
         const data = await this.getSessionData();
 
-        if (data.clientId && !this._clientId_) {
-            this._clientId_ = data.clientId;
+        if (data.clientId && !this._clientId) {
+            this._clientId = data.clientId;
         }
 
         return data.clientInformation;
@@ -182,16 +180,15 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
         data.tokens = tokens;
 
         if (tokens.expires_in) {
-            const bufferMs = 5 * 60 * 1000;
-            this._tokenExpiresAt = Date.now() + (tokens.expires_in * 1000) - bufferMs;
-            data.tokenExpiresAt = this._tokenExpiresAt;
+            this.tokenExpiresAt = Date.now() + (tokens.expires_in * 1000) - TOKEN_EXPIRY_BUFFER_MS;
+            data.tokenExpiresAt = this.tokenExpiresAt;
         }
 
         await this.saveSessionData(data);
     }
 
     get authUrl() {
-        return this._authUrl_;
+        return this._authUrl;
     }
 
     /**
@@ -230,9 +227,9 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
      * @param authUrl - Authorization URL from OAuth server
      */
     async redirectToAuthorization(authUrl: URL): Promise<void> {
-        this._authUrl_ = authUrl.toString();
-        if (this._onRedirect) {
-            this._onRedirect(authUrl.toString());
+        this._authUrl = authUrl.toString();
+        if (this.onRedirectCallback) {
+            this.onRedirectCallback(authUrl.toString());
         }
     }
 
@@ -277,8 +274,8 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
     async codeVerifier(): Promise<string> {
         const data = await this.getSessionData();
 
-        if (data.clientId && !this._clientId_) {
-            this._clientId_ = data.clientId;
+        if (data.clientId && !this._clientId) {
+            this._clientId = data.clientId;
         }
 
         if (!data.codeVerifier) {
@@ -304,12 +301,12 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
     async tokens(): Promise<OAuthTokens | undefined> {
         const data = await this.getSessionData();
 
-        if (data.clientId && !this._clientId_) {
-            this._clientId_ = data.clientId;
+        if (data.clientId && !this._clientId) {
+            this._clientId = data.clientId;
         }
 
-        if (data.tokenExpiresAt && !this._tokenExpiresAt) {
-            this._tokenExpiresAt = data.tokenExpiresAt;
+        if (data.tokenExpiresAt && !this.tokenExpiresAt) {
+            this.tokenExpiresAt = data.tokenExpiresAt;
         }
 
         return data.tokens;
@@ -321,10 +318,10 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
      * @returns True if expired, false otherwise
      */
     isTokenExpired(): boolean {
-        if (!this._tokenExpiresAt) {
+        if (!this.tokenExpiresAt) {
             return false;
         }
-        return Date.now() >= this._tokenExpiresAt;
+        return Date.now() >= this.tokenExpiresAt;
     }
 
     /**
@@ -332,6 +329,6 @@ export class RedisOAuthClientProvider implements AgentsOAuthProvider {
      * @param expiresAt - Expiration timestamp in milliseconds
      */
     setTokenExpiresAt(expiresAt: number): void {
-        this._tokenExpiresAt = expiresAt;
+        this.tokenExpiresAt = expiresAt;
     }
 }
