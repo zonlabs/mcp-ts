@@ -55,7 +55,7 @@ export default function McpDashboard() {
         serverName,
         serverUrl,
         callbackUrl,
-        transportType,
+        // transportType, // Commented out to test auto-fallback
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect');

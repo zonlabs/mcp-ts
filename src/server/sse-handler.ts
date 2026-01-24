@@ -229,7 +229,7 @@ export class SSEConnectionManager {
    * Connect to an MCP server
    */
   private async connect(params: ConnectParams): Promise<ConnectResult> {
-    const { serverId, serverName, serverUrl, callbackUrl, transportType = 'sse' } = params;
+    const { serverId, serverName, serverUrl, callbackUrl, transportType } = params;
 
     // Generate session ID
     const sessionId = sessionStore.generateSessionId();

@@ -2,6 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { nanoid } from 'nanoid';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'; // Import base Transport type
 import {
   UnauthorizedError as SDKUnauthorizedError,
   refreshAuthorization,
@@ -206,17 +207,6 @@ export class MCPClient {
       message,
       timestamp: Date.now(),
     });
-
-    this._onObservabilityEvent.fire({
-      type: 'mcp:client:trace',
-      level: 'debug',
-      message,
-      displayMessage: message,
-      sessionId: this.sessionId,
-      serverId: this.serverId,
-      timestamp: Date.now(),
-      id: nanoid(),
-    });
   }
 
   /**
@@ -227,14 +217,37 @@ export class MCPClient {
   }
 
   /**
+   * Helper to create a transport instance
+   * @param type - The transport type to create
+   * @returns Configured transport instance
+   * @private
+   */
+  private getTransport(type: TransportType): StreamableHTTPClientTransport | SSEClientTransport {
+    if (!this.serverUrl) {
+      throw new Error('Server URL is required to create transport');
+    }
+
+    const baseUrl = new URL(this.serverUrl);
+    const transportOptions = {
+      authProvider: this.oauthProvider!,
+      ...(this.headers && { headers: this.headers }),
+    };
+
+    if (type === 'sse') {
+      return new SSEClientTransport(baseUrl, transportOptions);
+    } else {
+      return new StreamableHTTPClientTransport(baseUrl, transportOptions);
+    }
+  }
+
+  /**
    * Initializes client components (client, transport, OAuth provider)
    * Loads missing configuration from Redis session store if needed
    * This method is idempotent and safe to call multiple times
    * @private
    */
   private async initialize(): Promise<void> {
-    if (this.client && this.oauthProvider && this.transport) {
-      this.emitProgress('Client already initialized, skipping...');
+    if (this.client && this.oauthProvider) {
       return;
     }
 
@@ -242,7 +255,6 @@ export class MCPClient {
     this.emitProgress('Loading session configuration...');
 
     if (!this.serverUrl || !this.callbackUrl || !this.serverId) {
-      this.emitProgress('Loading configuration from Redis...');
       const sessionData = await sessionStore.getSession(this.identity, this.sessionId);
       if (!sessionData) {
         throw new Error(`Session not found: ${this.sessionId}`);
@@ -250,39 +262,24 @@ export class MCPClient {
 
       this.serverUrl = this.serverUrl || sessionData.serverUrl;
       this.callbackUrl = this.callbackUrl || sessionData.callbackUrl;
-      this.transportType = this.transportType || sessionData.transportType;
+      // Do NOT load transportType from session if not explicitly provided.
+      // We want to re-negotiate (try streamable -> sse) on new connections if in "Auto" mode.
+      // this.transportType = this.transportType || sessionData.transportType; 
       this.serverName = this.serverName || sessionData.serverName;
       this.serverId = this.serverId || sessionData.serverId || 'unknown';
       this.headers = this.headers || sessionData.headers;
-
-      this.emitProgress(`Loaded config - Server: ${this.serverUrl}, Transport: ${this.transportType}`);
     }
 
     if (!this.serverUrl || !this.callbackUrl || !this.serverId) {
       throw new Error('Missing required connection metadata');
     }
 
-    this._onObservabilityEvent.fire({
-      level: 'debug',
-      message: 'Connection configuration',
-      sessionId: this.sessionId,
-      serverId: this.serverId,
-      metadata: {
-        serverUrl: this.serverUrl,
-        callbackUrl: this.callbackUrl,
-        transportType: this.transportType,
-        hasHeaders: !!this.headers,
-        headers: this.headers,
-      },
-      timestamp: Date.now(),
-    });
-
     const clientMetadata: OAuthClientMetadata = {
       client_name: this.clientName || 'MCP Assistant',
       redirect_uris: [this.callbackUrl],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
-      token_endpoint_auth_method: 'client_secret_basic',
+      token_endpoint_auth_method: this.clientSecret ? 'client_secret_basic' : 'none',
       client_uri: this.clientUri || 'https://mcp-assistant.in',
       logo_uri: this.logoUri || 'https://mcp-assistant.in/logo.png',
       policy_uri: this.policyUri || 'https://mcp-assistant.in/privacy',
@@ -324,39 +321,6 @@ export class MCPClient {
         { capabilities: {} }
       );
     }
-
-    if (!this.transport) {
-      const baseUrl = new URL(this.serverUrl);
-      const tt = this.transportType || 'streamable_http';
-
-      this._onObservabilityEvent.fire({
-        level: 'debug',
-        message: `Creating ${tt} transport`,
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        metadata: {
-          baseUrl: baseUrl.toString(),
-          transportType: tt,
-          hasAuthProvider: !!this.oauthProvider,
-          hasHeaders: !!this.headers,
-        },
-        timestamp: Date.now(),
-      });
-
-      if (tt === 'sse') {
-        this.transport = new SSEClientTransport(baseUrl, {
-          authProvider: this.oauthProvider!,
-          ...(this.headers && { headers: this.headers }),
-        });
-        this.emitProgress('SSE transport created');
-      } else {
-        this.transport = new StreamableHTTPClientTransport(baseUrl, {
-          authProvider: this.oauthProvider!,
-          ...(this.headers && { headers: this.headers }),
-        });
-        this.emitProgress('StreamableHTTP transport created');
-      }
-    }
   }
 
   /**
@@ -382,6 +346,70 @@ export class MCPClient {
   }
 
   /**
+   * Try to connect using available transports
+   * @returns The corrected transport type object if successful
+   * @private
+   */
+  private async tryConnect(): Promise<{ transportType: TransportType }> {
+    // If exact transport type is known, only try that.
+    // Otherwise (auto mode), try streamable_http first, then sse.
+    const transportsToTry: TransportType[] = this.transportType
+      ? [this.transportType]
+      : ['streamable_http', 'sse'];
+
+    let lastError: unknown;
+
+    for (const currentType of transportsToTry) {
+      const isLastAttempt = currentType === transportsToTry[transportsToTry.length - 1];
+
+      try {
+        const transport = this.getTransport(currentType);
+
+        // Update local state with the transport we are about to try
+        this.transport = transport;
+
+        await this.client!.connect(transport);
+
+        // Success! Return the type that worked
+        return { transportType: currentType };
+
+      } catch (error: any) {
+        lastError = error;
+
+        // Check for Auth Errors - these should fail immediately, no fallback
+        const isAuthError = error instanceof SDKUnauthorizedError ||
+          (error instanceof Error && error.message.toLowerCase().includes('unauthorized'));
+
+        if (isAuthError) {
+          throw error;
+        }
+
+        // If this was the last transport to try, throw the error
+        if (isLastAttempt) {
+          throw error;
+        }
+
+        // Otherwise, log and continue to next transport
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.emitProgress(`Connection attempt with ${currentType} failed: ${errorMessage}. Retrying...`);
+        this._onObservabilityEvent.fire({
+          level: 'warn',
+          message: `Transport ${currentType} failed, falling back`,
+          sessionId: this.sessionId,
+          serverId: this.serverId,
+          metadata: {
+            failedTransport: currentType,
+            error: errorMessage
+          },
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    throw lastError || new Error('No transports available');
+  }
+
+  /**
    * Connects to the MCP server
    * Automatically validates and refreshes OAuth tokens if needed
    * Saves session to Redis on first successful connection
@@ -391,8 +419,8 @@ export class MCPClient {
   async connect(): Promise<void> {
     await this.initialize();
 
-    if (!this.client || !this.transport) {
-      const error = 'Client or transport not initialized';
+    if (!this.client || !this.oauthProvider) {
+      const error = 'Client or OAuth provider not initialized';
       this.emitError(error, 'connection');
       this.emitStateChange('FAILED');
       throw new Error(error);
@@ -400,121 +428,38 @@ export class MCPClient {
 
     try {
       this.emitProgress('Validating OAuth tokens...');
-      const hasValidTokens = await this.getValidTokens();
-
-      this._onObservabilityEvent.fire({
-        level: 'debug',
-        message: `Token validation result: ${hasValidTokens}`,
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        metadata: { hasValidTokens },
-        timestamp: Date.now(),
-      });
+      await this.getValidTokens();
 
       this.emitStateChange('CONNECTING');
 
-      this._onObservabilityEvent.fire({
-        level: 'debug',
-        message: 'Initiating client.connect()',
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        metadata: {
-          transportType: this.transportType,
-          serverUrl: this.serverUrl,
-        },
-        timestamp: Date.now(),
-      });
+      // Use the tryConnect loop to handle transport fallbacks
+      const { transportType } = await this.tryConnect();
 
-      await this.client.connect(this.transport);
-
-      this._onObservabilityEvent.fire({
-        level: 'debug',
-        message: 'client.connect() completed successfully',
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        timestamp: Date.now(),
-      });
+      // Update transport type to the one that actually worked
+      this.transportType = transportType;
 
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
-
-      this._onObservabilityEvent.fire({
-        type: 'mcp:client:connect',
-        displayMessage: `Connection established for ${this.serverId}`,
-        level: 'info',
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        payload: {
-          url: this.serverUrl,
-          transport: this.transportType,
-          state: 'CONNECTED',
-        },
-        timestamp: Date.now(),
-        id: nanoid(),
-      });
 
       const existingSession = await sessionStore.getSession(this.identity, this.sessionId);
       if (!existingSession) {
         await this.saveSession(true);
       }
     } catch (error) {
-      // Log detailed error information
-      this._onObservabilityEvent.fire({
-        level: 'error',
-        message: 'Connection error caught',
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        metadata: {
-          error: error instanceof Error ? error.message : String(error),
-          errorName: error instanceof Error ? error.constructor.name : typeof error,
-          errorStack: error instanceof Error ? error.stack : undefined,
-          serverUrl: this.serverUrl,
-          transportType: this.transportType,
-        },
-        timestamp: Date.now(),
-      });
-
+      // Handle Authentication Errors
       if (
         error instanceof SDKUnauthorizedError ||
         (error instanceof Error && error.message.toLowerCase().includes('unauthorized'))
       ) {
-        this._onObservabilityEvent.fire({
-          level: 'info',
-          message: 'OAuth authorization required - generating authorization URL',
-          sessionId: this.sessionId,
-          serverId: this.serverId,
-          timestamp: Date.now(),
-        });
-
         this.emitStateChange('AUTHENTICATING');
         await this.saveSession(false);
 
-        // Get OAuth authorization URL from provider
+        // Get OAuth authorization URL if available
         let authUrl = '';
         if (this.oauthProvider) {
           authUrl = this.oauthProvider.authUrl || '';
-
-          if (authUrl) {
-            this._onObservabilityEvent.fire({
-              level: 'debug',
-              message: 'OAuth authorization URL available',
-              sessionId: this.sessionId,
-              serverId: this.serverId,
-              metadata: { authUrl },
-              timestamp: Date.now(),
-            });
-          } else {
-            this._onObservabilityEvent.fire({
-              level: 'warn',
-              message: 'OAuth provider has no authorization URL yet - will be generated on first connection attempt',
-              sessionId: this.sessionId,
-              serverId: this.serverId,
-              timestamp: Date.now(),
-            });
-          }
         }
 
-        // Emit auth required event with URL
         if (this.serverId) {
           this._onConnectionEvent.fire({
             type: 'auth_required',
@@ -524,7 +469,6 @@ export class MCPClient {
             timestamp: Date.now(),
           });
 
-          // Call onRedirect callback if provided
           if (authUrl && this.onRedirect) {
             this.onRedirect(authUrl);
           }
@@ -533,9 +477,9 @@ export class MCPClient {
         throw new UnauthorizedError('OAuth authorization required');
       }
 
+      // Handle Generic Errors
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
-      const detailedError = `${errorMessage} (Server: ${this.serverUrl}, Transport: ${this.transportType})`;
-      this.emitError(detailedError, 'connection');
+      this.emitError(errorMessage, 'connection');
       this.emitStateChange('FAILED');
       throw error;
     }
@@ -553,12 +497,18 @@ export class MCPClient {
 
     await this.initialize();
 
-    if (!this.oauthProvider || !this.transport) {
-      const error = 'OAuth provider or transport not initialized';
+    if (!this.oauthProvider) {
+      const error = 'OAuth provider not initialized';
       this.emitError(error, 'auth');
       this.emitStateChange('FAILED');
       throw new Error(error);
     }
+
+    // Determine which transport to try first for finishing auth
+    // Note: finishAuth logic is transport-specific but usually similar. 
+    // We try streamable_http first if auto, or the specified one.
+    const tt: TransportType = this.transportType || 'streamable_http';
+    this.transport = this.getTransport(tt);
 
     try {
       await this.transport.finishAuth(authCode);
@@ -574,41 +524,16 @@ export class MCPClient {
         { capabilities: {} }
       );
 
-      const baseUrl = new URL(this.serverUrl!);
-      const tt = this.transportType || 'streamable_http';
-
-      if (tt === 'sse') {
-        this.transport = new SSEClientTransport(baseUrl, {
-          authProvider: this.oauthProvider!,
-          ...(this.headers && { headers: this.headers }),
-        });
-      } else {
-        this.transport = new StreamableHTTPClientTransport(baseUrl, {
-          authProvider: this.oauthProvider!,
-          ...(this.headers && { headers: this.headers }),
-        });
-      }
+      // Now connect using the standard flow (which handles fallbacks/retries if needed)
+      // Note: We might need to be careful here. standard 'connect' might re-initialize transport.
+      // But since we just auth'd, we should be good to go.
 
       this.emitStateChange('CONNECTING');
+
+      // We explicitly try to connect with the transport we just auth'd with first
       await this.client.connect(this.transport);
 
       this.emitStateChange('CONNECTED');
-
-      this._onObservabilityEvent.fire({
-        type: 'mcp:client:connect',
-        displayMessage: `Authentication completed for ${this.serverId}`,
-        level: 'info',
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        payload: {
-          url: this.serverUrl,
-          transport: this.transportType,
-          state: 'CONNECTED',
-        },
-        timestamp: Date.now(),
-        id: nanoid(),
-      });
-
       await this.saveSession(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
@@ -629,7 +554,6 @@ export class MCPClient {
     }
 
     this.emitStateChange('DISCOVERING');
-    this.emitProgress('Discovering available tools...');
 
     try {
       const request: ListToolsRequest = {
@@ -639,7 +563,6 @@ export class MCPClient {
 
       const result = await this.client.request(request, ListToolsResultSchema);
 
-      // Emit tools discovered event
       if (this.serverId) {
         this._onConnectionEvent.fire({
           type: 'tools_discovered',
@@ -653,22 +576,6 @@ export class MCPClient {
 
       this.emitStateChange('READY');
       this.emitProgress(`Discovered ${result.tools.length} tools`);
-
-      this._onObservabilityEvent.fire({
-        type: 'mcp:client:discovery',
-        level: 'info',
-        message: `Discovered ${result.tools.length} tools`,
-        displayMessage: `Discovered ${result.tools.length} tools`,
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        payload: {
-          type: 'tools',
-          count: result.tools.length,
-          items: result.tools.map((t) => t.name),
-        },
-        timestamp: Date.now(),
-        id: nanoid(),
-      });
 
       return result;
     } catch (error) {
@@ -753,7 +660,6 @@ export class MCPClient {
     }
 
     this.emitStateChange('DISCOVERING');
-    this.emitProgress('Discovering prompts...');
 
     try {
       const request: ListPromptsRequest = {
@@ -765,22 +671,6 @@ export class MCPClient {
 
       this.emitStateChange('READY');
       this.emitProgress(`Discovered ${result.prompts.length} prompts`);
-
-      this._onObservabilityEvent.fire({
-        type: 'mcp:client:discovery',
-        level: 'info',
-        message: `Discovered ${result.prompts.length} prompts`,
-        displayMessage: `Discovered ${result.prompts.length} prompts`,
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        payload: {
-          type: 'prompts',
-          count: result.prompts.length,
-          items: result.prompts.map((p) => p.name),
-        },
-        timestamp: Date.now(),
-        id: nanoid(),
-      });
 
       return result;
     } catch (error) {
@@ -825,7 +715,6 @@ export class MCPClient {
     }
 
     this.emitStateChange('DISCOVERING');
-    this.emitProgress('Discovering resources...');
 
     try {
       const request: ListResourcesRequest = {
@@ -837,22 +726,6 @@ export class MCPClient {
 
       this.emitStateChange('READY');
       this.emitProgress(`Discovered ${result.resources.length} resources`);
-
-      this._onObservabilityEvent.fire({
-        type: 'mcp:client:discovery',
-        level: 'info',
-        message: `Discovered ${result.resources.length} resources`,
-        displayMessage: `Discovered ${result.resources.length} resources`,
-        sessionId: this.sessionId,
-        serverId: this.serverId,
-        payload: {
-          type: 'resources',
-          count: result.resources.length,
-          items: result.resources.map((r) => r.uri),
-        },
-        timestamp: Date.now(),
-        id: nanoid(),
-      });
 
       return result;
     } catch (error) {
@@ -970,18 +843,9 @@ export class MCPClient {
       { capabilities: {} }
     );
 
-    const baseUrl = new URL(this.serverUrl!);
+    // Use default logic to get transport, defaulting to what's stored or auto
     const tt = this.transportType || 'streamable_http';
-
-    if (tt === 'sse') {
-      this.transport = new SSEClientTransport(baseUrl, {
-        authProvider: this.oauthProvider,
-      });
-    } else {
-      this.transport = new StreamableHTTPClientTransport(baseUrl, {
-        authProvider: this.oauthProvider,
-      });
-    }
+    this.transport = this.getTransport(tt);
 
     await this.client.connect(this.transport);
   }
