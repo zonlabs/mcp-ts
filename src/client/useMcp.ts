@@ -340,16 +340,18 @@ export function useMcp(options: UseMcpOptions): McpClient {
         );
       }
 
-      // Validate each session
-      for (const session of sessions) {
-        if (clientRef.current) {
-          try {
-            await clientRef.current.restoreSession(session.sessionId);
-          } catch (error) {
-            console.error(`[useMcp] Failed to validate session ${session.sessionId}:`, error);
+      // Validate each session in parallel
+      await Promise.all(
+        sessions.map(async (session) => {
+          if (clientRef.current) {
+            try {
+              await clientRef.current.restoreSession(session.sessionId);
+            } catch (error) {
+              console.error(`[useMcp] Failed to validate session ${session.sessionId}:`, error);
+            }
           }
-        }
-      }
+        })
+      );
     } catch (error) {
       console.error('[useMcp] Failed to load sessions:', error);
       onLog?.('error', 'Failed to load sessions', { error });
