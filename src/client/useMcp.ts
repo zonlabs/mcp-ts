@@ -53,6 +53,11 @@ export interface UseMcpOptions {
    * Debug logging callback
    */
   onLog?: (level: string, message: string, metadata?: Record<string, unknown>) => void;
+  /**
+   * Optional callback to handle OAuth redirects (e.g. for popup flow)
+   * If provided, this will be called instead of window.location.href assignment
+   */
+  onRedirect?: (url: string) => void;
 }
 
 export interface McpConnection {
@@ -186,6 +191,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
     autoInitialize = true,
     onConnectionEvent,
     onLog,
+    onRedirect,
   } = options;
 
   const clientRef = useRef<SSEClient | null>(null);
@@ -279,8 +285,10 @@ export function useMcp(options: UseMcpOptions): McpClient {
           // Handle OAuth redirect
           if (event.authUrl) {
             onLog?.('info', `OAuth required - redirecting to ${event.authUrl}`, { authUrl: event.authUrl });
-            // Redirect user to OAuth authorization URL
-            if (typeof window !== 'undefined') {
+
+            if (onRedirect) {
+              onRedirect(event.authUrl);
+            } else if (typeof window !== 'undefined') {
               window.location.href = event.authUrl;
             }
           }

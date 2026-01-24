@@ -62,7 +62,7 @@ export function McpConnections({ identity }: { identity: string }) {
       serverId: 'my-server',
       serverName: 'My MCP Server',
       serverUrl: 'https://mcp.example.com',
-      callbackUrl: window.location.origin + '/oauth/callback',
+      callbackUrl: window.location.origin + '/api/mcp/callback',
     });
   };
 
@@ -176,7 +176,7 @@ export default function Home() {
 
 ## OAuth Callback Handler
 
-Handle OAuth callbacks at `app/oauth/callback/page.tsx`:
+Handle OAuth callbacks at `app/oauth/callback-popup/page.tsx` (for popups) or `app/oauth/callback/page.tsx` (for redirects):
 
 ```typescript
 'use client';

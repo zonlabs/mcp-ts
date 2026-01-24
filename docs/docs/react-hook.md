@@ -238,7 +238,7 @@ function ToolCaller() {
       serverId: 'weather-server',
       serverName: 'Weather Server',
       serverUrl: 'https://weather-mcp.example.com',
-      callbackUrl: window.location.origin + '/callback',
+      callbackUrl: window.location.origin + '/api/mcp/callback',
     });
 
     // Call a tool after connecting
@@ -311,7 +311,7 @@ function McpWithAuth() {
       serverId: 'protected-server',
       serverName: 'Protected Server',
       serverUrl: 'https://secure-mcp.example.com',
-      callbackUrl: window.location.origin + '/oauth/callback',
+      callbackUrl: window.location.origin + '/oauth/callback-popup',
     })}>
       Connect (will redirect for auth)
     </button>

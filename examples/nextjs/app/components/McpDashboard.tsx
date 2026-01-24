@@ -1,12 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMcp } from '@mcp-ts/redis/client';
 import styles from './McpDashboard.module.css';
+import ConnectForm from './dashboard/ConnectForm';
+import ConnectionList from './dashboard/ConnectionList';
+import ToolExecutor from './dashboard/ToolExecutor';
+import McpHeader from './dashboard/McpHeader';
+import { useOAuthPopup } from './dashboard/useOAuthPopup';
+import { Connection, ConnectConfig } from './dashboard/types';
 
 export default function McpDashboard() {
   const [identity] = useState('demo-user-123');
   const [authToken] = useState('demo-auth-token');
+
+  // Tool execution state
+  const [selectedTool, setSelectedTool] = useState<{
+    sessionId: string;
+    toolName: string;
+  } | null>(null);
+
+  // Connect/State loading
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  // Popup reference for OAuth
+  const popupRef = useRef<Window | null>(null);
 
   const {
     connections,
@@ -15,7 +34,7 @@ export default function McpDashboard() {
     connect,
     disconnect,
     callTool,
-    listTools,
+    finishAuth,
   } = useMcp({
     url: '/api/mcp',
     identity,
@@ -25,40 +44,46 @@ export default function McpDashboard() {
     onLog: (level, message, metadata) => {
       console.log(`[${level}] ${message}`, metadata);
     },
+    // Handle OAuth redirect with a popup
+    onRedirect: (url) => {
+      // Calculate center position
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      const popup = window.open(
+        url,
+        'mcp-auth-popup',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
+      );
+
+      if (popup) {
+        popupRef.current = popup;
+      } else {
+        alert('Popup blocked! Please allow popups for this site to complete authentication.');
+      }
+    }
   });
 
-  const [serverName, setServerName] = useState('');
-  const [serverId, setServerId] = useState('');
-  const [serverUrl, setServerUrl] = useState('');
-  const [callbackUrl, setCallbackUrl] = useState('http://localhost:3000/oauth/callback');
-  const [transportType, setTransportType] = useState<'sse' | 'streamable_http'>('streamable_http');
-  const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Use custom hook for OAuth popup logic
+  useOAuthPopup(connections as Connection[], finishAuth);
 
-  // Tool execution state
-  const [selectedTool, setSelectedTool] = useState<{
-    sessionId: string;
-    toolName: string;
-  } | null>(null);
-  const [toolArgs, setToolArgs] = useState('{}');
-  const [toolResult, setToolResult] = useState<any>(null);
-  const [isExecuting, setIsExecuting] = useState(false);
-
-  const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handler for ConnectForm
+  const handleConnect = async (config: ConnectConfig) => {
     setConnecting(true);
-    setError(null);
+    setConnectError(null);
 
     try {
       await connect({
-        serverId,
-        serverName,
-        serverUrl,
-        callbackUrl,
-        // transportType, // Commented out to test auto-fallback
+        serverId: config.serverId,
+        serverName: config.serverName,
+        serverUrl: config.serverUrl,
+        callbackUrl: config.callbackUrl,
+        transportType: config.transportType === 'auto' ? undefined : config.transportType
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect');
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect');
     } finally {
       setConnecting(false);
     }
@@ -72,219 +97,53 @@ export default function McpDashboard() {
     }
   };
 
-  const handleExecuteTool = async () => {
-    if (!selectedTool) return;
+  const handleSelectTool = (sessionId: string, toolName: string) => {
+    setSelectedTool({ sessionId, toolName });
+  };
 
+  const handleExecuteTool = async (sessionId: string, toolName: string, toolArgs: string) => {
+    try {
+      const args = JSON.parse(toolArgs);
+      const result = await callTool(sessionId, toolName, args);
+      return result;
+    } catch (err) {
+      return {
+        error: err instanceof Error ? err.message : 'Tool execution failed'
+      };
+    }
+  };
+
+  // State for tool execution result
+  const [toolResult, setToolResult] = useState<any>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+
+  const executeToolWrapper = async (sessionId: string, toolName: string, toolArgs: string) => {
     setIsExecuting(true);
     setToolResult(null);
-
-    try {
-      // Parse args from JSON input
-      const args = JSON.parse(toolArgs);
-      const result = await callTool(selectedTool.sessionId, selectedTool.toolName, args);
-      setToolResult(result);
-    } catch (err) {
-      setToolResult({
-        error: err instanceof Error ? err.message : 'Tool execution failed'
-      });
-    } finally {
-      setIsExecuting(false);
-    }
+    const result = await handleExecuteTool(sessionId, toolName, toolArgs);
+    setToolResult(result);
+    setIsExecuting(false);
+    return result;
   };
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>MCP Redis - Next.js Example</h1>
-        <div className={styles.statusBadge} data-status={status}>
-          SSE Status: {status}
-        </div>
-      </header>
+      <McpHeader status={status} />
 
       <div className={styles.grid}>
-        {/* Connect Form */}
-        <section className={styles.card}>
-          <h2>Connect to MCP Server</h2>
-          <form onSubmit={handleConnect} className={styles.form}>
-            <div className={styles.formGroup}>
-              <label htmlFor="serverId">Server ID</label>
-              <input
-                id="serverId"
-                type="text"
-                value={serverId}
-                onChange={(e) => setServerId(e.target.value)}
-                placeholder="server-001"
-                required
-                disabled={connecting}
-              />
-            </div>
+        <ConnectForm
+          onConnect={handleConnect}
+          connecting={connecting}
+          status={status}
+          error={connectError}
+        />
 
-            <div className={styles.formGroup}>
-              <label htmlFor="serverName">Server Name</label>
-              <input
-                id="serverName"
-                type="text"
-                value={serverName}
-                onChange={(e) => setServerName(e.target.value)}
-                placeholder="My MCP Server"
-                required
-                disabled={connecting}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label htmlFor="serverUrl">Server URL</label>
-              <input
-                id="serverUrl"
-                type="url"
-                value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="https://mcp.example.com"
-                required
-                disabled={connecting}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label htmlFor="callbackUrl">OAuth Callback URL</label>
-              <input
-                id="callbackUrl"
-                type="url"
-                value={callbackUrl}
-                onChange={(e) => setCallbackUrl(e.target.value)}
-                placeholder="http://localhost:3000/oauth/callback"
-                required
-                disabled={connecting}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label htmlFor="transportType">Transport Type</label>
-              <select
-                id="transportType"
-                value={transportType}
-                onChange={(e) => setTransportType(e.target.value as 'sse' | 'streamable_http')}
-                disabled={connecting}
-              >
-                <option value="streamable_http">Streamable HTTP (Recommended)</option>
-                <option value="sse">Server-Sent Events (SSE)</option>
-              </select>
-              <p className={styles.helpText}>
-                Most MCP servers support Streamable HTTP. Use SSE if your server specifically requires it.
-              </p>
-            </div>
-
-            {error && (
-              <div className={styles.error}>
-                {error}
-              </div>
-            )}
-
-            <button type="submit" disabled={connecting || status !== 'connected'} className={styles.button}>
-              {connecting ? 'Connecting...' : 'Connect'}
-            </button>
-
-            {status !== 'connected' && (
-              <p className={styles.helpText}>
-                Waiting for SSE connection...
-              </p>
-            )}
-          </form>
-        </section>
-
-        {/* Connections List */}
-        <section className={styles.card}>
-          <h2>Active Connections ({connections.length})</h2>
-
-          {isInitializing && (
-            <p className={styles.loading}>Loading sessions...</p>
-          )}
-
-          {!isInitializing && connections.length === 0 && (
-            <p className={styles.emptyState}>
-              No active connections. Connect to an MCP server to get started.
-            </p>
-          )}
-
-          {connections.map((connection) => (
-            <div key={connection.sessionId} className={styles.connection}>
-              <div className={styles.connectionHeader}>
-                <div>
-                  <h3>{connection.serverName}</h3>
-                  <div className={styles.connectionMeta}>
-                    <span className={styles.sessionId}>
-                      Session: {connection.sessionId.slice(0, 8)}...
-                    </span>
-                    <span className={`${styles.stateBadge} ${styles[`state${connection.state}`]}`}>
-                      {connection.state}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDisconnect(connection.sessionId)}
-                  className={styles.disconnectBtn}
-                >
-                  Disconnect
-                </button>
-              </div>
-
-              {connection.error && (
-                <div className={styles.connectionError}>
-                  <strong>Error:</strong> {connection.error}
-                </div>
-              )}
-
-              {connection.tools && connection.tools.length > 0 && (
-                <div className={styles.tools}>
-                  <h4>Tools ({connection.tools.length})</h4>
-                  <ul>
-                    {connection.tools.map((tool) => (
-                      <li key={tool.name}>
-                        <div className={styles.toolInfo}>
-                          <code>{tool.name}</code>
-                          {tool.description && (
-                            <span className={styles.toolDescription}>
-                              {tool.description}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => {
-                            setSelectedTool({
-                              sessionId: connection.sessionId,
-                              toolName: tool.name,
-                            });
-                            setToolArgs('{}');
-                            setToolResult(null);
-                          }}
-                          className={styles.executeBtn}
-                        >
-                          Execute
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <details className={styles.details}>
-                <summary>Connection Details</summary>
-                <dl>
-                  <dt>Server ID:</dt>
-                  <dd>{connection.serverId}</dd>
-                  <dt>Server URL:</dt>
-                  <dd>{connection.serverUrl}</dd>
-                  <dt>Session ID:</dt>
-                  <dd className={styles.monospace}>{connection.sessionId}</dd>
-                  <dt>Transport:</dt>
-                  <dd>{connection.transport || 'sse'}</dd>
-                  <dt>State:</dt>
-                  <dd>{connection.state}</dd>
-                </dl>
-              </details>
-            </div>
-          ))}
-        </section>
+        <ConnectionList
+          connections={connections as Connection[]}
+          isInitializing={isInitializing}
+          onDisconnect={handleDisconnect}
+          onSelectTool={handleSelectTool}
+        />
 
         {/* Info Section */}
         <section className={`${styles.card} ${styles.infoCard}`}>
@@ -315,55 +174,16 @@ export default function McpDashboard() {
         </section>
       </div>
 
-      {/* Tool Execution Panel */}
-      {selectedTool && (
-        <div className={styles.modal}>
-          <h3>Execute Tool: {selectedTool.toolName}</h3>
-
-          <div className={styles.modalContent}>
-            <label className={styles.modalLabel}>
-              Tool Arguments (JSON):
-            </label>
-            <textarea
-              value={toolArgs}
-              onChange={(e) => setToolArgs(e.target.value)}
-              placeholder='{"arg1": "value1", "arg2": "value2"}'
-              className={styles.modalTextarea}
-            />
-          </div>
-
-          {toolResult && (
-            <div className={`${styles.modalResult} ${toolResult.error ? styles.error : styles.success}`}>
-              <h4>Result:</h4>
-              <pre>{JSON.stringify(toolResult, null, 2)}</pre>
-            </div>
-          )}
-
-          <div className={styles.modalActions}>
-            <button
-              onClick={() => setSelectedTool(null)}
-              className={styles.buttonSecondary}
-            >
-              Close
-            </button>
-            <button
-              onClick={handleExecuteTool}
-              disabled={isExecuting}
-              className={styles.button}
-            >
-              {isExecuting ? 'Executing...' : 'Run Tool'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Overlay */}
-      {selectedTool && (
-        <div
-          onClick={() => setSelectedTool(null)}
-          className={styles.overlay}
-        />
-      )}
+      <ToolExecutor
+        selectedTool={selectedTool}
+        onClose={() => {
+          setSelectedTool(null);
+          setToolResult(null);
+        }}
+        onExecute={executeToolWrapper}
+        isExecuting={isExecuting}
+        toolResult={toolResult}
+      />
     </div>
   );
 }

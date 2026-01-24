@@ -27,8 +27,14 @@ examples/nextjs/
 │   │   └── mcp/
 │   │       └── route.ts              # SSE endpoint & RPC handler
 │   ├── components/
-│   │   ├── McpDashboard.tsx          # Main dashboard component
-│   │   └── McpDashboard.module.css   # Component styles
+│   │   ├── McpDashboard.tsx          # Main container
+│   │   ├── McpDashboard.module.css   # Component styles
+│   │   └── dashboard/                # Dashboard sub-components
+│   │       ├── ConnectForm.tsx       # Connection form
+│   │       ├── ConnectionList.tsx    # List of active connections
+│   │       ├── ConnectionItem.tsx    # Individual connection item
+│   │       ├── ToolExecutor.tsx      # Tool execution modal
+│   │       └── useOAuthPopup.ts      # OAuth logic hook
 │   ├── layout.tsx                     # Root layout
 │   ├── page.tsx                       # Home page
 │   └── globals.css                    # Global styles
@@ -197,7 +203,8 @@ Fill in the connection form with:
 - **Server ID**: Unique identifier for this connection
 - **Server Name**: Friendly display name
 - **Server URL**: The MCP server endpoint
-- **OAuth Callback URL**: Where OAuth should redirect (usually your app URL + `/oauth/callback`)
+- **Transport Type**: Select "Auto" (default) to let the client negotiate, or force SSE/HTTP
+- **OAuth Callback URL**: Where OAuth should redirect (usually your app URL + `/oauth/callback-popup` for popups or `/oauth/callback` for redirects)
 
 Click "Connect" to initiate the connection.
 
