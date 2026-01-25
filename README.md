@@ -34,34 +34,49 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export const { GET, POST } = createNextMcpHandler({
-  getIdentity: (request) => {
-    return new URL(request.url).searchParams.get('identity');
-  },
+  authenticate: () => {
+    //  your logic here
+  }
 });
 ```
 
+### Client-Side (React)
+
+```typescript
+'use client';
+import { useMcp } from '@mcp-ts/redis/client';
+
+function App() {
+  const { connections, connect, status } = useMcp({
+    url: '/api/mcp',
+    identity: 'user-123',
+  });
+
+  return (
+    <div>
+      <p>Status: {status}</p>
+      <button onClick={() => connect({
+        serverId: 'my-server',
+        serverName: 'My MCP Server',
+        serverUrl: 'https://mcp.example.com',
+        callbackUrl: window.location.origin + '/callback',
+      })}>
+        Connect
+      </button>
+
+      {connections.map(conn => (
+        <div key={conn.sessionId}>
+          <h3>{conn.serverName}</h3>
+          <p>State: {conn.state}</p>
+          <p>Tools: {conn.tools.length}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 ```
-42: ### Client-Side (React)
-43: 
-44: ```typescript
-45: 'use client';
-46: import { useMcp } from '@mcp-ts/redis/client/react';
-47: 
-48: function App() {
-49:   // ... React implementation
-50: }
-51: ```
-52: 
-53: ### Client-Side (Vue)
-54: 
-55: ```typescript
-56: import { useMcp } from '@mcp-ts/redis/client/vue';
-57: 
-58: const { connections, connect, status } = useMcp({
-59:   url: '/api/mcp',
-60:   identity: 'user-123',
-61: });
-62: ```
+
+
 
 ## Documentation
 
