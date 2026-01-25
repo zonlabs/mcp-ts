@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/redis/client/react';
 import styles from './McpDashboard.module.css';
 import ConnectForm from './dashboard/ConnectForm';
 import ConnectionList from './dashboard/ConnectionList';
@@ -155,7 +155,7 @@ export default function McpDashboard() {
           <ul>
             <li>Server-side SSE endpoint for real-time updates</li>
             <li>Client-side React hook for managing connections</li>
-            <li>OAuth 2.0 authentication flow</li>
+            <li>OAuth 2.1 authentication flow</li>
             <li>Redis-backed session persistence</li>
             <li>Tool discovery and execution</li>
           </ul>

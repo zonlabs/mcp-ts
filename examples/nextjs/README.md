@@ -8,7 +8,7 @@ This example demonstrates a complete full-stack implementation of `@mcp-ts/redis
 - SSE endpoint implementation using Next.js API routes
 - Redis-backed session management
 - RPC request handling (connect, disconnect, tool execution)
-- OAuth 2.0 flow integration
+- OAuth 2.1 flow integration
 - Real-time event streaming to clients
 
 ### Client-Side

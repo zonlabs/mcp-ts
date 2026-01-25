@@ -56,7 +56,7 @@ function App() {
           <h4>Features:</h4>
           <ul>
             <li>Real-time connection status via SSE</li>
-            <li>OAuth 2.0 authentication flow</li>
+            <li>OAuth 2.1 authentication flow</li>
             <li>Tool discovery and execution</li>
             <li>Automatic reconnection handling</li>
             <li>Redis-backed session persistence</li>

@@ -6,7 +6,7 @@ This example demonstrates how to use `@mcp-ts/redis` in a React application with
 
 - Using the `useMcp` React hook for managing MCP connections
 - Real-time connection status updates via Server-Sent Events (SSE)
-- OAuth 2.0 authentication flow handling
+- OAuth 2.1 authentication flow handling
 - Discovering and calling tools from MCP servers
 - Managing multiple concurrent connections
 - Error handling and reconnection logic

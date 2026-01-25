@@ -88,7 +88,7 @@ export default function ConnectForm({ onConnect, isConnected }: ConnectFormProps
       </button>
 
       <p className="help-text">
-        This will initiate an OAuth 2.0 flow to connect to the MCP server.
+        This will initiate an OAuth 2.1 flow to connect to the MCP server.
         Make sure your backend SSE endpoint is running.
       </p>
     </form>

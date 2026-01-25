@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Next.js example for @mcp-ts/redis",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

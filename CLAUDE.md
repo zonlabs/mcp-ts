@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI assista
 
 ## Package Overview
 
-`@mcp-ts/redis` is an npm package that provides Redis-backed MCP (Model Context Protocol) client functionality with OAuth 2.0 authentication and real-time SSE (Server-Sent Events) connections. It's designed for serverless environments and follows the Cloudflare agents pattern for observable state management.
+`@mcp-ts/redis` is an npm package that provides Redis-backed MCP (Model Context Protocol) client functionality with OAuth 2.1 authentication and real-time SSE (Server-Sent Events) connections. It's designed for serverless environments and follows the Cloudflare agents pattern for observable state management.
 
 ## Recent Changes (v1.0.0-beta.3+)
 
@@ -32,7 +32,7 @@ The package is structured into three main parts:
 
 ### 1. Server (`src/server/`)
 Node.js server-side code for MCP connections and session management:
-- **`oauth-client.ts`** - Main MCPClient class with OAuth 2.0 support
+- **`oauth-client.ts`** - Main MCPClient class with OAuth 2.1 support
 - **`session-store.ts`** - Redis-backed session management with 12-hour TTL
 - **`redis-oauth-client-provider.ts`** - OAuth provider implementation using Redis
 - **`sse-handler.ts`** - SSE endpoint handler for real-time connection updates
@@ -406,5 +406,5 @@ When making changes:
 
 This package was developed with assistance from Claude (Anthropic's AI assistant). The architecture was inspired by:
 - Cloudflare's agents pattern (observable state management)
-- MCP SDK best practices (OAuth 2.0 flows)
+- MCP SDK best practices (OAuth 2.1 flows)
 - Modern npm package standards (dual ESM/CJS exports)

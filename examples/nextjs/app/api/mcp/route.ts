@@ -2,7 +2,7 @@ import { createNextMcpHandler } from '@mcp-ts/redis/server';
 
 /**
  * MCP SSE endpoint
- * Handles real-time MCP connections with OAuth 2.0 authentication
+ * Handles real-time MCP connections with OAuth 2.1 authentication
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
