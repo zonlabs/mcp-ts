@@ -44,98 +44,59 @@ export class RedisStorageBackend implements StorageBackend {
         return firstChar() + rest();
     }
 
-    async setClient(options: SetClientOptions): Promise<void> {
-        const {
-            sessionId,
-            serverId,
-            serverName,
-            serverUrl,
-            callbackUrl,
-            transportType = 'streamable_http',
-            identity,
-            headers,
-            active = false
-        } = options;
+    async createSession(session: SessionData): Promise<void> {
+        const { sessionId, identity } = session;
+        if (!sessionId || !identity) throw new Error('identity and sessionId required');
 
-        if (!serverUrl || !callbackUrl) {
-            throw new Error('serverUrl and callbackUrl required');
+        const sessionKey = this.getSessionKey(identity, sessionId);
+        const identityKey = this.getIdentityKey(identity);
+
+        // ioredis syntax: set(key, val, 'EX', ttl, 'NX')
+        const result = await this.redis.set(
+            sessionKey,
+            JSON.stringify(session),
+            'EX',
+            this.SESSION_TTL,
+            'NX'
+        );
+
+        if (result !== 'OK') {
+            throw new Error(`Session ${sessionId} already exists`);
         }
 
-        if (!identity || !sessionId) {
-            throw new Error('identity and sessionId required');
-        }
-
-        try {
-            const sessionKey = this.getSessionKey(identity, sessionId);
-            const existingDataStr = await this.redis.get(sessionKey);
-            const existingData = existingDataStr ? JSON.parse(existingDataStr) : {};
-
-            const sessionData: SessionData = {
-                ...existingData,
-                sessionId,
-                serverId,
-                serverName,
-                serverUrl,
-                callbackUrl,
-                transportType,
-                createdAt: existingData.createdAt || Date.now(),
-                active,
-                identity,
-                headers,
-            };
-
-            await this.redis.setex(sessionKey, this.SESSION_TTL, JSON.stringify(sessionData));
-
-            const identityKey = this.getIdentityKey(identity);
-            await this.redis.sadd(identityKey, sessionId);
-        } catch (error) {
-            console.error('[RedisStorage] Failed to store session:', error);
-            throw error;
-        }
+        await this.redis.sadd(identityKey, sessionId);
     }
-
     async updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void> {
-        if (!identity || !sessionId) {
-            throw new Error('identity and sessionId required');
-        }
+        const sessionKey = this.getSessionKey(identity, sessionId);
 
-        try {
-            const sessionKey = this.getSessionKey(identity, sessionId);
-            const existingDataStr = await this.redis.get(sessionKey);
+        // Lua script for atomic parsing, merging, and saving
+        const script = `
+            local currentStr = redis.call("GET", KEYS[1])
+            if not currentStr then
+                return 0
+            end
+            
+            local current = cjson.decode(currentStr)
+            local updates = cjson.decode(ARGV[1])
+            
+            for k,v in pairs(updates) do
+                current[k] = v
+            end
+            
+            redis.call("SET", KEYS[1], cjson.encode(current), "EX", ARGV[2])
+            return 1
+        `;
 
-            if (!existingDataStr) {
-                // Optimization: if trying to update non-existent session, maybe create it if data has minimal fields?
-                // But for now, let's assume we are updating existing, or we treat it as create new if enough data?
-                // Let's just create raw object if missing.
-                const sessionData: SessionData = {
-                    sessionId,
-                    identity,
-                    createdAt: Date.now(),
-                    active: false,
-                    // These fields should be in data if it's a new session, otherwise they might lack required
-                    // But StorageOAuthClientProvider ensures base data is present if creating new.
-                    ...data
-                } as SessionData;
-                // Note: unsafe cast but assumes caller knows what they are doing if session is new.
+        const result = await this.redis.eval(
+            script,
+            1,
+            sessionKey,
+            JSON.stringify(data),
+            this.SESSION_TTL
+        );
 
-                await this.redis.setex(sessionKey, this.SESSION_TTL, JSON.stringify(sessionData));
-                // Also add to identity key
-                const identityKey = this.getIdentityKey(identity);
-                await this.redis.sadd(identityKey, sessionId);
-                return;
-            }
-
-            const existingData = JSON.parse(existingDataStr);
-            const sessionData: SessionData = {
-                ...existingData,
-                ...data
-            };
-
-            await this.redis.setex(sessionKey, this.SESSION_TTL, JSON.stringify(sessionData));
-            // Refresh TTL by re-setting
-        } catch (error) {
-            console.error('[RedisStorage] Failed to update session:', error);
-            throw error;
+        if (result === 0) {
+            throw new Error(`Session ${sessionId} not found for identity ${identity}`);
         }
     }
 

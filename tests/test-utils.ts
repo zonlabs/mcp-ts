@@ -1,14 +1,15 @@
 /**
  * Test utilities and mocks for MCP Redis library
  */
-import Redis from 'ioredis-mock';
+import RedisMock from 'ioredis-mock';
+import { Redis } from 'ioredis';
 
 /**
  * Create a mock Redis instance for testing
  * Uses ioredis-mock to simulate Redis behavior
  */
 export function createMockRedis(): Redis {
-    return new Redis();
+    return new RedisMock() as unknown as Redis;
 }
 
 /**

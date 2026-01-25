@@ -300,8 +300,6 @@ export class MCPClient {
         this.sessionId,
         clientMetadata.client_name ?? 'MCP Assistant',
         this.callbackUrl,
-        this.serverUrl!,
-        this.transportType || 'streamable_http',
         (redirectUrl: string) => {
           if (this.onRedirect) {
             this.onRedirect(redirectUrl);
@@ -335,14 +333,12 @@ export class MCPClient {
       return;
     }
 
-    await storage.setClient({
-      sessionId: this.sessionId,
+    await storage.updateSession(this.identity, this.sessionId, {
       serverId: this.serverId,
       serverName: this.serverName,
       serverUrl: this.serverUrl,
       callbackUrl: this.callbackUrl,
       transportType: this.transportType || 'streamable_http',
-      identity: this.identity,
       active,
     });
   }

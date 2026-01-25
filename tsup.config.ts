@@ -22,6 +22,8 @@ export default defineConfig({
     'react',
     'ioredis',
     '@modelcontextprotocol/sdk',
+    'fs',
+    'path',
   ],
   // Platform-specific bundles
   platform: 'neutral',

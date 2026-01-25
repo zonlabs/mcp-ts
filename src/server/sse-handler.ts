@@ -281,6 +281,19 @@ export class SSEConnectionManager {
         },
       });
 
+      // Create initial session in storage
+      await storage.createSession({
+        sessionId,
+        identity: this.identity,
+        serverId,
+        serverName,
+        serverUrl,
+        callbackUrl,
+        transportType: transportType || 'streamable_http',
+        createdAt: Date.now(),
+        active: false,
+      });
+
       // Store client
       this.clients.set(sessionId, client);
 

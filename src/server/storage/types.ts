@@ -53,10 +53,13 @@ export interface StorageBackend {
     /**
      * Stores or updates a session
      */
-    setClient(options: SetClientOptions): Promise<void>;
+    /**
+     * Creates a new session. Throws if session already exists.
+     */
+    createSession(session: SessionData): Promise<void>;
 
     /**
-     * Updates an existing session with partial data
+     * Updates an existing session with partial data. Throws if session does not exist.
      */
     updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void>;
 

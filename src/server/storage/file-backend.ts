@@ -88,41 +88,17 @@ export class FileStorageBackend implements StorageBackend {
         return firstChar() + rest();
     }
 
-    async setClient(options: SetClientOptions): Promise<void> {
+    async createSession(session: SessionData): Promise<void> {
         await this.ensureInitialized();
-        const {
-            sessionId,
-            serverId,
-            serverName,
-            serverUrl,
-            callbackUrl,
-            transportType = 'streamable_http',
-            identity,
-            headers,
-            active = false
-        } = options;
-
-        if (!serverUrl || !callbackUrl) throw new Error('serverUrl and callbackUrl required');
-        if (!identity || !sessionId) throw new Error('identity and sessionId required');
+        const { sessionId, identity } = session;
+        if (!sessionId || !identity) throw new Error('identity and sessionId required');
 
         const sessionKey = this.getSessionKey(identity, sessionId);
-        const existingData = this.memoryCache!.get(sessionKey) || {};
+        if (this.memoryCache!.has(sessionKey)) {
+            throw new Error(`Session ${sessionId} already exists`);
+        }
 
-        const sessionData: SessionData = {
-            ...((existingData as unknown) as SessionData),
-            sessionId,
-            serverId,
-            serverName,
-            serverUrl,
-            callbackUrl,
-            transportType,
-            createdAt: (existingData as SessionData).createdAt || Date.now(),
-            active,
-            identity,
-            headers,
-        };
-
-        this.memoryCache!.set(sessionKey, sessionData);
+        this.memoryCache!.set(sessionKey, session);
         await this.flush();
     }
 
@@ -131,27 +107,18 @@ export class FileStorageBackend implements StorageBackend {
         if (!identity || !sessionId) throw new Error('identity and sessionId required');
 
         const sessionKey = this.getSessionKey(identity, sessionId);
-        const existingData = this.memoryCache!.get(sessionKey);
+        const current = this.memoryCache!.get(sessionKey);
 
-        if (!existingData) {
-            const sessionData: SessionData = {
-                sessionId,
-                identity,
-                createdAt: Date.now(),
-                active: false,
-                ...data
-            } as SessionData;
-            this.memoryCache!.set(sessionKey, sessionData);
-            await this.flush();
-            return;
+        if (!current) {
+            throw new Error(`Session ${sessionId} not found`);
         }
 
-        const sessionData: SessionData = {
-            ...existingData,
+        const updated = {
+            ...current,
             ...data
         };
 
-        this.memoryCache!.set(sessionKey, sessionData);
+        this.memoryCache!.set(sessionKey, updated);
         await this.flush();
     }
 

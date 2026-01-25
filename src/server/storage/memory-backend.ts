@@ -35,46 +35,16 @@ export class MemoryStorageBackend implements StorageBackend {
         return firstChar() + rest();
     }
 
-    async setClient(options: SetClientOptions): Promise<void> {
-        const {
-            sessionId,
-            serverId,
-            serverName,
-            serverUrl,
-            callbackUrl,
-            transportType = 'streamable_http',
-            identity,
-            headers,
-            active = false
-        } = options;
-
-        if (!serverUrl || !callbackUrl) {
-            throw new Error('serverUrl and callbackUrl required');
-        }
-
-        if (!identity || !sessionId) {
-            throw new Error('identity and sessionId required');
-        }
+    async createSession(session: SessionData): Promise<void> {
+        const { sessionId, identity } = session;
+        if (!sessionId || !identity) throw new Error('identity and sessionId required');
 
         const sessionKey = this.getSessionKey(identity, sessionId);
-        const existingData = this.sessions.get(sessionKey) || {};
+        if (this.sessions.has(sessionKey)) {
+            throw new Error(`Session ${sessionId} already exists`);
+        }
 
-        const sessionData: SessionData = {
-            // Initialize with existing data if present
-            ...((existingData as unknown) as SessionData),
-            sessionId,
-            serverId,
-            serverName,
-            serverUrl,
-            callbackUrl,
-            transportType,
-            createdAt: (existingData as SessionData).createdAt || Date.now(),
-            active,
-            identity,
-            headers,
-        };
-
-        this.sessions.set(sessionKey, sessionData);
+        this.sessions.set(sessionKey, session);
 
         // Update index
         if (!this.identitySessions.has(identity)) {
@@ -87,32 +57,20 @@ export class MemoryStorageBackend implements StorageBackend {
         if (!identity || !sessionId) throw new Error('identity and sessionId required');
 
         const sessionKey = this.getSessionKey(identity, sessionId);
-        const existingData = this.sessions.get(sessionKey);
+        const current = this.sessions.get(sessionKey);
 
-        if (!existingData) {
-            const sessionData: SessionData = {
-                sessionId,
-                identity,
-                createdAt: Date.now(),
-                active: false,
-                ...data
-            } as SessionData;
-            this.sessions.set(sessionKey, sessionData);
-
-            if (!this.identitySessions.has(identity)) {
-                this.identitySessions.set(identity, new Set());
-            }
-            this.identitySessions.get(identity)!.add(sessionId);
-            return;
+        if (!current) {
+            throw new Error(`Session ${sessionId} not found`);
         }
 
-        const sessionData: SessionData = {
-            ...existingData,
+        const updated = {
+            ...current,
             ...data
         };
 
-        this.sessions.set(sessionKey, sessionData);
+        this.sessions.set(sessionKey, updated);
     }
+
 
     async getSession(identity: string, sessionId: string): Promise<SessionData | null> {
         const sessionKey = this.getSessionKey(identity, sessionId);

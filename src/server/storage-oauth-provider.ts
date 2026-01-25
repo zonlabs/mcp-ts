@@ -39,7 +39,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     /**
      * Creates a new Storage-backed OAuth provider
      * @param identity - User/Client identifier
-     * @param serverId - Server identifier
+     * @param serverId - Server identifier (for tracking which server this OAuth session belongs to)
      * @param sessionId - Session identifier (used as OAuth state)
      * @param clientName - OAuth client name
      * @param baseRedirectUrl - OAuth callback URL
@@ -51,8 +51,6 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         public sessionId: string,
         public clientName: string,
         public baseRedirectUrl: string,
-        public serverUrl: string,
-        public transportType: string = 'streamable_http',
         onRedirect?: (url: string) => void
     ) {
         this.onRedirectCallback = onRedirect;
@@ -103,41 +101,12 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
      * Saves OAuth data to storage
      * @param data - Partial OAuth data to save
      * @private
-     */
-    /**
-     * Saves OAuth data to storage
-     * @param data - Partial OAuth data to save
-     * @private
+     * @throws Error if session doesn't exist (session must be created by controller layer)
      */
     private async saveSessionData(data: Partial<SessionData>): Promise<void> {
-        const current = await storage.getSession(this.identity, this.sessionId);
-
-        if (!current) {
-            // If creating new session, we need to ensure all required fields are present
-            if (this.serverUrl && this.serverId && this.baseRedirectUrl) {
-                const newSession: SessionData = {
-                    sessionId: this.sessionId,
-                    serverId: this.serverId,
-                    serverName: this.serverId, // Default to Id until updated
-                    serverUrl: this.serverUrl,
-                    callbackUrl: this.baseRedirectUrl,
-                    transportType: this.transportType as any,
-                    identity: this.identity,
-                    active: false,
-                    createdAt: Date.now(),
-                    ...data // Merge initial data like clientInformation
-                };
-
-                // Use updateSession to save the full object (including OAuth fields)
-                await storage.updateSession(this.identity, this.sessionId, newSession);
-            } else {
-                console.error(`[StorageOAuthProvider] Session not found ${this.sessionId} and missing details to create it`);
-                throw new Error("Session not found");
-            }
-        } else {
-            // Update existing session
-            await storage.updateSession(this.identity, this.sessionId, data);
-        }
+        // OAuth provider should ONLY update existing sessions
+        // Session creation is the responsibility of the controller (sse-handler)
+        await storage.updateSession(this.identity, this.sessionId, data);
     }
 
     /**
