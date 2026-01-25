@@ -4,6 +4,10 @@ sidebar_position: 3
 
 # Next.js Integration
 
+import { SiNextdotjs } from "react-icons/si";
+
+<h1><SiNextdotjs style={{verticalAlign: 'middle', marginRight: '10px'}} /> Next.js Support</h1>
+
 Complete guide for integrating mcp-ts with Next.js applications (App Router and Pages Router).
 
 ## App Router (Recommended)
@@ -316,6 +320,6 @@ export function McpClient({ identity }: { identity: string }) {
 
 ## Next Steps
 
-- [React Hook API](./react-hook.md) - Detailed hook documentation
+- [React Hook API](./react.md) - Detailed hook documentation
 - [API Reference](./api-reference.md) - Complete API reference
 - [Examples](https://github.com/ashen-dusk/mcp-ts/tree/main/examples) - More code examples

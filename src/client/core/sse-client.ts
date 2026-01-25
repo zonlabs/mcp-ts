@@ -4,7 +4,7 @@
  */
 
 import { nanoid } from 'nanoid';
-import type { McpConnectionEvent, McpObservabilityEvent } from '../shared/events';
+import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events';
 import type {
   McpRpcRequest,
   McpRpcResponse,
@@ -19,7 +19,7 @@ import type {
   ListToolsRpcResult,
   ListPromptsResult,
   ListResourcesResult,
-} from '../shared/types';
+} from '../../shared/types';
 
 export interface SSEClientOptions {
   /**

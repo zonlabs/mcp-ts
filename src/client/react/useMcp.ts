@@ -5,8 +5,8 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { SSEClient, type SSEClientOptions } from './sse-client';
-import type { McpConnectionEvent, McpConnectionState } from '../shared/events';
+import { SSEClient, type SSEClientOptions } from '../core/sse-client';
+import type { McpConnectionEvent, McpConnectionState } from '../../shared/events';
 import type {
   ToolInfo,
   FinishAuthResult,
@@ -14,7 +14,7 @@ import type {
   ListPromptsResult,
   ListResourcesResult,
   SessionInfo,
-} from '../shared/types';
+} from '../../shared/types';
 
 export interface UseMcpOptions {
   /**
@@ -342,7 +342,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
 
       // Validate each session in parallel
       await Promise.all(
-        sessions.map(async (session) => {
+        sessions.map(async (session: SessionInfo) => {
           if (clientRef.current) {
             try {
               await clientRef.current.restoreSession(session.sessionId);

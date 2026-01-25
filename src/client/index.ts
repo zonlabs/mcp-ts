@@ -4,10 +4,9 @@
  */
 
 // SSE client for real-time connections
-export { SSEClient, type SSEClientOptions } from './sse-client';
+export { SSEClient, type SSEClientOptions } from './core/sse-client';
 
-// React hook
-export { useMcp, type UseMcpOptions, type McpClient, type McpConnection } from './useMcp';
+
 
 // Re-export shared types
 export type {
