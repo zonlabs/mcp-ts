@@ -1,6 +1,6 @@
 # @mcp-ts/redis
 
-Lightweight MCP (Model Context Protocol) client library for JavaScript applications with Redis-backed session management and real-time SSE support.
+A Lightweight MCP (Model Context Protocol) client library for JavaScript applications, supporting multiple storage backends and real-time SSE support.
 
 [![npm version](https://badge.fury.io/js/@mcp-ts%2Fredis.svg)](https://www.npmjs.com/package/@mcp-ts/redis)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -80,12 +80,12 @@ function App() {
 
 ## Documentation
 
-Full documentation is available at: **[https://ashen-dusk.github.io/mcp-ts/](https://ashen-dusk.github.io/mcp-ts/)**
+Full documentation is available at: **[Docs](https://oxolabs.github.io/mcp-ts/)**
 
 ### Topics Covered:
 
-- **[Getting Started](https://ashen-dusk.github.io/mcp-ts/docs/)** - Quick setup and overview
-- **[Installation](https://ashen-dusk.github.io/mcp-ts/docs/installation)** - Detailed installation guide
+- **[Getting Started](https://oxolabs.github.io/mcp-ts/docs/)** - Quick setup and overview
+- **[Installation](https://oxolabs.github.io/mcp-ts/docs/installation)** - Detailed installation guide
 - **[Storage Backends](https://ashen-dusk.github.io/mcp-ts/docs/storage-backends)** - Redis, File, Memory options
 - **[Next.js Integration](https://ashen-dusk.github.io/mcp-ts/docs/nextjs)** - Complete Next.js examples
 - **[React Hook Guide](https://ashen-dusk.github.io/mcp-ts/docs/react-hook)** - Using the useMcp hook
