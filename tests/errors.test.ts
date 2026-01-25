@@ -2,22 +2,19 @@
  * Tests for error classes
  * Verifies error hierarchy and serialization
  */
-import { describe, it, expect } from 'vitest';
+import { test, expect } from '@playwright/test';
 import {
     McpError,
     UnauthorizedError,
     ConnectionError,
     SessionNotFoundError,
-    AuthenticationError,
-    NotConnectedError,
-    ConfigurationError,
     ToolExecutionError,
     RpcErrorCodes,
 } from '../src/shared/errors';
 
-describe('Error Classes', () => {
-    describe('McpError', () => {
-        it('should create error with code and message', () => {
+test.describe('Error Classes', () => {
+    test.describe('McpError', () => {
+        test('should create error with code and message', () => {
             const error = new McpError('TEST_ERROR', 'Test error message');
 
             expect(error.code).toBe('TEST_ERROR');
@@ -26,14 +23,14 @@ describe('Error Classes', () => {
             expect(error instanceof Error).toBe(true);
         });
 
-        it('should include cause when provided', () => {
+        test('should include cause when provided', () => {
             const cause = new Error('Original error');
             const error = new McpError('WRAPPER', 'Wrapped error', cause);
 
             expect(error.cause).toBe(cause);
         });
 
-        it('should serialize to JSON', () => {
+        test('should serialize to JSON', () => {
             const error = new McpError('JSON_TEST', 'Serializable error');
             const json = error.toJSON();
 
@@ -43,8 +40,8 @@ describe('Error Classes', () => {
         });
     });
 
-    describe('UnauthorizedError', () => {
-        it('should have correct defaults', () => {
+    test.describe('UnauthorizedError', () => {
+        test('should have correct defaults', () => {
             const error = new UnauthorizedError();
 
             expect(error.code).toBe('UNAUTHORIZED');
@@ -52,15 +49,15 @@ describe('Error Classes', () => {
             expect(error.name).toBe('UnauthorizedError');
         });
 
-        it('should accept custom message', () => {
+        test('should accept custom message', () => {
             const error = new UnauthorizedError('Token expired');
 
             expect(error.message).toBe('Token expired');
         });
     });
 
-    describe('ConnectionError', () => {
-        it('should have CONNECTION_ERROR code', () => {
+    test.describe('ConnectionError', () => {
+        test('should have CONNECTION_ERROR code', () => {
             const error = new ConnectionError('Failed to connect');
 
             expect(error.code).toBe('CONNECTION_ERROR');
@@ -68,8 +65,8 @@ describe('Error Classes', () => {
         });
     });
 
-    describe('SessionNotFoundError', () => {
-        it('should include session ID in message', () => {
+    test.describe('SessionNotFoundError', () => {
+        test('should include session ID in message', () => {
             const error = new SessionNotFoundError('abc123');
 
             expect(error.code).toBe('SESSION_NOT_FOUND');
@@ -77,8 +74,8 @@ describe('Error Classes', () => {
         });
     });
 
-    describe('ToolExecutionError', () => {
-        it('should include tool name in message', () => {
+    test.describe('ToolExecutionError', () => {
+        test('should include tool name in message', () => {
             const error = new ToolExecutionError('get_weather', 'API timeout');
 
             expect(error.code).toBe('TOOL_EXECUTION_ERROR');
@@ -87,8 +84,8 @@ describe('Error Classes', () => {
         });
     });
 
-    describe('RpcErrorCodes', () => {
-        it('should expose standard error codes', () => {
+    test.describe('RpcErrorCodes', () => {
+        test('should expose standard error codes', () => {
             expect(RpcErrorCodes.EXECUTION_ERROR).toBe('EXECUTION_ERROR');
             expect(RpcErrorCodes.MISSING_IDENTITY).toBe('MISSING_IDENTITY');
             expect(RpcErrorCodes.UNAUTHORIZED).toBe('UNAUTHORIZED');

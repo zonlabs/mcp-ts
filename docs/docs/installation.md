@@ -174,7 +174,7 @@ If using TypeScript, ensure your `tsconfig.json` includes:
 
 - [Storage Backends](./storage-backends.md) - Detailed backend comparison
 - [Next.js Integration](./nextjs.md) - Set up with Next.js
-- [React Hook](./react-hook.md) - Use the React hook
+- [React Hook](./react.md) - Use the React hook
 - [API Reference](./api-reference.md) - Explore the API
 
 ## Troubleshooting

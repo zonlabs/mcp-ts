@@ -1,6 +1,6 @@
 {
   "name": "@mcp-ts/redis",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "publishConfig": {
     "access": "public"
   },
@@ -24,6 +24,16 @@
       "import": "./dist/client/index.mjs",
       "require": "./dist/client/index.js"
     },
+    "./client/react": {
+      "types": "./dist/client/react.d.ts",
+      "import": "./dist/client/react.mjs",
+      "require": "./dist/client/react.js"
+    },
+    "./client/vue": {
+      "types": "./dist/client/vue.d.ts",
+      "import": "./dist/client/vue.mjs",
+      "require": "./dist/client/vue.js"
+    },
     "./shared": {
       "types": "./dist/shared/index.d.ts",
       "import": "./dist/shared/index.mjs",
@@ -41,9 +51,9 @@
     "type-check": "tsc --noEmit",
     "clean": "rimraf dist",
     "prepublishOnly": "npm run clean && npm run build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:debug": "npx playwright test --debug"
   },
   "keywords": [
     "mcp",
@@ -82,15 +92,16 @@
     "nanoid": "^5.1.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.0",
     "@types/node": "^25.0.10",
     "@types/react": "^18.3.18",
-    "@vitest/coverage-v8": "^4.0.18",
     "ioredis-mock": "^8.13.1",
+    "playwright": "^1.58.0",
     "react": "^18.3.1",
     "rimraf": "^6.1.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vue": "^3.5.27"
   },
   "engines": {
     "node": ">=18.0.0"

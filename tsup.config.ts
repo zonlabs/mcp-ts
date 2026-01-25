@@ -5,6 +5,8 @@ export default defineConfig({
     index: 'src/index.ts',
     'server/index': 'src/server/index.ts',
     'client/index': 'src/client/index.ts',
+    'client/react': 'src/client/react/index.ts',
+    'client/vue': 'src/client/vue/index.ts',
     'shared/index': 'src/shared/index.ts',
   },
   format: ['cjs', 'esm'],
@@ -20,6 +22,7 @@ export default defineConfig({
   treeshake: true,
   external: [
     'react',
+    'vue',
     'ioredis',
     '@modelcontextprotocol/sdk',
     'fs',

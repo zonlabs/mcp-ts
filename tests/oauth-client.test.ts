@@ -1,34 +1,40 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { test, expect } from '@playwright/test';
 import { MCPClient } from '../src/server/oauth-client';
 import { storage } from '../src/server/storage';
-import { StorageOAuthClientProvider } from '../src/server/storage-oauth-provider';
 
-// Mock storage
-vi.mock('../src/server/storage', () => ({
-    storage: {
-        getIdentitySessionsData: vi.fn(),
-        removeSession: vi.fn(),
-    },
-}));
-
-// Mock StorageOAuthClientProvider
-vi.mock('../src/server/storage-oauth-provider', () => ({
-    StorageOAuthClientProvider: vi.fn().mockImplementation(() => ({
-        tokens: vi.fn().mockResolvedValue({ access_token: 'mock-access-token' }),
-    })),
-}));
-
-describe('MCPClient.getMcpServerConfig', () => {
+test.describe('MCPClient.getMcpServerConfig', () => {
     const identity = 'test-user';
 
-    beforeEach(() => {
-        vi.clearAllMocks();
+    // Store original methods to restore later
+    const originalGetIdentitySessionsData = storage.getIdentitySessionsData;
+    const originalRemoveSession = storage.removeSession;
+    const originalInitialize = (MCPClient.prototype as any).initialize;
+    const originalGetValidTokens = (MCPClient.prototype as any).getValidTokens;
+
+    test.afterEach(() => {
+        // Restore methods
+        storage.getIdentitySessionsData = originalGetIdentitySessionsData;
+        storage.removeSession = originalRemoveSession;
+        (MCPClient.prototype as any).initialize = originalInitialize;
+        (MCPClient.prototype as any).getValidTokens = originalGetValidTokens;
     });
 
-    it('should process multiple sessions in parallel and return the correct config', async () => {
-        // Spy on MCPClient prototype methods
-        const initSpy = vi.spyOn(MCPClient.prototype, 'initialize').mockResolvedValue(undefined);
-        const getTokensSpy = vi.spyOn(MCPClient.prototype, 'getValidTokens').mockResolvedValue(true);
+    test('should process multiple sessions in parallel and return the correct config', async () => {
+        // Spy counts
+        let initCallCount = 0;
+        let getTokensCallCount = 0;
+
+        // Mock Initialize
+        (MCPClient.prototype as any).initialize = async function () {
+            initCallCount++;
+            // Manually inject a mock provider if needed, or do nothing
+        };
+
+        // Mock GetValidTokens
+        (MCPClient.prototype as any).getValidTokens = async function () {
+            getTokensCallCount++;
+            return true;
+        };
 
         const session1 = {
             sessionId: 's1',
@@ -49,13 +55,16 @@ describe('MCPClient.getMcpServerConfig', () => {
             callbackUrl: 'http://callback2',
         };
 
-        vi.mocked(storage.getIdentitySessionsData).mockResolvedValue([session1, session2] as any);
+        // Mock storage
+        storage.getIdentitySessionsData = async (id: string) => {
+            if (id === identity) return [session1, session2] as any;
+            return [];
+        };
 
         const config = await MCPClient.getMcpServerConfig(identity);
 
-        expect(storage.getIdentitySessionsData).toHaveBeenCalledWith(identity);
-        expect(initSpy).toHaveBeenCalledTimes(2);
-        expect(getTokensSpy).toHaveBeenCalledTimes(2);
+        expect(initCallCount).toBe(2);
+        expect(getTokensCallCount).toBe(2);
 
         expect(config).toEqual({
             'server_one': expect.objectContaining({
@@ -67,12 +76,9 @@ describe('MCPClient.getMcpServerConfig', () => {
                 url: 'http://server2',
             }),
         });
-
-        initSpy.mockRestore();
-        getTokensSpy.mockRestore();
     });
 
-    it('should remove inactive sessions', async () => {
+    test('should remove inactive sessions', async () => {
         const session1 = {
             sessionId: 's1',
             active: false,
@@ -81,11 +87,19 @@ describe('MCPClient.getMcpServerConfig', () => {
             callbackUrl: 'http://callback1',
         };
 
-        vi.mocked(storage.getIdentitySessionsData).mockResolvedValue([session1] as any);
+        let removeSessionCalledWith: any[] = [];
+
+        // Mock storage
+        storage.getIdentitySessionsData = async (id: string) => {
+            return [session1] as any;
+        };
+        storage.removeSession = async (id: string, sId: string) => {
+            removeSessionCalledWith = [id, sId];
+        };
 
         const config = await MCPClient.getMcpServerConfig(identity);
 
-        expect(storage.removeSession).toHaveBeenCalledWith(identity, 's1');
+        expect(removeSessionCalledWith).toEqual([identity, 's1']);
         expect(config).toEqual({});
     });
 });

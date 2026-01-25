@@ -1,19 +1,19 @@
 /**
  * Tests for MemoryStorageBackend
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { test, expect } from '@playwright/test';
 import { MemoryStorageBackend } from '../../src/server/storage/memory-backend';
 import { createMockSession, createMockTokens } from '../test-utils';
 
-describe('MemoryStorageBackend', () => {
+test.describe('MemoryStorageBackend', () => {
     let storage: MemoryStorageBackend;
 
-    beforeEach(() => {
+    test.beforeEach(() => {
         storage = new MemoryStorageBackend();
     });
 
-    describe('createSession', () => {
-        it('should store session data in memory', async () => {
+    test.describe('createSession', () => {
+        test('should store session data in memory', async () => {
             const session = createMockSession();
             await storage.createSession(session);
 
@@ -22,7 +22,7 @@ describe('MemoryStorageBackend', () => {
             expect(retrieved?.serverId).toBe(session.serverId);
         });
 
-        it('should throw if session already exists', async () => {
+        test('should throw if session already exists', async () => {
             const session = createMockSession();
             await storage.createSession(session);
 
@@ -30,8 +30,8 @@ describe('MemoryStorageBackend', () => {
         });
     });
 
-    describe('updateSession', () => {
-        it('should update existing session', async () => {
+    test.describe('updateSession', () => {
+        test('should update existing session', async () => {
             const session = createMockSession();
             await storage.createSession(session);
 
@@ -46,15 +46,15 @@ describe('MemoryStorageBackend', () => {
             expect(retrieved?.serverId).toBe(session.serverId);
         });
 
-        it('should throw if session does not exist', async () => {
+        test('should throw if session does not exist', async () => {
             await expect(
                 storage.updateSession('unknown', 'unknown', { active: true })
             ).rejects.toThrow('not found');
         });
     });
 
-    describe('getIdentitySessionsData', () => {
-        it('should return all sessions for an identity', async () => {
+    test.describe('getIdentitySessionsData', () => {
+        test('should return all sessions for an identity', async () => {
             const identity = 'test-user';
             const session1 = createMockSession({ sessionId: 'session-1', identity });
             const session2 = createMockSession({ sessionId: 'session-2', identity });
@@ -67,8 +67,8 @@ describe('MemoryStorageBackend', () => {
         });
     });
 
-    describe('removeSession', () => {
-        it('should delete session from memory', async () => {
+    test.describe('removeSession', () => {
+        test('should delete session from memory', async () => {
             const session = createMockSession();
             await storage.createSession(session);
 

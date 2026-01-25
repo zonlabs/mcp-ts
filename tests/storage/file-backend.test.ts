@@ -1,22 +1,22 @@
 /**
  * Tests for FileStorageBackend
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { test, expect } from '@playwright/test';
 import { FileStorageBackend } from '../../src/server/storage/file-backend';
 import { createMockSession, createMockTokens } from '../test-utils';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-describe('FileStorageBackend', () => {
+test.describe('FileStorageBackend', () => {
     let storage: FileStorageBackend;
     const testFilePath = path.join(__dirname, 'test-sessions.json');
 
-    beforeEach(async () => {
+    test.beforeEach(async () => {
         storage = new FileStorageBackend({ path: testFilePath });
         await storage.init();
     });
 
-    afterEach(async () => {
+    test.afterEach(async () => {
         try {
             await fs.unlink(testFilePath);
         } catch (e) {
@@ -24,8 +24,8 @@ describe('FileStorageBackend', () => {
         }
     });
 
-    describe('createSession', () => {
-        it('should store session data in file', async () => {
+    test.describe('createSession', () => {
+        test('should store session data in file', async () => {
             const session = createMockSession();
             await storage.createSession(session);
 
@@ -34,7 +34,7 @@ describe('FileStorageBackend', () => {
             expect(retrieved?.serverId).toBe(session.serverId);
         });
 
-        it('should throw if session already exists', async () => {
+        test('should throw if session already exists', async () => {
             const session = createMockSession();
             await storage.createSession(session);
 
@@ -42,8 +42,8 @@ describe('FileStorageBackend', () => {
         });
     });
 
-    describe('updateSession', () => {
-        it('should update existing session', async () => {
+    test.describe('updateSession', () => {
+        test('should update existing session', async () => {
             const session = createMockSession();
             await storage.createSession(session);
 
@@ -58,15 +58,15 @@ describe('FileStorageBackend', () => {
             expect(retrieved?.serverId).toBe(session.serverId);
         });
 
-        it('should throw if session does not exist', async () => {
+        test('should throw if session does not exist', async () => {
             await expect(
                 storage.updateSession('unknown', 'unknown', { active: true })
             ).rejects.toThrow('not found');
         });
     });
 
-    describe('getIdentitySessionsData', () => {
-        it('should return all sessions for an identity', async () => {
+    test.describe('getIdentitySessionsData', () => {
+        test('should return all sessions for an identity', async () => {
             const identity = 'test-user';
             const session1 = createMockSession({ sessionId: 'session-1', identity });
             const session2 = createMockSession({ sessionId: 'session-2', identity });

@@ -2,18 +2,25 @@
  * Tests for Redis module
  * Tests the dependency injection and initialization functionality
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { test, expect } from '@playwright/test';
 import Redis from 'ioredis-mock';
+import path from 'path';
 
-// Reset the module state before importing
-beforeEach(() => {
-    vi.resetModules();
-});
+const redisModulePath = path.resolve(__dirname, '../src/server/redis.ts');
 
-describe('Redis Module', () => {
-    describe('initRedis', () => {
-        it('should initialize Redis with custom config', async () => {
-            const { initRedis, closeRedis } = await import('../src/server/redis');
+// Helper to reset module
+const resetModule = () => {
+    delete require.cache[require.resolve('../src/server/redis')];
+};
+
+test.describe('Redis Module', () => {
+    test.beforeEach(() => {
+        resetModule();
+    });
+
+    test.describe('initRedis', () => {
+        test('should initialize Redis with custom config', async () => {
+            const { initRedis, closeRedis } = require('../src/server/redis');
 
             // Set env var for test
             process.env.REDIS_URL = 'redis://localhost:6379';
@@ -29,8 +36,8 @@ describe('Redis Module', () => {
             await closeRedis();
         });
 
-        it('should throw error when no URL provided', async () => {
-            const { initRedis, closeRedis } = await import('../src/server/redis');
+        test('should throw error when no URL provided', async () => {
+            const { initRedis, closeRedis } = require('../src/server/redis');
 
             const originalUrl = process.env.REDIS_URL;
             delete process.env.REDIS_URL;
@@ -41,8 +48,8 @@ describe('Redis Module', () => {
             await closeRedis();
         });
 
-        it('should return existing instance on subsequent calls', async () => {
-            const { initRedis, closeRedis } = await import('../src/server/redis');
+        test('should return existing instance on subsequent calls', async () => {
+            const { initRedis, closeRedis } = require('../src/server/redis');
 
             process.env.REDIS_URL = 'redis://localhost:6379';
 
@@ -55,12 +62,12 @@ describe('Redis Module', () => {
         });
     });
 
-    describe('setRedisInstance', () => {
-        it('should allow injecting a mock Redis instance', async () => {
-            const { setRedisInstance, getRedis, closeRedis } = await import('../src/server/redis');
+    test.describe('setRedisInstance', () => {
+        test('should allow injecting a mock Redis instance', async () => {
+            const { setRedisInstance, getRedis, closeRedis } = require('../src/server/redis');
 
             const mockRedis = new Redis();
-            setRedisInstance(mockRedis as any);
+            setRedisInstance(mockRedis);
 
             const instance = getRedis();
             expect(instance).toBe(mockRedis);
@@ -69,9 +76,9 @@ describe('Redis Module', () => {
         });
     });
 
-    describe('getRedis', () => {
-        it('should auto-initialize when called without prior init', async () => {
-            const { getRedis, closeRedis } = await import('../src/server/redis');
+    test.describe('getRedis', () => {
+        test('should auto-initialize when called without prior init', async () => {
+            const { getRedis, closeRedis } = require('../src/server/redis');
 
             process.env.REDIS_URL = 'redis://localhost:6379';
 
