@@ -31,11 +31,11 @@ import {
   ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OAuthClientMetadata, OAuthTokens, OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js';
-import { RedisOAuthClientProvider, type AgentsOAuthProvider } from './redis-oauth-client-provider.js';
+import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
 import { sanitizeServerLabel } from '../shared/utils.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../shared/events.js';
 import { UnauthorizedError } from '../shared/errors.js';
-import { sessionStore } from './session-store.js';
+import { storage } from './storage/index.js';
 
 /**
  * Supported MCP transport types
@@ -255,7 +255,7 @@ export class MCPClient {
     this.emitProgress('Loading session configuration...');
 
     if (!this.serverUrl || !this.callbackUrl || !this.serverId) {
-      const sessionData = await sessionStore.getSession(this.identity, this.sessionId);
+      const sessionData = await storage.getSession(this.identity, this.sessionId);
       if (!sessionData) {
         throw new Error(`Session not found: ${this.sessionId}`);
       }
@@ -294,12 +294,14 @@ export class MCPClient {
         throw new Error('serverId required for OAuth provider initialization');
       }
 
-      this.oauthProvider = new RedisOAuthClientProvider(
+      this.oauthProvider = new StorageOAuthClientProvider(
         this.identity,
         this.serverId,
         this.sessionId,
         clientMetadata.client_name ?? 'MCP Assistant',
         this.callbackUrl,
+        this.serverUrl!,
+        this.transportType || 'streamable_http',
         (redirectUrl: string) => {
           if (this.onRedirect) {
             this.onRedirect(redirectUrl);
@@ -333,7 +335,7 @@ export class MCPClient {
       return;
     }
 
-    await sessionStore.setClient({
+    await storage.setClient({
       sessionId: this.sessionId,
       serverId: this.serverId,
       serverName: this.serverName,
@@ -441,7 +443,7 @@ export class MCPClient {
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
 
-      const existingSession = await sessionStore.getSession(this.identity, this.sessionId);
+      const existingSession = await storage.getSession(this.identity, this.sessionId);
       if (!existingSession) {
         await this.saveSession(true);
       }
@@ -865,7 +867,7 @@ export class MCPClient {
       await (this.oauthProvider as any).invalidateCredentials('all');
     }
 
-    await sessionStore.removeSession(this.identity, this.sessionId);
+    await storage.removeSession(this.identity, this.sessionId);
     this.disconnect();
   }
 
@@ -975,12 +977,12 @@ export class MCPClient {
    */
   static async getMcpServerConfig(identity: string): Promise<Record<string, any>> {
     const mcpConfig: Record<string, any> = {};
-    const sessionIds = await sessionStore.getIdentityMcpSessions(identity);
+    const sessionIds = await storage.getIdentityMcpSessions(identity);
 
     for (const sessionId of sessionIds) {
       try {
         // Load session from Redis
-        const sessionData = await sessionStore.getSession(identity, sessionId);
+        const sessionData = await storage.getSession(identity, sessionId);
 
         // Validate session - remove if invalid or inactive
         if (
@@ -991,7 +993,7 @@ export class MCPClient {
           !sessionData.transportType ||
           !sessionData.serverUrl
         ) {
-          await sessionStore.removeSession(identity, sessionId);
+          await storage.removeSession(identity, sessionId);
           continue;
         }
 
@@ -1027,7 +1029,7 @@ export class MCPClient {
           ...(headers && { headers }),
         };
       } catch (error) {
-        await sessionStore.removeSession(identity, sessionId);
+        await storage.removeSession(identity, sessionId);
         console.warn(`[MCP] Failed to process session ${sessionId}:`, error);
       }
     }

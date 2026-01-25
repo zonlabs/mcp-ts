@@ -6,8 +6,8 @@
 // Core MCP client and session management
 export { MCPClient } from './oauth-client';
 export { UnauthorizedError } from '../shared/errors';
-export { SessionStore, sessionStore } from './session-store';
-export { RedisOAuthClientProvider } from './redis-oauth-client-provider';
+export { storage, type StorageBackend } from './storage';
+export { StorageOAuthClientProvider } from './storage-oauth-provider';
 
 // SSE handler for real-time connections
 export { createSSEHandler, SSEConnectionManager, type SSEHandlerOptions, type ClientMetadata } from './sse-handler';

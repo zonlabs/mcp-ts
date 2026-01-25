@@ -88,13 +88,31 @@ Full documentation is available at: **[https://ashen-dusk.github.io/mcp-ts/](htt
 
 ## Environment Setup
 
-```bash
-# Redis connection (required)
-REDIS_URL=redis://localhost:6379
+## Environment Setup
 
-# Or for cloud Redis (Upstash, Redis Cloud, etc.)
-REDIS_URL=rediss://default:password@host.upstash.io:6379
-```
+The library supports multiple storage backends. You can explicitly select one using `MCP_TS_STORAGE_TYPE` or rely on automatic detection.
+
+**Supported Types:** `redis`, `file`, `memory`.
+
+### Configuration Examples
+
+1.  **Redis** (Recommended for production)
+    ```bash
+    MCP_TS_STORAGE_TYPE=redis
+    REDIS_URL=redis://localhost:6379
+    ```
+
+2.  **File System** (Great for local dev)
+    ```bash
+    MCP_TS_STORAGE_TYPE=file
+    MCP_TS_STORAGE_FILE=./sessions.json
+    ```
+
+3.  **In-Memory** (Default)
+    ```bash
+    MCP_TS_STORAGE_TYPE=memory
+    ```
+
 
 ## Architecture
 
