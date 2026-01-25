@@ -7,13 +7,13 @@ Lightweight MCP (Model Context Protocol) client library for JavaScript applicati
 
 ## Features
 
-- **🔄 Real-Time SSE** - Server-Sent Events for live connection updates
-- **💾 Flexible Storage** - Redis, File System, or In-Memory backends
-- **⚡ Serverless-Ready** - Works in serverless environments (Vercel, AWS Lambda, etc.)
-- **⚛️ React Hook** - `useMcp` hook for easy React integration
-- **🛠️ Full MCP Protocol** - Support for tools, prompts, and resources
-- **📘 TypeScript** - Complete type safety with exported types
-- **PostgreSQL** - Coming soon!
+- **<DocIcon type="bolt" /> Real-Time SSE** - Server-Sent Events for live connection updates
+- **<DocIcon type="database" /> Flexible Storage** - Redis, File System, or In-Memory backends
+- **<DocIcon type="rocket" /> Serverless-Ready** - Works in serverless environments (Vercel, AWS Lambda, etc.)
+- **<DocIcon type="target" /> React Hook** - `useMcp` hook for easy React integration
+- **<DocIcon type="tools" /> Full MCP Protocol** - Support for tools, prompts, and resources
+- **<DocIcon type="book" /> TypeScript** - Complete type safety with exported types
+- **<DocIcon type="database" /> PostgreSQL** - Coming soon!
 
 ## Installation
 

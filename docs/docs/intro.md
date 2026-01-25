@@ -3,19 +3,21 @@ sidebar_position: 1
 slug: /
 ---
 
+import { DocIcon } from '@site/src/components/DocIcons';
+
 # Getting Started
 
 **mcp-ts** is a lightweight MCP (Model Context Protocol) client library for JavaScript applications. It provides seamless integration for both server-side and client-side MCP connections with real-time updates.
 
 ## Why mcp-ts?
 
-- **🎯 Simple API** - Easy-to-use methods for connecting to MCP servers
-- **⚛️ React Ready** - Built-in React hook for effortless integration
-- **⚡ Real-Time** - Live updates via Server-Sent Events (SSE)
-- **🔄 Persistent Sessions** - Automatic session management and recovery
-- **📦 TypeScript** - Full type safety with TypeScript support
-- **🚀 Production Ready** - Works in serverless environments like Vercel
-- **💾 Flexible Storage** - Multiple backend options:
+- **<DocIcon type="target" /> Simple API** - Easy-to-use methods for connecting to MCP servers
+- **<DocIcon type="rocket" /> React Ready** - Built-in React hook for effortless integration
+- **<DocIcon type="bolt" /> Real-Time** - Live updates via Server-Sent Events (SSE)
+- **<DocIcon type="sync" /> Persistent Sessions** - Automatic session management and recovery
+- **<DocIcon type="tools" /> TypeScript** - Full type safety with TypeScript support
+- **<DocIcon type="rocket" /> Production Ready** - Works in serverless environments like Vercel
+- **<DocIcon type="database" /> Flexible Storage** - Multiple backend options:
   - <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **Redis** - Production-ready distributed storage
   - <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **File System** - Local development with JSON persistence
   - <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **In-Memory** - Fast ephemeral storage for testing

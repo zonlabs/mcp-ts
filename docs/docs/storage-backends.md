@@ -2,13 +2,15 @@
 sidebar_position: 3
 ---
 
+import { DocIcon } from '@site/src/components/DocIcons';
+
 # Storage Backends
 
 The library supports multiple storage backends for session persistence, allowing you to choose the best option for your deployment environment.
 
-## 💾 Available Backends
+## <DocIcon type="database" /> Available Backends
 
-### <img src="/img/redis.svg" alt="Redis" width="24" height="24" style={{display: 'inline', verticalAlign: 'middle'}} /> Redis (Production)
+### ![Redis](/img/redis.svg) Redis (Production)
 
 **Recommended for production and serverless deployments.**
 
@@ -32,10 +34,10 @@ REDIS_URL=rediss://default:password@host.upstash.io:6379
 ```
 
 **Features:**
-- ✅ Automatic session expiration (12 hours TTL)
-- ✅ Atomic operations for data consistency
-- ✅ Distributed storage across instances
-- ✅ Production-ready scalability
+- <DocIcon type="success" size={16} /> Automatic session expiration (12 hours TTL)
+- <DocIcon type="success" size={16} /> Atomic operations for data consistency
+- <DocIcon type="success" size={16} /> Distributed storage across instances
+- <DocIcon type="success" size={16} /> Production-ready scalability
 
 **Usage:**
 
@@ -58,7 +60,7 @@ await storage.createSession({
 
 ---
 
-### <img src="/img/filesystem.svg" alt="File System" width="24" height="24" style={{display: 'inline', verticalAlign: 'middle'}} /> File System (Development)
+### ![File System](/img/filesystem.svg) File System (Development)
 
 **Perfect for local development with persistent sessions across restarts.**
 
@@ -79,10 +81,10 @@ MCP_TS_STORAGE_FILE=./sessions.json
 ```
 
 **Features:**
-- ✅ Persistent across application restarts
-- ✅ No external dependencies
-- ✅ Human-readable JSON format
-- ✅ Automatic directory creation
+- <DocIcon type="success" size={16} /> Persistent across application restarts
+- <DocIcon type="success" size={16} /> No external dependencies
+- <DocIcon type="success" size={16} /> Human-readable JSON format
+- <DocIcon type="success" size={16} /> Automatic directory creation
 
 **Usage:**
 
@@ -114,7 +116,7 @@ console.log('Stored sessions:', sessions);
 
 ---
 
-### <img src="/img/memory.svg" alt="Memory" width="24" height="24" style={{display: 'inline', verticalAlign: 'middle'}} /> In-Memory (Testing)
+### ![Memory](/img/memory.svg) In-Memory (Testing)
 
 **Fast ephemeral storage, ideal for testing. Sessions are lost on restart.**
 
@@ -134,10 +136,10 @@ MCP_TS_STORAGE_TYPE=memory
 ```
 
 **Features:**
-- ✅ Fastest performance
-- ✅ No external dependencies
-- ✅ Zero configuration
-- ⚠️ Sessions lost on restart
+- <DocIcon type="success" size={16} /> Fastest performance
+- <DocIcon type="success" size={16} /> No external dependencies
+- <DocIcon type="success" size={16} /> Zero configuration
+- <DocIcon type="warning" size={16} /> Sessions lost on restart
 
 **Usage:**
 
@@ -158,7 +160,7 @@ await storage.createSession({
 
 ---
 
-### <img src="/img/postgres.svg" alt="PostgreSQL" width="24" height="24" style={{display: 'inline', verticalAlign: 'middle'}} /> PostgreSQL (Coming Soon)
+### ![PostgreSQL](/img/postgres.svg) PostgreSQL (Coming Soon)
 
 PostgreSQL support is planned for a future release, providing:
 - Relational data storage
@@ -168,7 +170,7 @@ PostgreSQL support is planned for a future release, providing:
 
 ---
 
-## 🔄 Automatic Backend Selection
+## <DocIcon type="sync" /> Automatic Backend Selection
 
 The library automatically selects the appropriate storage backend using this priority:
 
@@ -197,7 +199,7 @@ graph TD
 
 ---
 
-## 🛠️ Custom Backend Implementation
+## <DocIcon type="tools" /> Custom Backend Implementation
 
 You can use specific storage backends directly:
 
@@ -229,23 +231,23 @@ const memoryStorage = new MemoryStorageBackend();
 
 ---
 
-## 📊 Backend Comparison
+## <DocIcon type="chart" /> Backend Comparison
 
-| Feature | <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> Redis | <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> File System | <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> In-Memory |
+| Feature | ![Redis](/img/redis.svg) Redis | ![File System](/img/filesystem.svg) File System | ![Memory](/img/memory.svg) In-Memory |
 |---------|----------|----------------|--------------|
-| **Persistence** | ✅ Yes | ✅ Yes | ❌ No |
-| **Distributed** | ✅ Yes | ❌ No | ❌ No |
-| **Auto-Expiry** | ✅ Yes (TTL) | ❌ No | ❌ No |
-| **Performance** | ⚡ Fast | 📊 Medium | 🚀 Fastest |
-| **Setup** | 🔧 Requires Redis | 📁 Built-in | 🎯 Built-in |
-| **Serverless** | ✅ Yes | ⚠️ Limited | ✅ Yes |
-| **Production** | ✅ Recommended | ⚠️ Single-instance | ❌ Not recommended |
-| **Development** | ✅ Good | ✅ Excellent | ✅ Good |
-| **Testing** | ✅ Good | ✅ Good | ✅ Excellent |
+| **Persistence** | <DocIcon type="success" size={16} /> Yes | <DocIcon type="success" size={16} /> Yes | <DocIcon type="error" size={16} /> No |
+| **Distributed** | <DocIcon type="success" size={16} /> Yes | <DocIcon type="error" size={16} /> No | <DocIcon type="error" size={16} /> No |
+| **Auto-Expiry** | <DocIcon type="success" size={16} /> Yes (TTL) | <DocIcon type="error" size={16} /> No | <DocIcon type="error" size={16} /> No |
+| **Performance** | <DocIcon type="bolt" size={16} /> Fast | <DocIcon type="chart" size={16} /> Medium | <DocIcon type="rocket" size={16} /> Fastest |
+| **Setup** | <DocIcon type="tools" size={16} /> Requires Redis | <DocIcon type="filesystem" size={16} /> Built-in | <DocIcon type="target" size={16} /> Built-in |
+| **Serverless** | <DocIcon type="success" size={16} /> Yes | <DocIcon type="warning" size={16} /> Limited | <DocIcon type="success" size={16} /> Yes |
+| **Production** | <DocIcon type="success" size={16} /> Recommended | <DocIcon type="warning" size={16} /> Single-instance | <DocIcon type="error" size={16} /> Not recommended |
+| **Development** | <DocIcon type="success" size={16} /> Good | <DocIcon type="success" size={16} /> Excellent | <DocIcon type="success" size={16} /> Good |
+| **Testing** | <DocIcon type="success" size={16} /> Good | <DocIcon type="success" size={16} /> Good | <DocIcon type="success" size={16} /> Excellent |
 
 ---
 
-## 🔐 Session Data Structure
+## <DocIcon type="lock" /> Session Data Structure
 
 All backends store the same session data structure:
 
@@ -271,7 +273,7 @@ interface SessionData {
 
 ---
 
-## 💡 Best Practices
+## <DocIcon type="idea" /> Best Practices
 
 ### Production Deployments
 
@@ -305,7 +307,7 @@ REDIS_URL=rediss://default:token@serverless-redis.upstash.io:6379
 
 ---
 
-## 🔍 Troubleshooting
+## <DocIcon type="search" /> Troubleshooting
 
 ### Redis Connection Failed
 
@@ -345,7 +347,7 @@ MCP_TS_STORAGE_FILE=./sessions.json
 
 ---
 
-## 📚 Next Steps
+## <DocIcon type="book" /> Next Steps
 
 - [Installation Guide](./installation.md) - Setup instructions
 - [API Reference](./api-reference.md) - Complete API documentation

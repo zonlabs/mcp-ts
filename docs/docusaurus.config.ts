@@ -14,6 +14,10 @@ const config: Config = {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },
 
+  markdown: {
+    mermaid: true,
+  },
+
   // Set the production url of your site here
   url: 'https://ashen-dusk.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
@@ -54,6 +58,7 @@ const config: Config = {
   ],
 
   themes: [
+    '@docusaurus/theme-mermaid',
     [
       require.resolve("@easyops-cn/docusaurus-search-local"),
       /** @type {import("@easyops-cn/docusaurus-search-local").PluginOptions} */
@@ -83,7 +88,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          label: 'v1.0.0-beta.3',
+          label: 'v1.0.0-rc.1',
           position: 'right',
           href: 'https://www.npmjs.com/package/@mcp-ts/redis',
           className: 'navbar-version-badge',
