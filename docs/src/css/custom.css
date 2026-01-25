@@ -207,3 +207,20 @@
     margin-bottom: 2rem;
   }
 }
+
+/* Mermaid Diagram Sizing */
+.mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.mermaid svg {
+  max-width: 650px !important;
+  height: auto !important;
+}
+
+/* Adjust diamond (decision) nodes to not be too wide */
+.mermaid .node.decision rect {
+  max-width: 200px;
+}

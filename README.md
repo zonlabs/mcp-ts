@@ -7,13 +7,13 @@ Lightweight MCP (Model Context Protocol) client library for JavaScript applicati
 
 ## Features
 
-- **<DocIcon type="bolt" /> Real-Time SSE** - Server-Sent Events for live connection updates
-- **<DocIcon type="database" /> Flexible Storage** - Redis, File System, or In-Memory backends
-- **<DocIcon type="rocket" /> Serverless-Ready** - Works in serverless environments (Vercel, AWS Lambda, etc.)
-- **<DocIcon type="target" /> React Hook** - `useMcp` hook for easy React integration
-- **<DocIcon type="tools" /> Full MCP Protocol** - Support for tools, prompts, and resources
-- **<DocIcon type="book" /> TypeScript** - Complete type safety with exported types
-- **<DocIcon type="database" /> PostgreSQL** - Coming soon!
+- **⚡ Real-Time SSE** - Server-Sent Events for live connection updates
+- **💾 Flexible Storage** - Redis, File System, or In-Memory backends
+- **🚀 Serverless-Ready** - Works in serverless environments (Vercel, AWS Lambda, etc.)
+- **⚛️ React Hook** - `useMcp` hook for easy React integration
+- **🛠️ Full MCP Protocol** - Support for tools, prompts, and resources
+- **📘 TypeScript** - Complete type safety with exported types
+- **🐘 PostgreSQL** - Coming soon!
 
 ## Installation
 
@@ -96,24 +96,24 @@ The library supports multiple storage backends. You can explicitly select one us
 
 ### Configuration Examples
 
-1.  **Redis** (Recommended for production)
+1.  **<img src="docs/static/img/redis.svg" width="20" height="20" align="center" /> Redis** (Recommended for production)
     ```bash
     MCP_TS_STORAGE_TYPE=redis
     REDIS_URL=redis://localhost:6379
     ```
 
-2.  **File System** (Great for local dev)
+2.  **<img src="docs/static/img/filesystem.svg" width="20" height="20" align="center" /> File System** (Great for local dev)
     ```bash
     MCP_TS_STORAGE_TYPE=file
     MCP_TS_STORAGE_FILE=./sessions.json
     ```
 
-3.  **In-Memory** (Default for testing)
+3.  **<img src="docs/static/img/memory.svg" width="20" height="20" align="center" /> In-Memory** (Default for testing)
     ```bash
     MCP_TS_STORAGE_TYPE=memory
     ```
 
-4.  **PostgreSQL** (Coming soon)
+4.  **<img src="docs/static/img/postgres.svg" width="20" height="20" align="center" /> PostgreSQL** (Coming soon)
     ```bash
     # Future release
     MCP_TS_STORAGE_TYPE=postgresql

@@ -11,25 +11,25 @@ import { DocIcon } from '@site/src/components/DocIcons';
 
 ## Why mcp-ts?
 
-- **<DocIcon type="target" /> Simple API** - Easy-to-use methods for connecting to MCP servers
-- **<DocIcon type="rocket" /> React Ready** - Built-in React hook for effortless integration
-- **<DocIcon type="bolt" /> Real-Time** - Live updates via Server-Sent Events (SSE)
-- **<DocIcon type="sync" /> Persistent Sessions** - Automatic session management and recovery
-- **<DocIcon type="tools" /> TypeScript** - Full type safety with TypeScript support
-- **<DocIcon type="rocket" /> Production Ready** - Works in serverless environments like Vercel
-- **<DocIcon type="database" /> Flexible Storage** - Multiple backend options:
-  - <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **Redis** - Production-ready distributed storage
-  - <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **File System** - Local development with JSON persistence
-  - <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **In-Memory** - Fast ephemeral storage for testing
-  - <img src="/img/postgres.svg" alt="PostgreSQL" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **PostgreSQL** - Coming soon!
+1. **Simple API** — Easy-to-use methods for connecting to MCP servers
+2. **React Ready** — Built-in React hook for effortless integration
+3. **Real-Time & Observability** — Live updates and connection observability via Server-Sent Events (SSE)
+4. **Persistent Sessions** — Automatic session management and recovery
+5. **TypeScript** — Full type safety with TypeScript support
+6. **Production Ready** — Works in serverless environments
+7. **Flexible Storage** — Multiple backend options:
+   - <DocIcon type="redis" size={20} /> **Redis** — Production distributed storage
+   - <DocIcon type="filesystem" size={20} /> **File System** — Local JSON persistence
+   - <DocIcon type="memory" size={20} /> **In-Memory** — Fast ephemeral storage
+   - <DocIcon type="postgres" size={20} /> **PostgreSQL** — Coming soon!
 
 ## What You'll Need
 
 - [Node.js](https://nodejs.org/) version 18.0 or above
 - **Storage Backend** (choose one):
-  - <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> [Redis](https://redis.io/) - Recommended for production
-  - <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> File System - Built-in, great for local development
-  - <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> In-Memory - Built-in, default for quick testing
+  - <DocIcon type="redis" size={18} /> [Redis](https://redis.io/) - Recommended for production
+  - <DocIcon type="filesystem" size={18} /> File System - Built-in, great for local development
+  - <DocIcon type="memory" size={18} /> In-Memory - Built-in, default for quick testing
 - Basic knowledge of JavaScript/TypeScript
 
 ## Quick Install

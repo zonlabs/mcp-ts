@@ -2,6 +2,8 @@
 sidebar_position: 2
 ---
 
+import { DocIcon } from '@site/src/components/DocIcons';
+
 # Installation
 
 Get started with mcp-ts in your JavaScript or TypeScript project.
@@ -13,10 +15,10 @@ Before installing, ensure you have:
 - **Node.js 18+** - [Download Node.js](https://nodejs.org/)
 - **Package manager** - npm, yarn, or pnpm
 - **Storage Backend** (optional, defaults to in-memory):
-  - <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **Redis** - For production ([Redis Cloud](https://redis.com/try-free/), [Upstash](https://upstash.com/))
-  - <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **File System** - Built-in, no setup required
-  - <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **In-Memory** - Built-in, default option
-  - <img src="/img/postgres.svg" alt="PostgreSQL" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **PostgreSQL** - Coming soon!
+  - <DocIcon type="redis" size={24} /> **Redis** — Production distributed storage
+  - <DocIcon type="filesystem" size={24} /> **File System** — Local JSON persistence
+  - <DocIcon type="memory" size={24} /> **In-Memory** — Fast ephemeral storage
+  - <DocIcon type="postgres" size={24} /> **PostgreSQL** — Coming soon!
 
 ## Install the Package
 
@@ -30,7 +32,7 @@ npm install @mcp-ts/redis
 
 The library automatically selects a storage backend based on your environment variables. Choose the option that best fits your needs:
 
-### <img src="/img/redis.svg" alt="Redis" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> Option 1: Redis (Production)
+### <DocIcon type="redis" size={24} /> Option 1: Redis (Production)
 
 **Recommended for production and serverless deployments.**
 
@@ -70,7 +72,7 @@ REDIS_URL=rediss://default:your-password@your-host.upstash.io:6379
 
 ---
 
-### <img src="/img/filesystem.svg" alt="File System" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> Option 2: File System (Development)
+### <DocIcon type="filesystem" size={24} /> Option 2: File System (Development)
 
 **Perfect for local development with persistent sessions across restarts.**
 
@@ -86,7 +88,7 @@ Sessions are stored as JSON in the specified file. The directory is created auto
 
 ---
 
-### <img src="/img/memory.svg" alt="Memory" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> Option 3: In-Memory (Testing)
+### <DocIcon type="memory" size={24} /> Option 3: In-Memory (Testing)
 
 **Fast ephemeral storage, ideal for testing. Sessions are lost on restart.**
 
@@ -99,7 +101,7 @@ This is the **default** if no storage configuration is provided.
 
 ---
 
-### <img src="/img/postgres.svg" alt="PostgreSQL" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> PostgreSQL (Coming Soon)
+### <DocIcon type="postgres" size={24} /> PostgreSQL (Coming Soon)
 
 PostgreSQL support is planned for a future release.
 
