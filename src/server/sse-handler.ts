@@ -28,7 +28,7 @@ import type {
 } from '../shared/types';
 import { RpcErrorCodes } from '../shared/errors';
 import { MCPClient } from './oauth-client';
-import { sessionStore } from './session-store';
+import { storage } from './storage';
 
 export interface ClientMetadata {
   clientName?: string;
@@ -195,7 +195,7 @@ export class SSEConnectionManager {
    * Get all user sessions
    */
   private async getSessions(): Promise<SessionListResult> {
-    const sessions = await sessionStore.getIdentitySessionsData(this.identity);
+    const sessions = await storage.getIdentitySessionsData(this.identity);
 
     this.sendEvent({
       level: 'debug',
@@ -232,7 +232,7 @@ export class SSEConnectionManager {
     const { serverId, serverName, serverUrl, callbackUrl, transportType } = params;
 
     // Check for existing connections
-    const existingSessions = await sessionStore.getIdentitySessionsData(this.identity);
+    const existingSessions = await storage.getIdentitySessionsData(this.identity);
     const duplicate = existingSessions.find(s =>
       s.serverId === serverId || s.serverUrl === serverUrl
     );
@@ -242,7 +242,7 @@ export class SSEConnectionManager {
     }
 
     // Generate session ID
-    const sessionId = sessionStore.generateSessionId();
+    const sessionId = storage.generateSessionId();
 
     // Emit connecting state
     this.emitConnectionEvent({
@@ -279,6 +279,19 @@ export class SSEConnectionManager {
             timestamp: Date.now(),
           });
         },
+      });
+
+      // Create initial session in storage
+      await storage.createSession({
+        sessionId,
+        identity: this.identity,
+        serverId,
+        serverName,
+        serverUrl,
+        callbackUrl,
+        transportType: transportType || 'streamable_http',
+        createdAt: Date.now(),
+        active: false,
       });
 
       // Store client
@@ -409,7 +422,7 @@ export class SSEConnectionManager {
     });
 
     // Emit validating state
-    const session = await sessionStore.getSession(this.identity, sessionId);
+    const session = await storage.getSession(this.identity, sessionId);
     if (!session) {
       this.sendEvent({
         level: 'error',
@@ -508,7 +521,7 @@ export class SSEConnectionManager {
       metadata: { sessionId, identity: this.identity },
     });
 
-    const session = await sessionStore.getSession(this.identity, sessionId);
+    const session = await storage.getSession(this.identity, sessionId);
     if (!session) {
       throw new Error('Session not found');
     }

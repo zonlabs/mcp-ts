@@ -11,8 +11,12 @@ Get started with mcp-ts in your JavaScript or TypeScript project.
 Before installing, ensure you have:
 
 - **Node.js 18+** - [Download Node.js](https://nodejs.org/)
-- **Redis** - Local or cloud instance ([Redis Cloud](https://redis.com/try-free/), [Upstash](https://upstash.com/))
 - **Package manager** - npm, yarn, or pnpm
+- **Storage Backend** (optional, defaults to in-memory):
+  - <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **Redis** - For production ([Redis Cloud](https://redis.com/try-free/), [Upstash](https://upstash.com/))
+  - <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **File System** - Built-in, no setup required
+  - <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **In-Memory** - Built-in, default option
+  - <img src="/img/postgres.svg" alt="PostgreSQL" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **PostgreSQL** - Coming soon!
 
 ## Install the Package
 
@@ -22,11 +26,15 @@ Choose your preferred package manager:
 npm install @mcp-ts/redis
 ```
 
-## Setup Redis
+## Configure Storage Backend
 
-### Option 1: Local Redis
+The library automatically selects a storage backend based on your environment variables. Choose the option that best fits your needs:
 
-Install and start Redis locally:
+### <img src="/img/redis.svg" alt="Redis" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> Option 1: Redis (Production)
+
+**Recommended for production and serverless deployments.**
+
+#### Local Redis Setup
 
 ```bash
 # macOS (Homebrew)
@@ -41,31 +49,70 @@ sudo systemctl start redis
 docker run -d -p 6379:6379 redis:latest
 ```
 
-### Option 2: Cloud Redis
-
-Use a managed Redis service:
+#### Cloud Redis Providers
 
 - **[Upstash](https://upstash.com/)** - Serverless Redis (recommended for Vercel/serverless)
 - **[Redis Cloud](https://redis.com/try-free/)** - Managed Redis by Redis Labs
 - **[AWS ElastiCache](https://aws.amazon.com/elasticache/)** - Amazon's Redis service
 
-## Environment Variables
-
-Create a `.env` file in your project root:
+#### Environment Configuration
 
 ```bash
-# Redis connection
+# Explicit selection (optional)
+MCP_TS_STORAGE_TYPE=redis
+
+# Redis connection URL (required)
 REDIS_URL=redis://localhost:6379
 
 # Or for cloud Redis (Upstash example)
 REDIS_URL=rediss://default:your-password@your-host.upstash.io:6379
 ```
 
-For Next.js, add to `.env.local`:
+---
+
+### <img src="/img/filesystem.svg" alt="File System" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> Option 2: File System (Development)
+
+**Perfect for local development with persistent sessions across restarts.**
 
 ```bash
-REDIS_URL=redis://localhost:6379
+# Explicit selection (optional)
+MCP_TS_STORAGE_TYPE=file
+
+# File path for session storage (required)
+MCP_TS_STORAGE_FILE=./sessions.json
 ```
+
+Sessions are stored as JSON in the specified file. The directory is created automatically if it doesn't exist.
+
+---
+
+### <img src="/img/memory.svg" alt="Memory" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> Option 3: In-Memory (Testing)
+
+**Fast ephemeral storage, ideal for testing. Sessions are lost on restart.**
+
+```bash
+# Explicit selection (optional)
+MCP_TS_STORAGE_TYPE=memory
+```
+
+This is the **default** if no storage configuration is provided.
+
+---
+
+### <img src="/img/postgres.svg" alt="PostgreSQL" width="20" height="20" style={{display: 'inline', verticalAlign: 'middle'}} /> PostgreSQL (Coming Soon)
+
+PostgreSQL support is planned for a future release.
+
+---
+
+## Storage Selection Logic
+
+The library uses the following priority:
+
+1. **Explicit**: If `MCP_TS_STORAGE_TYPE` is set, use that backend
+2. **Auto-detect Redis**: If `REDIS_URL` is present, use Redis
+3. **Auto-detect File**: If `MCP_TS_STORAGE_FILE` is present, use File
+4. **Default**: Fall back to In-Memory storage
 
 ## Verify Installation
 
@@ -73,14 +120,14 @@ Test your setup with a simple script:
 
 ```typescript
 // test-mcp.ts
-import { sessionStore } from '@mcp-ts/redis/server';
+import { storage } from '@mcp-ts/redis/server';
 
 async function test() {
-  const sessionId = sessionStore.generateSessionId();
+  const sessionId = storage.generateSessionId();
   console.log('Generated session ID:', sessionId);
 
-  // Test Redis connection
-  await sessionStore.saveSession({
+  // Test storage backend
+  await storage.createSession({
     sessionId,
     identity: 'test-user',
     serverId: 'test-server',
@@ -89,9 +136,11 @@ async function test() {
     callbackUrl: 'https://example.com/callback',
     transportType: 'sse',
     active: true,
+    createdAt: Date.now(),
   });
 
-  console.log('✓ Redis connection successful!');
+  const session = await storage.getSession('test-user', sessionId);
+  console.log('✓ Storage backend working!', session?.serverName);
 }
 
 test();
@@ -121,20 +170,36 @@ If using TypeScript, ensure your `tsconfig.json` includes:
 
 ## Next Steps
 
+- [Storage Backends](./storage-backends.md) - Detailed backend comparison
 - [Next.js Integration](./nextjs.md) - Set up with Next.js
 - [React Hook](./react-hook.md) - Use the React hook
 - [API Reference](./api-reference.md) - Explore the API
 
 ## Troubleshooting
 
-### Redis Connection Issues
+### Storage Backend Issues
 
 **Problem**: `Error: Redis connection failed`
 
-**Solution**:
+**Solution** (Redis):
 - Verify Redis is running: `redis-cli ping` (should return `PONG`)
-- Check `REDIS_URL` environment variable
+- Check `REDIS_URL` environment variable is set correctly
 - Ensure firewall allows port 6379
+- For cloud Redis, verify credentials and SSL settings
+
+**Problem**: File storage not persisting
+
+**Solution** (File):
+- Verify `MCP_TS_STORAGE_FILE` path is writable
+- Check directory permissions
+- Ensure the parent directory exists (it should be created automatically)
+
+**Problem**: Sessions lost on restart
+
+**Solution**:
+- If using in-memory storage (default), this is expected behavior
+- Switch to Redis or File storage for persistence
+- Set `MCP_TS_STORAGE_TYPE=file` or configure `REDIS_URL`
 
 ### Module Resolution Errors
 

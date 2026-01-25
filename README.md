@@ -8,11 +8,12 @@ Lightweight MCP (Model Context Protocol) client library for JavaScript applicati
 ## Features
 
 - **🔄 Real-Time SSE** - Server-Sent Events for live connection updates
-- **📦 Redis Sessions** - Stateless session management with automatic TTL
+- **💾 Flexible Storage** - Redis, File System, or In-Memory backends
 - **⚡ Serverless-Ready** - Works in serverless environments (Vercel, AWS Lambda, etc.)
 - **⚛️ React Hook** - `useMcp` hook for easy React integration
 - **🛠️ Full MCP Protocol** - Support for tools, prompts, and resources
 - **📘 TypeScript** - Complete type safety with exported types
+- **PostgreSQL** - Coming soon!
 
 ## Installation
 
@@ -82,19 +83,43 @@ Full documentation is available at: **[https://ashen-dusk.github.io/mcp-ts/](htt
 
 - **[Getting Started](https://ashen-dusk.github.io/mcp-ts/docs/)** - Quick setup and overview
 - **[Installation](https://ashen-dusk.github.io/mcp-ts/docs/installation)** - Detailed installation guide
+- **[Storage Backends](https://ashen-dusk.github.io/mcp-ts/docs/storage-backends)** - Redis, File, Memory options
 - **[Next.js Integration](https://ashen-dusk.github.io/mcp-ts/docs/nextjs)** - Complete Next.js examples
 - **[React Hook Guide](https://ashen-dusk.github.io/mcp-ts/docs/react-hook)** - Using the useMcp hook
 - **[API Reference](https://ashen-dusk.github.io/mcp-ts/docs/api-reference)** - Complete API documentation
 
 ## Environment Setup
 
-```bash
-# Redis connection (required)
-REDIS_URL=redis://localhost:6379
+The library supports multiple storage backends. You can explicitly select one using `MCP_TS_STORAGE_TYPE` or rely on automatic detection.
 
-# Or for cloud Redis (Upstash, Redis Cloud, etc.)
-REDIS_URL=rediss://default:password@host.upstash.io:6379
-```
+**Supported Types:** `redis`, `file`, `memory`, and `postgresql` (coming soon).
+
+### Configuration Examples
+
+1.  **Redis** (Recommended for production)
+    ```bash
+    MCP_TS_STORAGE_TYPE=redis
+    REDIS_URL=redis://localhost:6379
+    ```
+
+2.  **File System** (Great for local dev)
+    ```bash
+    MCP_TS_STORAGE_TYPE=file
+    MCP_TS_STORAGE_FILE=./sessions.json
+    ```
+
+3.  **In-Memory** (Default for testing)
+    ```bash
+    MCP_TS_STORAGE_TYPE=memory
+    ```
+
+4.  **PostgreSQL** (Coming soon)
+    ```bash
+    # Future release
+    MCP_TS_STORAGE_TYPE=postgresql
+    DATABASE_URL=postgresql://user:pass@host:5432/db
+    ```
+
 
 ## Architecture
 
@@ -134,7 +159,7 @@ graph TD
 
 - **Browser**: React application using the `useMcp` hook for state management.
 - **Next.js Server**: Acts as a bridge, maintaining connections to external MCP servers.
-- **Redis**: Persists session state, OAuth tokens, and connection details.
+- **Storage**: Persists session state, OAuth tokens, and connection details (Redis, File, or Memory).
 - **SSE**: Delivers real-time updates (logs, tool list changes) to the client.
 
 ## Contributing

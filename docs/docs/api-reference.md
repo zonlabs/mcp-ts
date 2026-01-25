@@ -179,69 +179,185 @@ await client.finishAuth(authCode);
 
 ---
 
-### `sessionStore`
+## Storage Backend API
 
-Redis-backed session storage utilities.
+### `storage`
+
+Global storage instance that automatically selects the appropriate backend based on environment configuration.
 
 ```typescript
-import { sessionStore } from '@mcp-ts/redis/server';
+import { storage } from '@mcp-ts/redis/server';
 ```
 
-**`generateSessionId(): string`**
+#### Configuration
 
-Generate a new session ID.
+The storage backend is selected automatically:
 
-```typescript
-const sessionId = sessionStore.generateSessionId();
+```bash
+# Redis (Production)
+MCP_TS_STORAGE_TYPE=redis
+REDIS_URL=redis://localhost:6379
+
+# File System (Development)
+MCP_TS_STORAGE_TYPE=file
+MCP_TS_STORAGE_FILE=./sessions.json
+
+# In-Memory (Testing - Default)
+MCP_TS_STORAGE_TYPE=memory
 ```
 
 ---
 
-**`saveSession(session: SessionData): Promise<void>`**
+### Storage Methods
 
-Save session data to Redis.
+**`generateSessionId(): string`**
+
+Generate a unique session ID.
 
 ```typescript
-await sessionStore.saveSession({
+const sessionId = storage.generateSessionId();
+```
+
+---
+
+**`createSession(session: SessionData): Promise<void>`**
+
+Create a new session. Throws if session already exists.
+
+```typescript
+await storage.createSession({
   sessionId: 'abc123',
   identity: 'user-123',
   serverId: 'server-id',
   serverName: 'My Server',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: 'https://myapp.com/callback',
-  transportType: 'sse' | 'streamable_http',
+  transportType: 'sse',
   active: true,
+  createdAt: Date.now(),
 });
 ```
 
 ---
 
-**`getSession(sessionId: string): Promise<SessionData | null>`**
+**`updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void>`**
 
-Retrieve session data from Redis.
+Update an existing session with partial data. Throws if session doesn't exist.
 
 ```typescript
-const session = await sessionStore.getSession('abc123');
+await storage.updateSession('user-123', 'abc123', {
+  active: false,
+  tokens: {
+    access_token: 'new-token',
+    token_type: 'Bearer',
+  },
+});
 ```
 
 ---
 
-**`deleteSession(sessionId: string): Promise<void>`**
+**`getSession(identity: string, sessionId: string): Promise<SessionData | null>`**
 
-Delete session from Redis.
+Retrieve session data.
 
 ```typescript
-await sessionStore.deleteSession('abc123');
+const session = await storage.getSession('user-123', 'abc123');
 ```
 
 ---
 
-**`getIdentitySessions(identity: string): Promise<string[]>`**
+**`getIdentitySessionsData(identity: string): Promise<SessionData[]>`**
+
+Get all session data for an identity.
+
+```typescript
+const sessions = await storage.getIdentitySessionsData('user-123');
+```
+
+---
+
+**`getIdentityMcpSessions(identity: string): Promise<string[]>`**
 
 Get all session IDs for an identity.
 
 ```typescript
-const sessionIds = await sessionStore.getIdentitySessions('user-123');
+const sessionIds = await storage.getIdentityMcpSessions('user-123');
+```
+
+---
+
+**`removeSession(identity: string, sessionId: string): Promise<void>`**
+
+Delete a session.
+
+```typescript
+await storage.removeSession('user-123', 'abc123');
+```
+
+---
+
+**`getAllSessionIds(): Promise<string[]>`**
+
+Get all session IDs across all users (admin operation).
+
+```typescript
+const allSessions = await storage.getAllSessionIds();
+```
+
+---
+
+**`clearAll(): Promise<void>`**
+
+Clear all sessions (admin operation).
+
+```typescript
+await storage.clearAll();
+```
+
+---
+
+**`cleanupExpiredSessions(): Promise<void>`**
+
+Clean up expired sessions (Redis only, no-op for others).
+
+```typescript
+await storage.cleanupExpiredSessions();
+```
+
+---
+
+**`disconnect(): Promise<void>`**
+
+Disconnect from storage backend.
+
+```typescript
+await storage.disconnect();
+```
+
+---
+
+### Custom Storage Backends
+
+You can also use specific storage backends directly:
+
+```typescript
+import { 
+  RedisStorageBackend,
+  MemoryStorageBackend,
+  FileStorageBackend 
+} from '@mcp-ts/redis/server';
+import { Redis } from 'ioredis';
+
+// Redis
+const redis = new Redis(process.env.REDIS_URL);
+const redisStorage = new RedisStorageBackend(redis);
+
+// File System
+const fileStorage = new FileStorageBackend({ path: './sessions.json' });
+await fileStorage.init();
+
+// In-Memory
+const memoryStorage = new MemoryStorageBackend();
 ```
 
 ---
@@ -446,15 +562,20 @@ interface ToolInfo {
 ```typescript
 interface SessionData {
   sessionId: string;
-  identity: string;
-  serverId: string;
-  serverName: string;
+  identity?: string;
+  serverId?: string;
+  serverName?: string;
   serverUrl: string;
   callbackUrl: string;
   transportType: 'sse' | 'streamable_http';
   active: boolean;
+  createdAt: number;
+  headers?: Record<string, string>;
+  // OAuth data
   tokens?: OAuthTokens;
   clientInformation?: OAuthClientInformation;
+  codeVerifier?: string;
+  clientId?: string;
 }
 ```
 

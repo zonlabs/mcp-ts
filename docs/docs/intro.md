@@ -15,11 +15,19 @@ slug: /
 - **🔄 Persistent Sessions** - Automatic session management and recovery
 - **📦 TypeScript** - Full type safety with TypeScript support
 - **🚀 Production Ready** - Works in serverless environments like Vercel
+- **💾 Flexible Storage** - Multiple backend options:
+  - <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **Redis** - Production-ready distributed storage
+  - <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **File System** - Local development with JSON persistence
+  - <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **In-Memory** - Fast ephemeral storage for testing
+  - <img src="/img/postgres.svg" alt="PostgreSQL" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> **PostgreSQL** - Coming soon!
 
 ## What You'll Need
 
 - [Node.js](https://nodejs.org/) version 18.0 or above
-- [Redis](https://redis.io/) instance (local or cloud)
+- **Storage Backend** (choose one):
+  - <img src="/img/redis.svg" alt="Redis" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> [Redis](https://redis.io/) - Recommended for production
+  - <img src="/img/filesystem.svg" alt="File System" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> File System - Built-in, great for local development
+  - <img src="/img/memory.svg" alt="Memory" width="16" height="16" style={{display: 'inline', verticalAlign: 'middle'}} /> In-Memory - Built-in, default for quick testing
 - Basic knowledge of JavaScript/TypeScript
 
 ## Quick Install
@@ -87,6 +95,7 @@ function App() {
 Get started with these guides:
 
 - **[Installation](./installation.md)** - Detailed setup instructions
+- **[Storage Backends](./storage-backends.md)** - Choose your storage backend
 - **[Next.js Integration](./nextjs.md)** - Complete Next.js example
 - **[React Hook](./react-hook.md)** - Using the useMcp hook
 - **[API Reference](./api-reference.md)** - Full API documentation
