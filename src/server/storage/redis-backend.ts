@@ -3,13 +3,13 @@ import { Redis } from 'ioredis';
 import { customAlphabet } from 'nanoid';
 import { StorageBackend, SessionData, SetClientOptions } from './types';
 
-// first char: letters only (required by OpenAI)
+/** first char: letters only (required by OpenAI) */
 const firstChar = customAlphabet(
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
     1
 );
 
-// remaining chars: alphanumeric
+/** remaining chars: alphanumeric */
 const rest = customAlphabet(
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
     11
@@ -51,7 +51,7 @@ export class RedisStorageBackend implements StorageBackend {
         const sessionKey = this.getSessionKey(identity, sessionId);
         const identityKey = this.getIdentityKey(identity);
 
-        // ioredis syntax: set(key, val, 'EX', ttl, 'NX')
+        /** ioredis syntax: set(key, val, 'EX', ttl, 'NX') */
         const result = await this.redis.set(
             sessionKey,
             JSON.stringify(session),
@@ -69,7 +69,7 @@ export class RedisStorageBackend implements StorageBackend {
     async updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void> {
         const sessionKey = this.getSessionKey(identity, sessionId);
 
-        // Lua script for atomic parsing, merging, and saving
+        /** Lua script for atomic parsing, merging, and saving */
         const script = `
             local currentStr = redis.call("GET", KEYS[1])
             if not currentStr then

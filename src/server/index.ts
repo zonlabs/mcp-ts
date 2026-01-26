@@ -3,24 +3,25 @@
  * Node.js server-side exports for MCP connection management with Redis
  */
 
-// Core MCP client and session management
+/** Core MCP client and session management */
 export { MCPClient } from './oauth-client';
 export { UnauthorizedError } from '../shared/errors';
 export { storage, type StorageBackend } from './storage';
 export { StorageOAuthClientProvider } from './storage-oauth-provider';
+export { MultiSessionClient } from './multi-session-client';
 
-// SSE handler for real-time connections
+/** SSE handler for real-time connections */
 export { createSSEHandler, SSEConnectionManager, type SSEHandlerOptions, type ClientMetadata } from './sse-handler';
 
-// Next.js App Router handler (recommended for Next.js 13+)
+/** Next.js App Router handler (recommended for Next.js 13+) */
 export { createNextMcpHandler, type NextMcpHandlerOptions } from './nextjs-handler';
 
-// Session provider abstraction
+/** Session provider abstraction */
 
-// Utilities
+/** Utilities */
 export { sanitizeServerLabel } from '../shared/utils';
 
-// Re-export shared types
+/** Re-export shared types */
 export type {
   McpConnectionEvent,
   McpConnectionState,
@@ -41,7 +42,7 @@ export type {
   CallToolResponse,
 } from '../shared/types';
 
-// Re-export MCP SDK types for convenience
+/** Re-export MCP SDK types for convenience */
 export type {
   OAuthClientMetadata,
   OAuthClientInformation,

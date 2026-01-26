@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { nanoid } from 'nanoid';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'; // Import base Transport type
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'; /** Import base Transport type */
 import {
   UnauthorizedError as SDKUnauthorizedError,
   refreshAuthorization,
@@ -51,8 +51,8 @@ export interface MCPOAuthClientOptions {
   callbackUrl?: string;
   onRedirect?: (url: string) => void;
   identity: string;
-  serverId?: string; // Optional - loaded from session if not provided
-  sessionId: string; // Required - primary key for session lookup
+  serverId?: string; /** Optional - loaded from session if not provided */
+  sessionId: string; /** Required - primary key for session lookup */
   transportType?: TransportType;
   tokens?: OAuthTokens;
   tokenExpiresAt?: number;
@@ -61,7 +61,7 @@ export interface MCPOAuthClientOptions {
   clientSecret?: string;
   onSaveTokens?: (tokens: OAuthTokens) => void;
   headers?: Record<string, string>;
-  // OAuth Client Metadata (optional - user application info)
+  /** OAuth Client Metadata (optional - user application info) */
   clientName?: string;
   clientUri?: string;
   logoUri?: string;
@@ -92,16 +92,16 @@ export class MCPClient {
   private clientSecret?: string;
   private onSaveTokens?: (tokens: OAuthTokens) => void;
   private headers?: Record<string, string>;
-  // OAuth Client Metadata
+  /** OAuth Client Metadata */
   private clientName?: string;
   private clientUri?: string;
   private logoUri?: string;
   private policyUri?: string;
 
-  // Lazy-loaded AI SDK jsonSchema validator
+  /** Lazy-loaded AI SDK jsonSchema validator */
   private jsonSchema: typeof import('ai').jsonSchema | undefined;
 
-  // Event emitters for connection lifecycle
+  /** Event emitters for connection lifecycle */
   private readonly _onConnectionEvent = new Emitter<McpConnectionEvent>();
   public readonly onConnectionEvent = this._onConnectionEvent.event;
 
@@ -284,9 +284,11 @@ export class MCPClient {
 
       this.serverUrl = this.serverUrl || sessionData.serverUrl;
       this.callbackUrl = this.callbackUrl || sessionData.callbackUrl;
-      // Do NOT load transportType from session if not explicitly provided.
-      // We want to re-negotiate (try streamable -> sse) on new connections if in "Auto" mode.
-      // this.transportType = this.transportType || sessionData.transportType; 
+      /**
+       * Do NOT load transportType from session if not explicitly provided.
+       * We want to re-negotiate (try streamable -> sse) on new connections if in "Auto" mode.
+       * this.transportType = this.transportType || sessionData.transportType; 
+       */
       this.serverName = this.serverName || sessionData.serverName;
       this.serverId = this.serverId || sessionData.serverId || 'unknown';
       this.headers = this.headers || sessionData.headers;
@@ -371,8 +373,10 @@ export class MCPClient {
    * @private
    */
   private async tryConnect(): Promise<{ transportType: TransportType }> {
-    // If exact transport type is known, only try that.
-    // Otherwise (auto mode), try streamable_http first, then sse.
+    /**
+     * If exact transport type is known, only try that.
+     * Otherwise (auto mode), try streamable_http first, then sse.
+     */
     const transportsToTry: TransportType[] = this.transportType
       ? [this.transportType]
       : ['streamable_http', 'sse'];
@@ -385,19 +389,19 @@ export class MCPClient {
       try {
         const transport = this.getTransport(currentType);
 
-        // Update local state with the transport we are about to try
+        /** Update local state with the transport we are about to try */
         this.transport = transport;
 
-        // Race connection against timeout
+        /** Race connection against timeout */
         await this.client!.connect(transport);
 
-        // Success! Return the type that worked
+        /** Success! Return the type that worked */
         return { transportType: currentType };
 
       } catch (error: any) {
         lastError = error;
 
-        // Check for Auth Errors - these should fail immediately, no fallback
+        /** Check for Auth Errors - these should fail immediately, no fallback */
         const isAuthError = error instanceof SDKUnauthorizedError ||
           (error instanceof Error && error.message.toLowerCase().includes('unauthorized'));
 
@@ -405,12 +409,12 @@ export class MCPClient {
           throw error;
         }
 
-        // If this was the last transport to try, throw the error
+        /** If this was the last transport to try, throw the error */
         if (isLastAttempt) {
           throw error;
         }
 
-        // Otherwise, log and continue to next transport
+        /** Otherwise, log and continue to next transport */
         const errorMessage = error instanceof Error ? error.message : String(error);
         this.emitProgress(`Connection attempt with ${currentType} failed: ${errorMessage}. Retrying...`);
         this._onObservabilityEvent.fire({
@@ -453,10 +457,10 @@ export class MCPClient {
 
       this.emitStateChange('CONNECTING');
 
-      // Use the tryConnect loop to handle transport fallbacks
+      /** Use the tryConnect loop to handle transport fallbacks */
       const { transportType } = await this.tryConnect();
 
-      // Update transport type to the one that actually worked
+      /** Update transport type to the one that actually worked */
       this.transportType = transportType;
 
       this.emitStateChange('CONNECTED');
@@ -467,7 +471,7 @@ export class MCPClient {
         await this.saveSession(true);
       }
     } catch (error) {
-      // Handle Authentication Errors
+      /** Handle Authentication Errors */
       if (
         error instanceof SDKUnauthorizedError ||
         (error instanceof Error && error.message.toLowerCase().includes('unauthorized'))
@@ -475,7 +479,7 @@ export class MCPClient {
         this.emitStateChange('AUTHENTICATING');
         await this.saveSession(false);
 
-        // Get OAuth authorization URL if available
+        /** Get OAuth authorization URL if available */
         let authUrl = '';
         if (this.oauthProvider) {
           authUrl = this.oauthProvider.authUrl || '';
@@ -498,7 +502,7 @@ export class MCPClient {
         throw new UnauthorizedError('OAuth authorization required');
       }
 
-      // Handle Generic Errors
+      /** Handle Generic Errors */
       const errorMessage = error instanceof Error ? error.message : 'Connection failed';
       this.emitError(errorMessage, 'connection');
       this.emitStateChange('FAILED');
@@ -525,9 +529,11 @@ export class MCPClient {
       throw new Error(error);
     }
 
-    // Determine which transport to try first for finishing auth
-    // Note: finishAuth logic is transport-specific but usually similar. 
-    // We try streamable_http first if auto, or the specified one.
+    /**
+     * Determine which transport to try first for finishing auth
+     * Note: finishAuth logic is transport-specific but usually similar. 
+     * We try streamable_http first if auto, or the specified one.
+     */
     const tt: TransportType = this.transportType || 'streamable_http';
     this.transport = this.getTransport(tt);
 
@@ -547,7 +553,7 @@ export class MCPClient {
 
       this.emitStateChange('CONNECTING');
 
-      // We explicitly try to connect with the transport we just auth'd with first
+      /** We explicitly try to connect with the transport we just auth'd with first */
       await this.client.connect(this.transport);
 
       this.emitStateChange('CONNECTED');
@@ -980,6 +986,14 @@ export class MCPClient {
    */
   getServerId(): string | undefined {
     return this.serverId;
+  }
+
+  /**
+   * Gets the session ID
+   * @returns Session ID
+   */
+  getSessionId(): string {
+    return this.sessionId;
   }
 
   /**

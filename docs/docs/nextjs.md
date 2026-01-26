@@ -128,6 +128,41 @@ export default function Home() {
 }
 ```
 
+## AI SDK
+
+To build agentic workflows that use tools from multiple MCP servers, use `MultiSessionClient`.
+
+```typescript
+// app/api/chat/route.ts
+import { MultiSessionClient } from '@mcp-ts/redis/server';
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+export async function POST(req: Request) {
+  const { messages, identity } = await req.json();
+
+  const mcp = new MultiSessionClient(identity);
+
+  try {
+    await mcp.connect();
+    const tools = await mcp.getAITools();
+    const result = streamText({
+      model: openai('gpt-4'),
+      messages,
+      tools,
+      onFinish: async () => {
+        await mcp.disconnect();
+      }
+    });
+
+    return result.toDataStreamResponse();
+  } catch (error) {
+    await mcp.disconnect();
+    throw error;
+  }
+}
+```
+
 ## Pages Router
 
 ### Step 1: Create API Route
@@ -322,4 +357,4 @@ export function McpClient({ identity }: { identity: string }) {
 
 - [React Hook API](./react.md) - Detailed hook documentation
 - [API Reference](./api-reference.md) - Complete API reference
-- [Examples](https://github.com/ashen-dusk/mcp-ts/tree/main/examples) - More code examples
+- [Examples](https://github.com/zonlabs/mcp-ts/tree/main/examples) - More code examples

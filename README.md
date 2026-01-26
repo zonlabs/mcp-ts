@@ -38,6 +38,44 @@ export const { GET, POST } = createNextMcpHandler({
     //  your logic here
   }
 });
+});
+```
+
+### Using with Vercel AI SDK
+
+For advanced usage with `ai` SDK (e.g., `streamText`), use `MultiSessionClient` to aggregate tools from multiple servers.
+
+```typescript
+// app/api/chat/route.ts
+import { MultiSessionClient } from '@mcp-ts/redis/server';
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+export async function POST(req: Request) {
+  const { messages, identity } = await req.json();
+
+  const mcp = new MultiSessionClient(identity);
+
+  try {
+    await mcp.connect();
+
+    const tools = await mcp.getAITools();
+
+    const result = streamText({
+      model: openai('gpt-4'),
+      messages,
+      tools,
+      onFinish: async () => {
+        await mcp.disconnect();
+      }
+    });
+
+    return result.toDataStreamResponse();
+  } catch (error) {
+    await mcp.disconnect();
+    throw error;
+  }
+}
 ```
 
 ### Client-Side (React)
@@ -80,16 +118,16 @@ function App() {
 
 ## Documentation
 
-Full documentation is available at: **[Docs](https://oxolabs.github.io/mcp-ts/)**
+Full documentation is available at: **[Docs](https://zonlabs.github.io/mcp-ts/)**
 
 ### Topics Covered:
 
-- **[Getting Started](https://oxolabs.github.io/mcp-ts/docs/)** - Quick setup and overview
-- **[Installation](https://oxolabs.github.io/mcp-ts/docs/installation)** - Detailed installation guide
-- **[Storage Backends](https://ashen-dusk.github.io/mcp-ts/docs/storage-backends)** - Redis, File, Memory options
-- **[Next.js Integration](https://ashen-dusk.github.io/mcp-ts/docs/nextjs)** - Complete Next.js examples
-- **[React Hook Guide](https://ashen-dusk.github.io/mcp-ts/docs/react-hook)** - Using the useMcp hook
-- **[API Reference](https://ashen-dusk.github.io/mcp-ts/docs/api-reference)** - Complete API documentation
+- **[Getting Started](https://zonlabs.github.io/mcp-ts/docs/)** - Quick setup and overview
+- **[Installation](https://zonlabs.github.io/mcp-ts/docs/installation)** - Detailed installation guide
+- **[Storage Backends](https://zonlabs.github.io/mcp-ts/docs/storage-backends)** - Redis, File, Memory options
+- **[Next.js Integration](https://zonlabs.github.io/mcp-ts/docs/nextjs)** - Complete Next.js examples
+- **[React Hook Guide](https://zonlabs.github.io/mcp-ts/docs/react-hook)** - Using the useMcp hook
+- **[API Reference](https://zonlabs.github.io/mcp-ts/docs/api-reference)** - Complete API documentation
 
 ## Environment Setup
 

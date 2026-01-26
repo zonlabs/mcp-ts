@@ -5,6 +5,7 @@ slug: /
 
 import { DocIcon } from '@site/src/components/DocIcons';
 import { FrameworkList } from '@site/src/components/FrameworkList';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Getting Started
 
@@ -30,6 +31,16 @@ npm install @mcp-ts/redis
 We provide first-class support for popular frameworks:
 
 <FrameworkList />
+
+## Integrations
+
+### <img src={useBaseUrl('/img/vercel.svg')} width={20} height={20} style={{ verticalAlign: 'middle' }} /> Vercel AI SDK
+
+mcp-ts provides first-class support for the Vercel AI SDK.
+- **Aggregated Tools** — Use `MultiSessionClient` to combine tools from multiple MCP servers.
+- **Streaming** — Perfect integration with `streamText` and `useChat`.
+
+
 
 
 ## Core Concepts

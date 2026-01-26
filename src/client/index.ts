@@ -3,12 +3,12 @@
  * Browser/React client-side exports for MCP connection management
  */
 
-// SSE client for real-time connections
+/** SSE client for real-time connections */
 export { SSEClient, type SSEClientOptions } from './core/sse-client';
 
 
 
-// Re-export shared types
+/** Re-export shared types */
 export type {
   McpConnectionEvent,
   McpConnectionState,

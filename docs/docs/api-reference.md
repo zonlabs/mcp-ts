@@ -191,6 +191,57 @@ await client.finishAuth(authCode);
 
 ---
 
+### `MultiSessionClient`
+
+Manages multiple MCP connections for a single user identity, allowing aggregation of tools from all connected servers.
+
+```typescript
+import { MultiSessionClient } from '@mcp-ts/redis/server';
+
+const mcp = new MultiSessionClient(identity, {
+  timeout: 15000,
+  maxRetries: 2,
+  retryDelay: 1000,
+});
+```
+
+**Options:**
+- `timeout` - Connection timeout in milliseconds (default: 15000)
+- `maxRetries` - Maximum number of retry attempts for each session (default: 2)
+- `retryDelay` - Delay between retries in milliseconds (default: 1000)
+
+#### Methods
+
+**`connect(): Promise<void>`**
+
+Connects to all active sessions for the user. Skips sessions that fail to connect after retries, but logs errors.
+
+```typescript
+await mcp.connect();
+```
+
+---
+
+**`getAITools(): Promise<ToolSet>`**
+
+Aggregates AI tools (compatible with AI SDK) from all connected clients.
+
+```typescript
+const tools = await mcp.getAITools();
+```
+
+---
+
+**`disconnect(): void`**
+
+Disconnects all active clients and clears the internal client list.
+
+```typescript
+mcp.disconnect();
+```
+
+---
+
 ## Storage Backend API
 
 ### `storage`
@@ -611,5 +662,5 @@ try {
 
 ## Next Steps
 
-- [Examples](https://github.com/ashen-dusk/mcp-ts/tree/main/examples) - Practical code examples
-- [GitHub Repository](https://github.com/ashen-dusk/mcp-ts) - Source code
+- [Examples](https://github.com/zonlabs/mcp-ts/tree/main/examples) - Practical code examples
+- [GitHub Repository](https://github.com/zonlabs/mcp-ts) - Source code
