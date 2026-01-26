@@ -1,9 +1,9 @@
 <div align="center">
   <h1 align="center">
     <a href="https://github.com/zonlabs/mcp-ts">
-      <img src="docs/static/img/logo.svg" alt="mcp-ts Logo" width="80" height="80" />
+      <img src="docs/static/img/logo.svg" alt="mcp-ts Logo" width="80" height="80" style="vertical-align: middle;" />
     </a>
-    @mcp-ts
+    <span style="vertical-align: middle;">@mcp-ts</span>
   </h1>
   <p>A Lightweight MCP (Model Context Protocol) client library with integrated persistence.</p>
 </div>
