@@ -425,8 +425,8 @@ CMD ["npm", "start"]
 Build and run:
 
 ```bash
-docker build -t mcp-redis-nextjs .
-docker run -p 3000:3000 -e REDIS_URL=redis://host.docker.internal:6379 mcp-redis-nextjs
+docker build -t mcp-ts-nextjs .
+docker run -p 3000:3000 -e REDIS_URL=redis://host.docker.internal:6379 mcp-ts-nextjs
 ```
 
 ### Production Considerations
@@ -501,5 +501,5 @@ MIT
 ## Support
 
 For issues or questions:
-- GitHub Issues: [mcp-redis/issues](https://github.com/zonlabs/mcp-redis/issues)
-- MCP Discord: [Model Context Protocol Community](https://discord.gg/modelcontextprotocol)
+- GitHub Issues: [mcp-ts/issues](https://github.com/zonlabs/mcp-ts/issues)
+

@@ -1,10 +1,17 @@
 <div align="center">
-  <h1><img src="docs/static/img/logo.svg" width="45" alt="mcp-ts Logo" style="vertical-align: middle;" /> @mcp-ts</h1>
+  <a href="https://github.com/zonlabs/mcp-ts">
+    <img src="docs/static/img/logo.svg" alt="mcp-ts Logo" width="80" height="80" />
+  </a>
+  <h1 align="center">@mcp-ts</h1>
   <p>A Lightweight MCP (Model Context Protocol) client library with integrated persistence.</p>
 </div>
 
 <div align="center">
-  <video src="docs/static/vid/mcp-ts.mp4" width="100%" controls autoplay muted loop></video>
+  <a href="https://github.com/zonlabs/mcp-ts/raw/main/docs/static/vid/mcp-ts.mp4">
+    <img src="docs/static/img/logo.svg" alt="Watch Demo Video" width="100"/>
+    <br/>
+    <em>Click to watch demo video</em>
+  </a>
 </div>
 
 <div align="center">

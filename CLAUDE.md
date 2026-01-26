@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) and other AI assistants when working with the mcp-redis package.
+This file provides guidance to Claude Code (claude.ai/code) and other AI assistants when working with the mcp-ts package.
 
 ## Package Overview
 
@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI assista
 ## Recent Changes (v1.0.0-beta.3+)
 
 ### Breaking Changes
-- **Package Renamed**: `@mcp-assistant/mcp-redis` -> `@mcp-ts/redis`
+- **Package Renamed**: `@mcp-assistant/mcp-ts` -> `@mcp-ts/redis`
 - **Updated Imports**: All imports should now use `@mcp-ts/redis`
 
 ### API Improvements
