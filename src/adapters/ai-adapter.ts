@@ -1,5 +1,5 @@
-import { MCPClient } from '../server/oauth-client';
-import { MultiSessionClient } from '../server/multi-session-client';
+import { MCPClient } from '../server/mcp/oauth-client';
+import { MultiSessionClient } from '../server/mcp/multi-session-client';
 import type { JSONSchema7 } from 'json-schema';
 import type { ToolSet } from 'ai';
 

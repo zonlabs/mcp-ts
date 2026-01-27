@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { MastraAdapter } from '../../src/adapters/mastra-adapter';
-import { MCPClient } from '../../src/server/oauth-client';
+import { MCPClient } from '../../src/server/mcp/oauth-client';
 
 class MockMCPClient {
     private connected = true;

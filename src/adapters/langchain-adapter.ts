@@ -1,5 +1,5 @@
-import { MCPClient } from '../server/oauth-client';
-import { MultiSessionClient } from '../server/multi-session-client';
+import { MCPClient } from '../server/mcp/oauth-client';
+import { MultiSessionClient } from '../server/mcp/multi-session-client';
 import type { DynamicStructuredTool, StructuredTool } from '@langchain/core/tools';
 import type { z } from 'zod';
 

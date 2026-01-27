@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { MCPClient } from '../src/server/oauth-client';
+import { MCPClient } from '../src/server/mcp/oauth-client';
 import { storage } from '../src/server/storage';
 
 test.describe('MCPClient.getMcpServerConfig', () => {

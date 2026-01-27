@@ -53,6 +53,11 @@
       "types": "./dist/adapters/mastra-adapter.d.ts",
       "import": "./dist/adapters/mastra-adapter.mjs",
       "require": "./dist/adapters/mastra-adapter.js"
+    },
+    "./adapters/copilotkit": {
+      "types": "./dist/adapters/copilotkit-adapter.d.ts",
+      "import": "./dist/adapters/copilotkit-adapter.mjs",
+      "require": "./dist/adapters/copilotkit-adapter.js"
     }
   },
   "files": [
