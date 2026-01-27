@@ -1,5 +1,5 @@
 
-import type { MCPClient } from '../oauth-client';
+import type { MCPClient } from '../mcp/oauth-client.js';
 import type {
     OAuthTokens,
     OAuthClientInformationMixed,
