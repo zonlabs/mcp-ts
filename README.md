@@ -23,7 +23,7 @@
 </div>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mcp-ts/core">
+  <a href="https://www.npmjs.com/package/@mcp-ts/sdk">
     <img src="https://badge.fury.io/js/@mcp-ts%2Fcore.svg" alt="npm version" />
   </a>
   <a href="https://opensource.org/licenses/MIT">
@@ -63,7 +63,7 @@ That’s how `@mcp-ts` started.
 ## Installation
 
 ```bash
-npm install @mcp-ts/core
+npm install @mcp-ts/sdk
 ```
 
 The package supports multiple storage backends out of the box:
@@ -77,7 +77,7 @@ The package supports multiple storage backends out of the box:
 
 ```typescript
 // app/api/mcp/route.ts
-import { createNextMcpHandler } from '@mcp-ts/core/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -96,7 +96,7 @@ For advanced usage with `ai` SDK (e.g., `streamText`), use `MultiSessionClient` 
 
 ```typescript
 // app/api/chat/route.ts
-import { MultiSessionClient } from '@mcp-ts/core/server';
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
 
 ```typescript
 'use client';
-import { useMcp } from '@mcp-ts/core/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 function App() {
   const { connections, connect, status } = useMcp({
@@ -253,7 +253,7 @@ graph TD
 - **SSE**: Delivers real-time updates (logs, tool list changes) to the client.
 
 > [!NOTE]
-> This package (`@mcp-ts/core`) provides a unified MCP client with support for multiple storage backends (Memory, File, Redis). Storage backends use optional peer dependencies - install only what you need. Future releases may introduce separate storage plugins like `@mcp-ts/postgres` for even more flexibility.
+> This package (`@mcp-ts/sdk`) provides a unified MCP client with support for multiple storage backends (Memory, File, Redis). Storage backends use optional peer dependencies - install only what you need. Future releases may introduce separate storage plugins like `@mcp-ts/postgres` for even more flexibility.
 
 ## Contributing
 

@@ -12,7 +12,7 @@ import styles from './index.module.css';
 
 const InstallationExample = () => (
   <Terminal>
-    <AnimatedSpan delay={0} className={styles.command}>npm install @mcp-ts/redis</AnimatedSpan>
+    <AnimatedSpan delay={0} className={styles.command}>npm install @mcp-ts/sdk</AnimatedSpan>
     <TypingAnimation delay={1000} duration={50}>
       Installing dependencies...
     </TypingAnimation>
@@ -122,7 +122,7 @@ export default function Home(): ReactNode {
                   and SSE endpoints for real-time updates.
                 </p>
                 <CodeBlock language="typescript">
-                  {`import { MCPClient } from '@mcp-ts/redis/server';
+                  {`import { MCPClient } from '@mcp-ts/sdk/server';
 
 const client = new MCPClient({
   serverUrl: 'https://mcp.example.com',
@@ -139,7 +139,7 @@ await client.connect();`}
                   with the useMcp hook and automatic state synchronization.
                 </p>
                 <CodeBlock language="tsx">
-                  {`import { useMcp } from '@mcp-ts/redis/client';
+                  {`import { useMcp } from '@mcp-ts/sdk/client';
 
 function MyComponent() {
   const { connections, connect } = useMcp({

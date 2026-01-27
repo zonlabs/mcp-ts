@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 import ConnectionList from './components/ConnectionList';
 import ConnectForm from './components/ConnectForm';
 import './App.css';
@@ -50,7 +50,7 @@ function App() {
           <h3>About this Example</h3>
           <p>
             This example demonstrates the <code>useMcp</code> hook from{' '}
-            <code>@mcp-ts/redis</code>. It connects to an MCP server
+            <code>@mcp-ts/sdk</code>. It connects to an MCP server
             via Server-Sent Events (SSE) with Redis-backed session management.
           </p>
           <h4>Features:</h4>

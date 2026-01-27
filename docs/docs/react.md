@@ -1,12 +1,11 @@
 ---
-sidebar_position: 4
+title: React
+hide_title: true
 ---
-
-# React Hook
 
 import { FaReact } from "react-icons/fa";
 
-<h1><FaReact style={{verticalAlign: 'middle', marginRight: '10px'}} color="#61DAFB" /> React Support</h1>
+<h1><FaReact style={{verticalAlign: 'middle', marginRight: '10px'}} color="#61DAFB" /> React</h1>
 
 The `useMcp` hook provides a simple way to manage MCP connections in React applications.
 

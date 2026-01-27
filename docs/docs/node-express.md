@@ -1,12 +1,11 @@
 ---
-sidebar_position: 4
+title: Express
+hide_title: true
 ---
-
-# Node/Express Integration
 
 import { SiExpress } from "react-icons/si";
 
-<h1><SiExpress style={{verticalAlign: 'middle', marginRight: '10px'}} /> Node/Express Support</h1>
+<h1><SiExpress style={{verticalAlign: 'middle', marginRight: '10px'}} />Express</h1>
 
 Complete guide for integrating mcp-ts with Node.js and Express applications.
 

@@ -1,12 +1,11 @@
 ---
-sidebar_position: 5
+title: Vue.js
+hide_title: true
 ---
-
-# Vue.js Integration
 
 import { FaVuejs } from "react-icons/fa";
 
-<h1><FaVuejs style={{verticalAlign: 'middle', marginRight: '10px'}} color="#4FC08D" /> Vue.js Support</h1>
+<h1><FaVuejs style={{verticalAlign: 'middle', marginRight: '10px'}} color="#4FC08D" /> Vue.js</h1>
 
 The `@mcp-ts/sdk/client/vue` package provides a composable for managing MCP connections in Vue 3 applications.
 

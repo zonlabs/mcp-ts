@@ -21,7 +21,7 @@ export const POST = async (req: NextRequest) => {
 
   const identity = "demo-user-123";
   // Import dynamically to avoid build-time issues if package is linking
-  const { MultiSessionClient } = await import("@mcp-ts/redis/server");
+  const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
   const manager = new MultiSessionClient(identity);
 
   try {

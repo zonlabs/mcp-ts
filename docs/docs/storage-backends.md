@@ -20,6 +20,12 @@ Redis provides distributed, persistent storage with automatic TTL (Time To Live)
 - Multi-instance applications
 - High-availability setups
 
+**Installation:**
+
+```bash
+npm install @mcp-ts/sdk ioredis
+```
+
 **Configuration:**
 
 ```bash

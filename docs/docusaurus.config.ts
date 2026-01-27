@@ -90,11 +90,11 @@ const config: Config = {
         {
           label: 'v1.0.0-rc.3',
           position: 'right',
-          href: 'https://www.npmjs.com/package/@mcp-ts/redis',
+          href: 'https://www.npmjs.com/package/@mcp-ts/sdk',
           className: 'navbar-version-badge',
         },
         {
-          href: 'https://www.npmjs.com/package/@mcp-ts/redis',
+          href: 'https://www.npmjs.com/package/@mcp-ts/sdk',
           position: 'right',
           className: 'header-npm-link',
           'aria-label': 'NPM Package',
@@ -153,7 +153,7 @@ const config: Config = {
             },
             {
               html: `
-                <a href="https://www.npmjs.com/package/@mcp-ts/redis" target="_blank" rel="noreferrer noopener" aria-label="NPM" class="footer__link-item" style="margin-top: 8px; display: block;">
+                <a href="https://www.npmjs.com/package/@mcp-ts/sdk" target="_blank" rel="noreferrer noopener" aria-label="NPM" class="footer__link-item" style="margin-top: 8px; display: block;">
                   <span class="footer__icon-wrapper">
                     <svg height="24" width="24" viewBox="0 0 24 24" version="1.1" aria-hidden="true">
                        <path fill="currentColor" d="M0 7.334v8h6.666v1.332H12v-1.332h12v-8H0zM6.666 14H2.666V9.999h4V14zm4 0H9.332V9.999h1.334V14zm5.332 0h-1.335V9.999h1.335V14zm1.336 0h-1.336v-2.668H14.664V9.999h2.669V14zm5.334 0h-4.002V9.999h4.002V14zM20 9.999h1.334V14H20V9.999z"/>

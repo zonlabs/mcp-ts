@@ -222,12 +222,12 @@ await mcp.connect();
 
 ---
 
-**`getAITools(): Promise<ToolSet>`**
+**`getClients(): MCPClient[]`**
 
-Aggregates AI tools (compatible with AI SDK) from all connected clients.
+Returns the array of currently connected clients.
 
 ```typescript
-const tools = await mcp.getAITools();
+const clients = mcp.getClients();
 ```
 
 ---
@@ -241,6 +241,68 @@ mcp.disconnect();
 ```
 
 ---
+
+
+### Adapters
+
+Adapters convert MCP tools into framework-specific formats for seamless integration with AI frameworks.
+
+#### `AIAdapter`
+
+Convert MCP tools to Vercel AI SDK format.
+
+```typescript
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+
+const adapter = new AIAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string  // Tool name prefix (default: serverId)
+});
+
+const tools = await adapter.getTools(); // Returns ToolSet
+```
+
+#### `LangChainAdapter`
+
+Convert MCP tools to LangChain DynamicStructuredTool format.
+
+```typescript
+import { LangChainAdapter } from '@mcp-ts/sdk/adapters/langchain';
+
+const adapter = new LangChainAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string           // Tool name prefix
+  simplifyErrors?: boolean  // Return simple error strings (default: false)
+});
+
+const tools = await adapter.getTools(); // Returns DynamicStructuredTool[]
+```
+
+#### `MastraAdapter`
+
+Convert MCP tools to Mastra tool format.
+
+```typescript
+import { MastraAdapter } from '@mcp-ts/sdk/adapters/mastra';
+
+const adapter = new MastraAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string  // Tool name prefix
+});
+
+const tools = await adapter.getTools(); // Returns MastraTool[]
+```
+
+#### `CopilotKitAdapter`
+
+Convert MCP tools to CopilotKit actions.
+
+```typescript
+import { CopilotKitAdapter } from '@mcp-ts/sdk/adapters/copilotkit';
+
+const adapter = new CopilotKitAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string  // Action name prefix
+});
+
+const actions = await adapter.getActions(); // Returns CopilotKitAction[]
+```
 
 ## Storage Backend API
 

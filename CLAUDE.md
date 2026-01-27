@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI assista
 
 ## Package Overview
 
-`@mcp-ts/redis` is an npm package that provides Redis-backed MCP (Model Context Protocol) client functionality with OAuth 2.1 authentication and real-time SSE (Server-Sent Events) connections. It's designed for serverless environments and follows the Cloudflare agents pattern for observable state management.
+`@mcp-ts/sdk` is an npm package that provides Redis-backed MCP (Model Context Protocol) client functionality with OAuth 2.1 authentication and real-time SSE (Server-Sent Events) connections. It's designed for serverless environments and follows the Cloudflare agents pattern for observable state management.
 
 ## Recent Changes (v1.0.0-beta.3+)
 
 ### Breaking Changes
-- **Package Renamed**: `@mcp-assistant/mcp-ts` -> `@mcp-ts/redis`
-- **Updated Imports**: All imports should now use `@mcp-ts/redis`
+- **Package Renamed**: `@mcp-assistant/mcp-ts` -> `@mcp-ts/sdk`
+- **Updated Imports**: All imports should now use `@mcp-ts/sdk`
 
 ### API Improvements
 - **Renamed `validateAuth` → `authenticate`**: More conventional naming following industry standards
@@ -88,13 +88,13 @@ All MCP connection state is stored in Redis, allowing serverless functions to:
 The package supports both server and client usage:
 ```typescript
 // Server-side (Node.js)
-import { MCPClient, sessionStore, createSSEHandler } from '@mcp-ts/redis/server';
+import { MCPClient, sessionStore, createSSEHandler } from '@mcp-ts/sdk/server';
 
 // Client-side (React/Browser)
-import { useMcp, SSEClient } from '@mcp-ts/redis/client';
+import { useMcp, SSEClient } from '@mcp-ts/sdk/client';
 
 // Shared utilities
-import { McpConnectionState, ToolInfo } from '@mcp-ts/redis/shared';
+import { McpConnectionState, ToolInfo } from '@mcp-ts/sdk/shared';
 ```
 
 ## Common Development Tasks
@@ -215,7 +215,7 @@ npm run dev
 # Test in a local project
 npm link
 cd ../your-project
-npm link @mcp-ts/redis
+npm link @mcp-ts/sdk
 ```
 
 ## Integration Examples
@@ -223,7 +223,7 @@ npm link @mcp-ts/redis
 ### Server-Side: Create SSE Endpoint
 
 ```typescript
-import { createSSEHandler } from '@mcp-ts/redis/server';
+import { createSSEHandler } from '@mcp-ts/sdk/server';
 import { createServer } from 'http';
 
 const handler = createSSEHandler({
@@ -237,7 +237,7 @@ createServer(handler).listen(3000);
 ### Client-Side: React Hook Usage
 
 ```typescript
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 function MyComponent() {
   const { connections, connect, disconnect, status } = useMcp({
@@ -342,16 +342,16 @@ The package is fully typed with TypeScript. Key type exports:
 
 ```typescript
 // Connection events
-import type { McpConnectionEvent, McpConnectionState } from '@mcp-ts/redis/shared';
+import type { McpConnectionEvent, McpConnectionState } from '@mcp-ts/sdk/shared';
 
 // RPC types
-import type { McpRpcRequest, McpRpcResponse } from '@mcp-ts/redis/shared';
+import type { McpRpcRequest, McpRpcResponse } from '@mcp-ts/sdk/shared';
 
 // Tool info
-import type { ToolInfo } from '@mcp-ts/redis/shared';
+import type { ToolInfo } from '@mcp-ts/sdk/shared';
 
 // OAuth types (re-exported from MCP SDK)
-import type { OAuthTokens, OAuthClientInformation } from '@mcp-ts/redis/server';
+import type { OAuthTokens, OAuthClientInformation } from '@mcp-ts/sdk/server';
 ```
 
 ## Best Practices

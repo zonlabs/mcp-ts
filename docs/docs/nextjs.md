@@ -1,12 +1,11 @@
 ---
-sidebar_position: 3
+title: Next.js
+hide_title: true
 ---
-
-# Next.js Integration
 
 import { SiNextdotjs } from "react-icons/si";
 
-<h1><SiNextdotjs style={{verticalAlign: 'middle', marginRight: '10px'}} /> Next.js Support</h1>
+<h1><SiNextdotjs style={{verticalAlign: 'middle', marginRight: '10px'}} /> Next.js</h1>
 
 Complete guide for integrating mcp-ts with Next.js applications (App Router and Pages Router).
 
@@ -135,17 +134,21 @@ To build agentic workflows that use tools from multiple MCP servers, use `MultiS
 ```typescript
 // app/api/chat/route.ts
 import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 export async function POST(req: Request) {
   const { messages, identity } = await req.json();
 
-  const mcp = new MultiSessionClient(identity);
+  const client = new MultiSessionClient(identity);
 
   try {
-    await mcp.connect();
-    const tools = await mcp.getAITools();
+    await client.connect();
+
+    const adapter = new AIAdapter(client);
+    const tools = await adapter.getTools();
+
     const result = streamText({
       model: openai('gpt-4'),
       messages,
@@ -162,6 +165,8 @@ export async function POST(req: Request) {
   }
 }
 ```
+
+For more details, see the [AI SDK Adapter documentation](./adapters.md#ai-sdk-adapter).
 
 ## Pages Router
 

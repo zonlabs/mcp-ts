@@ -409,3 +409,20 @@
   opacity: 0.7;
   line-height: 1.4;
 }
+
+/* Reduce Heading Sizes */
+article h1,
+.markdown h1 {
+  font-size: 2rem !important;
+  margin-bottom: 0.5rem;
+}
+
+article h2,
+.markdown h2 {
+  font-size: 1.6rem !important;
+}
+
+article h3,
+.markdown h3 {
+  font-size: 1.3rem !important;
+}
