@@ -36,9 +36,6 @@ import { sanitizeServerLabel } from '../shared/utils.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../shared/events.js';
 import { UnauthorizedError } from '../shared/errors.js';
 import { storage } from './storage/index.js';
-import type { JSONSchema7 } from 'json-schema';
-import type { ToolSet } from 'ai';
-
 
 /**
  * Supported MCP transport types
@@ -98,8 +95,6 @@ export class MCPClient {
   private logoUri?: string;
   private policyUri?: string;
 
-  /** Lazy-loaded AI SDK jsonSchema validator */
-  private jsonSchema: typeof import('ai').jsonSchema | undefined;
 
   /** Event emitters for connection lifecycle */
   private readonly _onConnectionEvent = new Emitter<McpConnectionEvent>();
@@ -1133,49 +1128,5 @@ export class MCPClient {
     return mcpConfig;
   }
 
-  /**
-   * Lazy-loads the jsonSchema function from the AI SDK.
-   * This defers importing the "ai" package until it's actually needed.
-   * @internal
-   */
-  async ensureJsonSchema() {
-    if (!this.jsonSchema) {
-      const { jsonSchema } = await import('ai');
-      this.jsonSchema = jsonSchema;
-    }
-  }
-
-  /**
-   * Pattern adapted from Cloudflare Agents (https://github.com/cloudflare/agents)
-   * @returns a set of tools that can be used with the AI SDK
-   */
-  async getAITools(): Promise<ToolSet> {
-    await this.ensureJsonSchema();
-    const result = await this.listTools();
-
-    // @ts-ignore: ToolSet type inference can be tricky with dynamic imports
-    return Object.fromEntries(
-      result.tools.map((tool) => {
-        return [
-          // Namespace tool names to avoid potential collisions
-          `tool_${this.serverId?.replace(/-/g, '') || 'unknown'}_${tool.name}`,
-          {
-            description: tool.description,
-            // @ts-ignore: jsonSchema is guaranteed to be defined after ensureJsonSchema
-            inputSchema: this.jsonSchema!(tool.inputSchema as JSONSchema7),
-            execute: async (args: any) => {
-              try {
-                const response = await this.callTool(tool.name, args);
-                return response;
-              } catch (error) {
-                // Ensure errors are propagated cleanly
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                throw new Error(`Tool execution failed: ${errorMessage}`);
-              }
-            }
-          }
-        ];
-      })
-    );
-  }
 }
+
