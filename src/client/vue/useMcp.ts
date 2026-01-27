@@ -212,8 +212,6 @@ export function useMcp(options: UseMcpOptions): McpClient {
             case 'state_changed': {
                 const existing = connections.value.find((c) => c.sessionId === event.sessionId);
                 if (existing) {
-                    // Update existing connection in place to trigger reactivity granularly if needed, or replace
-                    // For Vue simple replacement is fine and often cleaner
                     const index = connections.value.indexOf(existing);
                     connections.value[index] = { ...existing, state: event.state };
                 } else {
@@ -367,23 +365,6 @@ export function useMcp(options: UseMcpOptions): McpClient {
         isMountedRef.value = false;
         clientRef.value?.disconnect();
     });
-
-    // Watch for option changes to re-initialize
-    // Note: Deep watching options object might be expensive, so we watch specific props if possible
-    // In a composable, usually the arguments are reactive refs or simple values.
-    // Here options is a plain object, so we might not react to its changes unless the user passes refs inside options (which our interface doesn't strictly support yet).
-    // However, if the user calls useMcp with different args due to re-render of parent handling it, this code runs once.
-    // To support reactivity on inputs, we'd need the inputs to be Refs.
-    // For now, mirroring React hook behavior: we assume options might change if the component re-executes, but in Vue setup() runs once.
-    // So to truly support reactive URL/Identity changes, they should be Refs.
-    // But to keep API simple and consistent with React one (which takes object), we will leave it static for now
-    // or use `watch(() => [options.url, options.identity], ...)` if we expected them to be reactive sources.
-    // Given the TS definition uses string, they are likely static or unwrapped refs.
-
-    // If the user wants to change identity/url dynamically, they should destroy and recreate the composable or we should accept MaybeRef.
-    // For maintainability/simplicity matching the React version, we assume static config for the lifetime of the component/composable usage unless we want to enhance it.
-    // Let's stick to the simple version first.
-
 
     /**
      * Connect to an MCP server
