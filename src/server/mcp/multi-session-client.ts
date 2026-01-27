@@ -1,7 +1,7 @@
 
 
-import { MCPClient } from './oauth-client';
-import { storage, type SessionData } from './storage';
+import { MCPClient } from './oauth-client.js';
+import { storage, type SessionData } from '../storage/index.js';
 
 /**
  * Manages multiple MCP connections for a single user identity.

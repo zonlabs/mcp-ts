@@ -21,7 +21,7 @@ export const DEFAULT_CLIENT_NAME = 'MCP Assistant';
 export const DEFAULT_CLIENT_URI = 'https://mcp-assistant.in';
 export const DEFAULT_LOGO_URI = 'https://mcp-assistant.in/logo.png';
 export const DEFAULT_POLICY_URI = 'https://mcp-assistant.in/privacy';
-export const SOFTWARE_ID = '@mcp-ts/redis';
+export const SOFTWARE_ID = '@mcp-ts';
 export const SOFTWARE_VERSION = '1.0.0-beta.5';
 
 // MCP Client Configuration

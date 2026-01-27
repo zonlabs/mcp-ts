@@ -1,5 +1,4 @@
 
-import { redis } from '../redis';
 import { RedisStorageBackend } from './redis-backend';
 import { MemoryStorageBackend } from './memory-backend';
 import { FileStorageBackend } from './file-backend';
@@ -9,7 +8,10 @@ import type { StorageBackend } from './types';
 export * from './types';
 export { RedisStorageBackend, MemoryStorageBackend, FileStorageBackend };
 
-function createStorage(): StorageBackend {
+let storageInstance: StorageBackend | null = null;
+let storagePromise: Promise<StorageBackend> | null = null;
+
+async function createStorage(): Promise<StorageBackend> {
     const type = process.env.MCP_TS_STORAGE_TYPE?.toLowerCase();
 
     // Explicit selection
@@ -17,8 +19,16 @@ function createStorage(): StorageBackend {
         if (!process.env.REDIS_URL) {
             console.warn('[Storage] MCP_TS_STORAGE_TYPE is "redis" but REDIS_URL is missing');
         }
-        console.log('[Storage] Using Redis storage (Explicit)');
-        return new RedisStorageBackend(redis);
+        try {
+            const { getRedis } = await import('./redis.js');
+            const redis = await getRedis();
+            console.log('[Storage] Using Redis storage (Explicit)');
+            return new RedisStorageBackend(redis);
+        } catch (error: any) {
+            console.error('[Storage] Failed to initialize Redis:', error.message);
+            console.log('[Storage] Falling back to In-Memory storage');
+            return new MemoryStorageBackend();
+        }
     }
 
     if (type === 'file') {
@@ -39,8 +49,16 @@ function createStorage(): StorageBackend {
 
     // Automatic inference (Fallback)
     if (process.env.REDIS_URL) {
-        console.log('[Storage] Auto-detected REDIS_URL. Using Redis storage.');
-        return new RedisStorageBackend(redis);
+        try {
+            const { getRedis } = await import('./redis.js');
+            const redis = await getRedis();
+            console.log('[Storage] Auto-detected REDIS_URL. Using Redis storage.');
+            return new RedisStorageBackend(redis);
+        } catch (error: any) {
+            console.error('[Storage] Redis auto-detection failed:', error.message);
+            console.log('[Storage] Falling back to In-Memory storage');
+            return new MemoryStorageBackend();
+        }
     }
 
     if (process.env.MCP_TS_STORAGE_FILE) {
@@ -54,7 +72,32 @@ function createStorage(): StorageBackend {
     return new MemoryStorageBackend();
 }
 
+async function getStorage(): Promise<StorageBackend> {
+    if (storageInstance) {
+        return storageInstance;
+    }
+
+    if (!storagePromise) {
+        storagePromise = createStorage();
+    }
+
+    storageInstance = await storagePromise;
+    return storageInstance;
+}
+
 /**
  * Global session store instance
+ * Uses lazy initialization with a Proxy to handle async setup transparently
  */
-export const storage: StorageBackend = createStorage();
+export const storage: StorageBackend = new Proxy({} as StorageBackend, {
+    get(_target, prop) {
+        return async (...args: any[]) => {
+            const instance = await getStorage();
+            const value = (instance as any)[prop];
+            if (typeof value === 'function') {
+                return value.apply(instance, args);
+            }
+            return value;
+        };
+    },
+});

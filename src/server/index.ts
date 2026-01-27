@@ -4,17 +4,17 @@
  */
 
 /** Core MCP client and session management */
-export { MCPClient } from './oauth-client';
-export { UnauthorizedError } from '../shared/errors';
-export { storage, type StorageBackend } from './storage';
-export { StorageOAuthClientProvider } from './storage-oauth-provider';
-export { MultiSessionClient } from './multi-session-client';
+export { MCPClient } from './mcp/oauth-client.js';
+export { UnauthorizedError } from '../shared/errors.js';
+export { storage, type StorageBackend } from './storage/index.js';
+export { StorageOAuthClientProvider } from './mcp/storage-oauth-provider.js';
+export { MultiSessionClient } from './mcp/multi-session-client.js';
 
 /** SSE handler for real-time connections */
-export { createSSEHandler, SSEConnectionManager, type SSEHandlerOptions, type ClientMetadata } from './sse-handler';
+export { createSSEHandler, SSEConnectionManager, type SSEHandlerOptions, type ClientMetadata } from './handlers/sse-handler.js';
 
 /** Next.js App Router handler (recommended for Next.js 13+) */
-export { createNextMcpHandler, type NextMcpHandlerOptions } from './nextjs-handler';
+export { createNextMcpHandler, type NextMcpHandlerOptions } from './handlers/nextjs-handler.js';
 
 /** Session provider abstraction */
 

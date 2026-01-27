@@ -2,7 +2,7 @@
  * Redis connection management with dependency injection support
  * Allows configuration and testing without environment variables
  */
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 
 export interface RedisConfig {
     /**
@@ -39,7 +39,7 @@ let redisInstance: Redis | null = null;
  * Call this before any Redis operations if you need custom config
  * @param config - Redis configuration options
  */
-export function initRedis(config: RedisConfig): Redis {
+export async function initRedis(config: RedisConfig): Promise<Redis> {
     if (redisInstance) {
         // Already initialized, return existing instance
         return redisInstance;
@@ -50,6 +50,20 @@ export function initRedis(config: RedisConfig): Redis {
     if (!url) {
         throw new Error(
             'Redis URL is required. Set REDIS_URL environment variable or pass url in config.'
+        );
+    }
+
+    let Redis: typeof import('ioredis').Redis;
+    try {
+        const ioredis = await import('ioredis');
+        Redis = ioredis.Redis;
+    } catch (error) {
+        throw new Error(
+            'ioredis is not installed. Install it with:\n' +
+            '  npm install ioredis\n\n' +
+            'Or use a different storage backend:\n' +
+            '  MCP_TS_STORAGE_TYPE=memory  (for development)\n' +
+            '  MCP_TS_STORAGE_TYPE=file    (for local persistence)'
         );
     }
 
@@ -83,7 +97,7 @@ export function initRedis(config: RedisConfig): Redis {
  * Get the Redis instance
  * Automatically initializes with default config if not already initialized
  */
-export function getRedis(): Redis {
+export async function getRedis(): Promise<Redis> {
     if (redisInstance) {
         return redisInstance;
     }
@@ -95,7 +109,7 @@ export function getRedis(): Redis {
     }
 
     // Initialize with default config
-    return initRedis({});
+    return await initRedis({});
 }
 
 /**
@@ -121,14 +135,18 @@ export async function closeRedis(): Promise<void> {
 /**
  * Default Redis export for backward compatibility
  * Will auto-initialize on first access
+ * Note: This is a lazy proxy that initializes Redis on first method call
  */
 export const redis = new Proxy({} as Redis, {
     get(_target, prop) {
-        const instance = getRedis();
-        const value = (instance as any)[prop];
-        if (typeof value === 'function') {
-            return value.bind(instance);
-        }
-        return value;
+        // Return a function that handles async initialization
+        return async (...args: any[]) => {
+            const instance = await getRedis();
+            const value = (instance as any)[prop];
+            if (typeof value === 'function') {
+                return value.apply(instance, args);
+            }
+            return value;
+        };
     },
 });

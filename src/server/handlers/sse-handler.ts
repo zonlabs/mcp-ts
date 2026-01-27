@@ -4,7 +4,7 @@
  * Based on Cloudflare's agents pattern but adapted for HTTP/SSE
  */
 
-import type { McpConnectionEvent, McpObservabilityEvent } from '../shared/events';
+import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events.js';
 import type {
   McpRpcRequest,
   McpRpcResponse,
@@ -25,10 +25,10 @@ import type {
   ListToolsRpcResult,
   ListPromptsResult,
   ListResourcesResult,
-} from '../shared/types';
-import { RpcErrorCodes } from '../shared/errors';
-import { MCPClient } from './oauth-client';
-import { storage } from './storage';
+} from '../../shared/types.js';
+import { RpcErrorCodes } from '../../shared/errors.js';
+import { MCPClient } from '../mcp/oauth-client.js';
+import { storage } from '../storage/index.js';
 
 export interface ClientMetadata {
   clientName?: string;

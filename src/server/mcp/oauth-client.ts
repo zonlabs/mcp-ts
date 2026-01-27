@@ -32,10 +32,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OAuthClientMetadata, OAuthTokens, OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
-import { sanitizeServerLabel } from '../shared/utils.js';
-import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../shared/events.js';
-import { UnauthorizedError } from '../shared/errors.js';
-import { storage } from './storage/index.js';
+import { sanitizeServerLabel } from '../../shared/utils.js';
+import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
+import { UnauthorizedError } from '../../shared/errors.js';
+import { storage } from '../storage/index.js';
 
 /**
  * Supported MCP transport types
@@ -302,7 +302,7 @@ export class MCPClient {
       client_uri: this.clientUri || 'https://mcp-assistant.in',
       logo_uri: this.logoUri || 'https://mcp-assistant.in/logo.png',
       policy_uri: this.policyUri || 'https://mcp-assistant.in/privacy',
-      software_id: '@mcp-ts/redis',
+      software_id: '@mcp-ts',
       software_version: '1.0.0-beta.4',
       ...(this.clientId ? { client_id: this.clientId } : {}),
       ...(this.clientSecret ? { client_secret: this.clientSecret } : {}),
