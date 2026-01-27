@@ -86,6 +86,18 @@ async function getStorage(): Promise<StorageBackend> {
 }
 
 /**
+ * Set the storage instance (for testing)
+ * @internal
+ * @param instance - StorageBackend instance or null to reset
+ */
+export function _setStorageInstanceForTesting(instance: StorageBackend | null): void {
+    storageInstance = instance;
+    if (!instance) {
+        storagePromise = null;
+    }
+}
+
+/**
  * Global session store instance
  * Uses lazy initialization with a Proxy to handle async setup transparently
  */

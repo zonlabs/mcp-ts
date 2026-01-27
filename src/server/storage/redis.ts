@@ -24,6 +24,10 @@ export interface RedisConfig {
      * Enable verbose logging (default: false)
      */
     verbose?: boolean;
+    /**
+     * @internal For testing only - bypass ioredis import
+     */
+    RedisConstructor?: any;
 }
 
 declare global {
@@ -54,17 +58,21 @@ export async function initRedis(config: RedisConfig): Promise<Redis> {
     }
 
     let Redis: typeof import('ioredis').Redis;
-    try {
-        const ioredis = await import('ioredis');
-        Redis = ioredis.Redis;
-    } catch (error) {
-        throw new Error(
-            'ioredis is not installed. Install it with:\n' +
-            '  npm install ioredis\n\n' +
-            'Or use a different storage backend:\n' +
-            '  MCP_TS_STORAGE_TYPE=memory  (for development)\n' +
-            '  MCP_TS_STORAGE_TYPE=file    (for local persistence)'
-        );
+    if (config.RedisConstructor) {
+        Redis = config.RedisConstructor;
+    } else {
+        try {
+            const ioredis = await import('ioredis');
+            Redis = ioredis.Redis;
+        } catch (error) {
+            throw new Error(
+                'ioredis is not installed. Install it with:\n' +
+                '  npm install ioredis\n\n' +
+                'Or use a different storage backend:\n' +
+                '  MCP_TS_STORAGE_TYPE=memory  (for development)\n' +
+                '  MCP_TS_STORAGE_TYPE=file    (for local persistence)'
+            );
+        }
     }
 
     redisInstance = new Redis(url, {

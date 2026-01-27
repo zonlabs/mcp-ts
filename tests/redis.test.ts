@@ -25,8 +25,9 @@ test.describe('Redis Module', () => {
             // Set env var for test
             process.env.REDIS_URL = 'redis://localhost:6379';
 
-            const redis = initRedis({
+            const redis = await initRedis({
                 verbose: false,
+                RedisConstructor: Redis,
             });
 
             expect(redis).toBeDefined();
@@ -42,7 +43,7 @@ test.describe('Redis Module', () => {
             const originalUrl = process.env.REDIS_URL;
             delete process.env.REDIS_URL;
 
-            expect(() => initRedis({})).toThrow('Redis URL is required');
+            await expect(initRedis({ RedisConstructor: Redis })).rejects.toThrow('Redis URL is required');
 
             process.env.REDIS_URL = originalUrl;
             await closeRedis();
@@ -53,8 +54,8 @@ test.describe('Redis Module', () => {
 
             process.env.REDIS_URL = 'redis://localhost:6379';
 
-            const redis1 = initRedis({ verbose: false });
-            const redis2 = initRedis({ verbose: false });
+            const redis1 = await initRedis({ verbose: false, RedisConstructor: Redis });
+            const redis2 = await initRedis({ verbose: false, RedisConstructor: Redis });
 
             expect(redis1).toBe(redis2);
 
@@ -69,7 +70,7 @@ test.describe('Redis Module', () => {
             const mockRedis = new Redis();
             setRedisInstance(mockRedis);
 
-            const instance = getRedis();
+            const instance = await getRedis();
             expect(instance).toBe(mockRedis);
 
             await closeRedis();
@@ -82,7 +83,7 @@ test.describe('Redis Module', () => {
 
             process.env.REDIS_URL = 'redis://localhost:6379';
 
-            const redis = getRedis();
+            const redis = await getRedis();
             expect(redis).toBeDefined();
 
             await closeRedis();

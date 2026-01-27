@@ -9,7 +9,7 @@ import * as path from 'path';
 
 test.describe('FileStorageBackend', () => {
     let storage: FileStorageBackend;
-    const testFilePath = path.join(__dirname, 'test-sessions.json');
+    const testFilePath = path.join(__dirname, `test-sessions-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
 
     test.beforeEach(async () => {
         storage = new FileStorageBackend({ path: testFilePath });
