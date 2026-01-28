@@ -2,6 +2,7 @@
 import type { Redis } from 'ioredis';
 import { customAlphabet } from 'nanoid';
 import { StorageBackend, SessionData, SetClientOptions } from './types';
+import { SESSION_TTL_SECONDS } from '../../shared/constants.js';
 
 /** first char: letters only (required by OpenAI) */
 const firstChar = customAlphabet(
@@ -19,7 +20,7 @@ const rest = customAlphabet(
  * Redis implementation of StorageBackend
  */
 export class RedisStorageBackend implements StorageBackend {
-    private readonly SESSION_TTL = 43200;
+    private readonly DEFAULT_TTL = SESSION_TTL_SECONDS;
     private readonly KEY_PREFIX = 'mcp:session:';
 
     constructor(private redis: Redis) { }
@@ -44,19 +45,20 @@ export class RedisStorageBackend implements StorageBackend {
         return firstChar() + rest();
     }
 
-    async createSession(session: SessionData): Promise<void> {
+    async createSession(session: SessionData, ttl?: number): Promise<void> {
         const { sessionId, identity } = session;
         if (!sessionId || !identity) throw new Error('identity and sessionId required');
 
         const sessionKey = this.getSessionKey(identity, sessionId);
         const identityKey = this.getIdentityKey(identity);
+        const effectiveTtl = ttl ?? this.DEFAULT_TTL;
 
         /** ioredis syntax: set(key, val, 'EX', ttl, 'NX') */
         const result = await this.redis.set(
             sessionKey,
             JSON.stringify(session),
             'EX',
-            this.SESSION_TTL,
+            effectiveTtl,
             'NX'
         );
 
@@ -66,8 +68,9 @@ export class RedisStorageBackend implements StorageBackend {
 
         await this.redis.sadd(identityKey, sessionId);
     }
-    async updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void> {
+    async updateSession(identity: string, sessionId: string, data: Partial<SessionData>, ttl?: number): Promise<void> {
         const sessionKey = this.getSessionKey(identity, sessionId);
+        const effectiveTtl = ttl ?? this.DEFAULT_TTL;
 
         /** Lua script for atomic parsing, merging, and saving */
         const script = `
@@ -75,14 +78,14 @@ export class RedisStorageBackend implements StorageBackend {
             if not currentStr then
                 return 0
             end
-            
+
             local current = cjson.decode(currentStr)
             local updates = cjson.decode(ARGV[1])
-            
+
             for k,v in pairs(updates) do
                 current[k] = v
             end
-            
+
             redis.call("SET", KEYS[1], cjson.encode(current), "EX", ARGV[2])
             return 1
         `;
@@ -92,7 +95,7 @@ export class RedisStorageBackend implements StorageBackend {
             1,
             sessionKey,
             JSON.stringify(data),
-            this.SESSION_TTL
+            effectiveTtl
         );
 
         if (result === 0) {
@@ -110,7 +113,6 @@ export class RedisStorageBackend implements StorageBackend {
             }
 
             const sessionData: SessionData = JSON.parse(sessionDataStr);
-            await this.redis.expire(sessionKey, this.SESSION_TTL);
             return sessionData;
         } catch (error) {
             console.error('[RedisStorage] Failed to get session:', error);

@@ -223,7 +223,6 @@ export interface SessionInfo {
   serverName?: string;
   serverUrl: string;
   transport: TransportType;
-  active: boolean;
 }
 
 export interface SessionListResult {

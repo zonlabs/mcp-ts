@@ -98,9 +98,11 @@ export class MastraAdapter {
      * Fetches tools from the MCP server and converts them to Mastra tools.
      */
     async getTools(): Promise<Record<string, MastraTool>> {
-        const clients = this.client instanceof MultiSessionClient
-            ? this.client.getClients()
-            : [this.client];
+        // Use duck typing instead of instanceof to handle module bundling issues
+        const isMultiSession = typeof (this.client as any).getClients === 'function';
+        const clients = isMultiSession
+            ? (this.client as MultiSessionClient).getClients()
+            : [this.client as MCPClient];
 
         const results = await Promise.all(
             clients.map(async (client) => {

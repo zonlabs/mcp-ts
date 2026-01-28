@@ -35,19 +35,16 @@ export class AIAdapter {
     }
 
     private async transformTools(client: MCPClient): Promise<ToolSet> {
-        // Safe check for isConnected method
+        // Safe check for isConnected method (duck typing for bundler compatibility)
         const isConnected = typeof client.isConnected === 'function'
             ? client.isConnected()
             : false;
 
         if (!isConnected) {
-            // Treat disconnected as empty tools for robust multi-session handling
             return {};
         }
 
         const result = await client.listTools();
-
-
 
         // @ts-ignore: ToolSet type inference can be tricky with dynamic imports
         return Object.fromEntries(
@@ -83,9 +80,12 @@ export class AIAdapter {
     async getTools(): Promise<ToolSet> {
         await this.ensureJsonSchema();
 
-        const clients = this.client instanceof MultiSessionClient
-            ? this.client.getClients()
-            : [this.client];
+        // Use duck typing instead of instanceof to handle module bundling issues
+        // MultiSessionClient has getClients(), MCPClient does not
+        const isMultiSession = typeof (this.client as any).getClients === 'function';
+        const clients = isMultiSession
+            ? (this.client as MultiSessionClient).getClients()
+            : [this.client as MCPClient];
 
         const results = await Promise.all(
             clients.map(async (client) => {

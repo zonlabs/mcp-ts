@@ -35,7 +35,7 @@ export class MemoryStorageBackend implements StorageBackend {
         return firstChar() + rest();
     }
 
-    async createSession(session: SessionData): Promise<void> {
+    async createSession(session: SessionData, ttl?: number): Promise<void> {
         const { sessionId, identity } = session;
         if (!sessionId || !identity) throw new Error('identity and sessionId required');
 
@@ -51,9 +51,10 @@ export class MemoryStorageBackend implements StorageBackend {
             this.identitySessions.set(identity, new Set());
         }
         this.identitySessions.get(identity)!.add(sessionId);
+        // Note: TTL is ignored in memory backend - sessions don't auto-expire
     }
 
-    async updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void> {
+    async updateSession(identity: string, sessionId: string, data: Partial<SessionData>, ttl?: number): Promise<void> {
         if (!identity || !sessionId) throw new Error('identity and sessionId required');
 
         const sessionKey = this.getSessionKey(identity, sessionId);
@@ -69,6 +70,7 @@ export class MemoryStorageBackend implements StorageBackend {
         };
 
         this.sessions.set(sessionKey, updated);
+        // Note: TTL is ignored in memory backend - sessions don't auto-expire
     }
 
 

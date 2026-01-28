@@ -46,7 +46,12 @@ export class MultiSessionClient {
 
     private async getActiveSessions(): Promise<SessionData[]> {
         const sessions = await storage.getIdentitySessionsData(this.identity);
-        return sessions.filter(s => s.active && s.serverId && s.serverUrl && s.callbackUrl);
+        console.log(`[MultiSessionClient] All sessions for ${this.identity}:`,
+            sessions.map(s => ({ sessionId: s.sessionId, serverId: s.serverId }))
+        );
+        const valid = sessions.filter(s => s.serverId && s.serverUrl && s.callbackUrl);
+        console.log(`[MultiSessionClient] Filtered valid sessions:`, valid.length);
+        return valid;
     }
 
     private async connectInBatches(sessions: SessionData[]): Promise<void> {

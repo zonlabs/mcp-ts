@@ -44,9 +44,11 @@ export class CopilotKitAdapter {
      * Get CopilotKit actions from MCP tools
      */
     async getActions(): Promise<CopilotKitAction[]> {
-        // Handle MultiSessionClient
-        if (this.client instanceof MultiSessionClient) {
-            const clients = this.client.getClients();
+        // Use duck typing instead of instanceof to handle module bundling issues
+        const isMultiSession = typeof (this.client as any).getClients === 'function';
+
+        if (isMultiSession) {
+            const clients = (this.client as MultiSessionClient).getClients();
             const allActions: CopilotKitAction[] = [];
 
             for (const client of clients) {
@@ -58,7 +60,7 @@ export class CopilotKitAdapter {
         }
 
         // Handle single MCPClient
-        return this.transformTools(this.client);
+        return this.transformTools(this.client as MCPClient);
     }
 
     private async transformTools(client: MCPClient): Promise<CopilotKitAction[]> {

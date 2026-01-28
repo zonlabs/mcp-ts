@@ -36,6 +36,7 @@ import { sanitizeServerLabel } from '../../shared/utils.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 import { storage } from '../storage/index.js';
+import { SESSION_TTL_SECONDS, STATE_EXPIRATION_MS } from '../../shared/constants.js';
 
 /**
  * Supported MCP transport types
@@ -340,26 +341,55 @@ export class MCPClient {
         { capabilities: {} }
       );
     }
+
+    // Create session in storage if it doesn't exist yet
+    // This is needed BEFORE OAuth flow starts because the OAuth provider
+    // will call saveCodeVerifier() which requires the session to exist
+    const existingSession = await storage.getSession(this.identity, this.sessionId);
+    if (!existingSession && this.serverId && this.serverUrl && this.callbackUrl) {
+      console.log(`[MCPClient] Creating initial session ${this.sessionId} for OAuth flow`);
+      await storage.createSession({
+        sessionId: this.sessionId,
+        identity: this.identity,
+        serverId: this.serverId,
+        serverName: this.serverName,
+        serverUrl: this.serverUrl,
+        callbackUrl: this.callbackUrl,
+        transportType: this.transportType || 'streamable_http',
+        createdAt: Date.now(),
+      }, Math.floor(STATE_EXPIRATION_MS / 1000)); // Short TTL until connection succeeds
+    }
   }
 
   /**
-   * Saves current session state to Redis
-   * @param active - Whether the session is active (connected and authenticated)
+   * Saves current session state to storage
+   * Creates new session if it doesn't exist, updates if it does
+   * @param ttl - Time-to-live in seconds (defaults to 12hr for connected sessions)
    * @private
    */
-  private async saveSession(active: boolean = true): Promise<void> {
+  private async saveSession(ttl: number = SESSION_TTL_SECONDS): Promise<void> {
     if (!this.sessionId || !this.serverId || !this.serverUrl || !this.callbackUrl) {
       return;
     }
 
-    await storage.updateSession(this.identity, this.sessionId, {
+    const sessionData = {
+      sessionId: this.sessionId,
+      identity: this.identity,
       serverId: this.serverId,
       serverName: this.serverName,
       serverUrl: this.serverUrl,
       callbackUrl: this.callbackUrl,
-      transportType: this.transportType || 'streamable_http',
-      active,
-    });
+      transportType: this.transportType || 'streamable_http' as TransportType,
+      createdAt: Date.now(),
+    };
+
+    // Try to update first, create if doesn't exist
+    const existingSession = await storage.getSession(this.identity, this.sessionId);
+    if (existingSession) {
+      await storage.updateSession(this.identity, this.sessionId, sessionData, ttl);
+    } else {
+      await storage.createSession(sessionData, ttl);
+    }
   }
 
   /**
@@ -461,10 +491,9 @@ export class MCPClient {
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
 
-      const existingSession = await storage.getSession(this.identity, this.sessionId);
-      if (!existingSession) {
-        await this.saveSession(true);
-      }
+      // Save session with 12hr TTL after successful connection
+      console.log(`[MCPClient] Saving session ${this.sessionId} with 12hr TTL`);
+      await this.saveSession(SESSION_TTL_SECONDS);
     } catch (error) {
       /** Handle Authentication Errors */
       if (
@@ -472,7 +501,9 @@ export class MCPClient {
         (error instanceof Error && error.message.toLowerCase().includes('unauthorized'))
       ) {
         this.emitStateChange('AUTHENTICATING');
-        await this.saveSession(false);
+        // Save session with 10min TTL for OAuth pending state
+        console.log(`[MCPClient] Saving session ${this.sessionId} with 10min TTL (OAuth pending)`);
+        await this.saveSession(Math.floor(STATE_EXPIRATION_MS / 1000));
 
         /** Get OAuth authorization URL if available */
         let authUrl = '';
@@ -573,7 +604,9 @@ export class MCPClient {
         await this.client.connect(this.transport);
 
         this.emitStateChange('CONNECTED');
-        await this.saveSession(true);
+        // Update session with 12hr TTL after successful OAuth
+        console.log(`[MCPClient] Updating session ${this.sessionId} to 12hr TTL (OAuth complete)`);
+        await this.saveSession(SESSION_TTL_SECONDS);
 
         return; // Success, exit function
 
@@ -1064,9 +1097,8 @@ export class MCPClient {
         const { sessionId } = sessionData;
 
         try {
-          // Validate session - remove if invalid or inactive
+          // Validate session - remove if missing required fields
           if (
-            !sessionData.active ||
             !sessionData.serverId ||
             !sessionData.transportType ||
             !sessionData.serverUrl ||

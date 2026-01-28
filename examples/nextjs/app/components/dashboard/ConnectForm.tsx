@@ -12,7 +12,6 @@ interface ConnectFormProps {
 
 export default function ConnectForm({ onConnect, connecting, status, error }: ConnectFormProps) {
     const [serverName, setServerName] = useState('');
-    const [serverId] = useState(() => `server-${nanoid(6)}`);
     const [serverUrl, setServerUrl] = useState('');
     // Use popup-specific callback URL
     const [callbackUrl, setCallbackUrl] = useState(() => {
@@ -25,6 +24,8 @@ export default function ConnectForm({ onConnect, connecting, status, error }: Co
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // Generate a fresh serverId for each connection attempt
+        const serverId = `server-${nanoid(6)}`;
         await onConnect({
             serverId,
             serverName,
@@ -32,6 +33,8 @@ export default function ConnectForm({ onConnect, connecting, status, error }: Co
             callbackUrl,
             transportType,
         });
+        setServerName('');
+        setServerUrl('');
     };
 
     return (

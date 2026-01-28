@@ -17,11 +17,12 @@ export async function createMcpAgent(identity: string = 'demo-user-123') {
     }
 
     const tools = await AIAdapter.getTools(manager);
+    console.log(`[MCP] Loaded ${Object.keys(tools).length} tools for agent.`);
 
     return new ToolLoopAgent({
         model: openai('gpt-4.1-mini'),
         instructions: INSTRUCTIONS,
-        tools: tools,
+        tools: tools as any,
         stopWhen: stepCountIs(5),
     });
 }
