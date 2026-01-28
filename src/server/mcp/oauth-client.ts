@@ -491,9 +491,13 @@ export class MCPClient {
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
 
-      // Save session with 12hr TTL after successful connection
-      console.log(`[MCPClient] Saving session ${this.sessionId} with 12hr TTL`);
-      await this.saveSession(SESSION_TTL_SECONDS);
+      // Only save/update session if transport type changed (connection negotiation)
+      // This avoids unnecessary TTL updates on page reload
+      const existingSession = await storage.getSession(this.identity, this.sessionId);
+      if (!existingSession || existingSession.transportType !== this.transportType) {
+        console.log(`[MCPClient] Saving session ${this.sessionId} (new or transport changed)`);
+        await this.saveSession(SESSION_TTL_SECONDS);
+      }
     } catch (error) {
       /** Handle Authentication Errors */
       if (

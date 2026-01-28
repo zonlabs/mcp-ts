@@ -23,6 +23,7 @@ const rest = customAlphabet(
 export class FileStorageBackend implements StorageBackend {
     private filePath: string;
     private memoryCache: Map<string, SessionData> | null = null;
+    private kvCache: Map<string, unknown> | null = null; // Key-value store for OAuth data
     private initialized = false;
 
     /**
@@ -48,15 +49,32 @@ export class FileStorageBackend implements StorageBackend {
             const json = JSON.parse(data);
 
             this.memoryCache = new Map();
+            this.kvCache = new Map();
+
+            // Handle both old format (array) and new format (object with sessions + kv)
             if (Array.isArray(json)) {
+                // Old format: array of sessions
                 json.forEach((s: SessionData) => {
                     this.memoryCache!.set(this.getSessionKey(s.identity || 'unknown', s.sessionId), s);
                 });
+            } else if (json && typeof json === 'object') {
+                // New format: { sessions: [...], kv: {...} }
+                if (Array.isArray(json.sessions)) {
+                    json.sessions.forEach((s: SessionData) => {
+                        this.memoryCache!.set(this.getSessionKey(s.identity || 'unknown', s.sessionId), s);
+                    });
+                }
+                if (json.kv && typeof json.kv === 'object') {
+                    Object.entries(json.kv).forEach(([key, value]) => {
+                        this.kvCache!.set(key, value);
+                    });
+                }
             }
         } catch (error: any) {
             if (error.code === 'ENOENT') {
                 // File does not exist, initialize empty
                 this.memoryCache = new Map();
+                this.kvCache = new Map();
                 await this.flush();
             } else {
                 console.error('[FileStorage] Failed to load sessions:', error);
@@ -74,7 +92,8 @@ export class FileStorageBackend implements StorageBackend {
     private async flush(): Promise<void> {
         if (!this.memoryCache) return;
         const sessions = Array.from(this.memoryCache.values());
-        await fs.writeFile(this.filePath, JSON.stringify(sessions, null, 2), 'utf-8');
+        const kv = this.kvCache ? Object.fromEntries(this.kvCache) : {};
+        await fs.writeFile(this.filePath, JSON.stringify({ sessions, kv }, null, 2), 'utf-8');
     }
 
     private getSessionKey(identity: string, sessionId: string): string {
@@ -165,5 +184,41 @@ export class FileStorageBackend implements StorageBackend {
 
     async disconnect(): Promise<void> {
         // No explicit disconnect needed for file
+    }
+
+    // ============================================
+    // Key-Value Storage (for OAuth data)
+    // ============================================
+
+    async get<T>(key: string): Promise<T | undefined> {
+        await this.ensureInitialized();
+        return this.kvCache!.get(key) as T | undefined;
+    }
+
+    async set<T>(key: string, value: T, ttl?: number): Promise<void> {
+        await this.ensureInitialized();
+        this.kvCache!.set(key, value);
+        await this.flush();
+        // Note: TTL is ignored in file backend
+    }
+
+    async delete(key: string): Promise<void> {
+        await this.ensureInitialized();
+        if (this.kvCache!.delete(key)) {
+            await this.flush();
+        }
+    }
+
+    async deleteMany(keys: string[]): Promise<void> {
+        await this.ensureInitialized();
+        let changed = false;
+        for (const key of keys) {
+            if (this.kvCache!.delete(key)) {
+                changed = true;
+            }
+        }
+        if (changed) {
+            await this.flush();
+        }
     }
 }
