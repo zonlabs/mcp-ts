@@ -50,7 +50,7 @@ export class MultiSessionClient {
             sessions.map(s => ({ sessionId: s.sessionId, serverId: s.serverId }))
         );
         const valid = sessions.filter(s => s.serverId && s.serverUrl && s.callbackUrl);
-        console.log(`[MultiSessionClient] Filtered sessions:`, valid.length);
+        console.log(`[MultiSessionClient] Filtered valid sessions:`, valid.length);
         return valid;
     }
 

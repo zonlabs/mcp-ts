@@ -25,9 +25,6 @@ export class MemoryStorageBackend implements StorageBackend {
     // Map<identity, Set<sessionId>>
     private identitySessions = new Map<string, Set<string>>();
 
-    // Generic key-value storage (for OAuth data following Cloudflare pattern)
-    private kvStore = new Map<string, unknown>();
-
     constructor() { }
 
     private getSessionKey(identity: string, sessionId: string): string {
@@ -131,28 +128,5 @@ export class MemoryStorageBackend implements StorageBackend {
 
     async disconnect(): Promise<void> {
         // No-op for memory
-    }
-
-    // ============================================
-    // Key-Value Storage (for OAuth data)
-    // ============================================
-
-    async get<T>(key: string): Promise<T | undefined> {
-        return this.kvStore.get(key) as T | undefined;
-    }
-
-    async set<T>(key: string, value: T, ttl?: number): Promise<void> {
-        this.kvStore.set(key, value);
-        // Note: TTL is ignored in memory backend
-    }
-
-    async delete(key: string): Promise<void> {
-        this.kvStore.delete(key);
-    }
-
-    async deleteMany(keys: string[]): Promise<void> {
-        for (const key of keys) {
-            this.kvStore.delete(key);
-        }
     }
 }

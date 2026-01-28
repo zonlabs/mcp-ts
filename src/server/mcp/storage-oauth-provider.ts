@@ -6,8 +6,8 @@ import type {
     OAuthClientMetadata,
     OAuthTokens
 } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { storage } from "../storage/index.js";
-import { TOKEN_EXPIRY_BUFFER_MS, STATE_EXPIRATION_MS } from '../../shared/constants.js';
+import { storage, SessionData } from "../storage/index.js";
+import { TOKEN_EXPIRY_BUFFER_MS } from '../../shared/constants.js';
 
 /**
  * Extension of OAuthClientProvider interface with additional methods
@@ -26,22 +26,9 @@ export interface AgentsOAuthProvider extends OAuthClientProvider {
     setTokenExpiresAt(expiresAt: number): void;
 }
 
-interface StoredState {
-    nonce: string;
-    serverId: string;
-    createdAt: number;
-}
-
 /**
  * Storage-backed OAuth provider implementation for MCP
- * Following Cloudflare's agents pattern: stores OAuth data separately from session data
- * using structured key-value storage.
- *
- * Key structure:
- * - oauth/{identity}/{serverId}/{clientId}/client_info - Client information
- * - oauth/{identity}/{serverId}/{clientId}/tokens - OAuth tokens
- * - oauth/{identity}/{serverId}/{clientId}/code_verifier - PKCE code verifier
- * - oauth/{identity}/{serverId}/state/{nonce} - OAuth state (expires in 10 min)
+ * Stores OAuth tokens, client information, and PKCE verifiers using the configured StorageBackend
  */
 export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     private _authUrl: string | undefined;
@@ -53,7 +40,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
      * Creates a new Storage-backed OAuth provider
      * @param identity - User/Client identifier
      * @param serverId - Server identifier (for tracking which server this OAuth session belongs to)
-     * @param sessionId - Session identifier (used for state validation)
+     * @param sessionId - Session identifier (used as OAuth state)
      * @param clientName - OAuth client name
      * @param baseRedirectUrl - OAuth callback URL
      * @param onRedirect - Optional callback when redirect to authorization is needed
@@ -68,57 +55,6 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     ) {
         this.onRedirectCallback = onRedirect;
     }
-
-    // ============================================
-    // Key generation (following Cloudflare pattern)
-    // ============================================
-
-    private keyPrefix(clientId: string): string {
-        return `oauth/${this.identity}/${this.serverId}/${clientId}`;
-    }
-
-    private clientInfoKey(clientId: string): string {
-        return `${this.keyPrefix(clientId)}/client_info`;
-    }
-
-    private tokenKey(clientId: string): string {
-        return `${this.keyPrefix(clientId)}/tokens`;
-    }
-
-    private codeVerifierKey(clientId: string): string {
-        return `${this.keyPrefix(clientId)}/code_verifier`;
-    }
-
-    private stateKey(nonce: string): string {
-        return `oauth/${this.identity}/${this.serverId}/state/${nonce}`;
-    }
-
-    /**
-     * Key for storing clientId at server level (not nested under clientId)
-     * This allows us to retrieve clientId when the provider is recreated
-     */
-    private serverClientIdKey(): string {
-        return `oauth/${this.identity}/${this.serverId}/client_id`;
-    }
-
-    /**
-     * Get clientId - loads from storage if not already set in memory
-     * Called during OAuth flow restoration (similar to Cloudflare's restoreConnectionsFromStorage)
-     */
-    async getClientId(): Promise<string | undefined> {
-        if (this._clientId) {
-            return this._clientId;
-        }
-        const storedClientId = await storage.get<string>(this.serverClientIdKey());
-        if (storedClientId) {
-            this._clientId = storedClientId;
-        }
-        return this._clientId;
-    }
-
-    // ============================================
-    // OAuthClientProvider implementation
-    // ============================================
 
     get clientMetadata(): OAuthClientMetadata {
         return {
@@ -148,108 +84,88 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         this._clientId = clientId_;
     }
 
-    get authUrl() {
-        return this._authUrl;
+    /**
+     * Loads OAuth data from storage session
+     * @private
+     */
+    private async getSessionData(): Promise<SessionData> {
+        const data = await storage.getSession(this.identity, this.sessionId);
+        if (!data) {
+            // Return empty/partial object if not found
+            return {} as SessionData;
+        }
+        return data;
+    }
+
+    /**
+     * Saves OAuth data to storage
+     * @param data - Partial OAuth data to save
+     * @private
+     * @throws Error if session doesn't exist (session must be created by controller layer)
+     */
+    private async saveSessionData(data: Partial<SessionData>): Promise<void> {
+        await storage.updateSession(this.identity, this.sessionId, data);
     }
 
     /**
      * Retrieves stored OAuth client information
      */
     async clientInformation(): Promise<OAuthClientInformation | undefined> {
-        // Try to load clientId from storage if not set
-        if (!this._clientId) {
-            await this.getClientId();
+        const data = await this.getSessionData();
+
+        if (data.clientId && !this._clientId) {
+            this._clientId = data.clientId;
         }
-        if (!this._clientId) {
-            return undefined;
-        }
-        return await storage.get<OAuthClientInformation>(this.clientInfoKey(this._clientId));
+
+        return data.clientInformation;
     }
 
     /**
      * Stores OAuth client information
      */
     async saveClientInformation(clientInformation: OAuthClientInformationFull): Promise<void> {
-        // Store clientId at server level for later retrieval
-        await storage.set(this.serverClientIdKey(), clientInformation.client_id);
-        // Store full client info
-        await storage.set(this.clientInfoKey(clientInformation.client_id), clientInformation);
-        this._clientId = clientInformation.client_id;
-    }
-
-    /**
-     * Retrieves stored OAuth tokens
-     */
-    async tokens(): Promise<OAuthTokens | undefined> {
-        // Try to load clientId from storage if not set
-        if (!this._clientId) {
-            await this.getClientId();
-        }
-        if (!this._clientId) {
-            return undefined;
-        }
-        return await storage.get<OAuthTokens>(this.tokenKey(this._clientId));
+        await this.saveSessionData({
+            clientInformation,
+            clientId: clientInformation.client_id
+        });
+        this.clientId = clientInformation.client_id;
     }
 
     /**
      * Stores OAuth tokens
      */
     async saveTokens(tokens: OAuthTokens): Promise<void> {
-        // Try to load clientId from storage if not set
-        if (!this._clientId) {
-            await this.getClientId();
-        }
-        if (!this._clientId) {
-            console.warn('[OAuth] Cannot save tokens without clientId');
-            return;
-        }
+        const data: Partial<SessionData> = { tokens };
 
         if (tokens.expires_in) {
             this.tokenExpiresAt = Date.now() + (tokens.expires_in * 1000) - TOKEN_EXPIRY_BUFFER_MS;
         }
 
-        await storage.set(this.tokenKey(this._clientId), tokens);
+        await this.saveSessionData(data);
     }
 
-    /**
-     * Generates and stores OAuth state
-     * Returns format: {sessionId} (we use sessionId as state for simplicity)
-     */
+    get authUrl() {
+        return this._authUrl;
+    }
+
     async state(): Promise<string> {
-        // We use sessionId as state - simple and effective
-        // The session existence check validates the state
         return this.sessionId;
     }
 
-    /**
-     * Validates OAuth state
-     */
     async checkState(state: string): Promise<{ valid: boolean; serverId?: string; error?: string }> {
-        // State is the sessionId - check if session exists
-        const session = await storage.getSession(this.identity, state);
+        const data = await storage.getSession(this.identity, this.sessionId);
 
-        if (!session) {
-            return { valid: false, error: "Session not found or expired" };
-        }
-
-        // Check if session matches this server
-        if (session.serverId !== this.serverId) {
-            return { valid: false, error: "State serverId mismatch" };
+        if (!data) {
+            return { valid: false, error: "Session not found" };
         }
 
         return { valid: true, serverId: this.serverId };
     }
 
-    /**
-     * Consume state (no-op since we use session-based state)
-     */
     async consumeState(state: string): Promise<void> {
-        // No-op - state is tied to session lifecycle
+        // No-op
     }
 
-    /**
-     * Handle redirect to authorization URL
-     */
     async redirectToAuthorization(authUrl: URL): Promise<void> {
         this._authUrl = authUrl.toString();
         if (this.onRedirectCallback) {
@@ -257,125 +173,59 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         }
     }
 
-    /**
-     * Invalidate credentials based on scope
-     */
     async invalidateCredentials(
         scope: "all" | "client" | "tokens" | "verifier"
     ): Promise<void> {
-        // Try to load clientId from storage if not set
-        if (!this._clientId) {
-            await this.getClientId();
-        }
-
-        const deleteKeys: string[] = [];
-
-        if (scope === "all" || scope === "client") {
-            // Delete server-level clientId
-            deleteKeys.push(this.serverClientIdKey());
-            if (this._clientId) {
-                deleteKeys.push(this.clientInfoKey(this._clientId));
-            }
-        }
-        if (this._clientId) {
-            if (scope === "all" || scope === "tokens") {
-                deleteKeys.push(this.tokenKey(this._clientId));
-            }
-            if (scope === "all" || scope === "verifier") {
-                deleteKeys.push(this.codeVerifierKey(this._clientId));
-            }
-        }
-
-        // Also clean up pending verifier
-        if (scope === "all" || scope === "verifier") {
-            deleteKeys.push(`oauth/${this.identity}/${this.serverId}/pending_verifier`);
-        }
-
-        if (deleteKeys.length > 0) {
-            if (storage.deleteMany) {
-                await storage.deleteMany(deleteKeys);
-            } else {
-                for (const key of deleteKeys) {
-                    await storage.delete(key);
-                }
-            }
-        }
-    }
-
-    /**
-     * Store PKCE code verifier
-     */
-    async saveCodeVerifier(verifier: string): Promise<void> {
-        if (!this._clientId) {
-            // ClientId not set yet - this happens during initial OAuth flow
-            // Store with a temporary key using serverId
-            const tempKey = `oauth/${this.identity}/${this.serverId}/pending_verifier`;
-
-            // Only save if not already exists (prevent overwrite)
-            const existing = await storage.get<string>(tempKey);
-            if (!existing) {
-                await storage.set(tempKey, verifier);
-            }
-            return;
-        }
-
-        const key = this.codeVerifierKey(this._clientId);
-
-        // Only save if not already exists (prevent overwrite)
-        const existing = await storage.get<string>(key);
-        if (!existing) {
-            await storage.set(key, verifier);
-        }
-    }
-
-    /**
-     * Retrieve PKCE code verifier
-     */
-    async codeVerifier(): Promise<string> {
-        // First try with clientId
-        if (this._clientId) {
-            const verifier = await storage.get<string>(this.codeVerifierKey(this._clientId));
-            if (verifier) {
-                return verifier;
-            }
-        }
-
-        // Fall back to pending verifier (before clientId is set)
-        const tempKey = `oauth/${this.identity}/${this.serverId}/pending_verifier`;
-        const pendingVerifier = await storage.get<string>(tempKey);
-
-        if (pendingVerifier) {
-            return pendingVerifier;
-        }
-
-        throw new Error("No code verifier found");
-    }
-
-    /**
-     * Delete PKCE code verifier
-     */
-    async deleteCodeVerifier(): Promise<void> {
-        const keysToDelete: string[] = [];
-
-        if (this._clientId) {
-            keysToDelete.push(this.codeVerifierKey(this._clientId));
-        }
-
-        // Also clean up pending verifier
-        keysToDelete.push(`oauth/${this.identity}/${this.serverId}/pending_verifier`);
-
-        if (storage.deleteMany) {
-            await storage.deleteMany(keysToDelete);
+        if (scope === "all") {
+            await storage.removeSession(this.identity, this.sessionId);
         } else {
-            for (const key of keysToDelete) {
-                await storage.delete(key);
+            const data = await this.getSessionData();
+            // Create a copy to modify
+            const updates: Partial<SessionData> = {};
+
+            if (scope === "client") {
+                updates.clientInformation = undefined;
+                updates.clientId = undefined;
+            } else if (scope === "tokens") {
+                updates.tokens = undefined;
+            } else if (scope === "verifier") {
+                updates.codeVerifier = undefined;
             }
+            await this.saveSessionData(updates);
         }
     }
 
-    /**
-     * Check if token is expired
-     */
+    async saveCodeVerifier(verifier: string): Promise<void> {
+        await this.saveSessionData({ codeVerifier: verifier });
+    }
+
+    async codeVerifier(): Promise<string> {
+        const data = await this.getSessionData();
+
+        if (data.clientId && !this._clientId) {
+            this._clientId = data.clientId;
+        }
+
+        if (!data.codeVerifier) {
+            throw new Error("No code verifier found");
+        }
+        return data.codeVerifier;
+    }
+
+    async deleteCodeVerifier(): Promise<void> {
+        await this.saveSessionData({ codeVerifier: undefined });
+    }
+
+    async tokens(): Promise<OAuthTokens | undefined> {
+        const data = await this.getSessionData();
+
+        if (data.clientId && !this._clientId) {
+            this._clientId = data.clientId;
+        }
+
+        return data.tokens;
+    }
+
     isTokenExpired(): boolean {
         if (!this.tokenExpiresAt) {
             return false;
@@ -383,9 +233,6 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         return Date.now() >= this.tokenExpiresAt;
     }
 
-    /**
-     * Set token expiration time
-     */
     setTokenExpiresAt(expiresAt: number): void {
         this.tokenExpiresAt = expiresAt;
     }

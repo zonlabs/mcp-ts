@@ -15,8 +15,11 @@ export interface SessionData {
     createdAt: number;
     identity?: string;
     headers?: Record<string, string>;
-    // Note: OAuth data (tokens, codeVerifier, clientInformation) is stored separately
-    // using key-value storage methods, following Cloudflare's agents pattern
+    // OAuth data (consolidated)
+    clientInformation?: OAuthClientInformationMixed;
+    tokens?: OAuthTokens;
+    codeVerifier?: string;
+    clientId?: string;
 }
 
 export interface SetClientOptions {
@@ -103,36 +106,4 @@ export interface StorageBackend {
      * Disconnect from storage backend
      */
     disconnect(): Promise<void>;
-
-    // ============================================
-    // Key-Value Storage (for OAuth data)
-    // Following Cloudflare's agents pattern
-    // ============================================
-
-    /**
-     * Get a value by key
-     * @param key - Storage key
-     * @returns Value or undefined if not found
-     */
-    get<T>(key: string): Promise<T | undefined>;
-
-    /**
-     * Set a value by key
-     * @param key - Storage key
-     * @param value - Value to store
-     * @param ttl - Optional TTL in seconds
-     */
-    set<T>(key: string, value: T, ttl?: number): Promise<void>;
-
-    /**
-     * Delete a value by key
-     * @param key - Storage key
-     */
-    delete(key: string): Promise<void>;
-
-    /**
-     * Delete multiple keys at once
-     * @param keys - Array of storage keys
-     */
-    deleteMany?(keys: string[]): Promise<void>;
 }
