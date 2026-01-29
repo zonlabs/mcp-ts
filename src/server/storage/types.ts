@@ -1,5 +1,5 @@
 
-import type { MCPClient } from '../oauth-client';
+import type { MCPClient } from '../mcp/oauth-client.js';
 import type {
     OAuthTokens,
     OAuthClientInformationMixed,
@@ -13,7 +13,6 @@ export interface SessionData {
     transportType: 'sse' | 'streamable_http';
     callbackUrl: string;
     createdAt: number;
-    active: boolean;
     identity?: string;
     headers?: Record<string, string>;
     // OAuth data (consolidated)
@@ -33,7 +32,6 @@ export interface SetClientOptions {
     transportType?: 'sse' | 'streamable_http';
     identity?: string;
     headers?: Record<string, string>;
-    active?: boolean;
 }
 
 /**
@@ -55,13 +53,19 @@ export interface StorageBackend {
      */
     /**
      * Creates a new session. Throws if session already exists.
+     * @param session - Session data to create
+     * @param ttl - Optional TTL in seconds (defaults to backend's default)
      */
-    createSession(session: SessionData): Promise<void>;
+    createSession(session: SessionData, ttl?: number): Promise<void>;
 
     /**
      * Updates an existing session with partial data. Throws if session does not exist.
+     * @param identity - User identity
+     * @param sessionId - Session identifier
+     * @param data - Partial session data to update
+     * @param ttl - Optional TTL in seconds (defaults to backend's default)
      */
-    updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void>;
+    updateSession(identity: string, sessionId: string, data: Partial<SessionData>, ttl?: number): Promise<void>;
 
     /**
      * Retrieves a session

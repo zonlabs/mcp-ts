@@ -23,7 +23,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 ## Quick Install
 
 ```bash
-npm install @mcp-ts/redis
+npm install @mcp-ts/sdk
 ```
 
 ## Framework Guides
@@ -45,11 +45,13 @@ mcp-ts provides first-class support for the Vercel AI SDK.
 
 ## Core Concepts
 
-Understanding these three pieces will help you build faster:
+Understanding these pieces will help you build faster:
 
 1. **Storage Backend** — Where your MCP session data lives. Use [Redis](./storage-backends.md#redis) for production or [File System](./storage-backends.md#file-system) for local dev.
 2. **Server Handler** — The API route that bridges your storage and the client. See [Next.js](./nextjs.md) or [Installation](./installation.md#server-side-setup).
 3. **Client Hook** — The frontend composable/hook that manages the SSE connection and tool calls.
+4. **Adapters** — Transform MCP tools into framework-specific formats. See [Adapters](./adapters.md).
+5. **AG-UI Middleware** — Execute MCP tools server-side when using remote agents. See [AG-UI Middleware](./adapters.md#ag-ui-middleware).
 
 ## Next Steps
 

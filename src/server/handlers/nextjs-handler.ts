@@ -4,8 +4,8 @@
  */
 
 import { SSEConnectionManager, type ClientMetadata } from './sse-handler.js';
-import type { McpConnectionEvent, McpObservabilityEvent } from '../shared/events.js';
-import type { McpRpcResponse } from '../shared/types.js';
+import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events.js';
+import type { McpRpcResponse } from '../../shared/types.js';
 
 export interface NextMcpHandlerOptions {
   /**
@@ -52,7 +52,7 @@ const managers = new Map<string, SSEConnectionManager>();
  * @example
  * ```typescript
  * // app/api/mcp/route.ts
- * import { createNextMcpHandler } from '@mcp-ts/redis/server';
+ * import { createNextMcpHandler } from '@mcp-ts/core/server';
  *
  * export const { GET, POST } = createNextMcpHandler();
  * ```

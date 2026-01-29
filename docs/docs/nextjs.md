@@ -1,12 +1,11 @@
 ---
-sidebar_position: 3
+title: Next.js
+hide_title: true
 ---
-
-# Next.js Integration
 
 import { SiNextdotjs } from "react-icons/si";
 
-<h1><SiNextdotjs style={{verticalAlign: 'middle', marginRight: '10px'}} /> Next.js Support</h1>
+<h1><SiNextdotjs style={{verticalAlign: 'middle', marginRight: '10px'}} /> Next.js</h1>
 
 Complete guide for integrating mcp-ts with Next.js applications (App Router and Pages Router).
 
@@ -17,7 +16,7 @@ Complete guide for integrating mcp-ts with Next.js applications (App Router and 
 Create an API route handler at `app/api/mcp/route.ts`:
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/redis/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -46,7 +45,7 @@ Create a component at `components/McpConnections.tsx`:
 ```typescript
 'use client';
 
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 export function McpConnections({ identity }: { identity: string }) {
   const {
@@ -134,18 +133,22 @@ To build agentic workflows that use tools from multiple MCP servers, use `MultiS
 
 ```typescript
 // app/api/chat/route.ts
-import { MultiSessionClient } from '@mcp-ts/redis/server';
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 export async function POST(req: Request) {
   const { messages, identity } = await req.json();
 
-  const mcp = new MultiSessionClient(identity);
+  const client = new MultiSessionClient(identity);
 
   try {
-    await mcp.connect();
-    const tools = await mcp.getAITools();
+    await client.connect();
+
+    const adapter = new AIAdapter(client);
+    const tools = await adapter.getTools();
+
     const result = streamText({
       model: openai('gpt-4'),
       messages,
@@ -163,6 +166,8 @@ export async function POST(req: Request) {
 }
 ```
 
+For more details, see the [AI SDK Adapter documentation](./adapters.md#ai-sdk-adapter).
+
 ## Pages Router
 
 ### Step 1: Create API Route
@@ -170,7 +175,7 @@ export async function POST(req: Request) {
 Create `pages/api/mcp/sse.ts`:
 
 ```typescript
-import { createSSEHandler } from '@mcp-ts/redis/server';
+import { createSSEHandler } from '@mcp-ts/sdk/server';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(
@@ -222,7 +227,7 @@ Handle OAuth callbacks at `app/oauth/callback-popup/page.tsx` (for popups) or `a
 
 import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 export default function OAuthCallback() {
   const searchParams = useSearchParams();
@@ -287,7 +292,7 @@ Ensure your platform supports:
 Here's a full working example:
 
 ```typescript title="app/api/mcp/route.ts"
-import { createNextMcpHandler } from '@mcp-ts/redis/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -304,7 +309,7 @@ export const { GET, POST } = createNextMcpHandler({
 ```typescript title="components/McpClient.tsx"
 'use client';
 
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 import { useState } from 'react';
 
 export function McpClient({ identity }: { identity: string }) {

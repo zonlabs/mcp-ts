@@ -9,6 +9,9 @@ interface ConnectionItemProps {
 }
 
 export default function ConnectionItem({ connection, onDisconnect, onSelectTool }: ConnectionItemProps) {
+    // Safely convert sessionId to string if it's not already
+    const sessionIdStr = String(connection.sessionId);
+
     return (
         <div className={styles.connection}>
             <div className={styles.connectionHeader}>
@@ -16,7 +19,7 @@ export default function ConnectionItem({ connection, onDisconnect, onSelectTool 
                     <h3>{connection.serverName}</h3>
                     <div className={styles.connectionMeta}>
                         <span className={styles.sessionId}>
-                            Session: {connection.sessionId.slice(0, 8)}...
+                            Session: {sessionIdStr.slice(0, 8)}...
                         </span>
                         <span className={`${styles.stateBadge} ${styles[`state${connection.state}`]}`}>
                             {connection.state}
@@ -24,7 +27,7 @@ export default function ConnectionItem({ connection, onDisconnect, onSelectTool 
                     </div>
                 </div>
                 <button
-                    onClick={() => onDisconnect(connection.sessionId)}
+                    onClick={() => onDisconnect(sessionIdStr)}
                     className={styles.disconnectBtn}
                 >
                     Disconnect
@@ -53,7 +56,7 @@ export default function ConnectionItem({ connection, onDisconnect, onSelectTool 
                                         )}
                                     </div>
                                     <button
-                                        onClick={() => onSelectTool(connection.sessionId, tool.name)}
+                                        onClick={() => onSelectTool(sessionIdStr, tool.name)}
                                         className={styles.executeBtn}
                                     >
                                         Execute
@@ -73,7 +76,7 @@ export default function ConnectionItem({ connection, onDisconnect, onSelectTool 
                     <dt>Server URL:</dt>
                     <dd>{connection.serverUrl}</dd>
                     <dt>Session ID:</dt>
-                    <dd className={styles.monospace}>{connection.sessionId}</dd>
+                    <dd className={styles.monospace}>{sessionIdStr}</dd>
                     <dt>Transport:</dt>
                     <dd>{connection.transport || 'sse'}</dd>
                     <dt>State:</dt>

@@ -8,6 +8,11 @@ export default defineConfig({
     'client/react': 'src/client/react/index.ts',
     'client/vue': 'src/client/vue/index.ts',
     'shared/index': 'src/shared/index.ts',
+    'adapters/ai-adapter': 'src/adapters/ai-adapter.ts',
+    'adapters/langchain-adapter': 'src/adapters/langchain-adapter.ts',
+    'adapters/mastra-adapter': 'src/adapters/mastra-adapter.ts',
+    'adapters/agui-adapter': 'src/adapters/agui-adapter.ts',
+    'adapters/agui-middleware': 'src/adapters/agui-middleware.ts',
   },
   format: ['cjs', 'esm'],
   dts: {
@@ -27,6 +32,8 @@ export default defineConfig({
     '@modelcontextprotocol/sdk',
     'fs',
     'path',
+    'rxjs',
+    '@ag-ui/client',
   ],
   // Platform-specific bundles
   platform: 'neutral',

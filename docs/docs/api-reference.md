@@ -13,7 +13,7 @@ Complete API documentation for mcp-ts.
 Creates handlers for Next.js App Router API routes.
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/redis/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 const { GET, POST } = createNextMcpHandler({
   getIdentity: (request) => string,
@@ -40,7 +40,7 @@ const { GET, POST } = createNextMcpHandler({
 Creates an SSE handler for standard Node.js/Express applications.
 
 ```typescript
-import { createSSEHandler } from '@mcp-ts/redis/server';
+import { createSSEHandler } from '@mcp-ts/sdk/server';
 
 const handler = createSSEHandler({
   identity: string,
@@ -65,7 +65,7 @@ const handler = createSSEHandler({
 Direct MCP client class for server-side operations.
 
 ```typescript
-import { MCPClient } from '@mcp-ts/redis/server';
+import { MCPClient } from '@mcp-ts/sdk/server';
 
 const client = new MCPClient({
   identity: string,
@@ -196,7 +196,7 @@ await client.finishAuth(authCode);
 Manages multiple MCP connections for a single user identity, allowing aggregation of tools from all connected servers.
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/redis/server';
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
 
 const mcp = new MultiSessionClient(identity, {
   timeout: 15000,
@@ -222,12 +222,12 @@ await mcp.connect();
 
 ---
 
-**`getAITools(): Promise<ToolSet>`**
+**`getClients(): MCPClient[]`**
 
-Aggregates AI tools (compatible with AI SDK) from all connected clients.
+Returns the array of currently connected clients.
 
 ```typescript
-const tools = await mcp.getAITools();
+const clients = mcp.getClients();
 ```
 
 ---
@@ -242,6 +242,136 @@ mcp.disconnect();
 
 ---
 
+
+### Adapters
+
+Adapters convert MCP tools into framework-specific formats for seamless integration with AI frameworks.
+
+#### `AIAdapter`
+
+Convert MCP tools to Vercel AI SDK format.
+
+```typescript
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+
+const adapter = new AIAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string  // Tool name prefix (default: serverId)
+});
+
+const tools = await adapter.getTools(); // Returns ToolSet
+```
+
+#### `LangChainAdapter`
+
+Convert MCP tools to LangChain DynamicStructuredTool format.
+
+```typescript
+import { LangChainAdapter } from '@mcp-ts/sdk/adapters/langchain';
+
+const adapter = new LangChainAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string           // Tool name prefix
+  simplifyErrors?: boolean  // Return simple error strings (default: false)
+});
+
+const tools = await adapter.getTools(); // Returns DynamicStructuredTool[]
+```
+
+#### `MastraAdapter`
+
+Convert MCP tools to Mastra tool format.
+
+```typescript
+import { MastraAdapter } from '@mcp-ts/sdk/adapters/mastra';
+
+const adapter = new MastraAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string  // Tool name prefix
+});
+
+const tools = await adapter.getTools(); // Returns MastraTool[]
+```
+
+#### `AguiAdapter`
+
+Convert MCP tools to AG-UI protocol format.
+
+```typescript
+import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
+
+const adapter = new AguiAdapter(client: MCPClient | MultiSessionClient, options?: {
+  prefix?: string  // Tool name prefix (default: serverId)
+});
+
+// Get tools with handlers for server-side execution
+const tools = await adapter.getTools(); // Returns AguiTool[]
+
+// Get tool definitions (JSON Schema) for remote agents
+const definitions = await adapter.getToolDefinitions(); // Returns AguiToolDefinition[]
+```
+
+**Types:**
+
+```typescript
+interface AguiTool {
+  name: string;
+  description: string;
+  parameters?: Record<string, any>;
+  handler?: (args: any) => any | Promise<any>;
+}
+
+interface AguiToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+}
+```
+
+---
+
+#### `createMcpMiddleware`
+
+Create AG-UI middleware for server-side MCP tool execution.
+
+```typescript
+import { createMcpMiddleware } from '@mcp-ts/sdk/adapters/agui-middleware';
+import { HttpAgent } from '@ag-ui/client';
+
+const agent = new HttpAgent({ url: 'http://localhost:8000/agent' });
+
+agent.use(createMcpMiddleware(client: MCPClient | MultiSessionClient, options?: {
+  toolPrefix?: string  // Prefix to identify MCP tools (default: 'server-')
+  tools?: AguiTool[]   // Pre-loaded tools with handlers
+}));
+```
+
+**Parameters:**
+- `client` - MCP client or MultiSessionClient for executing tools
+- `options.toolPrefix` - Prefix to identify MCP tools in the event stream (default: `'server-'`)
+- `options.tools` - Pre-loaded tools with handlers. If not provided, tools will be loaded from the client on first use.
+
+**Returns:** Middleware function compatible with AG-UI `agent.use()`
+
+**Example:**
+
+```typescript
+import { HttpAgent } from '@ag-ui/client';
+import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
+import { createMcpMiddleware } from '@mcp-ts/sdk/adapters/agui-middleware';
+
+// Setup
+const client = new MultiSessionClient('user_123');
+await client.connect();
+
+const adapter = new AguiAdapter(client);
+const mcpTools = await adapter.getTools();
+
+// Create agent with middleware
+const agent = new HttpAgent({ url: 'http://localhost:8000/agent' });
+agent.use(createMcpMiddleware(client, {
+  toolPrefix: 'server-',
+  tools: mcpTools,
+}));
+```
+
 ## Storage Backend API
 
 ### `storage`
@@ -249,7 +379,7 @@ mcp.disconnect();
 Global storage instance that automatically selects the appropriate backend based on environment configuration.
 
 ```typescript
-import { storage } from '@mcp-ts/redis/server';
+import { storage } from '@mcp-ts/sdk/server';
 ```
 
 #### Configuration
@@ -408,7 +538,7 @@ import {
   RedisStorageBackend,
   MemoryStorageBackend,
   FileStorageBackend 
-} from '@mcp-ts/redis/server';
+} from '@mcp-ts/sdk/server';
 import { Redis } from 'ioredis';
 
 // Redis
@@ -432,7 +562,7 @@ const memoryStorage = new MemoryStorageBackend();
 React hook for managing MCP connections.
 
 ```typescript
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 const {
   connections,
@@ -483,7 +613,7 @@ const {
 Lower-level SSE client for custom implementations.
 
 ```typescript
-import { SSEClient } from '@mcp-ts/redis/client';
+import { SSEClient } from '@mcp-ts/sdk/client';
 
 const client = new SSEClient({
   url: string,
@@ -582,7 +712,7 @@ const tools = await client.listTools(sessionId);
 import type {
   McpConnectionState,
   McpConnectionEvent,
-} from '@mcp-ts/redis/shared';
+} from '@mcp-ts/sdk/shared';
 
 type McpConnectionState =
   | 'DISCONNECTED'
@@ -607,7 +737,7 @@ type McpConnectionEvent =
 ### Tool Types
 
 ```typescript
-import type { ToolInfo } from '@mcp-ts/redis/shared';
+import type { ToolInfo } from '@mcp-ts/sdk/shared';
 
 interface ToolInfo {
   name: string;
@@ -649,7 +779,7 @@ interface SessionData {
 Thrown when OAuth authorization is required.
 
 ```typescript
-import { UnauthorizedError } from '@mcp-ts/redis/server';
+import { UnauthorizedError } from '@mcp-ts/sdk/server';
 
 try {
   await client.connect();

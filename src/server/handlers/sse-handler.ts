@@ -4,7 +4,7 @@
  * Based on Cloudflare's agents pattern but adapted for HTTP/SSE
  */
 
-import type { McpConnectionEvent, McpObservabilityEvent } from '../shared/events';
+import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events.js';
 import type {
   McpRpcRequest,
   McpRpcResponse,
@@ -25,10 +25,10 @@ import type {
   ListToolsRpcResult,
   ListPromptsResult,
   ListResourcesResult,
-} from '../shared/types';
-import { RpcErrorCodes } from '../shared/errors';
-import { MCPClient } from './oauth-client';
-import { storage } from './storage';
+} from '../../shared/types.js';
+import { RpcErrorCodes } from '../../shared/errors.js';
+import { MCPClient } from '../mcp/oauth-client.js';
+import { storage } from '../storage/index.js';
 
 export interface ClientMetadata {
   clientName?: string;
@@ -208,7 +208,6 @@ export class SSEConnectionManager {
           sessionId: s.sessionId,
           serverId: s.serverId,
           serverName: s.serverName,
-          active: s.active,
         })),
       },
     });
@@ -220,7 +219,6 @@ export class SSEConnectionManager {
         serverName: s.serverName,
         serverUrl: s.serverUrl,
         transport: s.transportType,
-        active: s.active,
       })),
     };
   }
@@ -242,7 +240,7 @@ export class SSEConnectionManager {
     }
 
     // Generate session ID
-    const sessionId = storage.generateSessionId();
+    const sessionId = await storage.generateSessionId();
 
     // Emit connecting state
     this.emitConnectionEvent({
@@ -281,18 +279,8 @@ export class SSEConnectionManager {
         },
       });
 
-      // Create initial session in storage
-      await storage.createSession({
-        sessionId,
-        identity: this.identity,
-        serverId,
-        serverName,
-        serverUrl,
-        callbackUrl,
-        transportType: transportType || 'streamable_http',
-        createdAt: Date.now(),
-        active: false,
-      });
+      // Note: Session will be created by MCPClient after successful connection
+      // This ensures sessions only exist for successful or OAuth-pending connections
 
       // Store client
       this.clients.set(sessionId, client);
@@ -311,6 +299,12 @@ export class SSEConnectionManager {
 
       // Fetch tools
       const tools = await client.listTools();
+
+      // Debug: Check session state after connection
+      const sessionAfterConnect = await storage.getSession(this.identity, sessionId);
+      console.log(`[SSE Handler] After connect() - Session ${sessionId}:`, {
+        serverId: sessionAfterConnect?.serverId,
+      });
 
       this.emitConnectionEvent({
         type: 'tools_discovered',
@@ -353,6 +347,10 @@ export class SSEConnectionManager {
       await client.clearSession();
       client.disconnect();
       this.clients.delete(sessionId);
+    } else {
+      // Handle orphaned sessions (e.g., OAuth flow failed before client was stored)
+      // Directly remove from storage since there's no active client
+      await storage.removeSession(this.identity, sessionId);
     }
 
     return { success: true };
@@ -440,7 +438,6 @@ export class SSEConnectionManager {
         serverName: session.serverName,
         serverUrl: session.serverUrl,
         transportType: session.transportType,
-        active: session.active,
       },
     });
 

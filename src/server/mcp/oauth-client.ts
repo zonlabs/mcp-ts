@@ -32,13 +32,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OAuthClientMetadata, OAuthTokens, OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
-import { sanitizeServerLabel } from '../shared/utils.js';
-import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../shared/events.js';
-import { UnauthorizedError } from '../shared/errors.js';
-import { storage } from './storage/index.js';
-import type { JSONSchema7 } from 'json-schema';
-import type { ToolSet } from 'ai';
-
+import { sanitizeServerLabel } from '../../shared/utils.js';
+import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
+import { UnauthorizedError } from '../../shared/errors.js';
+import { storage } from '../storage/index.js';
+import { SESSION_TTL_SECONDS, STATE_EXPIRATION_MS } from '../../shared/constants.js';
 
 /**
  * Supported MCP transport types
@@ -98,8 +96,6 @@ export class MCPClient {
   private logoUri?: string;
   private policyUri?: string;
 
-  /** Lazy-loaded AI SDK jsonSchema validator */
-  private jsonSchema: typeof import('ai').jsonSchema | undefined;
 
   /** Event emitters for connection lifecycle */
   private readonly _onConnectionEvent = new Emitter<McpConnectionEvent>();
@@ -307,7 +303,7 @@ export class MCPClient {
       client_uri: this.clientUri || 'https://mcp-assistant.in',
       logo_uri: this.logoUri || 'https://mcp-assistant.in/logo.png',
       policy_uri: this.policyUri || 'https://mcp-assistant.in/privacy',
-      software_id: '@mcp-ts/redis',
+      software_id: '@mcp-ts',
       software_version: '1.0.0-beta.4',
       ...(this.clientId ? { client_id: this.clientId } : {}),
       ...(this.clientSecret ? { client_secret: this.clientSecret } : {}),
@@ -345,26 +341,55 @@ export class MCPClient {
         { capabilities: {} }
       );
     }
+
+    // Create session in storage if it doesn't exist yet
+    // This is needed BEFORE OAuth flow starts because the OAuth provider
+    // will call saveCodeVerifier() which requires the session to exist
+    const existingSession = await storage.getSession(this.identity, this.sessionId);
+    if (!existingSession && this.serverId && this.serverUrl && this.callbackUrl) {
+      console.log(`[MCPClient] Creating initial session ${this.sessionId} for OAuth flow`);
+      await storage.createSession({
+        sessionId: this.sessionId,
+        identity: this.identity,
+        serverId: this.serverId,
+        serverName: this.serverName,
+        serverUrl: this.serverUrl,
+        callbackUrl: this.callbackUrl,
+        transportType: this.transportType || 'streamable_http',
+        createdAt: Date.now(),
+      }, Math.floor(STATE_EXPIRATION_MS / 1000)); // Short TTL until connection succeeds
+    }
   }
 
   /**
-   * Saves current session state to Redis
-   * @param active - Whether the session is active (connected and authenticated)
+   * Saves current session state to storage
+   * Creates new session if it doesn't exist, updates if it does
+   * @param ttl - Time-to-live in seconds (defaults to 12hr for connected sessions)
    * @private
    */
-  private async saveSession(active: boolean = true): Promise<void> {
+  private async saveSession(ttl: number = SESSION_TTL_SECONDS): Promise<void> {
     if (!this.sessionId || !this.serverId || !this.serverUrl || !this.callbackUrl) {
       return;
     }
 
-    await storage.updateSession(this.identity, this.sessionId, {
+    const sessionData = {
+      sessionId: this.sessionId,
+      identity: this.identity,
       serverId: this.serverId,
       serverName: this.serverName,
       serverUrl: this.serverUrl,
       callbackUrl: this.callbackUrl,
-      transportType: this.transportType || 'streamable_http',
-      active,
-    });
+      transportType: this.transportType || 'streamable_http' as TransportType,
+      createdAt: Date.now(),
+    };
+
+    // Try to update first, create if doesn't exist
+    const existingSession = await storage.getSession(this.identity, this.sessionId);
+    if (existingSession) {
+      await storage.updateSession(this.identity, this.sessionId, sessionData, ttl);
+    } else {
+      await storage.createSession(sessionData, ttl);
+    }
   }
 
   /**
@@ -466,9 +491,12 @@ export class MCPClient {
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
 
+      // Only save/update session if transport type changed (connection negotiation)
+      // This avoids unnecessary writes to storage on every connect
       const existingSession = await storage.getSession(this.identity, this.sessionId);
-      if (!existingSession) {
-        await this.saveSession(true);
+      if (!existingSession || existingSession.transportType !== this.transportType) {
+        console.log(`[MCPClient] Saving session ${this.sessionId} (new or transport changed)`);
+        await this.saveSession(SESSION_TTL_SECONDS);
       }
     } catch (error) {
       /** Handle Authentication Errors */
@@ -477,7 +505,9 @@ export class MCPClient {
         (error instanceof Error && error.message.toLowerCase().includes('unauthorized'))
       ) {
         this.emitStateChange('AUTHENTICATING');
-        await this.saveSession(false);
+        // Save session with 10min TTL for OAuth pending state
+        console.log(`[MCPClient] Saving session ${this.sessionId} with 10min TTL (OAuth pending)`);
+        await this.saveSession(Math.floor(STATE_EXPIRATION_MS / 1000));
 
         /** Get OAuth authorization URL if available */
         let authUrl = '';
@@ -578,7 +608,9 @@ export class MCPClient {
         await this.client.connect(this.transport);
 
         this.emitStateChange('CONNECTED');
-        await this.saveSession(true);
+        // Update session with 12hr TTL after successful OAuth
+        console.log(`[MCPClient] Updating session ${this.sessionId} to 12hr TTL (OAuth complete)`);
+        await this.saveSession(SESSION_TTL_SECONDS);
 
         return; // Success, exit function
 
@@ -1069,9 +1101,8 @@ export class MCPClient {
         const { sessionId } = sessionData;
 
         try {
-          // Validate session - remove if invalid or inactive
+          // Validate session - remove if missing required fields
           if (
-            !sessionData.active ||
             !sessionData.serverId ||
             !sessionData.transportType ||
             !sessionData.serverUrl ||
@@ -1133,49 +1164,5 @@ export class MCPClient {
     return mcpConfig;
   }
 
-  /**
-   * Lazy-loads the jsonSchema function from the AI SDK.
-   * This defers importing the "ai" package until it's actually needed.
-   * @internal
-   */
-  async ensureJsonSchema() {
-    if (!this.jsonSchema) {
-      const { jsonSchema } = await import('ai');
-      this.jsonSchema = jsonSchema;
-    }
-  }
-
-  /**
-   * Pattern adapted from Cloudflare Agents (https://github.com/cloudflare/agents)
-   * @returns a set of tools that can be used with the AI SDK
-   */
-  async getAITools(): Promise<ToolSet> {
-    await this.ensureJsonSchema();
-    const result = await this.listTools();
-
-    // @ts-ignore: ToolSet type inference can be tricky with dynamic imports
-    return Object.fromEntries(
-      result.tools.map((tool) => {
-        return [
-          // Namespace tool names to avoid potential collisions
-          `tool_${this.serverId?.replace(/-/g, '') || 'unknown'}_${tool.name}`,
-          {
-            description: tool.description,
-            // @ts-ignore: jsonSchema is guaranteed to be defined after ensureJsonSchema
-            inputSchema: this.jsonSchema!(tool.inputSchema as JSONSchema7),
-            execute: async (args: any) => {
-              try {
-                const response = await this.callTool(tool.name, args);
-                return response;
-              } catch (error) {
-                // Ensure errors are propagated cleanly
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                throw new Error(`Tool execution failed: ${errorMessage}`);
-              }
-            }
-          }
-        ];
-      })
-    );
-  }
 }
+

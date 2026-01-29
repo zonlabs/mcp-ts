@@ -32,16 +32,13 @@ export function useOAuthPopup(
                     try {
                         await finishAuth(authenticatingSession.sessionId, event.data.code);
                         console.log('Finished auth successfully');
-                        alert('Authentication successful! You can now use the tools.');
                     } catch (err) {
                         console.error('Failed to finish auth:', err);
-                        alert(`Authentication failed: ${err instanceof Error ? err.message : String(err)}`);
                         // We might want to show this error somewhere global or in the specific connection item
                         // For now connection error state handles it if useMcp updates it
                     }
                 } else {
                     console.error('Could not find any session to apply auth code to. Available connections:', connections);
-                    alert('Could not associate authentication with an active connection. Please try again.');
                 }
             }
         };

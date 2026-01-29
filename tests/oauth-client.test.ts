@@ -1,20 +1,17 @@
 import { test, expect } from '@playwright/test';
-import { MCPClient } from '../src/server/oauth-client';
-import { storage } from '../src/server/storage';
+import { MCPClient } from '../src/server/mcp/oauth-client';
+import { storage, _setStorageInstanceForTesting } from '../src/server/storage';
+import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
 
 test.describe('MCPClient.getMcpServerConfig', () => {
     const identity = 'test-user';
 
-    // Store original methods to restore later
-    const originalGetIdentitySessionsData = storage.getIdentitySessionsData;
-    const originalRemoveSession = storage.removeSession;
     const originalInitialize = (MCPClient.prototype as any).initialize;
     const originalGetValidTokens = (MCPClient.prototype as any).getValidTokens;
 
     test.afterEach(() => {
         // Restore methods
-        storage.getIdentitySessionsData = originalGetIdentitySessionsData;
-        storage.removeSession = originalRemoveSession;
+        _setStorageInstanceForTesting(null); // Reset storage
         (MCPClient.prototype as any).initialize = originalInitialize;
         (MCPClient.prototype as any).getValidTokens = originalGetValidTokens;
     });
@@ -56,10 +53,12 @@ test.describe('MCPClient.getMcpServerConfig', () => {
         };
 
         // Mock storage
-        storage.getIdentitySessionsData = async (id: string) => {
+        const mockStorage = new MemoryStorageBackend();
+        mockStorage.getIdentitySessionsData = async (id: string) => {
             if (id === identity) return [session1, session2] as any;
             return [];
         };
+        _setStorageInstanceForTesting(mockStorage);
 
         const config = await MCPClient.getMcpServerConfig(identity);
 
@@ -90,12 +89,14 @@ test.describe('MCPClient.getMcpServerConfig', () => {
         let removeSessionCalledWith: any[] = [];
 
         // Mock storage
-        storage.getIdentitySessionsData = async (id: string) => {
+        const mockStorage = new MemoryStorageBackend();
+        mockStorage.getIdentitySessionsData = async (id: string) => {
             return [session1] as any;
         };
-        storage.removeSession = async (id: string, sId: string) => {
+        mockStorage.removeSession = async (id: string, sId: string) => {
             removeSessionCalledWith = [id, sId];
         };
+        _setStorageInstanceForTesting(mockStorage);
 
         const config = await MCPClient.getMcpServerConfig(identity);
 

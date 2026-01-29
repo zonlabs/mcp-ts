@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mcp-ts/redis": "^1.0.0-beta.3",
+    "@mcp-ts/sdk": "^1.0.0-beta.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

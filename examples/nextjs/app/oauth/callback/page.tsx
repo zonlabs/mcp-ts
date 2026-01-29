@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMcp } from '@mcp-ts/redis/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 function OAuthCallbackContent() {
   const searchParams = useSearchParams();

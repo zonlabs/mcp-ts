@@ -1,19 +1,18 @@
 ---
-sidebar_position: 4
+title: React
+hide_title: true
 ---
-
-# React Hook
 
 import { FaReact } from "react-icons/fa";
 
-<h1><FaReact style={{verticalAlign: 'middle', marginRight: '10px'}} color="#61DAFB" /> React Support</h1>
+<h1><FaReact style={{verticalAlign: 'middle', marginRight: '10px'}} color="#61DAFB" /> React</h1>
 
 The `useMcp` hook provides a simple way to manage MCP connections in React applications.
 
 ## Basic Usage
 
 ```typescript
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 function MyComponent() {
   const { connections, connect, disconnect, status } = useMcp({
@@ -332,11 +331,11 @@ import type {
   McpConnectionState,
   McpConnectionEvent,
   ToolInfo,
-} from '@mcp-ts/redis/shared';
+} from '@mcp-ts/sdk/shared';
 
 import type {
   McpClient, // Return type of useMcp
-} from '@mcp-ts/redis/client';
+} from '@mcp-ts/sdk/client';
 ```
 
 ## Next Steps

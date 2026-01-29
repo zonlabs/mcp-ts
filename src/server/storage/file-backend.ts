@@ -85,7 +85,7 @@ export class FileStorageBackend implements StorageBackend {
         return firstChar() + rest();
     }
 
-    async createSession(session: SessionData): Promise<void> {
+    async createSession(session: SessionData, ttl?: number): Promise<void> {
         await this.ensureInitialized();
         const { sessionId, identity } = session;
         if (!sessionId || !identity) throw new Error('identity and sessionId required');
@@ -97,9 +97,10 @@ export class FileStorageBackend implements StorageBackend {
 
         this.memoryCache!.set(sessionKey, session);
         await this.flush();
+        // Note: TTL is ignored in file backend - sessions don't auto-expire
     }
 
-    async updateSession(identity: string, sessionId: string, data: Partial<SessionData>): Promise<void> {
+    async updateSession(identity: string, sessionId: string, data: Partial<SessionData>, ttl?: number): Promise<void> {
         await this.ensureInitialized();
         if (!identity || !sessionId) throw new Error('identity and sessionId required');
 
@@ -117,6 +118,7 @@ export class FileStorageBackend implements StorageBackend {
 
         this.memoryCache!.set(sessionKey, updated);
         await this.flush();
+        // Note: TTL is ignored in file backend - sessions don't auto-expire
     }
 
     async getSession(identity: string, sessionId: string): Promise<SessionData | null> {

@@ -1,7 +1,7 @@
 {
   "name": "mcp-ts-nextjs-example",
   "version": "1.0.0",
-  "description": "Next.js example for @mcp-ts/redis",
+  "description": "Next.js example for @mcp-ts/sdk",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.18",
     "@ai-sdk/react": "^3.0.51",
-    "@mcp-ts/redis": "file:../..",
+    "@mcp-ts/sdk": "file:../..",
     "@radix-ui/react-slot": "^1.2.4",
     "@types/node": "^25.0.10",
     "@types/react": "^19.2.9",

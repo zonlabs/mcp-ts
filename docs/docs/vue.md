@@ -1,20 +1,19 @@
 ---
-sidebar_position: 5
+title: Vue.js
+hide_title: true
 ---
-
-# Vue.js Integration
 
 import { FaVuejs } from "react-icons/fa";
 
-<h1><FaVuejs style={{verticalAlign: 'middle', marginRight: '10px'}} color="#4FC08D" /> Vue.js Support</h1>
+<h1><FaVuejs style={{verticalAlign: 'middle', marginRight: '10px'}} color="#4FC08D" /> Vue.js</h1>
 
-The `@mcp-ts/redis/client/vue` package provides a composable for managing MCP connections in Vue 3 applications.
+The `@mcp-ts/sdk/client/vue` package provides a composable for managing MCP connections in Vue 3 applications.
 
 ## Basic Usage
 
 ```typescript
 <script setup lang="ts">
-import { useMcp } from '@mcp-ts/redis/client/vue';
+import { useMcp } from '@mcp-ts/sdk/client/vue';
 
 const { connections, connect, status } = useMcp({
   url: '/api/mcp',
@@ -80,7 +79,7 @@ const {
 
 ```vue
 <script setup lang="ts">
-import { useMcp } from '@mcp-ts/redis/client/vue';
+import { useMcp } from '@mcp-ts/sdk/client/vue';
 import { ref } from 'vue';
 
 const props = defineProps<{ identity: string }>();

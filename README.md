@@ -16,15 +16,15 @@
 
 <div align="center">
 
-| *Supported Frameworks* | *Supported Storage Backends* |
-| :---: | :---: |
-| <img src="docs/static/img/framework/next.svg" width="35" height="35" /> <img src="docs/static/img/framework/node.svg" width="35" height="35" /> <img src="docs/static/img/framework/react.svg" width="35" height="35" /> <img src="docs/static/img/framework/vue.svg" width="35" height="35" /> <img src="docs/static/img/framework/express.svg" width="35" height="35" /> | <img src="docs/static/img/storage-backend/redis.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/filesystem.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/memory.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/postgres.svg" width="35" height="35" /> |
+| *Supported Frameworks* | *Agent Frameworks* | *Storage Backends* |
+| :---: | :---: | :---: |
+| <img src="docs/static/img/framework/next.svg" width="35" height="35" /> <img src="docs/static/img/framework/node.svg" width="35" height="35" /> <img src="docs/static/img/framework/react.svg" width="35" height="35" /> <img src="docs/static/img/framework/vue.svg" width="35" height="35" /> <img src="docs/static/img/framework/express.svg" width="35" height="35" /> | <img src="docs/static/img/framework/vercel.svg" width="35" height="35" /> <img src="docs/static/img/agent-framework/langchain.svg" width="35" height="35" /> <img src="docs/static/img/agent-framework/mastra.svg" width="35" height="35" /> <img src="docs/static/img/agent-framework/agui.svg" width="35" height="35" /> | <img src="docs/static/img/storage-backend/redis.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/filesystem.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/memory.svg" width="35" height="35" /> |
 
 </div>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mcp-ts/redis">
-    <img src="https://badge.fury.io/js/@mcp-ts%2Fredis.svg" alt="npm version" />
+  <a href="https://www.npmjs.com/package/@mcp-ts/sdk">
+    <img src="https://badge.fury.io/js/@mcp-ts%2Fcore.svg" alt="npm version" />
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
@@ -42,7 +42,7 @@
 - **Vue Composable** - `useMcp` composable for Vue applications
 - **Full MCP Protocol** - Support for tools, prompts, and resources
 - **TypeScript** - Complete type safety with exported types
-- **PostgreSQL** - Coming soon!
+- **Agent Adapters** - Built-in adapters for AI SDK, LangChain, Mastra, and AG-UI
 
 ## Inspiration
 
@@ -62,11 +62,14 @@ That’s how `@mcp-ts` started.
 
 ## Installation
 
-To use the Redis-backed version of `mcp-ts`:
-
 ```bash
-npm install @mcp-ts/redis
+npm install @mcp-ts/sdk
 ```
+
+The package supports multiple storage backends out of the box:
+- **Memory** (default, no setup required)
+- **File** (local persistence)
+- **Redis** (production-ready, requires `npm install ioredis`)
 
 ## Quick Start
 
@@ -74,7 +77,7 @@ npm install @mcp-ts/redis
 
 ```typescript
 // app/api/mcp/route.ts
-import { createNextMcpHandler } from '@mcp-ts/redis/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -93,7 +96,7 @@ For advanced usage with `ai` SDK (e.g., `streamText`), use `MultiSessionClient` 
 
 ```typescript
 // app/api/chat/route.ts
-import { MultiSessionClient } from '@mcp-ts/redis/server';
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
@@ -128,7 +131,7 @@ export async function POST(req: Request) {
 
 ```typescript
 'use client';
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 function App() {
   const { connections, connect, status } = useMcp({
@@ -160,7 +163,33 @@ function App() {
 }
 ```
 
+### <img src="docs/static/img/agent-framework/agui.svg" width="20" height="20" align="center" /> AG-UI Middleware
 
+Execute MCP tools server-side when using remote agents (LangGraph, AutoGen, etc.):
+
+```typescript
+import { HttpAgent } from "@ag-ui/client";
+import { AguiAdapter } from "@mcp-ts/sdk/adapters/agui-adapter";
+import { createMcpMiddleware } from "@mcp-ts/sdk/adapters/agui-middleware";
+
+// Connect to MCP servers
+const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
+const client = new MultiSessionClient("user_123");
+await client.connect();
+
+// Create adapter and get tools
+const adapter = new AguiAdapter(client);
+const mcpTools = await adapter.getTools();
+
+// Create agent with middleware
+const agent = new HttpAgent({ url: "http://localhost:8000/agent" });
+agent.use(createMcpMiddleware(client, {
+  toolPrefix: 'server-',
+  tools: mcpTools,
+}));
+```
+
+The middleware intercepts tool calls from remote agents, executes MCP tools server-side, and returns results back to the agent.
 
 ## Documentation
 
@@ -179,7 +208,7 @@ Full documentation is available at: **[Docs](https://zonlabs.github.io/mcp-ts/)*
 
 The library supports multiple storage backends. You can explicitly select one using `MCP_TS_STORAGE_TYPE` or rely on automatic detection.
 
-**Supported Types:** `redis`, `file`, `memory`, and `postgresql` (coming soon).
+**Supported Types:** `redis`, `file`, `memory`.
 
 ### Configuration Examples
 
@@ -199,14 +228,6 @@ The library supports multiple storage backends. You can explicitly select one us
     ```bash
     MCP_TS_STORAGE_TYPE=memory
     ```
-
-4.  **<img src="docs/static/img/storage-backend/postgres.svg" width="20" height="20" align="center" /> PostgreSQL** (Coming soon)
-    ```bash
-    # Future release
-    MCP_TS_STORAGE_TYPE=postgresql
-    DATABASE_URL=postgresql://user:pass@host:5432/db
-    ```
-
 
 ## Architecture
 
@@ -250,7 +271,7 @@ graph TD
 - **SSE**: Delivers real-time updates (logs, tool list changes) to the client.
 
 > [!NOTE]
-> This package (`@mcp-ts/redis`) provides the Redis-backed storage for the mcp-ts ecosystem. Currently, all storage is accessed via Redis. Upcoming releases will introduce installable backends like `@mcp-ts/postgres`, enabling more flexible storage options with minimal bundle size.
+> This package (`@mcp-ts/sdk`) provides a unified MCP client with support for multiple storage backends (Memory, File, Redis). Storage backends use optional peer dependencies - install only what you need. Future releases may introduce separate storage plugins like `@mcp-ts/postgres` for even more flexibility.
 
 ## Contributing
 

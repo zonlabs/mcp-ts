@@ -1,12 +1,11 @@
 ---
-sidebar_position: 4
+title: Express
+hide_title: true
 ---
-
-# Node/Express Integration
 
 import { SiExpress } from "react-icons/si";
 
-<h1><SiExpress style={{verticalAlign: 'middle', marginRight: '10px'}} /> Node/Express Support</h1>
+<h1><SiExpress style={{verticalAlign: 'middle', marginRight: '10px'}} />Express</h1>
 
 Complete guide for integrating mcp-ts with Node.js and Express applications.
 
@@ -15,7 +14,7 @@ Complete guide for integrating mcp-ts with Node.js and Express applications.
 ### Step 1: Install Dependencies
 
 ```bash
-npm install express @mcp-ts/redis
+npm install express @mcp-ts/sdk
 ```
 
 ### Step 2: Create SSE Handler
@@ -24,7 +23,7 @@ Create a file named `mcp-handler.ts` (or `.js`):
 
 ```typescript
 import express from 'express';
-import { createSSEHandler } from '@mcp-ts/redis/server';
+import { createSSEHandler } from '@mcp-ts/sdk/server';
 
 const router = express.Router();
 
@@ -72,12 +71,12 @@ app.listen(3000, () => {
 
 ## Client-Side Setup
 
-You can use the `@mcp-ts/redis/client` in any frontend application.
+You can use the `@mcp-ts/sdk/client` in any frontend application.
 
 ### Using with React
 
 ```typescript
-import { useMcp } from '@mcp-ts/redis/client';
+import { useMcp } from '@mcp-ts/sdk/client';
 
 export function McpApp() {
   const { connections, connect, status } = useMcp({

@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import Redis from 'ioredis-mock';
 import { RedisStorageBackend } from '../../src/server/storage/redis-backend';
-import { setRedisInstance } from '../../src/server/redis';
+import { setRedisInstance } from '../../src/server/storage/redis';
 import { createMockSession, createMockTokens } from '../test-utils';
 
 test.describe('RedisStorageBackend', () => {

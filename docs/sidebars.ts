@@ -31,7 +31,7 @@ const sidebars: SidebarsConfig = {
         {
           type: 'doc',
           id: 'node-express',
-          label: 'Node/Express.js',
+          label: 'Express.js',
           className: 'sidebar-express-link',
         },
         {
@@ -46,6 +46,7 @@ const sidebars: SidebarsConfig = {
         },
       ],
     },
+    'adapters',
     'api-reference',
   ],
 

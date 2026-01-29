@@ -25,7 +25,7 @@ Before installing, ensure you have:
 Choose your preferred package manager:
 
 ```bash npm2yarn
-npm install @mcp-ts/redis
+npm install @mcp-ts/sdk
 ```
 
 ## Configure Storage Backend
@@ -122,7 +122,7 @@ Test your setup with a simple script:
 
 ```typescript
 // test-mcp.ts
-import { storage } from '@mcp-ts/redis/server';
+import { storage } from '@mcp-ts/sdk/server';
 
 async function test() {
   const sessionId = storage.generateSessionId();
@@ -205,9 +205,9 @@ If using TypeScript, ensure your `tsconfig.json` includes:
 
 ### Module Resolution Errors
 
-**Problem**: `Cannot find module '@mcp-ts/redis/server'`
+**Problem**: `Cannot find module '@mcp-ts/sdk/server'`
 
 **Solution**:
 - Clear node_modules: `rm -rf node_modules && npm install`
 - Check TypeScript configuration
-- Update to latest version: `npm update @mcp-ts/redis`
+- Update to latest version: `npm update @mcp-ts/sdk`

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ToolInfo } from '@mcp-ts/redis/shared';
+import type { ToolInfo } from '@mcp-ts/sdk/shared';
 
 interface ToolListProps {
   tools: ToolInfo[];

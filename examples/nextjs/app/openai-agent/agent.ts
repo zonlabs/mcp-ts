@@ -1,6 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from 'ai';
-import { MultiSessionClient } from '@mcp-ts/redis/server';
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
 
 const INSTRUCTIONS = `
 You are an expert assistant, an AI assistant that helps users with their tasks using the available MCP tools
@@ -15,12 +16,13 @@ export async function createMcpAgent(identity: string = 'demo-user-123') {
         console.error("[MCP] Connection failed:", error);
     }
 
-    const tools = await manager.getAITools();
+    const tools = await AIAdapter.getTools(manager);
+    console.log(`[MCP] Loaded ${Object.keys(tools).length} tools for agent.`);
 
     return new ToolLoopAgent({
         model: openai('gpt-4.1-mini'),
         instructions: INSTRUCTIONS,
-        tools: tools,
+        tools: tools as any,
         stopWhen: stepCountIs(5),
     });
 }

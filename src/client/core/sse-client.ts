@@ -168,9 +168,11 @@ export class SSEClient {
     this.connectionPromise = null;
     this.connectionResolver = null;
 
-    // Reject all pending requests
+    // Reject all pending requests with a specific error type
     for (const [id, { reject }] of this.pendingRequests.entries()) {
-      reject(new Error('Connection closed'));
+      const error = new Error('Connection closed');
+      error.name = 'ConnectionClosedError';
+      reject(error);
     }
     this.pendingRequests.clear();
 

@@ -1,0 +1,13 @@
+[project]
+name = "langchain-deepagents"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ag-ui-langgraph>=0.0.23",
+    "copilotkit>=0.1.76",
+    "dotenv>=0.9.9",
+    "langchain-openai>=1.1.7",
+    "uvicorn>=0.40.0",
+]

@@ -6,8 +6,8 @@ import type {
     OAuthClientMetadata,
     OAuthTokens
 } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { storage, SessionData } from "./storage";
-import { TOKEN_EXPIRY_BUFFER_MS } from '../shared/constants';
+import { storage, SessionData } from "../storage/index.js";
+import { TOKEN_EXPIRY_BUFFER_MS } from '../../shared/constants.js';
 
 /**
  * Extension of OAuthClientProvider interface with additional methods
