@@ -16,9 +16,9 @@
 
 <div align="center">
 
-| *Supported Frameworks* | *Supported Storage Backends* |
-| :---: | :---: |
-| <img src="docs/static/img/framework/next.svg" width="35" height="35" /> <img src="docs/static/img/framework/node.svg" width="35" height="35" /> <img src="docs/static/img/framework/react.svg" width="35" height="35" /> <img src="docs/static/img/framework/vue.svg" width="35" height="35" /> <img src="docs/static/img/framework/express.svg" width="35" height="35" /> | <img src="docs/static/img/storage-backend/redis.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/filesystem.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/memory.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/postgres.svg" width="35" height="35" /> |
+| *Supported Frameworks* | *Agent Frameworks* | *Storage Backends* |
+| :---: | :---: | :---: |
+| <img src="docs/static/img/framework/next.svg" width="35" height="35" /> <img src="docs/static/img/framework/node.svg" width="35" height="35" /> <img src="docs/static/img/framework/react.svg" width="35" height="35" /> <img src="docs/static/img/framework/vue.svg" width="35" height="35" /> <img src="docs/static/img/framework/express.svg" width="35" height="35" /> | <img src="docs/static/img/framework/vercel.svg" width="35" height="35" /> <img src="docs/static/img/agent-framework/langchain.svg" width="35" height="35" /> <img src="docs/static/img/agent-framework/mastra.svg" width="35" height="35" /> <img src="docs/static/img/agent-framework/agui.svg" width="35" height="35" /> | <img src="docs/static/img/storage-backend/redis.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/filesystem.svg" width="35" height="35" /> <img src="docs/static/img/storage-backend/memory.svg" width="35" height="35" /> |
 
 </div>
 
@@ -42,7 +42,7 @@
 - **Vue Composable** - `useMcp` composable for Vue applications
 - **Full MCP Protocol** - Support for tools, prompts, and resources
 - **TypeScript** - Complete type safety with exported types
-- **PostgreSQL** - Coming soon!
+- **Agent Adapters** - Built-in adapters for AI SDK, LangChain, Mastra, and AG-UI
 
 ## Inspiration
 
@@ -163,7 +163,33 @@ function App() {
 }
 ```
 
+### <img src="docs/static/img/agent-framework/agui.svg" width="20" height="20" align="center" /> AG-UI Middleware
 
+Execute MCP tools server-side when using remote agents (LangGraph, AutoGen, etc.):
+
+```typescript
+import { HttpAgent } from "@ag-ui/client";
+import { AguiAdapter } from "@mcp-ts/sdk/adapters/agui-adapter";
+import { createMcpMiddleware } from "@mcp-ts/sdk/adapters/agui-middleware";
+
+// Connect to MCP servers
+const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
+const client = new MultiSessionClient("user_123");
+await client.connect();
+
+// Create adapter and get tools
+const adapter = new AguiAdapter(client);
+const mcpTools = await adapter.getTools();
+
+// Create agent with middleware
+const agent = new HttpAgent({ url: "http://localhost:8000/agent" });
+agent.use(createMcpMiddleware(client, {
+  toolPrefix: 'server-',
+  tools: mcpTools,
+}));
+```
+
+The middleware intercepts tool calls from remote agents, executes MCP tools server-side, and returns results back to the agent.
 
 ## Documentation
 
@@ -182,7 +208,7 @@ Full documentation is available at: **[Docs](https://zonlabs.github.io/mcp-ts/)*
 
 The library supports multiple storage backends. You can explicitly select one using `MCP_TS_STORAGE_TYPE` or rely on automatic detection.
 
-**Supported Types:** `redis`, `file`, `memory`, and `postgresql` (coming soon).
+**Supported Types:** `redis`, `file`, `memory`.
 
 ### Configuration Examples
 
@@ -202,14 +228,6 @@ The library supports multiple storage backends. You can explicitly select one us
     ```bash
     MCP_TS_STORAGE_TYPE=memory
     ```
-
-4.  **<img src="docs/static/img/storage-backend/postgres.svg" width="20" height="20" align="center" /> PostgreSQL** (Coming soon)
-    ```bash
-    # Future release
-    MCP_TS_STORAGE_TYPE=postgresql
-    DATABASE_URL=postgresql://user:pass@host:5432/db
-    ```
-
 
 ## Architecture
 

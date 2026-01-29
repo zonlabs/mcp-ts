@@ -358,15 +358,15 @@ import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
 import { createMcpMiddleware } from '@mcp-ts/sdk/adapters/agui-middleware';
 
 // Setup
-const manager = new MultiSessionClient('user_123');
-await manager.connect();
+const client = new MultiSessionClient('user_123');
+await client.connect();
 
-const adapter = new AguiAdapter(manager);
+const adapter = new AguiAdapter(client);
 const mcpTools = await adapter.getTools();
 
 // Create agent with middleware
 const agent = new HttpAgent({ url: 'http://localhost:8000/agent' });
-agent.use(createMcpMiddleware(manager, {
+agent.use(createMcpMiddleware(client, {
   toolPrefix: 'server-',
   tools: mcpTools,
 }));

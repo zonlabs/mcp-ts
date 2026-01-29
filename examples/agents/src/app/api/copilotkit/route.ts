@@ -27,16 +27,16 @@ export const POST = async (req: NextRequest) => {
   const identity = "demo-user-123";
   // Import dynamically to avoid build-time issues if package is linking
   const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
-  const manager = new MultiSessionClient(identity);
+  const client = new MultiSessionClient(identity);
 
   // Connect to all active sessions before getting tools
-  await manager.connect();
+  await client.connect();
 
   // Log number of connected clients for debugging
-  const clients = manager.getClients();
+  const clients = client.getClients();
   console.log(`[CopilotKit] Connected to ${clients.length} MCP clients`);
 
-  const adapter = new AguiAdapter(manager);
+  const adapter = new AguiAdapter(client);
 
   // Get tools with handlers for the middleware
   const mcpTools = await adapter.getTools();
@@ -47,7 +47,7 @@ export const POST = async (req: NextRequest) => {
    * Add MCP Tool Execution Middleware
    * This middleware intercepts MCP tool calls (server-*) and executes them server-side
    */
-  mcpAssistant.use(createMcpMiddleware(manager, {
+  mcpAssistant.use(createMcpMiddleware(client, {
     toolPrefix: 'server-',
     tools: mcpTools,
   }));

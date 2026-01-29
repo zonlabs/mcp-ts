@@ -13,7 +13,7 @@ Adapters transforms MCP tools into framework-specific formats for seamless integ
 | <IoSparkles size={20} color="black" style={{ verticalAlign: 'middle' }} /> **AI SDK** | Vercel AI SDK | `@mcp-ts/sdk/adapters/ai` | `ai` |
 | ![LangChain](/img/agent-framework/langchain.svg) **LangChain** | LangChain | `@mcp-ts/sdk/adapters/langchain` | `@langchain/core`, `zod` |
 | ![Mastra](/img/agent-framework/mastra.svg) **Mastra** | Mastra | `@mcp-ts/sdk/adapters/mastra` | `zod` |
-| ![AG-UI](/img/agent-framework/copilotkit.svg) **AG-UI** | AG-UI Protocol | `@mcp-ts/sdk/adapters/agui-adapter` | `@ag-ui/client`, `rxjs` |
+| ![AG-UI](/img/agent-framework/agui.svg) **AG-UI** | AG-UI Protocol | `@mcp-ts/sdk/adapters/agui-adapter` | `@ag-ui/client`, `rxjs` |
 
 ---
 
@@ -125,7 +125,7 @@ See [API Reference](./api-reference.md#mastraadapter).
 
 ---
 
-<h2><img src="/mcp-ts/img/agent-framework/copilotkit.svg" height="24" style={{ verticalAlign: 'middle', marginRight: '10px', display: 'inline' }} /> AG-UI Adapter</h2>
+<h2><img src="/mcp-ts/img/agent-framework/agui.svg" height="24" style={{ verticalAlign: 'middle', marginRight: '10px', display: 'inline' }} /> AG-UI Adapter</h2>
 
 Convert MCP tools to AG-UI protocol format for use with remote agents (LangGraph, AutoGen, etc.).
 
@@ -165,30 +165,32 @@ The AG-UI middleware enables server-side execution of MCP tools when using remot
 
 ### How It Works
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Request Flow                                 │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  1. Client Request                                                   │
-│     └──► Next.js API Route                                          │
-│           └──► HttpAgent with McpMiddleware                         │
-│                 └──► Remote Agent (LangGraph/AutoGen)               │
-│                                                                      │
-│  2. Agent Response (with tool calls)                                │
-│     └──► TOOL_CALL_START, TOOL_CALL_ARGS, TOOL_CALL_END events     │
-│           └──► Middleware intercepts MCP tools (server-* prefix)   │
-│                                                                      │
-│  3. Server-Side Execution                                           │
-│     └──► Middleware executes MCP tools via MultiSessionClient      │
-│           └──► Emits TOOL_CALL_RESULT events                       │
-│                 └──► Triggers new run with results                 │
-│                                                                      │
-│  4. Final Response                                                  │
-│     └──► Agent processes tool results                              │
-│           └──► Returns final response to client                    │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Client as Browser
+    participant API as Next.js API
+    participant MW as McpMiddleware
+    participant Agent as Remote Agent<br/>(LangGraph/AutoGen)
+    participant MCP as MCP Server
+
+    Client->>API: Request
+    API->>MW: HttpAgent.run()
+    MW->>Agent: Forward request with MCP tools
+
+    Agent-->>MW: TOOL_CALL_START (server-*)
+    Agent-->>MW: TOOL_CALL_ARGS
+    Agent-->>MW: TOOL_CALL_END
+    Agent-->>MW: RUN_FINISHED
+
+    MW->>MCP: Execute MCP tool
+    MCP-->>MW: Tool result
+
+    MW-->>Agent: TOOL_CALL_RESULT
+    MW->>Agent: New run with results
+
+    Agent-->>MW: Final response
+    MW-->>API: Response
+    API-->>Client: Response
 ```
 
 ### Installation
@@ -215,15 +217,15 @@ export const POST = async (req: NextRequest) => {
 
   // Connect to MCP servers
   const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
-  const manager = new MultiSessionClient("user_123");
-  await manager.connect();
+  const client = new MultiSessionClient("user_123");
+  await client.connect();
 
   // Create adapter and get tools
-  const adapter = new AguiAdapter(manager);
+  const adapter = new AguiAdapter(client);
   const mcpTools = await adapter.getTools();
 
   // Add middleware to intercept and execute MCP tools
-  mcpAssistant.use(createMcpMiddleware(manager, {
+  mcpAssistant.use(createMcpMiddleware(client, {
     toolPrefix: 'server-',  // Tools starting with this prefix are MCP tools
     tools: mcpTools,
   }));
