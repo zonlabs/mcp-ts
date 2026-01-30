@@ -293,8 +293,8 @@ export class McpMiddleware extends Middleware {
                     const assistantMsg = {
                         id: this.generateId('msg_ast'),
                         role: 'assistant',
-                        content: state.textContent || '', // Can be empty if just tools
-                        toolCalls: toolCalls.length > 0 ? toolCalls : undefined
+                        content: state.textContent || null, // Ensure null if empty string for strict LLMs
+                        tool_calls: toolCalls.length > 0 ? toolCalls : undefined
                     };
                     input.messages.push(assistantMsg as any);
                     console.log(`[McpMiddleware] Added assistant message to history before tools: ${state.textContent?.slice(0, 50)}... [${toolCalls.length} tools]`);
@@ -312,7 +312,7 @@ export class McpMiddleware extends Middleware {
                     input.messages.push({
                         id: messageId,
                         role: 'tool',
-                        toolCallId: toolCallId,
+                        tool_call_id: toolCallId,
                         content: result,
                     } as any);
                 }
