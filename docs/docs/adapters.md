@@ -225,11 +225,11 @@ export const POST = async (req: NextRequest) => {
   const mcpTools = await adapter.getTools();
 
   // Add middleware to intercept and execute MCP tools
-  mcpAssistant.use(createMcpMiddleware(client, {
+  mcpAssistant.use(createMcpMiddleware({
     toolPrefix: 'server-',  // Tools starting with this prefix are MCP tools
     tools: mcpTools,
   }));
-
+  
   // Create runtime and handle request
   const runtime = new CopilotRuntime({
     agents: { mcpAssistant },
@@ -260,7 +260,7 @@ The middleware intercepts AG-UI events and executes MCP tools:
 ### Configuration Options
 
 ```typescript
-createMcpMiddleware(client, {
+createMcpMiddleware({
   toolPrefix: 'server-',  // Prefix to identify MCP tools (default: 'server-')
   tools: mcpTools,        // Pre-loaded tools with handlers
 });
