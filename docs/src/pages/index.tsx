@@ -96,6 +96,28 @@ export default function Home(): ReactNode {
                   style={{ display: 'block' }}
                 />
               </div>
+
+              <div style={{ textAlign: 'center', marginBottom: '2rem', marginTop: '4rem' }}>
+                <Heading as="h2">AG-UI Middleware</Heading>
+                <div style={{ fontSize: '1.2rem', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  Powering <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <img src="/mcp-ts/img/agent-framework/langchain.svg" alt="LangChain" width="20" height="20" /> LangChain
+                  </span> (create_agent) +
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <img src="/mcp-ts/img/agent-framework/agui.webp" alt="AG-UI" width="20" height="20" /> AG-UI
+                  </span> + CopilotKit
+                </div>
+              </div>
+              <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+                <video
+                  src="/mcp-ts/vid/langchain-agui.mp4"
+                  width="100%"
+                  controls
+                  muted
+                  loop
+                  style={{ display: 'block' }}
+                />
+              </div>
             </div>
           </div>
         </div>

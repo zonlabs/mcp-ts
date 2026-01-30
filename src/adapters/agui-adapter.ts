@@ -22,7 +22,7 @@
  *
  * // Use with AG-UI middleware
  * const agent = new HttpAgent({ url: 'http://localhost:8000/agent' });
- * agent.use(createMcpMiddleware(mcpClient, { tools }));
+ * agent.use(createMcpMiddleware({ tools }));
  * ```
  */
 

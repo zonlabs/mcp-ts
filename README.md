@@ -7,7 +7,7 @@
 </div>
 
 <div align="center">
-  <a href="https://github.com/zonlabs/mcp-ts/raw/main/docs/static/vid/mcp-ts.mp4">
+  <a href="https://github.com/zonlabs/mcp-ts/raw/main/docs/static/vid/langchain-agui.mp4">
     <em>Click to watch demo video</em>
   </a>
 </div>
@@ -185,7 +185,7 @@ const mcpTools = await adapter.getTools();
 
 // Create agent with middleware
 const agent = new HttpAgent({ url: "http://localhost:8000/agent" });
-agent.use(createMcpMiddleware(client, {
+agent.use(createMcpMiddleware({
   toolPrefix: 'server-',
   tools: mcpTools,
 }));
