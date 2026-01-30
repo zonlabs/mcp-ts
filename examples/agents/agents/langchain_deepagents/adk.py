@@ -23,9 +23,9 @@ logging.basicConfig(
 
 # Component-specific loggers
 logging.getLogger('adk_agent').setLevel(logging.DEBUG)
-logging.getLogger('event_translator').setLevel(logging.INFO)
-logging.getLogger('session_manager').setLevel(logging.WARNING)
-logging.getLogger('endpoint').setLevel(logging.ERROR)
+logging.getLogger('event_translator').setLevel(logging.DEBUG)
+logging.getLogger('session_manager').setLevel(logging.DEBUG)
+logging.getLogger('endpoint').setLevel(logging.DEBUG)
 
 # Create a sample ADK agent (this would be your actual agent)
 sample_agent = LlmAgent(

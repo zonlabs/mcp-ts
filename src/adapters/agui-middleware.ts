@@ -324,6 +324,7 @@ export class McpMiddleware extends Middleware {
 
                 anyInput.runId = this.generateId('mcp_run');
                 console.log(`[McpMiddleware] === CONTINUATION RUN === messages: ${input.messages.length}`);
+                console.log(`[McpMiddleware] CONTINUATION INPUT MESSAGES:`, JSON.stringify(input.messages, null, 2));
 
                 // Subscribe to continuation
                 next.run(input).subscribe({
