@@ -283,23 +283,7 @@
 
 /* --- Improved Sidebar Caret --- */
 .menu__caret {
-  opacity: 0.6;
-}
-
-.menu__caret:before {
-  content: '';
-  background: currentColor;
-  display: block;
-  height: 1.25rem;
-  width: 1.25rem;
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  mask-repeat: no-repeat;
-  mask-position: center;
-  mask-size: contain;
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  -webkit-mask-size: contain;
+  display: none !important;
 }
 
 /* --- Sidebar Framework Icons --- */
@@ -425,4 +409,10 @@ article h2,
 article h3,
 .markdown h3 {
   font-size: 1.3rem !important;
+}
+
+/* Hide Sidebar Collapse Button */
+button[class^="collapseSidebarButton_"],
+.theme-doc-sidebar-toggle {
+  display: none !important;
 }
