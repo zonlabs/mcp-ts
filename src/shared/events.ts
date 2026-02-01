@@ -131,6 +131,18 @@ export type McpConnectionEvent =
   };
 
 /**
+ * Event fired when a tool execution returns a UI resource URI
+ */
+export interface McpAppsUIEvent {
+  type: 'mcp-apps-ui';
+  sessionId: string;
+  resourceUri: string;
+  toolName: string;
+  result: unknown;
+  timestamp: number;
+}
+
+/**
  * Observability event for debugging and monitoring
  */
 export interface McpObservabilityEvent {

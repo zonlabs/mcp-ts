@@ -5,6 +5,7 @@
 
 /** SSE client for real-time connections */
 export { SSEClient, type SSEClientOptions } from './core/sse-client';
+export { AppHost } from './core/app-host';
 
 
 

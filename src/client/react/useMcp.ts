@@ -177,6 +177,11 @@ export interface McpClient {
    * Read a specific resource
    */
   readResource: (sessionId: string, uri: string) => Promise<unknown>;
+
+  /**
+   * Access the underlying SSEClient instance (for advanced usage like AppHost)
+   */
+  client: SSEClient | null;
 }
 
 /**
@@ -554,5 +559,6 @@ export function useMcp(options: UseMcpOptions): McpClient {
     getPrompt,
     listResources,
     readResource,
+    client: clientRef.current,
   };
 }

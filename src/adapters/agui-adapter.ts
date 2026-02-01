@@ -173,46 +173,13 @@ export class AguiAdapter {
                 name: `${prefix}_${tool.name}`,
                 description: tool.description || `Execute ${tool.name}`,
                 parameters: cleanSchema(tool.inputSchema),
-                _meta: mcpTool._meta,
+                _meta: { ...mcpTool._meta, sessionId: (client as any).getSessionId?.() },
                 handler: async (args: any) => {
                     console.log(`[AguiAdapter] Executing MCP tool: ${tool.name}`, args);
 
-                    // If the tool has UI metadata, we want to capture that in the result too ideally
-                    // But generally callTool returns CallToolResult which has 'content' and 'isError'
-                    const result = await client.callTool(tool.name, args);
-
-                    // If _meta exists, we might need to signify this to the caller (middleware)
-                    // The middleware typically stringifies the result. 
-                    // If we want to support MCP Apps, we should return the full result object including content
-                    // IF the middleware can handle objects.
-
-                    // For backward compatibility with simpler agents, we prefer text. 
-                    // BUT if it's an App tool, we MUST preserve structure if the middleware is to do anything with it.
-                    // However, the standard Adapter contract often expects a string return or simple JSON.
-
-                    // If the result has _meta (from the tool call itself? No, _meta is on the tool definition)
-                    // but the RESULT of the tool call might trigger the UI.
-                    // Actually the MCP Apps doc says: "When the host calls this tool, the UI is fetched and rendered, and the tool result is passed to it upon arrival."
-                    // So the tool definition's _meta tells the host "Hey, I have a UI".
-
-                    // So here we just need to return the result content. 
-                    // The Middleware needs to know about the tool's _meta to attach it to the result event?
-                    // Or the Agent client (Ag-UI) needs to see _meta in the tool definition.
-
                     if (result.content && Array.isArray(result.content)) {
-                        // We return the raw content array so the middleware can decide how to format it
-                        // or if we must return a string:
-                        const textContent = result.content
-                            .filter((c: any) => c.type === 'text')
-                            .map((c: any) => c.text)
-                            .join('\n');
-
-                        // If there are other types (images, resources), we might be losing them if we just return text.
-                        // But for now let's stick to text for the main return, unless we change the Middleware to handle objects.
-                        // IMPORTANT: The AguiMiddleware.executeTool currently handles string | object.
-                        // implementation of executeTool: let resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-
-                        // So we can return the whole result object!
+                        // We return the result object to support middleware that handles objects (like AguiMiddleware)
+                        // This preserves metadata like _meta for UI triggers.
                         return result;
                     }
                     return result;
@@ -233,7 +200,7 @@ export class AguiAdapter {
                 name: `${prefix}_${tool.name}`,
                 description: tool.description || `Execute ${tool.name}`,
                 parameters: cleanSchema(tool.inputSchema),
-                _meta: mcpTool._meta,
+                _meta: { ...mcpTool._meta, sessionId: (client as any).getSessionId?.() },
             };
         });
     }

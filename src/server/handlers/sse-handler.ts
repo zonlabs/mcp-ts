@@ -25,6 +25,7 @@ import type {
   ListToolsRpcResult,
   ListPromptsResult,
   ListResourcesResult,
+  CallToolResult,
 } from '../../shared/types.js';
 import { RpcErrorCodes } from '../../shared/errors.js';
 import { MCPClient } from '../mcp/oauth-client.js';
@@ -400,10 +401,25 @@ export class SSEConnectionManager {
   /**
    * Call a tool
    */
-  private async callTool(params: CallToolParams): Promise<unknown> {
+  /**
+   * Call a tool
+   */
+  private async callTool(params: CallToolParams): Promise<CallToolResult> {
     const { sessionId, toolName, toolArgs } = params;
     const client = await this.getOrCreateClient(sessionId);
-    return await client.callTool(toolName, toolArgs);
+    const result = await client.callTool(toolName, toolArgs);
+
+    // Inject sessionId into meta so client knows who handled it
+    // This allows AppHost to auto-launch without scanning all sessions
+    const meta = result._meta || {};
+
+    return {
+      ...result,
+      _meta: {
+        ...meta,
+        sessionId,
+      }
+    };
   }
 
   /**

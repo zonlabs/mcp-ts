@@ -20,11 +20,26 @@ import {
 } from '@ag-ui/client';
 import { type AguiTool, cleanSchema } from './agui-adapter.js';
 
+/** New event type for MCP UI triggers */
+export const MCP_APP_UI_EVENT = 'mcp-apps-ui';
+// Use Omit to allow custom event type string
+export interface McpAppUiEvent extends Omit<BaseEvent, 'type'> {
+    type: typeof MCP_APP_UI_EVENT;
+    toolCallId: string;
+    resourceUri: string;
+    sessionId?: string; // Optional session ID from tool definition
+}
+
 /** Tool execution result for continuation */
 interface ToolResult {
     toolCallId: string;
     toolName: string;
     result: string;
+    /**
+     * Raw result object (if available).
+     * Used to preserve metadata (e.g. `_meta`) that is lost in the stringified `result`.
+     */
+    rawResult?: any;
     messageId: string;
 }
 
@@ -92,10 +107,10 @@ export class McpMiddleware extends Middleware {
         }
     }
 
-    private async executeTool(toolName: string, args: Record<string, any>): Promise<string> {
+    private async executeTool(toolName: string, args: Record<string, any>): Promise<{ resultStr: string, rawResult?: any }> {
         const tool = this.tools.find(t => t.name === toolName);
         if (!tool?.handler) {
-            return `Error: Tool ${tool ? 'has no handler' : 'not found'}: ${toolName}`;
+            return { resultStr: `Error: Tool ${tool ? 'has no handler' : 'not found'}: ${toolName}` };
         }
 
         try {
@@ -103,18 +118,12 @@ export class McpMiddleware extends Middleware {
             // Result can be a string (legacy) or an object (MCP Result with content array)
             const result = await tool.handler(args);
 
-            // If the result is an object (likely an MCP CallToolResult), we try to preserve it
-            // if it looks like it has content.
-            // However, the interface expects a string return for now in many agent implementations?
-            // The ToolResult interface in this file says `result: string`. 
-            // So we MUST stringify it if it's an object, but we want to keep the structure so the client can parse it.
-
             let resultStr: string;
 
             if (typeof result === 'string') {
                 resultStr = result;
             } else if (result && typeof result === 'object') {
-                // It's likely an MCP Tool result object (content: [], isError: bool)
+                // Determine if we should preserve the object structure (e.g. for MCP Tool Results)
                 resultStr = JSON.stringify(result);
             } else {
                 resultStr = String(result);
@@ -128,10 +137,10 @@ export class McpMiddleware extends Middleware {
             }
 
             console.log(`[McpMiddleware] Tool result:`, resultStr.slice(0, 200));
-            return resultStr;
+            return { resultStr, rawResult: result };
         } catch (error: any) {
             console.error(`[McpMiddleware] Error executing tool:`, error);
-            return `Error: ${error.message || String(error)}`;
+            return { resultStr: `Error: ${error.message || String(error)}` };
         }
     }
 
@@ -227,11 +236,12 @@ export class McpMiddleware extends Middleware {
             const args = this.parseArgs(toolCallArgsBuffer.get(toolCallId) || '{}');
             console.log(`[McpMiddleware] Executing pending tool: ${toolName}`);
 
-            const result = await this.executeTool(toolName, args);
+            const { resultStr, rawResult } = await this.executeTool(toolName, args);
             results.push({
                 toolCallId,
                 toolName,
-                result,
+                result: resultStr,
+                rawResult,
                 messageId: this.generateId('mcp_result'),
             });
             pendingMcpCalls.delete(toolCallId);
@@ -241,9 +251,26 @@ export class McpMiddleware extends Middleware {
         return results;
     }
 
-    /** Emit tool results (without RUN_FINISHED - that's emitted when truly done) */
     private emitToolResults(observer: Subscriber<BaseEvent>, results: ToolResult[]): void {
-        for (const { toolCallId, toolName, result, messageId } of results) {
+        for (const { toolCallId, toolName, result, rawResult, messageId } of results) {
+            // Check for UI metadata in raw result
+            if (rawResult && rawResult._meta?.ui?.resourceUri) {
+                // Look up the tool definition to find session ID
+                const toolDef = this.tools.find(t => t.name === toolName);
+                const sessionId = toolDef?._meta?.sessionId;
+
+                const uiEvent: McpAppUiEvent = {
+                    type: MCP_APP_UI_EVENT,
+                    toolCallId,
+                    resourceUri: rawResult._meta.ui.resourceUri,
+                    sessionId, // Inject session ID from definition
+                    timestamp: Date.now(),
+                    role: 'tool', // Optional, depends on BaseEvent definition
+                } as any;
+                observer.next(uiEvent as any);
+                console.log(`[McpMiddleware] Emitting ${MCP_APP_UI_EVENT} for: ${toolName} (session: ${sessionId})`);
+            }
+
             observer.next({
                 type: EventType.TOOL_CALL_RESULT,
                 toolCallId,

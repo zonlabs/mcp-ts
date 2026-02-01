@@ -43,6 +43,20 @@ import { SESSION_TTL_SECONDS, STATE_EXPIRATION_MS } from '../../shared/constants
  */
 export type TransportType = 'sse' | 'streamable_http';
 
+/**
+ * Extended capabilities including MCP App support
+ */
+import type { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
+
+interface McpAppClientCapabilities extends ClientCapabilities {
+  extensions?: {
+    'io.modelcontextprotocol/ui'?: {
+      mimeTypes: string[];
+    };
+    [key: string]: unknown;
+  };
+}
+
 export interface MCPOAuthClientOptions {
   serverUrl?: string;
   serverName?: string;
@@ -338,7 +352,15 @@ export class MCPClient {
           name: 'mcp-ts-oauth-client',
           version: '2.0',
         },
-        { capabilities: {} }
+        {
+          capabilities: {
+            extensions: {
+              'io.modelcontextprotocol/ui': {
+                mimeTypes: ['text/html+mcp'],
+              },
+            },
+          } as McpAppClientCapabilities
+        }
       );
     }
 
@@ -599,7 +621,15 @@ export class MCPClient {
             name: 'mcp-ts-oauth-client',
             version: '2.0',
           },
-          { capabilities: {} }
+          {
+            capabilities: {
+              extensions: {
+                'io.modelcontextprotocol/ui': {
+                  mimeTypes: ['text/html+mcp'],
+                },
+              },
+            } as McpAppClientCapabilities
+          }
         );
 
         this.emitStateChange('CONNECTING');

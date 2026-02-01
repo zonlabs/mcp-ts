@@ -4,7 +4,11 @@
  */
 
 import { nanoid } from 'nanoid';
-import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events';
+import type {
+  McpConnectionEvent,
+  McpObservabilityEvent,
+  McpAppsUIEvent
+} from '../../shared/events';
 import type {
   McpRpcRequest,
   McpRpcResponse,
@@ -51,12 +55,19 @@ export interface SSEClientOptions {
    * Connection status callback
    */
   onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+
+  /**
+   * Generic event callback (e.g. for MCP App UI events)
+   */
+  onEvent?: (event: McpAppsUIEvent) => void;
 }
+
+import type { AppHostClient } from './types';
 
 /**
  * SSE Client for real-time MCP connection management
  */
-export class SSEClient {
+export class SSEClient implements AppHostClient {
   private eventSource: EventSource | null = null;
   private pendingRequests: Map<
     string,
@@ -286,7 +297,28 @@ export class SSEClient {
     toolName: string,
     toolArgs: Record<string, unknown>
   ): Promise<unknown> {
-    return this.sendRequest('callTool', { sessionId, toolName, toolArgs });
+    const result = await this.sendRequest('callTool', { sessionId, toolName, toolArgs });
+
+    // Check for UI resource in result and emit event
+    const typedResult = result as any;
+    if (typedResult && typedResult._meta) {
+      const meta = typedResult._meta;
+      const resourceUri = meta.ui?.resourceUri || meta['ui/resourceUri'];
+
+      if (resourceUri) {
+        const event: McpAppsUIEvent = {
+          type: 'mcp-apps-ui',
+          sessionId,
+          resourceUri,
+          toolName,
+          result: typedResult,
+          timestamp: Date.now()
+        };
+        this.options.onEvent?.(event);
+      }
+    }
+
+    return result;
   }
 
   /**
