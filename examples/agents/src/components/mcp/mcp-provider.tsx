@@ -15,14 +15,15 @@ interface McpProviderProps {
     children: ReactNode;
     url: string;
     identity: string;
+    requestTimeout?: number;
 }
 
 /**
  * MCP Provider - Shares a single MCP client instance across the app
  * Prevents duplicate SSE connections and request timeouts
  */
-export function McpProvider({ children, url, identity }: McpProviderProps) {
-    const mcp = useMcp({ url, identity });
+export function McpProvider({ children, url, identity, requestTimeout }: McpProviderProps) {
+    const mcp = useMcp({ url, identity, requestTimeout });
 
     return (
         <McpContext.Provider value={{ client: mcp.client, mcpClient: mcp }}>

@@ -77,7 +77,12 @@ export class AppHost {
             this.iframe.contentWindow,
             this.iframe.contentWindow
         );
-        await this.bridge.connect(transport);
+        try {
+            await this.bridge.connect(transport);
+        } catch (error) {
+            console.error('[AppHost] Bridge connection failed:', error);
+            throw error;
+        }
     }
 
     /**

@@ -60,6 +60,12 @@ export interface SSEClientOptions {
    * Generic event callback (e.g. for MCP App UI events)
    */
   onEvent?: (event: McpAppsUIEvent) => void;
+
+  /**
+   * Request timeout in milliseconds
+   * @default 60000
+   */
+  requestTimeout?: number;
 }
 
 import type { AppHostClient } from './types';
@@ -213,13 +219,14 @@ export class SSEClient implements AppHostClient {
     const promise = new Promise<T>((resolve, reject) => {
       this.pendingRequests.set(id, { resolve: resolve as (value: unknown) => void, reject });
 
-      // Timeout after 30 seconds
+      // Timeout (default 60s)
+      const timeoutMs = this.options.requestTimeout || 60000;
       setTimeout(() => {
         if (this.pendingRequests.has(id)) {
           this.pendingRequests.delete(id);
-          reject(new Error('Request timeout'));
+          reject(new Error(`Request timeout after ${timeoutMs}ms`));
         }
-      }, 30000);
+      }, timeoutMs);
     });
 
     // Send request via POST to same endpoint

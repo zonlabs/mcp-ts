@@ -58,6 +58,12 @@ export interface UseMcpOptions {
    * If provided, this will be called instead of window.location.href assignment
    */
   onRedirect?: (url: string) => void;
+
+  /**
+   * Request timeout in milliseconds
+   * @default 60000
+   */
+  requestTimeout?: number;
 }
 
 export interface McpConnection {
@@ -233,6 +239,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
           setStatus(newStatus);
         }
       },
+      requestTimeout: options.requestTimeout,
     };
 
     const client = new SSEClient(clientOptions);
