@@ -37,7 +37,7 @@ export function McpSidebar(_props: McpSidebarProps = {}) {
 
     try {
       await connect({
-        serverId: config.serverId,
+        serverId: config.serverId || crypto.randomUUID(),
         serverName: config.serverName,
         serverUrl: config.serverUrl,
         callbackUrl: config.callbackUrl,
