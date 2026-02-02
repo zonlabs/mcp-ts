@@ -47,7 +47,19 @@ export class AppHost {
 
         bridge.oncalltool = this.handleToolCall.bind(this);
         bridge.onopenlink = async (p) => { window.open(p.url, '_blank'); return {}; };
-        bridge.onmessage = async (p) => { this.onAppMessage?.(p); return {}; };
+        bridge.onmessage = async (p) => {
+            try {
+                this.onAppMessage?.(p);
+            } catch (err: any) {
+                // Ignore initial handshake/setup messages that might confuse transport
+                if (err.message && err.message.includes('unknown message ID') && err.message.includes('"id":0')) {
+                    console.debug('[AppHost] Ignored benign message ID error', err);
+                    return {};
+                }
+                throw err;
+            }
+            return {};
+        };
 
         return bridge;
     }

@@ -4,9 +4,8 @@ import { useAgent } from "@copilotkit/react-core/v2";
 import { CopilotChat, CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { McpSidebar } from "@/components/mcp";
 import { ToolRenderer } from "@/components/ToolRenderer";
-import { useMcpApp } from "@mcp-ts/sdk/client/react";
-import { McpProvider, useMcpContext } from "@/components/mcp/mcp-provider";
-import { useEffect, useRef } from "react";
+import { McpProvider } from "@/components/mcp/mcp-provider";
+import { useEffect } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 
 const darkTheme: CopilotKitCSSProperties = {
@@ -21,15 +20,6 @@ const darkTheme: CopilotKitCSSProperties = {
 };
 
 function CopilotKitPageContent() {
-  const iframeRef = useRef<HTMLIFrameElement>(null!);
-
-  // Use shared MCP context
-  const { client, mcpClient } = useMcpContext();
-  const { connections } = mcpClient;
-
-  // Setup AppHost for MCP Apps (only when client is available)
-  const { host } = useMcpApp(client!, iframeRef);
-
   // Get agent instance from CopilotKit
   const { agent } = useAgent(
     {
@@ -42,27 +32,12 @@ function CopilotKitPageContent() {
    */
   useEffect(() => {
     console.log("[Page] Setting up agent subscriber for MCP App events");
-    if (!agent || !host) return;
-    console.log("[Page] Agent and AppHost are ready");
+    if (!agent) return;
+    console.log("[Page] Agent ready");
 
     const subscriber: AgentSubscriber = {
       onCustomEvent: ({ event }) => {
-        console.log("[Page] Custom event received:", event.name, event.value);
-
-        // Listen for mcp-apps-ui events emitted by the middleware
-        if (event.name === "mcp-apps-ui") {
-          const eventData = event.value as any;
-          const { resourceUri, sessionId } = eventData;
-
-          if (resourceUri && sessionId) {
-            console.log("[Page] Launching MCP App:", resourceUri, "for session:", sessionId);
-
-            // Launch the MCP app using AppHost
-            host.launch(resourceUri, sessionId).catch((error: Error) => {
-              console.error("[Page] Failed to launch MCP app:", error);
-            });
-          }
-        }
+        // ToolRenderer now handles mcp-apps-ui via tool result metadata
       },
       onRunStartedEvent: () => {
         console.log("[Page] Agent started running");
@@ -77,22 +52,7 @@ function CopilotKitPageContent() {
 
     const { unsubscribe } = agent.subscribe(subscriber);
     return () => unsubscribe();
-  }, [agent, host]);
-
-  /**
-   * Preload UI resources when connections are established
-   */
-  useEffect(() => {
-    if (!host || connections.length === 0) return;
-  
-    // Preload resources from all connected tools
-    for (const connection of connections) {
-      if (connection.tools.length > 0) {
-        console.log(`[Page] Preloading ${connection.tools.length} tools from ${connection.serverName}`);
-        host.preload(connection.tools);
-      }
-    }
-  }, [host, connections]);
+  }, [agent]);
 
   return (
     <main className="h-screen flex" style={darkTheme}>
@@ -102,30 +62,16 @@ function CopilotKitPageContent() {
       <div className="flex-1 min-w-0 max-w-4xl mx-auto flex flex-col h-full">
         <ToolRenderer />
 
-        {/* MCP App UI iframe - managed by AppHost */}
-        <div className="border-b border-gray-700 bg-gray-900 p-4">
-          <h3 className="text-sm font-semibold text-white mb-2">MCP App UI</h3>
-          <div className="border border-gray-700 rounded overflow-hidden">
-            <iframe
-              ref={iframeRef}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
-              className="w-full h-96 bg-white"
-              title="MCP App UI"
-            />
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Connected sessions: {connections.length ? connections.map((c) => c.serverName).join(", ") : "none"}
-          </p>
+        <div className="flex-1 bg-gray-900 border-t border-gray-700">
+          <CopilotChat
+            className="h-full"
+            disableSystemMessage={true}
+            labels={{
+              title: "MCP Assistant",
+              initial: "Hi!, How can I help you today?",
+            }}
+          />
         </div>
-
-        <CopilotChat
-          className="h-full"
-          disableSystemMessage={true}
-          labels={{
-            title: "MCP Assistant",
-            initial: "Hi!, How can I help you today?",
-          }}
-        />
       </div>
     </main>
   );
