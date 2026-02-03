@@ -367,6 +367,9 @@ export class SSEConnectionManager {
     let client = this.clients.get(sessionId);
 
     if (!client) {
+      console.log(`[SSE Handler] Creating NEW client for session ${sessionId}`);
+      const createStart = Date.now();
+
       client = new MCPClient({
         identity: this.identity,
         sessionId,
@@ -383,6 +386,9 @@ export class SSEConnectionManager {
 
       await client.connect();
       this.clients.set(sessionId, client);
+      console.log(`[SSE Handler] New client created and connected in ${Date.now() - createStart}ms`);
+    } else {
+      console.log(`[SSE Handler] Reusing cached client for session ${sessionId}`);
     }
 
     return client;
@@ -625,8 +631,21 @@ export class SSEConnectionManager {
    */
   private async readResource(params: ReadResourceParams): Promise<unknown> {
     const { sessionId, uri } = params;
+    const startTime = Date.now();
+    console.log(`[SSE Handler] readResource starting for ${uri} (session: ${sessionId})`);
+
+    const clientCached = this.clients.has(sessionId);
+    console.log(`[SSE Handler] Client cached: ${clientCached}`);
+
     const client = await this.getOrCreateClient(sessionId);
-    return await client.readResource(uri);
+    const clientTime = Date.now() - startTime;
+    console.log(`[SSE Handler] getOrCreateClient took ${clientTime}ms`);
+
+    const result = await client.readResource(uri);
+    const totalTime = Date.now() - startTime;
+    console.log(`[SSE Handler] readResource completed in ${totalTime}ms (client: ${clientTime}ms, fetch: ${totalTime - clientTime}ms)`);
+
+    return result;
   }
 
   /**

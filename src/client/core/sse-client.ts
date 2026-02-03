@@ -86,6 +86,13 @@ export class SSEClient implements AppHostClient {
   private connectionPromise: Promise<void> | null = null;
   private connectionResolver: (() => void) | null = null;
 
+  /**
+   * Resource cache for preloaded UI resources.
+   * Maps resource URI to a promise that resolves to the resource content.
+   * This enables instant UI loading by fetching resources ahead of time.
+   */
+  private resourceCache = new Map<string, Promise<unknown>>();
+
   constructor(private options: SSEClientOptions) { }
 
   /**
@@ -375,5 +382,100 @@ export class SSEClient implements AppHostClient {
    */
   isConnected(): boolean {
     return this.eventSource !== null && this.eventSource.readyState === EventSource.OPEN;
+  }
+
+  // ============================================
+  // Resource Preloading for Instant UI Loading
+  // ============================================
+
+  /**
+   * Preload UI resources for tools that have UI metadata.
+   * Call this when tools are discovered to enable instant UI loading.
+   *
+   * @param sessionId - The session ID to use for fetching resources
+   * @param tools - Array of tools with potential UI metadata
+   */
+  preloadToolUiResources(sessionId: string, tools: Array<{ name: string; _meta?: any }>): void {
+    for (const tool of tools) {
+      const meta = tool._meta;
+      if (!meta?.ui) continue;
+
+      const ui = meta.ui;
+      if (typeof ui !== 'object' || !ui) continue;
+
+      // Check visibility includes 'app'
+      if (ui.visibility && !ui.visibility.includes('app')) continue;
+
+      // Support both 'uri' and 'resourceUri' field names
+      const uri = typeof ui.resourceUri === 'string' ? ui.resourceUri
+        : typeof ui.uri === 'string' ? ui.uri
+        : undefined;
+      if (!uri) continue;
+
+      console.log(`[SSEClient] Preloading UI resource for tool "${tool.name}": ${uri}`);
+
+      // Only preload if not already cached
+      if (!this.resourceCache.has(uri)) {
+        const startTime = Date.now();
+        const promise = this.sendRequest('readResource', { sessionId, uri })
+          .then(result => {
+            console.log(`[SSEClient] Preload completed for ${uri} in ${Date.now() - startTime}ms`);
+            return result;
+          })
+          .catch(err => {
+            console.warn(`[SSEClient] Failed to preload resource ${uri}:`, err);
+            this.resourceCache.delete(uri); // Remove failed cache entry
+            return null;
+          });
+        this.resourceCache.set(uri, promise);
+      } else {
+        console.log(`[SSEClient] Resource already cached: ${uri}`);
+      }
+    }
+  }
+
+  /**
+   * Get a preloaded resource from cache, or fetch it if not cached.
+   * Returns a promise that resolves to the resource content.
+   *
+   * @param sessionId - The session ID to use for fetching
+   * @param uri - The resource URI
+   * @returns Promise resolving to the resource content
+   */
+  getOrFetchResource(sessionId: string, uri: string): Promise<unknown> {
+    // Return cached promise if available
+    if (this.resourceCache.has(uri)) {
+      console.log(`[SSEClient] getOrFetchResource: Using cached promise for ${uri}`);
+      return this.resourceCache.get(uri)!;
+    }
+
+    // Otherwise fetch and cache
+    console.log(`[SSEClient] getOrFetchResource: Cache miss, fetching ${uri}`);
+    const startTime = Date.now();
+    const promise = this.sendRequest('readResource', { sessionId, uri })
+      .then(result => {
+        console.log(`[SSEClient] getOrFetchResource: Fetched ${uri} in ${Date.now() - startTime}ms`);
+        return result;
+      });
+    this.resourceCache.set(uri, promise);
+    return promise;
+  }
+
+  /**
+   * Check if a resource is already cached (preloaded).
+   *
+   * @param uri - The resource URI
+   * @returns True if the resource is cached
+   */
+  hasPreloadedResource(uri: string): boolean {
+    return this.resourceCache.has(uri);
+  }
+
+  /**
+   * Clear the resource cache.
+   * Call this when sessions are disconnected or to free memory.
+   */
+  clearResourceCache(): void {
+    this.resourceCache.clear();
   }
 }

@@ -288,6 +288,11 @@ export function useMcp(options: UseMcpOptions): McpClient {
         }
 
         case 'tools_discovered': {
+          // Preload UI resources for instant loading when tools are discovered
+          if (clientRef.current && event.tools?.length) {
+            clientRef.current.preloadToolUiResources(event.sessionId, event.tools);
+          }
+
           return prev.map((c: McpConnection) =>
             c.sessionId === event.sessionId ? { ...c, tools: event.tools, state: 'READY' } : c
           );
