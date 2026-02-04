@@ -72,6 +72,9 @@ const defaultRender: React.FC<RenderProps> = (props) => {
         <McpAppTool
           resourceUri={activeApp.resourceUri}
           sessionId={activeApp.sessionId}
+          toolInput={args}
+          toolResult={result}
+          toolStatus={toolStatus}
         />
       )}
     </div>

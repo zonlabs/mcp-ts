@@ -1,6 +1,15 @@
 /**
  * SSE Client for MCP Connections
- * Browser-side client that connects to SSE endpoint
+ *
+ * Browser-side client that manages real-time communication with the MCP server
+ * using Server-Sent Events (SSE) for server→client streaming and HTTP POST for
+ * client→server RPC requests.
+ *
+ * Key features:
+ * - Direct HTTP response for RPC calls (bypasses SSE latency)
+ * - Resource preloading for instant MCP App UI loading
+ * - Automatic reconnection with exponential backoff
+ * - Type-safe RPC methods
  */
 
 import { nanoid } from 'nanoid';
@@ -8,7 +17,7 @@ import type {
   McpConnectionEvent,
   McpObservabilityEvent,
   McpAppsUIEvent
-} from '../../shared/events';
+} from '../../shared/events.js';
 import type {
   McpRpcRequest,
   McpRpcResponse,
@@ -23,80 +32,89 @@ import type {
   ListToolsRpcResult,
   ListPromptsResult,
   ListResourcesResult,
-} from '../../shared/types';
+} from '../../shared/types.js';
+import type { AppHostClient } from './types.js';
+
+// ============================================
+// Types & Interfaces
+// ============================================
 
 export interface SSEClientOptions {
-  /**
-   * SSE endpoint URL
-   */
+  /** SSE endpoint URL */
   url: string;
 
-  /**
-   * User/Client identifier
-   */
+  /** User/Client identifier */
   identity: string;
 
-  /**
-   * Optional auth token
-   */
+  /** Optional auth token for authenticated requests */
   authToken?: string;
 
-  /**
-   * Connection event callback
-   */
+  /** Callback for MCP connection state changes */
   onConnectionEvent?: (event: McpConnectionEvent) => void;
 
-  /**
-   * Observability event callback
-   */
+  /** Callback for observability/logging events */
   onObservabilityEvent?: (event: McpObservabilityEvent) => void;
 
-  /**
-   * Connection status callback
-   */
-  onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+  /** Callback for connection status changes */
+  onStatusChange?: (status: ConnectionStatus) => void;
 
-  /**
-   * Generic event callback (e.g. for MCP App UI events)
-   */
+  /** Callback for MCP App UI events */
   onEvent?: (event: McpAppsUIEvent) => void;
 
-  /**
-   * Request timeout in milliseconds
-   * @default 60000
-   */
+  /** Request timeout in milliseconds @default 60000 */
   requestTimeout?: number;
+
+  /** Enable debug logging @default false */
+  debug?: boolean;
 }
 
-import type { AppHostClient } from './types';
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timeoutId: ReturnType<typeof setTimeout>;
+}
+
+interface ToolUiMetadata {
+  resourceUri?: string;
+  uri?: string;
+  visibility?: string[];
+}
+
+// ============================================
+// Constants
+// ============================================
+
+const DEFAULT_REQUEST_TIMEOUT = 60000;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const BASE_RECONNECT_DELAY = 1000;
+
+// ============================================
+// SSEClient Class
+// ============================================
 
 /**
  * SSE Client for real-time MCP connection management
  */
 export class SSEClient implements AppHostClient {
   private eventSource: EventSource | null = null;
-  private pendingRequests: Map<
-    string,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  > = new Map();
-  private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
-  private reconnectDelay: number = 1000;
-  private isManuallyDisconnected: boolean = false;
+  private pendingRequests = new Map<string, PendingRequest>();
+  private resourceCache = new Map<string, Promise<unknown>>();
+
+  private reconnectAttempts = 0;
+  private isManuallyDisconnected = false;
   private connectionPromise: Promise<void> | null = null;
   private connectionResolver: (() => void) | null = null;
 
-  /**
-   * Resource cache for preloaded UI resources.
-   * Maps resource URI to a promise that resolves to the resource content.
-   * This enables instant UI loading by fetching resources ahead of time.
-   */
-  private resourceCache = new Map<string, Promise<unknown>>();
+  constructor(private readonly options: SSEClientOptions) {}
 
-  constructor(private options: SSEClientOptions) { }
+  // ============================================
+  // Connection Management
+  // ============================================
 
   /**
-   * Connect to SSE endpoint
+   * Connect to the SSE endpoint
    */
   connect(): void {
     if (this.eventSource) {
@@ -105,80 +123,17 @@ export class SSEClient implements AppHostClient {
 
     this.isManuallyDisconnected = false;
     this.options.onStatusChange?.('connecting');
-
-    // Create connection promise
     this.connectionPromise = new Promise((resolve) => {
       this.connectionResolver = resolve;
     });
 
-    // Build URL with query params
-    // Handle both relative and absolute URLs
-    const url = new URL(this.options.url, typeof window !== 'undefined' ? window.location.origin : undefined);
-    url.searchParams.set('identity', this.options.identity);
-    if (this.options.authToken) {
-      url.searchParams.set('token', this.options.authToken);
-    }
-
-    // Create EventSource
-    this.eventSource = new EventSource(url.toString());
-
-    // Handle connection open
-    this.eventSource.addEventListener('open', () => {
-      console.log('[SSEClient] Connected');
-      this.reconnectAttempts = 0;
-      this.options.onStatusChange?.('connected');
-    });
-
-    // Handle 'connected' event - server confirms manager is ready
-    this.eventSource.addEventListener('connected', (e: MessageEvent) => {
-      const data = JSON.parse(e.data);
-      console.log('[SSEClient] Server ready:', data);
-
-      // Resolve connection promise - now safe to send requests
-      if (this.connectionResolver) {
-        this.connectionResolver();
-        this.connectionResolver = null;
-      }
-    });
-
-    // Handle 'connection' events (MCP connection state changes)
-    this.eventSource.addEventListener('connection', (e: MessageEvent) => {
-      const event: McpConnectionEvent = JSON.parse(e.data);
-      this.options.onConnectionEvent?.(event);
-    });
-
-    // Handle 'observability' events (debugging/logging)
-    this.eventSource.addEventListener('observability', (e: MessageEvent) => {
-      const event: McpObservabilityEvent = JSON.parse(e.data);
-      this.options.onObservabilityEvent?.(event);
-    });
-
-    // Handle 'rpc-response' events (RPC method responses)
-    this.eventSource.addEventListener('rpc-response', (e: MessageEvent) => {
-      const response: McpRpcResponse = JSON.parse(e.data);
-      this.handleRpcResponse(response);
-    });
-
-    // Handle errors
-    this.eventSource.addEventListener('error', () => {
-      console.error('[SSEClient] Connection error');
-      this.options.onStatusChange?.('error');
-
-      // Attempt reconnection
-      if (!this.isManuallyDisconnected && this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        console.log(`[SSEClient] Reconnecting (attempt ${this.reconnectAttempts})...`);
-
-        setTimeout(() => {
-          this.disconnect();
-          this.connect();
-        }, this.reconnectDelay * this.reconnectAttempts);
-      }
-    });
+    const url = this.buildUrl();
+    this.eventSource = new EventSource(url);
+    this.setupEventListeners();
   }
 
   /**
-   * Disconnect from SSE endpoint
+   * Disconnect from the SSE endpoint
    */
   disconnect(): void {
     this.isManuallyDisconnected = true;
@@ -188,309 +143,353 @@ export class SSEClient implements AppHostClient {
       this.eventSource = null;
     }
 
-    // Reset connection promise
     this.connectionPromise = null;
     this.connectionResolver = null;
-
-    // Reject all pending requests with a specific error type
-    for (const [id, { reject }] of this.pendingRequests.entries()) {
-      const error = new Error('Connection closed');
-      error.name = 'ConnectionClosedError';
-      reject(error);
-    }
-    this.pendingRequests.clear();
-
+    this.rejectAllPendingRequests(new Error('Connection closed'));
     this.options.onStatusChange?.('disconnected');
   }
 
   /**
-   * Send RPC request via HTTP POST
-   * Now returns response directly from HTTP (bypassing SSE latency)
+   * Check if connected to the SSE endpoint
    */
-  private async sendRequest<T = unknown>(method: McpRpcMethod, params?: McpRpcParams): Promise<T> {
-    // Wait for connection to be fully established
-    if (this.connectionPromise) {
-      await this.connectionPromise;
-    }
-
-    // Generate unique request ID using nanoid (e.g., "rpc_V1StGXR8_Z5jdHi")
-    const id = `rpc_${nanoid(10)}`;
-
-    const request: McpRpcRequest = {
-      id,
-      method,
-      params,
-    };
-
-    // Handle both relative and absolute URLs
-    const url = new URL(this.options.url, typeof window !== 'undefined' ? window.location.origin : undefined);
-    url.searchParams.set('identity', this.options.identity);
-
-    // Send request via POST and get response directly
-    const response = await fetch(url.toString(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.options.authToken && { Authorization: `Bearer ${this.options.authToken}` }),
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-    }
-
-    const data: McpRpcResponse = await response.json();
-
-    // Check for direct response (new fast path)
-    if ('result' in data) {
-      return data.result as T;
-    }
-
-    // Check for error response
-    if ('error' in data && data.error) {
-      throw new Error(data.error.message || 'Unknown RPC error');
-    }
-
-    // Legacy: If server only returned acknowledgment, fall back to SSE
-    // (This path is deprecated but kept for backwards compatibility)
-    if ('acknowledged' in data) {
-      return new Promise<T>((resolve, reject) => {
-        this.pendingRequests.set(id, { resolve: resolve as (value: unknown) => void, reject });
-
-        // Timeout (default 60s)
-        const timeoutMs = this.options.requestTimeout || 60000;
-        setTimeout(() => {
-          if (this.pendingRequests.has(id)) {
-            this.pendingRequests.delete(id);
-            reject(new Error(`Request timeout after ${timeoutMs}ms`));
-          }
-        }, timeoutMs);
-      });
-    }
-
-    // Unknown response format
-    throw new Error('Invalid RPC response format');
+  isConnected(): boolean {
+    return this.eventSource?.readyState === EventSource.OPEN;
   }
 
-  /**
-   * Handle RPC response
-   */
-  private handleRpcResponse(response: McpRpcResponse): void {
-    const pending = this.pendingRequests.get(response.id);
+  // ============================================
+  // RPC Methods
+  // ============================================
 
-    if (pending) {
-      this.pendingRequests.delete(response.id);
-
-      if (response.error) {
-        pending.reject(new Error(response.error.message));
-      } else {
-        pending.resolve(response.result);
-      }
-    }
-  }
-
-  /**
-   * Get all user sessions
-   */
   async getSessions(): Promise<SessionListResult> {
     return this.sendRequest<SessionListResult>('getSessions');
   }
 
-  /**
-   * Connect to an MCP server
-   */
   async connectToServer(params: ConnectParams): Promise<ConnectResult> {
     return this.sendRequest<ConnectResult>('connect', params);
   }
 
-  /**
-   * Disconnect from an MCP server
-   */
   async disconnectFromServer(sessionId: string): Promise<DisconnectResult> {
     return this.sendRequest<DisconnectResult>('disconnect', { sessionId });
   }
 
-  /**
-   * List tools from a session
-   */
   async listTools(sessionId: string): Promise<ListToolsRpcResult> {
     return this.sendRequest<ListToolsRpcResult>('listTools', { sessionId });
   }
 
-  /**
-   * Call a tool
-   */
   async callTool(
     sessionId: string,
     toolName: string,
     toolArgs: Record<string, unknown>
   ): Promise<unknown> {
     const result = await this.sendRequest('callTool', { sessionId, toolName, toolArgs });
-
-    // Check for UI resource in result and emit event
-    const typedResult = result as any;
-    if (typedResult && typedResult._meta) {
-      const meta = typedResult._meta;
-      const resourceUri = meta.ui?.resourceUri || meta['ui/resourceUri'];
-
-      if (resourceUri) {
-        const event: McpAppsUIEvent = {
-          type: 'mcp-apps-ui',
-          sessionId,
-          resourceUri,
-          toolName,
-          result: typedResult,
-          timestamp: Date.now()
-        };
-        this.options.onEvent?.(event);
-      }
-    }
-
+    this.emitUiEventIfPresent(result, sessionId, toolName);
     return result;
   }
 
-  /**
-   * Refresh/validate a session
-   */
   async restoreSession(sessionId: string): Promise<RestoreSessionResult> {
     return this.sendRequest<RestoreSessionResult>('restoreSession', { sessionId });
   }
 
-  /**
-   * Complete OAuth authorization
-   */
   async finishAuth(sessionId: string, code: string): Promise<FinishAuthResult> {
     return this.sendRequest<FinishAuthResult>('finishAuth', { sessionId, code });
   }
 
-  /**
-   * List available prompts
-   */
   async listPrompts(sessionId: string): Promise<ListPromptsResult> {
     return this.sendRequest<ListPromptsResult>('listPrompts', { sessionId });
   }
 
-  /**
-   * Get a specific prompt with arguments
-   */
   async getPrompt(sessionId: string, name: string, args?: Record<string, string>): Promise<unknown> {
     return this.sendRequest('getPrompt', { sessionId, name, args });
   }
 
-  /**
-   * List available resources
-   */
   async listResources(sessionId: string): Promise<ListResourcesResult> {
     return this.sendRequest<ListResourcesResult>('listResources', { sessionId });
   }
 
-  /**
-   * Read a specific resource
-   */
   async readResource(sessionId: string, uri: string): Promise<unknown> {
     return this.sendRequest('readResource', { sessionId, uri });
   }
 
-  /**
-   * Check if connected
-   */
-  isConnected(): boolean {
-    return this.eventSource !== null && this.eventSource.readyState === EventSource.OPEN;
-  }
-
   // ============================================
-  // Resource Preloading for Instant UI Loading
+  // Resource Preloading (for instant UI loading)
   // ============================================
 
   /**
    * Preload UI resources for tools that have UI metadata.
-   * Call this when tools are discovered to enable instant UI loading.
-   *
-   * @param sessionId - The session ID to use for fetching resources
-   * @param tools - Array of tools with potential UI metadata
+   * Call this when tools are discovered to enable instant MCP App UI loading.
    */
-  preloadToolUiResources(sessionId: string, tools: Array<{ name: string; _meta?: any }>): void {
+  preloadToolUiResources(sessionId: string, tools: Array<{ name: string; _meta?: unknown }>): void {
     for (const tool of tools) {
-      const meta = tool._meta;
-      if (!meta?.ui) continue;
-
-      const ui = meta.ui;
-      if (typeof ui !== 'object' || !ui) continue;
-
-      // Check visibility includes 'app'
-      if (ui.visibility && !ui.visibility.includes('app')) continue;
-
-      // Support both 'uri' and 'resourceUri' field names
-      const uri = typeof ui.resourceUri === 'string' ? ui.resourceUri
-        : typeof ui.uri === 'string' ? ui.uri
-        : undefined;
+      const uri = this.extractUiResourceUri(tool);
       if (!uri) continue;
 
-      console.log(`[SSEClient] Preloading UI resource for tool "${tool.name}": ${uri}`);
-
-      // Only preload if not already cached
-      if (!this.resourceCache.has(uri)) {
-        const startTime = Date.now();
-        const promise = this.sendRequest('readResource', { sessionId, uri })
-          .then(result => {
-            console.log(`[SSEClient] Preload completed for ${uri} in ${Date.now() - startTime}ms`);
-            return result;
-          })
-          .catch(err => {
-            console.warn(`[SSEClient] Failed to preload resource ${uri}:`, err);
-            this.resourceCache.delete(uri); // Remove failed cache entry
-            return null;
-          });
-        this.resourceCache.set(uri, promise);
-      } else {
-        console.log(`[SSEClient] Resource already cached: ${uri}`);
+      if (this.resourceCache.has(uri)) {
+        this.log(`Resource already cached: ${uri}`);
+        continue;
       }
+
+      this.log(`Preloading UI resource for tool "${tool.name}": ${uri}`);
+      const promise = this.sendRequest('readResource', { sessionId, uri })
+        .catch((err) => {
+          this.log(`Failed to preload resource ${uri}: ${err.message}`, 'warn');
+          this.resourceCache.delete(uri);
+          return null;
+        });
+
+      this.resourceCache.set(uri, promise);
     }
   }
 
   /**
-   * Get a preloaded resource from cache, or fetch it if not cached.
-   * Returns a promise that resolves to the resource content.
-   *
-   * @param sessionId - The session ID to use for fetching
-   * @param uri - The resource URI
-   * @returns Promise resolving to the resource content
+   * Get a preloaded resource from cache, or fetch if not cached.
    */
   getOrFetchResource(sessionId: string, uri: string): Promise<unknown> {
-    // Return cached promise if available
-    if (this.resourceCache.has(uri)) {
-      console.log(`[SSEClient] getOrFetchResource: Using cached promise for ${uri}`);
-      return this.resourceCache.get(uri)!;
+    const cached = this.resourceCache.get(uri);
+    if (cached) {
+      this.log(`Cache hit for resource: ${uri}`);
+      return cached;
     }
 
-    // Otherwise fetch and cache
-    console.log(`[SSEClient] getOrFetchResource: Cache miss, fetching ${uri}`);
-    const startTime = Date.now();
-    const promise = this.sendRequest('readResource', { sessionId, uri })
-      .then(result => {
-        console.log(`[SSEClient] getOrFetchResource: Fetched ${uri} in ${Date.now() - startTime}ms`);
-        return result;
-      });
+    this.log(`Cache miss, fetching resource: ${uri}`);
+    const promise = this.sendRequest('readResource', { sessionId, uri });
     this.resourceCache.set(uri, promise);
     return promise;
   }
 
   /**
-   * Check if a resource is already cached (preloaded).
-   *
-   * @param uri - The resource URI
-   * @returns True if the resource is cached
+   * Check if a resource is already cached
    */
   hasPreloadedResource(uri: string): boolean {
     return this.resourceCache.has(uri);
   }
 
   /**
-   * Clear the resource cache.
-   * Call this when sessions are disconnected or to free memory.
+   * Clear the resource cache
    */
   clearResourceCache(): void {
     this.resourceCache.clear();
+  }
+
+  // ============================================
+  // Private: Request Handling
+  // ============================================
+
+  /**
+   * Send an RPC request and return the response directly from HTTP.
+   * This bypasses SSE latency by returning results in the HTTP response body.
+   */
+  private async sendRequest<T = unknown>(method: McpRpcMethod, params?: McpRpcParams): Promise<T> {
+    if (this.connectionPromise) {
+      await this.connectionPromise;
+    }
+
+    const request: McpRpcRequest = {
+      id: `rpc_${nanoid(10)}`,
+      method,
+      params,
+    };
+
+    const response = await fetch(this.buildUrl(), {
+      method: 'POST',
+      headers: this.buildHeaders(),
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json() as McpRpcResponse;
+    return this.parseRpcResponse<T>(data, request.id);
+  }
+
+  /**
+   * Parse RPC response and handle different response formats
+   */
+  private parseRpcResponse<T>(data: McpRpcResponse, requestId: string): T | Promise<T> {
+    // Fast path: Direct response (new behavior)
+    if ('result' in data) {
+      return data.result as T;
+    }
+
+    // Error response
+    if ('error' in data && data.error) {
+      throw new Error(data.error.message || 'Unknown RPC error');
+    }
+
+    // Legacy path: Acknowledgment only (wait for SSE)
+    // Kept for backwards compatibility with older servers
+    if ('acknowledged' in data) {
+      return this.waitForSseResponse<T>(requestId);
+    }
+
+    throw new Error('Invalid RPC response format');
+  }
+
+  /**
+   * Wait for RPC response via SSE (legacy fallback)
+   */
+  private waitForSseResponse<T>(requestId: string): Promise<T> {
+    const timeoutMs = this.options.requestTimeout ?? DEFAULT_REQUEST_TIMEOUT;
+
+    return new Promise<T>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.pendingRequests.delete(requestId);
+        reject(new Error(`Request timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      this.pendingRequests.set(requestId, {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        timeoutId,
+      });
+    });
+  }
+
+  /**
+   * Handle RPC response received via SSE (legacy)
+   */
+  private handleRpcResponse(response: McpRpcResponse): void {
+    const pending = this.pendingRequests.get(response.id);
+    if (!pending) return;
+
+    clearTimeout(pending.timeoutId);
+    this.pendingRequests.delete(response.id);
+
+    if (response.error) {
+      pending.reject(new Error(response.error.message));
+    } else {
+      pending.resolve(response.result);
+    }
+  }
+
+  // ============================================
+  // Private: Event Handling
+  // ============================================
+
+  private setupEventListeners(): void {
+    if (!this.eventSource) return;
+
+    this.eventSource.addEventListener('open', () => {
+      this.log('Connected');
+      this.reconnectAttempts = 0;
+      this.options.onStatusChange?.('connected');
+    });
+
+    this.eventSource.addEventListener('connected', () => {
+      this.log('Server ready');
+      this.connectionResolver?.();
+      this.connectionResolver = null;
+    });
+
+    this.eventSource.addEventListener('connection', (e: MessageEvent) => {
+      const event = JSON.parse(e.data) as McpConnectionEvent;
+      this.options.onConnectionEvent?.(event);
+    });
+
+    this.eventSource.addEventListener('observability', (e: MessageEvent) => {
+      const event = JSON.parse(e.data) as McpObservabilityEvent;
+      this.options.onObservabilityEvent?.(event);
+    });
+
+    this.eventSource.addEventListener('rpc-response', (e: MessageEvent) => {
+      const response = JSON.parse(e.data) as McpRpcResponse;
+      this.handleRpcResponse(response);
+    });
+
+    this.eventSource.addEventListener('error', () => {
+      this.log('Connection error', 'error');
+      this.options.onStatusChange?.('error');
+      this.attemptReconnect();
+    });
+  }
+
+  private attemptReconnect(): void {
+    if (this.isManuallyDisconnected || this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      return;
+    }
+
+    this.reconnectAttempts++;
+    const delay = BASE_RECONNECT_DELAY * this.reconnectAttempts;
+    this.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+
+    setTimeout(() => {
+      this.disconnect();
+      this.connect();
+    }, delay);
+  }
+
+  // ============================================
+  // Private: Utilities
+  // ============================================
+
+  private buildUrl(): string {
+    const url = new URL(this.options.url, globalThis.location?.origin);
+    url.searchParams.set('identity', this.options.identity);
+    if (this.options.authToken) {
+      url.searchParams.set('token', this.options.authToken);
+    }
+    return url.toString();
+  }
+
+  private buildHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (this.options.authToken) {
+      headers['Authorization'] = `Bearer ${this.options.authToken}`;
+    }
+    return headers;
+  }
+
+  private rejectAllPendingRequests(error: Error): void {
+    for (const [, pending] of this.pendingRequests) {
+      clearTimeout(pending.timeoutId);
+      pending.reject(error);
+    }
+    this.pendingRequests.clear();
+  }
+
+  private extractUiResourceUri(tool: { name: string; _meta?: unknown }): string | undefined {
+    const meta = (tool._meta as { ui?: ToolUiMetadata })?.ui;
+    if (!meta || typeof meta !== 'object') return undefined;
+
+    // Check visibility constraint
+    if (meta.visibility && !meta.visibility.includes('app')) return undefined;
+
+    // Support both 'resourceUri' and 'uri' field names
+    return meta.resourceUri ?? meta.uri;
+  }
+
+  private emitUiEventIfPresent(result: unknown, sessionId: string, toolName: string): void {
+    const meta = (result as { _meta?: { ui?: ToolUiMetadata } })?._meta;
+    const resourceUri = meta?.ui?.resourceUri ?? (meta as any)?.['ui/resourceUri'];
+
+    if (resourceUri) {
+      this.options.onEvent?.({
+        type: 'mcp-apps-ui',
+        sessionId,
+        resourceUri,
+        toolName,
+        result,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  private log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
+    if (!this.options.debug && level === 'info') return;
+
+    const prefix = '[SSEClient]';
+    switch (level) {
+      case 'warn':
+        console.warn(prefix, message);
+        break;
+      case 'error':
+        console.error(prefix, message);
+        break;
+      default:
+        console.log(prefix, message);
+    }
   }
 }

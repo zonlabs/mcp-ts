@@ -7,6 +7,9 @@ import { useMcpContext } from "../mcp-provider";
 interface McpAppToolProps {
     resourceUri: string;
     sessionId: string;
+    toolInput?: Record<string, unknown>;
+    toolResult?: unknown;
+    toolStatus?: "executing" | "inProgress" | "complete";
 }
 
 /**
@@ -41,6 +44,9 @@ function AppError({ message }: { message: string }) {
 function McpAppIframe({
     resourceUri,
     sessionId,
+    toolInput,
+    toolResult,
+    toolStatus,
     onError
 }: McpAppToolProps & { onError: (err: Error) => void }) {
     const iframeRef = useRef<HTMLIFrameElement>(null!);
@@ -48,6 +54,8 @@ function McpAppIframe({
     const { host, error: hostError } = useMcpApp(client!, iframeRef);
     const [isLaunched, setIsLaunched] = useState(false);
     const launchAttemptedRef = useRef(false);
+    const toolInputSentRef = useRef(false);
+    const toolResultSentRef = useRef(false);
 
     // Report host initialization errors
     useEffect(() => {
@@ -75,12 +83,35 @@ function McpAppIframe({
             });
     }, [host, resourceUri, sessionId, onError]);
 
+    // Send tool input to the app when available
+    useEffect(() => {
+        if (!host || !isLaunched || !toolInput || toolInputSentRef.current) return;
+
+        toolInputSentRef.current = true;
+        host.sendToolInput(toolInput);
+    }, [host, isLaunched, toolInput]);
+
+    // Send tool result to the app when available
+    useEffect(() => {
+        if (!host || !isLaunched || toolResult === undefined || toolResultSentRef.current) return;
+        if (toolStatus !== "complete") return;
+
+        toolResultSentRef.current = true;
+
+        // Format result properly - wrap string results in content array
+        const formattedResult = typeof toolResult === 'string'
+            ? { content: [{ type: 'text', text: toolResult }] }
+            : toolResult;
+        host.sendToolResult(formattedResult);
+    }, [host, isLaunched, toolResult, toolStatus]);
+
     return (
-        <div className="w-full border border-gray-700 rounded overflow-hidden bg-white h-96 my-2 relative">
+        <div className="w-full border border-gray-700 rounded overflow-hidden bg-white min-h-96 my-2 relative">
             <iframe
                 ref={iframeRef}
-                sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"
-                className="w-full h-full"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads"
+                className="w-full h-full min-h-96"
+                style={{ height: 'auto' }}
                 title="MCP App UI"
             />
             {/* Show subtle loading overlay until launched */}
@@ -105,7 +136,7 @@ function McpAppIframe({
  * 2. Launch in parallel (resource should be preloaded)
  * 3. Show loading state via overlay, not by blocking render
  */
-export function McpAppTool({ resourceUri, sessionId }: McpAppToolProps) {
+export function McpAppTool({ resourceUri, sessionId, toolInput, toolResult, toolStatus }: McpAppToolProps) {
     const [error, setError] = useState<Error | null>(null);
 
     // Memoize the key to prevent unnecessary re-renders
@@ -124,6 +155,9 @@ export function McpAppTool({ resourceUri, sessionId }: McpAppToolProps) {
                 key={appKey}
                 resourceUri={resourceUri}
                 sessionId={sessionId}
+                toolInput={toolInput}
+                toolResult={toolResult}
+                toolStatus={toolStatus}
                 onError={setError}
             />
         </Suspense>

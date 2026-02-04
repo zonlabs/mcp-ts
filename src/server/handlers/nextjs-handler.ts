@@ -100,9 +100,6 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
       });
     };
 
-    // Send initial connection event
-    sendSSE('connected', { timestamp: Date.now() });
-
     // Clean up previous manager if exists (prevents memory leaks on reconnect)
     const previousManager = managers.get(identity);
     if (previousManager) {
@@ -137,6 +134,10 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
     );
 
     managers.set(identity, manager);
+
+    // Send connected event AFTER manager is registered (prevents race condition
+    // where client sends POST before manager is available)
+    sendSSE('connected', { timestamp: Date.now() });
 
     // Handle client disconnect
     const abortController = new AbortController();

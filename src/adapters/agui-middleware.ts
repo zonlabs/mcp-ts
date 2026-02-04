@@ -64,8 +64,6 @@ interface RunState {
 export interface McpMiddlewareConfig {
     /** Pre-loaded tools with handlers (required) */
     tools: AguiTool[];
-    /** Max result length in chars (default: 50000) */
-    maxResultLength?: number;
 }
 
 /**
@@ -74,12 +72,10 @@ export interface McpMiddlewareConfig {
 export class McpMiddleware extends Middleware {
     private tools: AguiTool[];
     private toolSchemas: Tool[];
-    private maxResultLength: number;
 
     constructor(config: McpMiddlewareConfig) {
         super();
         this.tools = config.tools;
-        this.maxResultLength = config.maxResultLength ?? 50000;
         this.toolSchemas = this.tools.map((t: AguiTool) => ({
             name: t.name,
             description: t.description,
@@ -133,13 +129,6 @@ export class McpMiddleware extends Middleware {
                 resultStr = JSON.stringify(result);
             } else {
                 resultStr = String(result);
-            }
-
-            if (resultStr.length > this.maxResultLength) {
-                const original = resultStr.length;
-                resultStr = resultStr.slice(0, this.maxResultLength) +
-                    `\n\n[... Truncated from ${original} to ${this.maxResultLength} chars]`;
-                console.log(`[McpMiddleware] Tool result truncated from ${original} to ${this.maxResultLength} chars`);
             }
 
             console.log(`[McpMiddleware] Tool result:`, resultStr.slice(0, 200));
@@ -469,9 +458,7 @@ export class McpMiddleware extends Middleware {
 /**
  * Factory function to create MCP middleware.
  */
-export function createMcpMiddleware(
-    options: { tools: AguiTool[]; maxResultLength?: number }
-) {
+export function createMcpMiddleware(options: { tools: AguiTool[] }) {
     const middleware = new McpMiddleware(options);
     return (input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> => {
         return middleware.run(input, next);

@@ -30,13 +30,24 @@ import { MCPClient } from '../server/mcp/oauth-client.js';
 import { MultiSessionClient } from '../server/mcp/multi-session-client.js';
 
 /**
+ * Extended JSON Schema properties that Pydantic's strict validation rejects.
+ * These are valid JSON Schema extensions but not part of the core spec.
+ */
+const PYDANTIC_FORBIDDEN_PROPS = [
+    // JSON Schema meta-properties
+    '$schema', '$id', '$comment', '$defs', 'definitions',
+    // Extended properties used by some MCP servers (e.g., Apify)
+    'prefill', 'examples', 'enumTitles', 'enumDescriptions',
+    // Other common extensions
+    'deprecated', 'readOnly', 'writeOnly', 'contentMediaType', 'contentEncoding',
+];
+
+/**
  * Cleans a JSON Schema by removing meta-properties that cause issues with
- * strict Pydantic validation (e.g., Google ADK).
- *
- * Removes: $schema, $id, $comment, $defs, definitions
+ * strict Pydantic validation (e.g., Google ADK, LangGraph).
  *
  * @param schema - The JSON Schema to clean
- * @returns Cleaned schema without meta-properties
+ * @returns Cleaned schema without forbidden properties
  */
 export function cleanSchema(schema: Record<string, any> | undefined): Record<string, any> {
     if (!schema) {
@@ -45,12 +56,10 @@ export function cleanSchema(schema: Record<string, any> | undefined): Record<str
 
     const cleaned = { ...schema };
 
-    // Remove JSON Schema meta-properties that cause Pydantic validation errors
-    delete cleaned.$schema;
-    delete cleaned.$id;
-    delete cleaned.$comment;
-    delete cleaned.$defs;
-    delete cleaned.definitions;
+    // Remove all forbidden properties
+    for (const prop of PYDANTIC_FORBIDDEN_PROPS) {
+        delete cleaned[prop];
+    }
 
     // Recursively clean nested properties
     if (cleaned.properties && typeof cleaned.properties === 'object') {

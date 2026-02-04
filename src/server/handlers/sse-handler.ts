@@ -1,14 +1,21 @@
 /**
  * SSE (Server-Sent Events) Handler for MCP Connections
- * Provides real-time connection state updates to clients
- * Based on Cloudflare's agents pattern but adapted for HTTP/SSE
+ *
+ * Manages real-time bidirectional communication with MCP clients:
+ * - SSE stream for server → client events (connection state, tools, logs)
+ * - HTTP POST for client → server RPC requests
+ *
+ * Key features:
+ * - Direct HTTP response for RPC calls (bypasses SSE latency)
+ * - Automatic session restoration and validation
+ * - OAuth 2.1 authentication flow support
+ * - Heartbeat to keep connections alive
  */
 
 import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events.js';
 import type {
   McpRpcRequest,
   McpRpcResponse,
-  // RPC Param types
   ConnectParams,
   DisconnectParams,
   SessionParams,
@@ -16,7 +23,6 @@ import type {
   GetPromptParams,
   ReadResourceParams,
   FinishAuthParams,
-  // RPC Result types
   SessionListResult,
   ConnectResult,
   DisconnectResult,
@@ -31,6 +37,10 @@ import { RpcErrorCodes } from '../../shared/errors.js';
 import { MCPClient } from '../mcp/oauth-client.js';
 import { storage } from '../storage/index.js';
 
+// ============================================
+// Types & Interfaces
+// ============================================
+
 export interface ClientMetadata {
   clientName?: string;
   clientUri?: string;
@@ -39,46 +49,45 @@ export interface ClientMetadata {
 }
 
 export interface SSEHandlerOptions {
-  /**
-   * User/Client identifier
-   */
+  /** User/Client identifier */
   identity: string;
 
-  /**
-   * Optional callback for authentication/authorization
-   */
+  /** Optional callback for authentication/authorization */
   onAuth?: (identity: string) => Promise<boolean>;
 
-  /**
-   * Heartbeat interval in ms (default: 30000)
-   */
+  /** Heartbeat interval in milliseconds @default 30000 */
   heartbeatInterval?: number;
 
-  /**
-   * Static OAuth client metadata defaults (for all connections)
-   */
+  /** Static OAuth client metadata defaults (for all connections) */
   clientDefaults?: ClientMetadata;
 
-  /**
-   * Dynamic OAuth client metadata getter (per-request, useful for multi-tenant)
-   * Takes precedence over clientDefaults
-   */
-  getClientMetadata?: (request?: any) => ClientMetadata | Promise<ClientMetadata>;
+  /** Dynamic OAuth client metadata getter (per-request, useful for multi-tenant) */
+  getClientMetadata?: (request?: unknown) => ClientMetadata | Promise<ClientMetadata>;
 }
 
+// ============================================
+// Constants
+// ============================================
+
+const DEFAULT_HEARTBEAT_INTERVAL = 30000;
+
+// ============================================
+// SSEConnectionManager Class
+// ============================================
+
 /**
- * SSE Connection Manager
- * Handles a single SSE connection and manages MCP operations
+ * Manages a single SSE connection and handles MCP operations.
+ * Each instance corresponds to one connected browser client.
  */
 export class SSEConnectionManager {
-  private identity: string;
-  private clients: Map<string, MCPClient> = new Map();
+  private readonly identity: string;
+  private readonly clients = new Map<string, MCPClient>();
   private heartbeatTimer?: NodeJS.Timeout;
-  private isActive: boolean = true;
+  private isActive = true;
 
   constructor(
-    private options: SSEHandlerOptions,
-    private sendEvent: (event: McpConnectionEvent | McpObservabilityEvent | McpRpcResponse) => void
+    private readonly options: SSEHandlerOptions,
+    private readonly sendEvent: (event: McpConnectionEvent | McpObservabilityEvent | McpRpcResponse) => void
   ) {
     this.identity = options.identity;
     this.startHeartbeat();
@@ -109,7 +118,7 @@ export class SSEConnectionManager {
    * Start heartbeat to keep connection alive
    */
   private startHeartbeat(): void {
-    const interval = this.options.heartbeatInterval || 30000;
+    const interval = this.options.heartbeatInterval ?? DEFAULT_HEARTBEAT_INTERVAL;
     this.heartbeatTimer = setInterval(() => {
       if (this.isActive) {
         this.sendEvent({
@@ -204,25 +213,10 @@ export class SSEConnectionManager {
   }
 
   /**
-   * Get all user sessions
+   * Get all sessions for the current identity
    */
   private async getSessions(): Promise<SessionListResult> {
     const sessions = await storage.getIdentitySessionsData(this.identity);
-
-    this.sendEvent({
-      level: 'debug',
-      message: `Retrieved ${sessions.length} sessions for identity ${this.identity}`,
-      timestamp: Date.now(),
-      metadata: {
-        identity: this.identity,
-        sessionCount: sessions.length,
-        sessions: sessions.map(s => ({
-          sessionId: s.sessionId,
-          serverId: s.serverId,
-          serverName: s.serverName,
-        })),
-      },
-    });
 
     return {
       sessions: sessions.map((s) => ({
@@ -315,12 +309,6 @@ export class SSEConnectionManager {
       // Fetch tools
       const tools = await client.listTools();
 
-      // Debug: Check session state after connection
-      const sessionAfterConnect = await storage.getSession(this.identity, sessionId);
-      console.log(`[SSE Handler] After connect() - Session ${sessionId}:`, {
-        serverId: sessionAfterConnect?.serverId,
-      });
-
       this.emitConnectionEvent({
         type: 'tools_discovered',
         sessionId,
@@ -372,35 +360,25 @@ export class SSEConnectionManager {
   }
 
   /**
-   * Helper to get or restore a client
+   * Get an existing client or create and connect a new one for the session.
    */
   private async getOrCreateClient(sessionId: string): Promise<MCPClient> {
-    let client = this.clients.get(sessionId);
-
-    if (!client) {
-      console.log(`[SSE Handler] Creating NEW client for session ${sessionId}`);
-      const createStart = Date.now();
-
-      client = new MCPClient({
-        identity: this.identity,
-        sessionId,
-      });
-
-      // Subscribe to events
-      client.onConnectionEvent((event) => {
-        this.emitConnectionEvent(event);
-      });
-
-      client.onObservabilityEvent((event) => {
-        this.sendEvent(event);
-      });
-
-      await client.connect();
-      this.clients.set(sessionId, client);
-      console.log(`[SSE Handler] New client created and connected in ${Date.now() - createStart}ms`);
-    } else {
-      console.log(`[SSE Handler] Reusing cached client for session ${sessionId}`);
+    const existing = this.clients.get(sessionId);
+    if (existing) {
+      return existing;
     }
+
+    const client = new MCPClient({
+      identity: this.identity,
+      sessionId,
+    });
+
+    // Subscribe to events before connecting
+    client.onConnectionEvent((event) => this.emitConnectionEvent(event));
+    client.onObservabilityEvent((event) => this.sendEvent(event));
+
+    await client.connect();
+    this.clients.set(sessionId, client);
 
     return client;
   }
@@ -416,10 +394,7 @@ export class SSEConnectionManager {
   }
 
   /**
-   * Call a tool
-   */
-  /**
-   * Call a tool
+   * Call a tool on the MCP server
    */
   private async callTool(params: CallToolParams): Promise<CallToolResult> {
     const { sessionId, toolName, toolArgs } = params;
@@ -440,84 +415,47 @@ export class SSEConnectionManager {
   }
 
   /**
-   * Refresh/validate a session
+   * Restore and validate an existing session
    */
   private async restoreSession(params: SessionParams): Promise<RestoreSessionResult> {
     const { sessionId } = params;
 
-    this.sendEvent({
-      level: 'debug',
-      message: `Starting session refresh for ${sessionId}`,
-      timestamp: Date.now(),
-      metadata: { sessionId, identity: this.identity },
-    });
-
-    // Emit validating state
     const session = await storage.getSession(this.identity, sessionId);
     if (!session) {
-      this.sendEvent({
-        level: 'error',
-        message: `Session not found: ${sessionId}`,
-        timestamp: Date.now(),
-        metadata: { sessionId, identity: this.identity },
-      });
       throw new Error('Session not found');
     }
-
-    this.sendEvent({
-      level: 'debug',
-      message: `Session found in Redis`,
-      timestamp: Date.now(),
-      metadata: {
-        sessionId,
-        serverId: session.serverId,
-        serverName: session.serverName,
-        serverUrl: session.serverUrl,
-        transportType: session.transportType,
-      },
-    });
 
     this.emitConnectionEvent({
       type: 'state_changed',
       sessionId,
-      serverId: session.serverId || 'unknown',
-      serverName: session.serverName || 'Unknown',
+      serverId: session.serverId ?? 'unknown',
+      serverName: session.serverName ?? 'Unknown',
       state: 'VALIDATING',
       previousState: 'DISCONNECTED',
       timestamp: Date.now(),
     });
 
     try {
-      // Get resolved client metadata
       const clientMetadata = await this.getResolvedClientMetadata();
 
-      // Try to restore and validate
       const client = new MCPClient({
         identity: this.identity,
         sessionId,
-        ...clientMetadata, // Include metadata for consistency
+        ...clientMetadata,
       });
 
-      // Subscribe to events
-      client.onConnectionEvent((event) => {
-        this.emitConnectionEvent(event);
-      });
-
-      client.onObservabilityEvent((event) => {
-        this.sendEvent(event);
-      });
+      client.onConnectionEvent((event) => this.emitConnectionEvent(event));
+      client.onObservabilityEvent((event) => this.sendEvent(event));
 
       await client.connect();
       this.clients.set(sessionId, client);
 
       const tools = await client.listTools();
 
-
-
       this.emitConnectionEvent({
         type: 'tools_discovered',
         sessionId,
-        serverId: session.serverId || 'unknown',
+        serverId: session.serverId ?? 'unknown',
         toolCount: tools.tools.length,
         tools: tools.tools,
         timestamp: Date.now(),
@@ -528,7 +466,7 @@ export class SSEConnectionManager {
       this.emitConnectionEvent({
         type: 'error',
         sessionId,
-        serverId: session.serverId || 'unknown',
+        serverId: session.serverId ?? 'unknown',
         error: error instanceof Error ? error.message : 'Validation failed',
         errorType: 'validation',
         timestamp: Date.now(),
@@ -539,17 +477,10 @@ export class SSEConnectionManager {
   }
 
   /**
-   * Complete OAuth authorization
+   * Complete OAuth authorization flow
    */
   private async finishAuth(params: FinishAuthParams): Promise<FinishAuthResult> {
     const { sessionId, code } = params;
-
-    this.sendEvent({
-      level: 'debug',
-      message: `Completing OAuth for session ${sessionId}`,
-      timestamp: Date.now(),
-      metadata: { sessionId, identity: this.identity },
-    });
 
     const session = await storage.getSession(this.identity, sessionId);
     if (!session) {
@@ -559,8 +490,8 @@ export class SSEConnectionManager {
     this.emitConnectionEvent({
       type: 'state_changed',
       sessionId,
-      serverId: session.serverId || 'unknown',
-      serverName: session.serverName || 'Unknown',
+      serverId: session.serverId ?? 'unknown',
+      serverName: session.serverName ?? 'Unknown',
       state: 'AUTHENTICATING',
       previousState: 'DISCONNECTED',
       timestamp: Date.now(),
@@ -572,22 +503,17 @@ export class SSEConnectionManager {
         sessionId,
       });
 
-      // Subscribe to events
-      client.onConnectionEvent((event) => {
-        this.emitConnectionEvent(event);
-      });
+      client.onConnectionEvent((event) => this.emitConnectionEvent(event));
 
       await client.finishAuth(code);
       this.clients.set(sessionId, client);
 
       const tools = await client.listTools();
 
-
-
       this.emitConnectionEvent({
         type: 'tools_discovered',
         sessionId,
-        serverId: session.serverId || 'unknown',
+        serverId: session.serverId ?? 'unknown',
         toolCount: tools.tools.length,
         tools: tools.tools,
         timestamp: Date.now(),
@@ -598,7 +524,7 @@ export class SSEConnectionManager {
       this.emitConnectionEvent({
         type: 'error',
         sessionId,
-        serverId: session.serverId || 'unknown',
+        serverId: session.serverId ?? 'unknown',
         error: error instanceof Error ? error.message : 'OAuth completion failed',
         errorType: 'auth',
         timestamp: Date.now(),
@@ -642,21 +568,8 @@ export class SSEConnectionManager {
    */
   private async readResource(params: ReadResourceParams): Promise<unknown> {
     const { sessionId, uri } = params;
-    const startTime = Date.now();
-    console.log(`[SSE Handler] readResource starting for ${uri} (session: ${sessionId})`);
-
-    const clientCached = this.clients.has(sessionId);
-    console.log(`[SSE Handler] Client cached: ${clientCached}`);
-
     const client = await this.getOrCreateClient(sessionId);
-    const clientTime = Date.now() - startTime;
-    console.log(`[SSE Handler] getOrCreateClient took ${clientTime}ms`);
-
-    const result = await client.readResource(uri);
-    const totalTime = Date.now() - startTime;
-    console.log(`[SSE Handler] readResource completed in ${totalTime}ms (client: ${clientTime}ms, fetch: ${totalTime - clientTime}ms)`);
-
-    return result;
+    return client.readResource(uri);
   }
 
   /**
@@ -684,12 +597,16 @@ export class SSEConnectionManager {
   }
 }
 
+// ============================================
+// SSE Handler Factory
+// ============================================
+
 /**
- * Create SSE endpoint handler
- * Compatible with various Node.js frameworks
+ * Create an SSE endpoint handler compatible with Node.js HTTP frameworks.
+ * Handles both SSE streaming (GET) and RPC requests (POST).
  */
 export function createSSEHandler(options: SSEHandlerOptions) {
-  return async (req: any, res: any) => {
+  return async (req: { method?: string; on: Function }, res: { writeHead: Function; write: Function }) => {
     // Set SSE headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -698,30 +615,24 @@ export function createSSEHandler(options: SSEHandlerOptions) {
       'Access-Control-Allow-Origin': '*',
     });
 
-    // Send initial connection event
-    sendSSE(res, 'connected', { timestamp: Date.now() });
+    // Send initial connection acknowledgment
+    writeSSEEvent(res, 'connected', { timestamp: Date.now() });
 
-    // Create connection manager
+    // Create connection manager with event routing
     const manager = new SSEConnectionManager(options, (event) => {
-      // Determine event type
       if ('id' in event) {
-        // RPC response
-        sendSSE(res, 'rpc-response', event);
+        writeSSEEvent(res, 'rpc-response', event);
       } else if ('type' in event && 'sessionId' in event) {
-        // Connection event
-        sendSSE(res, 'connection', event);
+        writeSSEEvent(res, 'connection', event);
       } else {
-        // Observability event
-        sendSSE(res, 'observability', event);
+        writeSSEEvent(res, 'observability', event);
       }
     });
 
-    // Handle client disconnect
-    req.on('close', () => {
-      manager.dispose();
-    });
+    // Cleanup on client disconnect
+    req.on('close', () => manager.dispose());
 
-    // Handle incoming messages (if using POST body or other methods)
+    // Handle RPC requests via POST
     if (req.method === 'POST') {
       let body = '';
       req.on('data', (chunk: Buffer) => {
@@ -731,18 +642,22 @@ export function createSSEHandler(options: SSEHandlerOptions) {
         try {
           const request: McpRpcRequest = JSON.parse(body);
           await manager.handleRequest(request);
-        } catch (error) {
-          console.error('[SSE] Error handling request:', error);
+        } catch {
+          // Request parsing/handling errors are sent via SSE error events
         }
       });
     }
   };
 }
 
+// ============================================
+// Utilities
+// ============================================
+
 /**
- * Send SSE event
+ * Write an SSE event to the response stream
  */
-function sendSSE(res: any, event: string, data: any): void {
+function writeSSEEvent(res: { write: Function }, event: string, data: unknown): void {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }

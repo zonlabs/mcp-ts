@@ -70,7 +70,6 @@ export function MCPToolCall({
   args,
   result,
 }: ToolCallProps) {
-  console.log("MCPToolCall Render:", { status, name, args, result });
   const [open, setOpen] = React.useState(false);
 
   const isComplete = status === "complete";
