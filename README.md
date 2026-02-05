@@ -43,6 +43,12 @@
 - **Full MCP Protocol** - Support for tools, prompts, and resources
 - **TypeScript** - Complete type safety with exported types
 - **Agent Adapters** - Built-in adapters for AI SDK, LangChain, Mastra, and AG-UI
+- **MCP Apps** - Interactive UI-driven tool interfaces in secure sandboxed iframes
+
+<div align="center">
+  <img src="docs/static/img/mcp-apps.png" alt="MCP Apps" width="100%" />
+  <p><em>MCP Apps: Rich interactive tool UIs with secure iframe sandboxing</em></p>
+</div>
 
 ## Inspiration
 

@@ -118,6 +118,23 @@ export default function Home(): ReactNode {
                   style={{ display: 'block' }}
                 />
               </div>
+
+              <div style={{ textAlign: 'center', marginBottom: '2rem', marginTop: '4rem' }}>
+                <Heading as="h2">MCP Apps</Heading>
+                <div style={{ fontSize: '1.2rem', marginTop: '1rem' }}>
+                  Interactive UI-driven tool interfaces in secure sandboxed iframes
+                </div>
+              </div>
+              <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+                <video
+                  src="/mcp-ts/vid/mcp-apps-ext.mp4"
+                  width="100%"
+                  controls
+                  muted
+                  loop
+                  style={{ display: 'block' }}
+                />
+              </div>
             </div>
           </div>
         </div>
