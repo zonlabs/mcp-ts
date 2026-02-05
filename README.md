@@ -46,7 +46,7 @@
 
 <div align="center">
   <img src="docs/static/img/mcp-apps.png" alt="MCP Apps" width="100%" />
-  <p><em>MCP Apps: Rich interactive tool UIs</em></p>
+  <p><em>Interactive UIs for MCP tools</em></p>
 </div>
 
 ## Inspiration

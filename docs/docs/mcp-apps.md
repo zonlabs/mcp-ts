@@ -4,7 +4,7 @@ sidebar_position: 6
 
 # MCP Apps
 
-MCP Apps are interactive, UI-driven tool interfaces that run in secure sandboxed iframes. They enable rich visual experiences for MCP tools beyond simple text-based responses, allowing users to interact with complex data visualizations, forms, and real-time updates.
+MCP Apps enable MCP servers to deliver interactive user interfaces to hosts. This standardized pattern allows servers to present visual information and gather complex user input beyond text and structured data.
 
 ## Overview
 
