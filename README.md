@@ -7,8 +7,8 @@
 </div>
 
 <div align="center">
-  <a href="https://github.com/zonlabs/mcp-ts/raw/main/docs/static/vid/langchain-agui.mp4">
-    <em>Click to watch demo video</em>
+  <a href="https://zonlabs.github.io/mcp-ts/#ag-ui-demo">
+    <em>Watch AG-UI + LangChain demo</em>
   </a>
 </div>
 <br />
@@ -35,7 +35,7 @@
 
 ## Features
 
-- **Live SSE** - Server-Sent Events for live connection and observability updates
+- **SSE** - Server-Sent Events for connection state and observability updates
 - **Flexible Storage** - Redis, SQLite, File System, or In-Memory backends
 - **Serverless** - Works in serverless environments (Vercel, AWS Lambda, etc.)
 - **React Hook** - `useMcp` hook for easy React integration

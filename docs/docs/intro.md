@@ -15,10 +15,10 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 1. **Simple API** — Easy-to-use methods for connecting to MCP servers
 2. **Framework Ready** — Built-in support for Next.js, React, and Vue
-3. **Real-Time & Observability** — Live updates via Server-Sent Events (SSE)
+3. **SSE** — Server-Sent Events for connection and observability
 4. **Persistent Sessions** — Automatic session management and recovery
-5. **TypeScript** — Full type safety with TypeScript support
-6. **Flexible Storage** — Multiple backend options (Redis, FS, Memory)
+5. **Flexible Storage** — Multiple backend options (Redis, FS, Memory)
+6. **MCP Apps (SEP-1865)** — Interactive UIs for MCP tools
 
 ## Quick Install
 

@@ -97,7 +97,7 @@ export default function Home(): ReactNode {
                 />
               </div>
 
-              <div style={{ textAlign: 'center', marginBottom: '2rem', marginTop: '4rem' }}>
+              <div id="ag-ui-demo" style={{ textAlign: 'center', marginBottom: '2rem', marginTop: '4rem' }}>
                 <Heading as="h2">AG-UI Middleware</Heading>
                 <div style={{ fontSize: '1.2rem', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                   Powering <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>

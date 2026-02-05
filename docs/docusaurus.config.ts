@@ -88,7 +88,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          label: 'v1.0.1',
+          label: 'v1.1.0',
           position: 'right',
           href: 'https://www.npmjs.com/package/@mcp-ts/sdk',
           className: 'navbar-version-badge',
