@@ -105,7 +105,7 @@ export default function Home(): ReactNode {
                   </span> (create_agent) +
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <img src="/mcp-ts/img/agent-framework/agui.webp" alt="AG-UI" width="20" height="20" /> AG-UI
-                  </span> + CopilotKit
+                  </span>
                 </div>
               </div>
               <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>

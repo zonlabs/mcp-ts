@@ -46,7 +46,6 @@
 
 ## Inspiration
 
-> [!NOTE]
 > I got the idea for `@mcp-ts` while working on 🌐 **[MCP Assistant](https://mcp-assistant.in)**.
 While building custom storage for persistence, managing the flow became harder than it should have been.
 So I built this client to handle the heavy lifting of client applications and make agent interactions easier.
