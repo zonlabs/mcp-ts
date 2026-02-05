@@ -33,8 +33,6 @@ import type {
   ListPromptsResult,
   ListResourcesResult,
 } from '../../shared/types.js';
-import type { AppHostClient } from './types.js';
-
 // ============================================
 // Types & Interfaces
 // ============================================
@@ -97,7 +95,7 @@ const BASE_RECONNECT_DELAY = 1000;
 /**
  * SSE Client for real-time MCP connection management
  */
-export class SSEClient implements AppHostClient {
+export class SSEClient {
   private eventSource: EventSource | null = null;
   private pendingRequests = new Map<string, PendingRequest>();
   private resourceCache = new Map<string, Promise<unknown>>();

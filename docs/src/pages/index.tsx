@@ -122,7 +122,7 @@ export default function Home(): ReactNode {
               <div style={{ textAlign: 'center', marginBottom: '2rem', marginTop: '4rem' }}>
                 <Heading as="h2">MCP Apps</Heading>
                 <div style={{ fontSize: '1.2rem', marginTop: '1rem' }}>
-                  Interactive UI-driven tool interfaces in secure sandboxed iframes
+                  Interactive UI-driven tool interfaces for MCP Apps
                 </div>
               </div>
               <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
