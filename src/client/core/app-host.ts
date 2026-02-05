@@ -85,7 +85,7 @@ export class AppHost {
     options?: AppHostOptions
   ) {
     this.debug = options?.debug ?? false;
-    this.enforceSandbox();
+    this.configureSandbox();
     this.bridge = this.initializeBridge();
   }
 
@@ -113,7 +113,7 @@ export class AppHost {
       const uri = this.extractUiResourceUri(tool);
       if (!uri || this.resourceCache.has(uri)) continue;
 
-      const promise = this.fetchResourceSafe(uri);
+      const promise = this.preloadResource(uri);
       this.resourceCache.set(uri, promise);
     }
   }
@@ -126,7 +126,7 @@ export class AppHost {
     if (sessionId) this.sessionId = sessionId;
 
     // Set up initialization promise BEFORE connecting
-    const initializedPromise = this.waitForInitialized();
+    const initializedPromise = this.onAppReady();
 
     // Load HTML into iframe first
     if (this.isMcpUri(url)) {
@@ -136,7 +136,7 @@ export class AppHost {
     }
 
     // Wait for iframe to load before connecting bridge
-    await this.waitForIframeLoad();
+    await this.onIframeReady();
 
     // Connect the bridge (HTML is loaded, contentWindow is ready)
     await this.connectBridge();
@@ -156,7 +156,7 @@ export class AppHost {
   /**
    * Wait for app to signal initialization complete
    */
-  private waitForInitialized(): Promise<void> {
+  private onAppReady(): Promise<void> {
     return new Promise<void>((resolve) => {
       const originalHandler = this.bridge.oninitialized;
       this.bridge.oninitialized = (...args) => {
@@ -171,7 +171,7 @@ export class AppHost {
   /**
    * Wait for iframe to finish loading
    */
-  private waitForIframeLoad(): Promise<void> {
+  private onIframeReady(): Promise<void> {
     return new Promise((resolve) => {
       if (this.iframe.contentDocument?.readyState === 'complete') {
         resolve();
@@ -212,7 +212,7 @@ export class AppHost {
   // Private: Initialization
   // ============================================
 
-  private enforceSandbox(): void {
+  private configureSandbox(): void {
     if (this.iframe.sandbox.value !== SANDBOX_PERMISSIONS) {
       this.iframe.sandbox.value = SANDBOX_PERMISSIONS;
     }
@@ -285,7 +285,7 @@ export class AppHost {
       throw new Error('Client disconnected');
     }
 
-    const sessionId = await this.resolveSessionId();
+    const sessionId = await this.getSessionId();
     if (!sessionId) {
       throw new Error('No active session');
     }
@@ -317,7 +317,7 @@ export class AppHost {
       throw new Error('Client must be connected');
     }
 
-    const sessionId = await this.resolveSessionId();
+    const sessionId = await this.getSessionId();
     if (!sessionId) {
       throw new Error('No active session');
     }
@@ -356,9 +356,9 @@ export class AppHost {
     return this.client.readResource(sessionId, uri) as Promise<ResourceResponse>;
   }
 
-  private async fetchResourceSafe(uri: string): Promise<ResourceResponse | null> {
+  private async preloadResource(uri: string): Promise<ResourceResponse | null> {
     try {
-      const sessionId = await this.resolveSessionId();
+      const sessionId = await this.getSessionId();
       if (!sessionId) return null;
       return await this.client.readResource(sessionId, uri) as ResourceResponse;
     } catch (error) {
@@ -371,7 +371,7 @@ export class AppHost {
   // Private: Utilities
   // ============================================
 
-  private async resolveSessionId(): Promise<string | undefined> {
+  private async getSessionId(): Promise<string | undefined> {
     if (this.sessionId) return this.sessionId;
     const result = await this.client.getSessions();
     return result.sessions?.[0]?.sessionId;
