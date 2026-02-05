@@ -100,9 +100,6 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
       });
     };
 
-    // Send initial connection event
-    sendSSE('connected', { timestamp: Date.now() });
-
     // Clean up previous manager if exists (prevents memory leaks on reconnect)
     const previousManager = managers.get(identity);
     if (previousManager) {
@@ -137,6 +134,10 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
     );
 
     managers.set(identity, manager);
+
+    // Send connected event AFTER manager is registered (prevents race condition
+    // where client sends POST before manager is available)
+    sendSSE('connected', { timestamp: Date.now() });
 
     // Handle client disconnect
     const abortController = new AbortController();
@@ -194,11 +195,11 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
         );
       }
 
-      // Handle the request - response will be sent via SSE
-      await manager.handleRequest(body);
+      // Handle the request and return response directly (bypasses SSE latency)
+      const response = await manager.handleRequest(body);
 
-      // Return acknowledgment (actual response goes through SSE)
-      return Response.json({ acknowledged: true });
+      // Return the actual RPC response for immediate use by client
+      return Response.json(response);
     } catch (error) {
       return Response.json(
         {

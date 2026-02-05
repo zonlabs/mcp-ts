@@ -58,6 +58,12 @@ export interface UseMcpOptions {
    * If provided, this will be called instead of window.location.href assignment
    */
   onRedirect?: (url: string) => void;
+
+  /**
+   * Request timeout in milliseconds
+   * @default 60000
+   */
+  requestTimeout?: number;
 }
 
 export interface McpConnection {
@@ -177,6 +183,11 @@ export interface McpClient {
    * Read a specific resource
    */
   readResource: (sessionId: string, uri: string) => Promise<unknown>;
+
+  /**
+   * Access the underlying SSEClient instance (for advanced usage like AppHost)
+   */
+  client: SSEClient | null;
 }
 
 /**
@@ -228,6 +239,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
           setStatus(newStatus);
         }
       },
+      requestTimeout: options.requestTimeout,
     };
 
     const client = new SSEClient(clientOptions);
@@ -276,6 +288,11 @@ export function useMcp(options: UseMcpOptions): McpClient {
         }
 
         case 'tools_discovered': {
+          // Preload UI resources for instant loading when tools are discovered
+          if (clientRef.current && event.tools?.length) {
+            clientRef.current.preloadToolUiResources(event.sessionId, event.tools);
+          }
+
           return prev.map((c: McpConnection) =>
             c.sessionId === event.sessionId ? { ...c, tools: event.tools, state: 'READY' } : c
           );
@@ -554,5 +571,6 @@ export function useMcp(options: UseMcpOptions): McpClient {
     getPrompt,
     listResources,
     readResource,
+    client: clientRef.current,
   };
 }

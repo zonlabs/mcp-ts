@@ -2,7 +2,7 @@
  * Type definitions for MCP operations
  */
 
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
 // Connect API types
 export interface ConnectRequest {
@@ -272,3 +272,5 @@ export interface ListResourcesResult {
     mimeType?: string;
   }>;
 }
+
+export type { CallToolResult };

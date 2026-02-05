@@ -95,11 +95,6 @@ test.describe('SqliteStorage', () => {
         test('should remove expired sessions', async () => {
             const session = createMockSession();
             await storage.createSession(session, -1); // Expired immediately (ttl -1)
-
-            // Wait a bit just to be sure (though -1 should be instant expiration in logic)
-            // Actually createSession logic: expiresAt = ttl ? Date.now() + ttl * 1000 : null;
-            // if ttl is -1, expiresAt is 1 second ago.
-
             await storage.cleanupExpiredSessions();
 
             const retrieved = await storage.getSession(session.identity, session.sessionId);

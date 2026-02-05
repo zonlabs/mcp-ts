@@ -49,7 +49,7 @@ export const POST = async (req: NextRequest) => {
    * Add MCP Tool Execution Middleware
    * This middleware intercepts MCP tool calls (server-*) and executes them server-side
    */
-  mcpAssistant.use(createMcpMiddleware({ tools: mcpTools, maxResultLength: 1000 })); // maxResult limits tool output length (dev environment)
+  mcpAssistant.use(createMcpMiddleware({ tools: mcpTools})); // maxResult limits tool output length (dev environment)
   /**
    * Runtime
    */

@@ -140,6 +140,7 @@
     }
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.0.1",
     "@modelcontextprotocol/sdk": "^1.25.3",
     "json-schema": "^0.4.0",
     "json-schema-to-zod": "^2.7.0",

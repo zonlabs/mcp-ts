@@ -47,6 +47,7 @@ const sidebars: SidebarsConfig = {
       ],
     },
     'adapters',
+    'mcp-apps',
     'api-reference',
   ],
 

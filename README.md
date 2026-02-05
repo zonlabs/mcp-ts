@@ -41,12 +41,16 @@
 - **React Hook** - `useMcp` hook for easy React integration
 - **Vue Composable** - `useMcp` composable for Vue applications
 - **Full MCP Protocol** - Support for tools, prompts, and resources
-- **TypeScript** - Complete type safety with exported types
 - **Agent Adapters** - Built-in adapters for AI SDK, LangChain, Mastra, and AG-UI
+- **MCP Apps Extension (SEP-1865)** - Interactive UI-driven tool interfaces
+
+<div align="center">
+  <img src="docs/static/img/mcp-apps.png" alt="MCP Apps" width="100%" />
+  <p><em>Interactive UIs for MCP tools</em></p>
+</div>
 
 ## Inspiration
 
-> [!NOTE]
 > I got the idea for `@mcp-ts` while working on 🌐 **[MCP Assistant](https://mcp-assistant.in)**.
 While building custom storage for persistence, managing the flow became harder than it should have been.
 So I built this client to handle the heavy lifting of client applications and make agent interactions easier.

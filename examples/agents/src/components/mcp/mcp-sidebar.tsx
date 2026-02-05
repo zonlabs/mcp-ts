@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcpContext } from './mcp-provider';
 import { ConnectForm } from './connect-form';
 import { ConnectionList } from './connection-list';
 import { useOAuthPopup } from './use-oauth-popup';
@@ -13,11 +13,13 @@ interface McpSidebarProps {
   authToken?: string;
 }
 
-export function McpSidebar({ identity = 'demo-user-123', authToken = 'demo-auth-token' }: McpSidebarProps) {
+export function McpSidebar(_props: McpSidebarProps = {}) {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const popupRef = useRef<Window | null>(null);
 
+  // Use shared MCP context instead of creating a new useMcp instance
+  const { mcpClient } = useMcpContext();
   const {
     connections,
     status,
@@ -25,31 +27,7 @@ export function McpSidebar({ identity = 'demo-user-123', authToken = 'demo-auth-
     connect,
     disconnect,
     finishAuth,
-  } = useMcp({
-    url: '/api/mcp',
-    identity,
-    authToken,
-    autoConnect: true,
-    autoInitialize: true,
-    onRedirect: (url) => {
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-
-      const popup = window.open(
-        url,
-        'mcp-auth-popup',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
-      );
-
-      if (popup) {
-        popupRef.current = popup;
-      } else {
-        alert('Popup blocked! Please allow popups for this site.');
-      }
-    }
-  });
+  } = mcpClient;
 
   useOAuthPopup(connections as Connection[], finishAuth);
 
@@ -59,7 +37,7 @@ export function McpSidebar({ identity = 'demo-user-123', authToken = 'demo-auth-
 
     try {
       await connect({
-        serverId: config.serverId,
+        serverId: config.serverId || crypto.randomUUID(),
         serverName: config.serverName,
         serverUrl: config.serverUrl,
         callbackUrl: config.callbackUrl,

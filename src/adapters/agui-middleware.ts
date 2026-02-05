@@ -20,11 +20,32 @@ import {
 } from '@ag-ui/client';
 import { type AguiTool, cleanSchema } from './agui-adapter.js';
 
+/** New event type for MCP UI triggers */
+export const MCP_APP_UI_EVENT = 'mcp-apps-ui';
+/**
+ * MCP Apps UI trigger event.
+ *
+ * IMPORTANT: This must be emitted as an AG-UI CustomEvent so subscribers
+ * (e.g. CopilotKit `onCustomEvent`) can receive it.
+ */
+export interface McpAppUiEventPayload {
+    toolCallId: string;
+    resourceUri: string;
+    sessionId?: string;
+    toolName: string;
+    result?: any;
+}
+
 /** Tool execution result for continuation */
 interface ToolResult {
     toolCallId: string;
     toolName: string;
     result: string;
+    /**
+     * Raw result object (if available).
+     * Used to preserve metadata (e.g. `_meta`) that is lost in the stringified `result`.
+     */
+    rawResult?: any;
     messageId: string;
 }
 
@@ -43,8 +64,6 @@ interface RunState {
 export interface McpMiddlewareConfig {
     /** Pre-loaded tools with handlers (required) */
     tools: AguiTool[];
-    /** Max result length in chars (default: 50000) */
-    maxResultLength?: number;
 }
 
 /**
@@ -53,16 +72,15 @@ export interface McpMiddlewareConfig {
 export class McpMiddleware extends Middleware {
     private tools: AguiTool[];
     private toolSchemas: Tool[];
-    private maxResultLength: number;
 
     constructor(config: McpMiddlewareConfig) {
         super();
         this.tools = config.tools;
-        this.maxResultLength = config.maxResultLength ?? 50000;
         this.toolSchemas = this.tools.map((t: AguiTool) => ({
             name: t.name,
             description: t.description,
             parameters: cleanSchema(t.parameters),
+            _meta: t._meta, // Include _meta in the tool definition passed to the agent
         }));
     }
 
@@ -91,29 +109,33 @@ export class McpMiddleware extends Middleware {
         }
     }
 
-    private async executeTool(toolName: string, args: Record<string, any>): Promise<string> {
+    private async executeTool(toolName: string, args: Record<string, any>): Promise<{ resultStr: string, rawResult?: any }> {
         const tool = this.tools.find(t => t.name === toolName);
         if (!tool?.handler) {
-            return `Error: Tool ${tool ? 'has no handler' : 'not found'}: ${toolName}`;
+            return { resultStr: `Error: Tool ${tool ? 'has no handler' : 'not found'}: ${toolName}` };
         }
 
         try {
             console.log(`[McpMiddleware] Executing tool: ${toolName}`, args);
+            // Result can be a string (legacy) or an object (MCP Result with content array)
             const result = await tool.handler(args);
-            let resultStr = typeof result === 'string' ? result : JSON.stringify(result);
 
-            if (resultStr.length > this.maxResultLength) {
-                const original = resultStr.length;
-                resultStr = resultStr.slice(0, this.maxResultLength) +
-                    `\n\n[... Truncated from ${original} to ${this.maxResultLength} chars]`;
-                console.log(`[McpMiddleware] Tool result truncated from ${original} to ${this.maxResultLength} chars`);
+            let resultStr: string;
+
+            if (typeof result === 'string') {
+                resultStr = result;
+            } else if (result && typeof result === 'object') {
+                // Determine if we should preserve the object structure (e.g. for MCP Tool Results)
+                resultStr = JSON.stringify(result);
+            } else {
+                resultStr = String(result);
             }
 
             console.log(`[McpMiddleware] Tool result:`, resultStr.slice(0, 200));
-            return resultStr;
+            return { resultStr, rawResult: result };
         } catch (error: any) {
             console.error(`[McpMiddleware] Error executing tool:`, error);
-            return `Error: ${error.message || String(error)}`;
+            return { resultStr: `Error: ${error.message || String(error)}` };
         }
     }
 
@@ -209,11 +231,12 @@ export class McpMiddleware extends Middleware {
             const args = this.parseArgs(toolCallArgsBuffer.get(toolCallId) || '{}');
             console.log(`[McpMiddleware] Executing pending tool: ${toolName}`);
 
-            const result = await this.executeTool(toolName, args);
+            const { resultStr, rawResult } = await this.executeTool(toolName, args);
             results.push({
                 toolCallId,
                 toolName,
-                result,
+                result: resultStr,
+                rawResult,
                 messageId: this.generateId('mcp_result'),
             });
             pendingMcpCalls.delete(toolCallId);
@@ -223,9 +246,38 @@ export class McpMiddleware extends Middleware {
         return results;
     }
 
-    /** Emit tool results (without RUN_FINISHED - that's emitted when truly done) */
     private emitToolResults(observer: Subscriber<BaseEvent>, results: ToolResult[]): void {
-        for (const { toolCallId, toolName, result, messageId } of results) {
+        for (const { toolCallId, toolName, result, rawResult, messageId } of results) {
+            // UI metadata may appear either on the tool CALL result (rawResult._meta)
+            // or only on the tool DEFINITION (listTools result). We support both.
+            const toolDef = this.tools.find(t => t.name === toolName);
+            const sessionId = toolDef?._meta?.sessionId;
+            const resourceUri =
+                rawResult?._meta?.ui?.resourceUri ??
+                rawResult?._meta?.['ui/resourceUri'] ??
+                toolDef?._meta?.ui?.resourceUri ??
+                toolDef?._meta?.['ui/resourceUri'];
+
+            if (resourceUri) {
+                const payload: McpAppUiEventPayload = {
+                    toolCallId,
+                    resourceUri,
+                    sessionId,
+                    toolName,
+                    result: rawResult ?? result,
+                };
+
+                observer.next({
+                    type: EventType.CUSTOM,
+                    name: MCP_APP_UI_EVENT,
+                    value: payload,
+                    timestamp: Date.now(),
+                    role: 'tool',
+                } as any);
+
+                console.log(`[McpMiddleware] Emitting CustomEvent(${MCP_APP_UI_EVENT}) for: ${toolName} (session: ${sessionId})`);
+            }
+
             observer.next({
                 type: EventType.TOOL_CALL_RESULT,
                 toolCallId,
@@ -406,9 +458,7 @@ export class McpMiddleware extends Middleware {
 /**
  * Factory function to create MCP middleware.
  */
-export function createMcpMiddleware(
-    options: { tools: AguiTool[]; maxResultLength?: number }
-) {
+export function createMcpMiddleware(options: { tools: AguiTool[] }) {
     const middleware = new McpMiddleware(options);
     return (input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> => {
         return middleware.run(input, next);

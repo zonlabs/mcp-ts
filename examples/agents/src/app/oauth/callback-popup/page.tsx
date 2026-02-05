@@ -1,9 +1,9 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
-export default function OAuthCallbackPopup() {
+function OAuthCallbackContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState('Processing...');
 
@@ -25,10 +25,18 @@ export default function OAuthCallbackPopup() {
   }, [searchParams]);
 
   return (
+    <div className="text-center text-zinc-100">
+      <p className="text-lg">{status}</p>
+    </div>
+  );
+}
+
+export default function OAuthCallbackPopup() {
+  return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-900">
-      <div className="text-center text-zinc-100">
-        <p className="text-lg">{status}</p>
-      </div>
+      <Suspense fallback={<div className="text-zinc-100">Loading...</div>}>
+        <OAuthCallbackContent />
+      </Suspense>
     </div>
   );
 }
