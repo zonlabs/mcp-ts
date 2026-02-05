@@ -235,8 +235,11 @@ export class SSEConnectionManager {
   private async connect(params: ConnectParams): Promise<ConnectResult> {
     const { serverName, serverUrl, callbackUrl, transportType } = params;
 
-    // generate serverId on server-side if not provided
-    const serverId = params.serverId || await storage.generateSessionId(); // we use serverid as session id internally to track individual connections.
+    // Normalize serverId to max 12 chars to keep tool names under 64 chars (DeepSeek/OpenAI limits)
+    // Tool name format: tool_<serverId>_<toolName> - with 12 char serverId leaves 46 chars for tool name
+    const serverId = params.serverId && params.serverId.length <= 12
+      ? params.serverId
+      : await storage.generateSessionId();
 
     // Check for existing connections
     const existingSessions = await storage.getIdentitySessionsData(this.identity);

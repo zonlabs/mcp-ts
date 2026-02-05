@@ -3,12 +3,13 @@ import type { FormEvent } from 'react';
 
 interface ConnectFormProps {
   onConnect: (params: {
-    serverId: string;
+    serverId?: string;
     serverName: string;
     serverUrl: string;
     callbackUrl: string;
     transportType?: 'sse' | 'streamable_http';
   }) => Promise<string>;
+  isConnected: boolean;
 }
 
 export default function ConnectForm({ onConnect, isConnected }: ConnectFormProps) {
