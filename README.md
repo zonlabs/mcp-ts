@@ -35,12 +35,12 @@
 
 ## Features
 
-- **Real-Time SSE** - Server-Sent Events for live connection and observability updates
+- **Live SSE** - Server-Sent Events for live connection and observability updates
 - **Flexible Storage** - Redis, SQLite, File System, or In-Memory backends
-- **Serverless-Ready** - Works in serverless environments (Vercel, AWS Lambda, etc.)
+- **Serverless** - Works in serverless environments (Vercel, AWS Lambda, etc.)
 - **React Hook** - `useMcp` hook for easy React integration
 - **Vue Composable** - `useMcp` composable for Vue applications
-- **Full MCP Protocol** - Support for tools, prompts, and resources
+- **MCP Protocol** - Support for tools, prompts, and resources
 - **Agent Adapters** - Built-in adapters for AI SDK, LangChain, Mastra, and AG-UI
 - **MCP Apps Extension (SEP-1865)** - Interactive UI-driven tool interfaces
 
