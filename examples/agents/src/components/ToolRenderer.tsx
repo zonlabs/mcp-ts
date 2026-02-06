@@ -11,7 +11,7 @@ type RenderProps = ActionRenderPropsNoArgs<[]> & { name?: string };
 
 const defaultRender: React.FC<RenderProps> = (props) => {
   const { name = "", status, args, result } = props;
-  const { client, mcpClient } = useMcpContext();
+  const { mcpClient } = useMcpContext();
   const { agent } = useAgent({ agentId: "mcpAssistant" });
 
   // useMcpApps handles both metadata and events, and automatically handles
@@ -25,11 +25,12 @@ const defaultRender: React.FC<RenderProps> = (props) => {
 
   // Look up app by tool name - works with both base and prefixed formats!
   const app = apps[name];
-
+  console.log("Rendering tool call:", { name, status, args, result, app });
+  console.log("Available apps:", Object.keys(apps));
   return (
     <div className="flex flex-col gap-2">
       <MCPToolCall status={toolStatus} name={name} args={args} result={result} />
-      {app && client && app.sessionId && (
+      {app && mcpClient.sseClient && app.sessionId && (
         <McpAppTool
           app={app}
           toolInput={args}
