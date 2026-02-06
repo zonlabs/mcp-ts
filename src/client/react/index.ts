@@ -4,9 +4,9 @@
  */
 
 // React Hooks
-export { useMcp, type UseMcpOptions, type McpClient, type McpConnection } from './useMcp.js';
-export { useMcpApp } from './use-mcp-app.js';
-export { useMcpAppIframe, type UseMcpAppIframeProps, type UseMcpAppIframeReturn } from './use-mcp-app-iframe.js';
+export { useMcp, type UseMcpOptions, type McpClient, type McpConnection } from './use-mcp.js';
+export { useAppHost } from './use-app-host.js';
+export { useMcpAppIframe, type McpAppIframeProps } from './use-mcp-app-iframe.js';
 
 // AG-UI Subscriber Pattern (Framework-agnostic)
 export {

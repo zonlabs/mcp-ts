@@ -4,7 +4,7 @@
  */
 
 // Vue Composable
-export { useMcp, type UseMcpOptions, type McpClient, type McpConnection } from './useMcp';
+export { useMcp, type UseMcpOptions, type McpClient, type McpConnection } from './use-mcp';
 
 // Re-export shared types and client from main entry
 export * from '../index';

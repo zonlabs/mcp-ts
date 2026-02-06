@@ -47,6 +47,7 @@ const sidebars: SidebarsConfig = {
       ],
     },
     'adapters',
+    'agui-subscriber',
     'mcp-apps',
     'api-reference',
   ],

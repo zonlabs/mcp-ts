@@ -31,8 +31,7 @@ const defaultRender: React.FC<RenderProps> = (props) => {
       <MCPToolCall status={toolStatus} name={name} args={args} result={result} />
       {app && client && app.sessionId && (
         <McpAppTool
-          resourceUri={app.resourceUri}
-          sessionId={app.sessionId}
+          app={app}
           toolInput={args}
           toolResult={result}
           toolStatus={toolStatus}

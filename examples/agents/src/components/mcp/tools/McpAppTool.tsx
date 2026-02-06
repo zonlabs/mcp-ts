@@ -1,14 +1,17 @@
 "use client";
 
 import { Suspense, useMemo } from "react";
-import { useMcpAppIframe } from "@mcp-ts/sdk/client/react";
+import { useMcpAppIframe, type McpAppEvent } from "@mcp-ts/sdk/client/react";
 import { useMcpContext } from "../mcp-provider";
 
 interface McpAppToolProps {
-    resourceUri: string;
-    sessionId: string;
+    /** MCP app event from useMcpApps hook */
+    app: McpAppEvent;
+    /** Optional tool input override (defaults to app.input) */
     toolInput?: Record<string, unknown>;
+    /** Optional tool result override (defaults to app.result) */
     toolResult?: unknown;
+    /** Optional tool status override (defaults to app.status) */
     toolStatus?: "executing" | "inProgress" | "complete";
 }
 
@@ -41,19 +44,18 @@ function AppError({ message }: { message: string }) {
  * The actual iframe component - handles UI with business logic from hook
  */
 function McpAppIframe({
-    resourceUri,
-    sessionId,
+    app,
     toolInput,
     toolResult,
     toolStatus,
 }: McpAppToolProps) {
     const { client } = useMcpContext();
     const { iframeRef, isLaunched, error } = useMcpAppIframe({
-        resourceUri,
-        sessionId,
-        toolInput,
-        toolResult,
-        toolStatus,
+        resourceUri: app.resourceUri,
+        sessionId: app.sessionId!,
+        toolInput: toolInput ?? app.input,
+        toolResult: toolResult ?? app.result,
+        toolStatus: toolStatus ?? app.status,
         client: client!,
     });
 
@@ -87,24 +89,31 @@ function McpAppIframe({
  * Uses resource preloading for instant loading - the resource is fetched
  * when tools are discovered, not when the UI is rendered.
  *
+ * @example
+ * ```tsx
+ * const { apps } = useMcpApps(agent, mcpClient);
+ * const app = apps["my-tool"];
+ *
+ * {app && <McpAppTool app={app} />}
+ * ```
+ *
  * Pattern:
  * 1. Render iframe immediately (don't wait for resource)
  * 2. Launch in parallel (resource should be preloaded)
  * 3. Show loading state via overlay
  */
-export function McpAppTool({ resourceUri, sessionId, toolInput, toolResult, toolStatus }: McpAppToolProps) {
+export function McpAppTool({ app, toolInput, toolResult, toolStatus }: McpAppToolProps) {
     // Memoize the key to prevent unnecessary re-renders
     const appKey = useMemo(
-        () => `${sessionId}-${resourceUri}`,
-        [sessionId, resourceUri]
+        () => `${app.sessionId}-${app.resourceUri}`,
+        [app.sessionId, app.resourceUri]
     );
 
     return (
         <Suspense fallback={<AppLoadingSkeleton />}>
             <McpAppIframe
                 key={appKey}
-                resourceUri={resourceUri}
-                sessionId={sessionId}
+                app={app}
                 toolInput={toolInput}
                 toolResult={toolResult}
                 toolStatus={toolStatus}

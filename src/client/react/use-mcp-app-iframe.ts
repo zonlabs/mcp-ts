@@ -5,9 +5,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { SSEClient } from '../core/sse-client.js';
-import { useMcpApp } from './use-mcp-app.js';
+import { useAppHost } from './use-app-host.js';
 
-export interface UseMcpAppIframeProps {
+export interface McpAppIframeProps {
   /**
    * The resource URI of the MCP app to load
    */
@@ -39,7 +39,7 @@ export interface UseMcpAppIframeProps {
   client: SSEClient;
 }
 
-export interface UseMcpAppIframeReturn {
+interface McpAppIframeResult {
   /**
    * Ref to attach to the iframe element
    */
@@ -95,9 +95,9 @@ export function useMcpAppIframe({
   toolResult,
   toolStatus,
   client,
-}: UseMcpAppIframeProps): UseMcpAppIframeReturn {
+}: McpAppIframeProps): McpAppIframeResult {
   const iframeRef = useRef<HTMLIFrameElement>(null!);
-  const { host, error: hostError } = useMcpApp(client, iframeRef);
+  const { host, error: hostError } = useAppHost(client, iframeRef);
 
   const [isLaunched, setIsLaunched] = useState(false);
   const [error, setError] = useState<Error | null>(null);
