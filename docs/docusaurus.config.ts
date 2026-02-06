@@ -1,6 +1,7 @@
 import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import packageJson from '../package.json';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -88,7 +89,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          label: 'v1.1.0',
+          label: `v${packageJson.version}`,
           position: 'right',
           href: 'https://www.npmjs.com/package/@mcp-ts/sdk',
           className: 'navbar-version-badge',
