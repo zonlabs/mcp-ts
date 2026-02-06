@@ -15,7 +15,7 @@ import { AppHost } from '../core/app-host';
  * @param options - Optional configuration
  * @returns Object containing the AppHost instance (or null) and error state
  */
-export function useMcpApp(
+export function useAppHost(
     client: SSEClient,
     iframeRef: React.RefObject<HTMLIFrameElement>,
     options?: {
@@ -56,7 +56,7 @@ export function useMcpApp(
                 // Start bridge connection (this is fast, just sets up PostMessage)
                 await appHost.start();
             } catch (err) {
-                console.error('[useMcpApp] Failed to initialize AppHost:', err);
+                console.error('[useAppHost] Failed to initialize AppHost:', err);
                 setError(err instanceof Error ? err : new Error(String(err)));
             }
         };

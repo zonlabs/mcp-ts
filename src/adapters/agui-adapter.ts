@@ -189,12 +189,10 @@ export class AguiAdapter {
                 parameters: cleanSchema(tool.inputSchema),
                 _meta: { ...mcpTool._meta, sessionId: (client as any).getSessionId?.() },
                 handler: async (args: any) => {
-                    console.log(`[AguiAdapter] Executing MCP tool: ${mcpToolName}`, args);
-
-                    // IMPORTANT: call the actual MCP tool. (Previously this mistakenly returned the listTools() result.)
+                    // Call the actual MCP tool
                     const callResult = await (client as any).callTool(mcpToolName, args ?? {});
 
-                    // Return the raw result object so middleware can inspect `_meta` (e.g. for UI triggers).
+                    // Return the raw result object so middleware can inspect `_meta` (e.g. for UI triggers)
                     return callResult;
                 }
             }

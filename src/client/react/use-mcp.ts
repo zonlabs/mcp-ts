@@ -187,7 +187,7 @@ export interface McpClient {
   /**
    * Access the underlying SSEClient instance (for advanced usage like AppHost)
    */
-  client: SSEClient | null;
+  sseClient: SSEClient | null;
 }
 
 /**
@@ -571,6 +571,6 @@ export function useMcp(options: UseMcpOptions): McpClient {
     getPrompt,
     listResources,
     readResource,
-    client: clientRef.current,
+    sseClient: clientRef.current,
   };
 }

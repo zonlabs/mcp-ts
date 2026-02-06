@@ -1,11 +1,9 @@
 "use client";
 
-import { useAgent } from "@copilotkit/react-core/v2";
 import { CopilotChat, CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { McpSidebar } from "@/components/mcp";
 import { ToolRenderer } from "@/components/ToolRenderer";
 import { McpProvider } from "@/components/mcp/mcp-provider";
-import { McpEventsProvider } from "@/components/mcp/mcp-events-provider";
 
 const darkTheme: CopilotKitCSSProperties = {
   "--copilot-kit-primary-color": "#444444",
@@ -18,9 +16,9 @@ const darkTheme: CopilotKitCSSProperties = {
   "--copilot-kit-muted-color": "#a1a1aa",
 };
 
-function CopilotKitPageContent() {
+export default function CopilotKitPage() {
   return (
-    <McpEventsProvider>
+    <McpProvider url="/api/mcp" identity="demo-user-123">
       <main className="h-screen flex" style={darkTheme}>
         <aside className="w-80 shrink-0">
           <McpSidebar />
@@ -40,14 +38,6 @@ function CopilotKitPageContent() {
           </div>
         </div>
       </main>
-    </McpEventsProvider>
-  );
-}
-
-export default function CopilotKitPage() {
-  return (
-    <McpProvider url="/api/mcp" identity="demo-user-123">
-      <CopilotKitPageContent />
     </McpProvider>
   );
 }

@@ -66,5 +66,10 @@ export {
 } from './types';
 
 // Utilities
-export { sanitizeServerLabel } from './utils';
+export { sanitizeServerLabel } from './utils.js';
+export {
+  getToolUiResourceUri,
+  findToolByName,
+  type ToolUiConfig,
+} from './tool-utils.js';
 

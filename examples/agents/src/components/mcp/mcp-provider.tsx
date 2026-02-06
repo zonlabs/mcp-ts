@@ -2,10 +2,8 @@
 
 import { createContext, useContext, ReactNode, useCallback } from 'react';
 import { useMcp, type McpClient } from '@mcp-ts/sdk/client/react';
-import type { SSEClient } from '@mcp-ts/sdk/client';
 
 interface McpContextValue {
-    client: SSEClient | null;
     mcpClient: McpClient;
 }
 
@@ -43,7 +41,7 @@ export function McpProvider({ children, url, identity, requestTimeout }: McpProv
         }
     }, []);
 
-    const mcp = useMcp({
+    const mcpClient = useMcp({
         url,
         identity,
         requestTimeout,
@@ -51,7 +49,7 @@ export function McpProvider({ children, url, identity, requestTimeout }: McpProv
     });
 
     return (
-        <McpContext.Provider value={{ client: mcp.client, mcpClient: mcp }}>
+        <McpContext.Provider value={{ mcpClient }}>
             {children}
         </McpContext.Provider>
     );

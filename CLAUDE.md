@@ -14,13 +14,16 @@
 ### 2. Client (`src/client/`)
 - **`useMcp.ts`**: React hook for connection management and UI updates.
 - **`sse-client.ts`**: Browser-side client for SSE/RPC communication.
+- **`agui-subscriber.ts`**: Framework-agnostic AG-UI event subscriber for MCP apps.
+- **`use-agui-subscriber.ts`**: React hooks for AG-UI subscriber pattern.
 
 ### 3. Adapters (`src/adapters/`)
 Bridges for agent frameworks (optional peer dependencies):
 - **`ai-adapter.ts`**: Vercel AI SDK integration.
 - **`langchain-adapter.ts`**: LangChain.js integration.
 - **`mastra-adapter.ts`**: Mastra framework integration.
-- **`agui-adapter.ts`**: AG-UI middleware and client adapter.
+- **`agui-adapter.ts`**: AG-UI tool adapter for converting MCP tools.
+- **`agui-middleware.ts`**: AG-UI middleware for server-side MCP tool execution.
 
 ### 4. Storage Backends
 Configured via `MCP_TS_STORAGE_TYPE` or auto-detected:
@@ -40,6 +43,13 @@ Configured via `MCP_TS_STORAGE_TYPE` or auto-detected:
 - **Core**: Minimal dependencies (`nanoid`, `@modelcontextprotocol/sdk`).
 - **Adapters/Storage**: **Optional Peer Dependencies** (e.g., `ai`, `langchain`, `better-sqlite3`).
 - **Dynamic Imports**: Used to load adapters/storage implementations only when requested.
+
+### AG-UI Subscriber Pattern (MCP Apps)
+- **Framework-Agnostic**: Works with any AG-UI agent (HttpAgent, LangGraphAgent, etc.)
+- **No CopilotKit Dependency**: Uses AG-UI's native subscriber API directly
+- **Event-Driven**: Listens for tool call events and custom 'mcp-apps-ui' events
+- **State Management**: Built-in `McpAppEventManager` for React integration
+- **See**: `src/client/react/AGUI_SUBSCRIBER.md` for detailed documentation
 
 ## Development
 

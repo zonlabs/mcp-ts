@@ -47,6 +47,109 @@ graph TB
 
 ## Architecture
 
+### Complete Flow: How MCP Apps Render
+
+This diagram shows the complete lifecycle from hook initialization to app rendering and communication:
+
+```mermaid
+sequenceDiagram
+    participant User as Developer
+    participant useMcp as useMcp Hook
+    participant SSE as SSEClient
+    participant Server as MCP Server
+    participant useMcpApps as useMcpApps Hook
+    participant Agent as AG-UI Agent
+    participant McpAppTool as McpAppTool Component
+    participant useMcpAppIframe as useMcpAppIframe Hook
+    participant useAppHost as useAppHost Hook
+    participant AppHost as AppHost Class
+    participant AppBridge as AppBridge Protocol
+    participant Iframe as Sandboxed Iframe
+    participant McpApp as MCP App (HTML/JS)
+
+    rect rgb(230, 240, 255)
+    Note over User,Server: Phase 1: Setup & Discovery
+    User->>useMcp: Initialize connection
+    useMcp->>SSE: Connect to MCP servers
+    SSE->>Server: List tools
+    Server-->>SSE: Tools with UI metadata
+    SSE->>SSE: Preload UI resources (cache)
+    Note right of SSE: Resources cached<br/>for instant loading
+    end
+
+    rect rgb(255, 240, 230)
+    Note over User,Agent: Phase 2: Hook Setup
+    User->>useMcpApps: useMcpApps(agent, mcpClient)
+    useMcpApps->>Agent: Subscribe to events
+    useMcpApps->>SSE: Get tool metadata
+    SSE-->>useMcpApps: Tools with resourceUri
+    Note right of useMcpApps: Initial state:<br/>metadata only
+    end
+
+    rect rgb(240, 255, 240)
+    Note over Agent,McpApp: Phase 3: Tool Execution & Event
+    Agent->>Agent: Execute tool
+    Agent->>useMcpApps: Emit 'mcp-apps-ui' event
+    Note right of useMcpApps: Event includes:<br/>toolCallId, result,<br/>input, status
+    useMcpApps->>useMcpApps: Merge metadata + event
+    Note right of useMcpApps: Complete app object<br/>with all data
+    end
+
+    rect rgb(255, 245, 230)
+    Note over User,Iframe: Phase 4: Component Rendering
+    User->>McpAppTool: Render with app object
+    McpAppTool->>useMcpAppIframe: Pass props (resourceUri, sessionId, etc)
+    useMcpAppIframe->>useAppHost: Initialize (sseClient, iframeRef)
+    useAppHost->>AppHost: new AppHost(sseClient, iframeRef)
+    AppHost->>AppBridge: Initialize PostMessage bridge
+    AppBridge-->>AppHost: Bridge ready
+    useAppHost-->>useMcpAppIframe: Return { host, error }
+    useMcpAppIframe->>Iframe: Create iframe element
+    Note right of Iframe: Sandboxed with<br/>restricted permissions
+    end
+
+    rect rgb(245, 240, 255)
+    Note over AppHost,McpApp: Phase 5: App Launch
+    useMcpAppIframe->>AppHost: host.launch(resourceUri, sessionId)
+    AppHost->>SSE: getOrFetchResource(sessionId, resourceUri)
+    SSE-->>AppHost: Cached HTML resource
+    Note right of SSE: Instant load from cache
+    AppHost->>AppHost: Create blob URL
+    AppHost->>Iframe: Set iframe.src = blobUrl
+    Iframe->>McpApp: Load HTML
+    McpApp->>McpApp: Import @modelcontextprotocol/ext-apps
+    McpApp->>AppBridge: useApp().initialize()
+    AppBridge-->>McpApp: Bridge connected
+    Note right of McpApp: App is now live
+    end
+
+    rect rgb(255, 240, 245)
+    Note over useMcpAppIframe,McpApp: Phase 6: Data Communication
+    useMcpAppIframe->>AppHost: sendToolInput(input)
+    AppHost->>AppBridge: PostMessage(toolInput)
+    AppBridge->>McpApp: ontoolinput(params)
+    Note right of McpApp: App renders UI<br/>with input data
+
+    useMcpAppIframe->>AppHost: sendToolResult(result)
+    AppHost->>AppBridge: PostMessage(toolResult)
+    AppBridge->>McpApp: ontoolresult(result)
+    Note right of McpApp: App displays result
+    end
+
+    rect rgb(240, 245, 255)
+    Note over McpApp,Server: Phase 7: Bidirectional Communication
+    McpApp->>AppBridge: callServerTool(name, args)
+    AppBridge->>AppHost: Handle tool call
+    AppHost->>SSE: callTool(sessionId, name, args)
+    SSE->>Server: Execute tool
+    Server-->>SSE: Tool result
+    SSE-->>AppHost: Result
+    AppHost->>AppBridge: PostMessage(result)
+    AppBridge->>McpApp: Return result to app
+    Note right of McpApp: App processes<br/>server response
+    end
+```
+
 ### Components
 
 | Component | Description |
@@ -54,7 +157,7 @@ graph TB
 | **AppHost** | Manages iframe lifecycle, sandboxing, and AppBridge connection |
 | **SSEClient** | Handles resource preloading and caching for instant UI loading |
 | **McpAppTool** | React component that renders the MCP App iframe |
-| **useMcpApp** | React hook that initializes AppHost for an iframe |
+| **useAppHost** | React hook that initializes AppHost for an iframe |
 
 ### Communication Flow
 
@@ -139,24 +242,32 @@ server.resource(
 
 ### Using McpAppTool Component
 
-The `McpAppTool` component handles all the complexity of rendering MCP Apps:
+The `McpAppTool` component handles all the complexity of rendering MCP Apps. Use it with the `useMcpApps` hook for automatic MCP app management:
 
 ```tsx
 import { McpAppTool } from "@/components/mcp/tools/McpAppTool";
+import { useMcpApps } from "@mcp-ts/sdk/client/react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useMcpContext } from "./mcp-provider";
 
-function ToolRenderer({ tool, result, status }) {
-  // Extract UI metadata from tool
-  const uiUri = tool._meta?.ui?.resourceUri;
+function ToolRenderer({ name, args, result, status }) {
+  const { agent } = useAgent({ agentId: "myAgent" });
+  const { mcpClient } = useMcpContext();
 
-  if (!uiUri) {
-    return <DefaultToolView tool={tool} result={result} />;
+  // useMcpApps tracks all MCP apps and handles tool name matching
+  const { apps } = useMcpApps(agent, mcpClient);
+
+  // Look up app by tool name (works with both base and prefixed names)
+  const app = apps[name];
+
+  if (!app) {
+    return <DefaultToolView name={name} args={args} result={result} />;
   }
 
   return (
     <McpAppTool
-      resourceUri={uiUri}
-      sessionId={sessionId}
-      toolInput={tool.arguments}
+      app={app}
+      toolInput={args}
       toolResult={result}
       toolStatus={status}
     />
@@ -168,22 +279,21 @@ function ToolRenderer({ tool, result, status }) {
 
 | Prop | Type | Description |
 |------|------|-------------|
-| `resourceUri` | `string` | The `ui://` resource URI for the app |
-| `sessionId` | `string` | Active MCP session ID |
-| `toolInput` | `object` | Tool input arguments to pass to app |
-| `toolResult` | `unknown` | Tool execution result to pass to app |
-| `toolStatus` | `"executing" \| "inProgress" \| "complete"` | Current tool status |
+| `app` | `McpAppEvent` | MCP app event from `useMcpApps` hook |
+| `toolInput` | `object` (optional) | Tool input override (defaults to `app.input`) |
+| `toolResult` | `unknown` (optional) | Tool result override (defaults to `app.result`) |
+| `toolStatus` | `"executing" \| "inProgress" \| "complete"` (optional) | Status override (defaults to `app.status`) |
 
-### Using useMcpApp Hook
+### Using useAppHost Hook
 
-For custom implementations, use the `useMcpApp` hook directly:
+For custom implementations, use the `useAppHost` hook directly:
 
 ```tsx
-import { useMcpApp } from "@mcp-ts/sdk/client/react";
+import { useAppHost } from "@mcp-ts/sdk/client/react";
 
-function CustomMcpApp({ client, resourceUri, sessionId }) {
+function CustomMcpApp({ sseClient, resourceUri, sessionId }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { host, error } = useMcpApp(client, iframeRef);
+  const { host, error } = useAppHost(sseClient, iframeRef);
 
   useEffect(() => {
     if (host) {
@@ -420,18 +530,19 @@ server.resource(
 ```tsx
 // ToolRenderer.tsx
 import { McpAppTool } from "./mcp/tools/McpAppTool";
+import { useMcpApps } from "@mcp-ts/sdk/client/react";
 
-export function ToolRenderer({ tool, result, status, sessionId }) {
-  const uiUri = tool._meta?.ui?.resourceUri;
+export function ToolRenderer({ name, args, result, status, agent, mcpClient }) {
+  const { apps } = useMcpApps(agent, mcpClient);
+  const app = apps[name];
 
   return (
     <div className="tool-container">
-      <h3>{tool.name}</h3>
-      {uiUri && (
+      <h3>{name}</h3>
+      {app && (
         <McpAppTool
-          resourceUri={uiUri}
-          sessionId={sessionId}
-          toolInput={tool.arguments}
+          app={app}
+          toolInput={args}
           toolResult={result}
           toolStatus={status}
         />

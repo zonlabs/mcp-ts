@@ -84,7 +84,17 @@ export class McpMiddleware extends Middleware {
         }));
     }
 
+    /**
+     * Extract base tool name from prefixed format for event emission
+     * e.g., "tool_abc123_get-time" -> "get-time"
+     */
+    private getBaseToolName(toolName: string): string {
+        const match = toolName.match(/^tool_[^_]+_(.+)$/);
+        return match ? match[1] : toolName;
+    }
+
     private isMcpTool(toolName: string): boolean {
+        // Direct comparison - tool names should match as-is
         return this.tools.some(t => t.name === toolName);
     }
 
@@ -116,7 +126,6 @@ export class McpMiddleware extends Middleware {
         }
 
         try {
-            console.log(`[McpMiddleware] Executing tool: ${toolName}`, args);
             // Result can be a string (legacy) or an object (MCP Result with content array)
             const result = await tool.handler(args);
 
@@ -131,7 +140,6 @@ export class McpMiddleware extends Middleware {
                 resultStr = String(result);
             }
 
-            console.log(`[McpMiddleware] Tool result:`, resultStr.slice(0, 200));
             return { resultStr, rawResult: result };
         } catch (error: any) {
             console.error(`[McpMiddleware] Error executing tool:`, error);
@@ -168,7 +176,6 @@ export class McpMiddleware extends Middleware {
                 if (this.isMcpTool(e.toolCallName)) {
                     pendingMcpCalls.add(e.toolCallId);
                 }
-                console.log(`[McpMiddleware] TOOL_CALL_START: ${e.toolCallName} (id: ${e.toolCallId}, isMCP: ${this.isMcpTool(e.toolCallName)})`);
             }
         }
 
@@ -181,8 +188,7 @@ export class McpMiddleware extends Middleware {
         }
 
         if (event.type === EventType.TOOL_CALL_END) {
-            const e = event as ToolCallEndEvent;
-            console.log(`[McpMiddleware] TOOL_CALL_END: ${toolCallNames.get(e.toolCallId) ?? 'unknown'} (id: ${e.toolCallId})`);
+            // Track tool call end event
         }
 
         // Workaround: Extract parallel tool calls from MESSAGES_SNAPSHOT
@@ -208,7 +214,6 @@ export class McpMiddleware extends Middleware {
                                 toolCallArgsBuffer.set(tc.id, tc.function.arguments || '{}');
                                 if (this.isMcpTool(tc.function.name)) {
                                     pendingMcpCalls.add(tc.id);
-                                    console.log(`[McpMiddleware] MESSAGES_SNAPSHOT: Discovered ${tc.function.name} (id: ${tc.id})`);
                                 }
                             }
                         }
@@ -229,8 +234,6 @@ export class McpMiddleware extends Middleware {
             if (!toolName) return;
 
             const args = this.parseArgs(toolCallArgsBuffer.get(toolCallId) || '{}');
-            console.log(`[McpMiddleware] Executing pending tool: ${toolName}`);
-
             const { resultStr, rawResult } = await this.executeTool(toolName, args);
             results.push({
                 toolCallId,
@@ -259,11 +262,14 @@ export class McpMiddleware extends Middleware {
                 toolDef?._meta?.['ui/resourceUri'];
 
             if (resourceUri) {
+                // Extract base name for event emission to match metadata
+                const baseToolName = this.getBaseToolName(toolName);
+
                 const payload: McpAppUiEventPayload = {
                     toolCallId,
                     resourceUri,
                     sessionId,
-                    toolName,
+                    toolName: baseToolName, // Use base name to match metadata
                     result: rawResult ?? result,
                 };
 
@@ -274,8 +280,6 @@ export class McpMiddleware extends Middleware {
                     timestamp: Date.now(),
                     role: 'tool',
                 } as any);
-
-                console.log(`[McpMiddleware] Emitting CustomEvent(${MCP_APP_UI_EVENT}) for: ${toolName} (session: ${sessionId})`);
             }
 
             observer.next({
@@ -286,7 +290,6 @@ export class McpMiddleware extends Middleware {
                 role: 'tool',
                 timestamp: Date.now(),
             } as any);
-            console.log(`[McpMiddleware] Emitting TOOL_CALL_RESULT for: ${toolName}`);
         }
     }
 
@@ -303,14 +306,9 @@ export class McpMiddleware extends Middleware {
             this.ensureIds(input);
             const anyInput = input as any;
 
-            console.log(`[McpMiddleware] === NEW RUN ===`);
-            console.log(`[McpMiddleware] threadId: ${anyInput.threadId}, runId: ${anyInput.runId}`);
-            console.log(`[McpMiddleware] messages: ${input.messages?.length ?? 0}, tools: ${this.tools?.length ?? 0}`);
-
             // Inject MCP tools
             if (this.toolSchemas?.length) {
                 input.tools = [...(input.tools || []), ...this.toolSchemas];
-                console.log(`[McpMiddleware] Injected ${this.toolSchemas.length} tools:`, this.toolSchemas.map((t: Tool) => t.name));
             }
 
             const handleRunFinished = async () => {
@@ -326,8 +324,6 @@ export class McpMiddleware extends Middleware {
                     observer.complete();
                     return;
                 }
-
-                console.log(`[McpMiddleware] RUN_FINISHED with ${state.pendingMcpCalls.size} pending calls`);
 
                 // Reconstruct the Assistant Message that triggered these tools
                 const toolCalls = [];
@@ -352,15 +348,11 @@ export class McpMiddleware extends Middleware {
                         tool_calls: toolCalls.length > 0 ? toolCalls : undefined
                     };
                     input.messages.push(assistantMsg as any);
-                    console.log(`[McpMiddleware] Added assistant message to history before tools: ${state.textContent?.slice(0, 50)}... [${toolCalls.length} tools]`);
                 }
 
                 // Execute tools and emit results (no RUN_FINISHED yet - continuation follows)
                 const results = await this.executeTools(state);
                 this.emitToolResults(observer, results);
-
-                // Prepare continuation
-                console.log(`[McpMiddleware] Triggering continuation with ${results.length} results`);
 
                 // Add tool result messages to history
                 for (const { toolCallId, result, messageId } of results) {
@@ -378,7 +370,6 @@ export class McpMiddleware extends Middleware {
                 state.textContent = ''; // Clear text content for next turn
 
                 anyInput.runId = this.generateId('mcp_run');
-                console.log(`[McpMiddleware] === CONTINUATION RUN === messages: ${input.messages.length}`);
 
                 // Subscribe to continuation
                 next.run(input).subscribe({
@@ -388,7 +379,6 @@ export class McpMiddleware extends Middleware {
                         this.handleToolCallEvent(event, state);
 
                         if (event.type === EventType.RUN_ERROR) {
-                            console.log(`[McpMiddleware] RUN_ERROR received in continuation`);
                             state.error = true;
                             observer.next(event);
                             observer.complete();
@@ -396,7 +386,6 @@ export class McpMiddleware extends Middleware {
                         }
 
                         if (event.type === EventType.RUN_STARTED) {
-                            console.log(`[McpMiddleware] Filtering RUN_STARTED from continuation`);
                             return;
                         }
 
@@ -428,7 +417,6 @@ export class McpMiddleware extends Middleware {
                     this.handleToolCallEvent(event, state);
 
                     if (event.type === EventType.RUN_ERROR) {
-                        console.log(`[McpMiddleware] RUN_ERROR received`);
                         state.error = true;
                         observer.next(event);
                         observer.complete();
