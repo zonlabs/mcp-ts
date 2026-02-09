@@ -608,6 +608,80 @@ const {
 
 ---
 
+### `useMcpApps(mcpClient)`
+
+React hook for rendering MCP Apps - interactive UI components from MCP servers.
+
+```typescript
+import { useMcpApps } from '@mcp-ts/sdk/client/react';
+
+const { getAppMetadata, McpAppRenderer } = useMcpApps(mcpClient);
+```
+
+**Parameters:**
+- `mcpClient` - The MCP client from `useMcp()` or context (required)
+
+**Returns:**
+- `getAppMetadata(toolName: string)` - Function to look up MCP app metadata by tool name
+- `McpAppRenderer` - React component for rendering MCP apps
+
+#### `getAppMetadata(toolName: string)`
+
+Looks up MCP app metadata for a given tool name. Automatically handles tool name prefixes (e.g., `tool_abc123_get-time` → `get-time`).
+
+**Returns:** `McpAppMetadata | undefined`
+
+```typescript
+interface McpAppMetadata {
+  toolName: string;      // Base tool name
+  resourceUri: string;   // MCP resource URI for the app UI
+  sessionId: string;     // Session ID for the MCP connection
+}
+```
+
+#### `McpAppRenderer` Component
+
+Stable, memoized component for rendering MCP apps. Prevents iframe flickering by maintaining component identity across renders.
+
+**Props:**
+
+```typescript
+interface McpAppRendererProps {
+  metadata: McpAppMetadata;           // Stable metadata from getAppMetadata
+  input?: Record<string, unknown>;     // Tool arguments
+  result?: unknown;                    // Tool execution result
+  status: 'executing' | 'inProgress' | 'complete' | 'idle';
+  className?: string;                 // Custom CSS classes for container
+}
+```
+
+**Example:**
+
+```tsx
+import { useMcpApps } from '@mcp-ts/sdk/client/react';
+
+function ToolCallRenderer({ name, args, result, status }) {
+  const { mcpClient } = useMcpContext();
+  const { getAppMetadata, McpAppRenderer } = useMcpApps(mcpClient);
+  
+  const metadata = getAppMetadata(name);
+  
+  if (!metadata) return null;
+  
+  return (
+    <McpAppRenderer
+      metadata={metadata}
+      input={args}
+      result={result}
+      status={status}
+      className="my-custom-class"
+    />
+  );
+}
+```
+
+---
+
 ### `SSEClient`
 
 Lower-level SSE client for custom implementations.
