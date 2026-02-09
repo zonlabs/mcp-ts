@@ -40,6 +40,8 @@ interface McpAppRendererProps {
   result?: unknown;
   status: 'executing' | 'inProgress' | 'complete' | 'idle';
   sseClient?: SSEClient | null;
+  /** Custom CSS class for the container */
+  className?: string;
 }
 
 /**
@@ -52,6 +54,7 @@ const McpAppRenderer = memo(function McpAppRenderer({
   result,
   status,
   sseClient,
+  className,
 }: McpAppRendererProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { host, error: hostError } = useAppHost(sseClient as SSEClient, iframeRef);
@@ -117,14 +120,14 @@ const McpAppRenderer = memo(function McpAppRenderer({
   const displayError = error || hostError;
   if (displayError) {
     return (
-      <div className="p-4 bg-red-900/20 border border-red-700 rounded text-red-200">
+      <div className={`p-4 bg-red-900/20 border border-red-700 rounded text-red-200 ${className || ''}`}>
         Error: {displayError.message || String(displayError)}
       </div>
     );
   }
 
   return (
-    <div className="w-full border border-gray-700 rounded overflow-hidden bg-white min-h-96 my-2 relative">
+    <div className={`w-full border border-gray-700 rounded overflow-hidden bg-white min-h-96 my-2 relative ${className || ''}`}>
       <iframe
         ref={iframeRef}
         sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads"
