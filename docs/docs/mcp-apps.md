@@ -327,5 +327,5 @@ The app receives input when:
 ## Next Steps
 
 - See the [React Guide](./react.md) for basic MCP connection setup
-- Check the [Examples](../examples) for complete working implementations
+- Check the [Examples](https://github.com/zonlabs/mcp-ts/tree/main/examples) on GitHub for complete working implementations
 - Review [Adapter Documentation](./adapters.md) for LLM framework integration
