@@ -147,7 +147,8 @@ export async function POST(req: Request) {
 
 ```typescript
 'use client';
-import { useMcp } from '@mcp-ts/sdk/client';
+
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 function App() {
   const { connections, connect, status } = useMcp({
@@ -156,25 +157,30 @@ function App() {
   });
 
   return (
-    <div>
+    <>
       <p>Status: {status}</p>
-      <button onClick={() => connect({
-        serverId: 'my-server',
-        serverName: 'My MCP Server',
-        serverUrl: 'https://mcp.example.com',
-        callbackUrl: window.location.origin + '/callback',
-      })}>
+
+      <button
+        onClick={() =>
+          connect({
+            serverId: 'my-server',
+            serverName: 'My MCP Server',
+            serverUrl: 'https://mcp.example.com',
+            callbackUrl: `${window.location.origin}/callback`,
+          })
+        }
+      >
         Connect
       </button>
 
-      {connections.map(conn => (
+      {connections.map((conn) => (
         <div key={conn.sessionId}>
           <h3>{conn.serverName}</h3>
           <p>State: {conn.state}</p>
           <p>Tools: {conn.tools.length}</p>
         </div>
       ))}
-    </div>
+    </>
   );
 }
 ```
