@@ -17,6 +17,10 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
     'installation',
+    'nextjs',
+    'react',
+    'vue',
+    'node-express',
     'storage-backends',
     'adapters',
     'mcp-apps',
