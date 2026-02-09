@@ -22,6 +22,9 @@
   <a href="https://www.npmjs.com/package/@mcp-ts/sdk">
     <img src="https://img.shields.io/npm/v/@mcp-ts/sdk.svg" alt="npm version" />
   </a>
+  <a href="https://zonlabs.github.io/mcp-ts/">
+    <img src="https://img.shields.io/badge/docs-website-blue.svg" alt="Documentation" />
+  </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
   </a>
@@ -119,15 +122,11 @@ import { openai } from '@ai-sdk/openai';
 
 export async function POST(req: Request) {
   const { messages, identity } = await req.json();
-
   const client = new MultiSessionClient(identity);
 
   try {
     await client.connect();
-
     const tools = await AIAdapter.getTools(client);
-
-
     const result = streamText({
       model: openai('gpt-4'),
       messages,
@@ -136,7 +135,6 @@ export async function POST(req: Request) {
         await mcp.disconnect();
       }
     });
-
     return result.toDataStreamResponse();
   } catch (error) {
     await mcp.disconnect();
