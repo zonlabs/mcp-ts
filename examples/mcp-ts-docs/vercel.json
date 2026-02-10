@@ -1,6 +1,8 @@
 {
   "version": 2,
   "name": "mcp-ts-docs",
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "dist",
   "builds": [
     {
       "src": "api/index.ts",

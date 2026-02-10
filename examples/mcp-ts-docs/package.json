@@ -24,7 +24,8 @@
         }
     },
     "scripts": {
-        "build": "tsc --noEmit && cross-env INPUT=mcp-app.html vite build && tsc -p tsconfig.server.json",
+        "build": "tsc --noEmit && NODE_ENV=production INPUT=mcp-app.html vite build && tsc -p tsconfig.server.json",
+    "build:vercel": "tsc --noEmit && vite build --mode production && tsc -p tsconfig.server.json",
         "watch": "cross-env INPUT=mcp-app.html vite build --watch",
         "serve": "tsx --watch main.ts",
         "start": "cross-env NODE_ENV=development npm run build && npm run serve",
