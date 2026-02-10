@@ -7,37 +7,39 @@
     box-sizing: border-box;
 }
 
-/* Header - Clean flat design like README */
+/* Header - Clean design */
 .header {
     text-align: center;
     margin-bottom: var(--spacing-lg);
     padding: var(--spacing-lg);
-    border: 2px solid light-dark(var(--color-blue-200), var(--color-blue-800));
+    border: 1px solid light-dark(#e5e7eb, #374151);
     border-radius: var(--border-radius-md);
-    background: light-dark(var(--color-background-primary), #1a1a1a);
+    background: light-dark(var(--color-background-primary), #171717);
 }
 
 .banner {
     display: block;
     margin: 0 auto;
+    max-width: 100%;
+    height: auto;
 }
 
 .title {
     font-size: var(--font-heading-2xl-size);
     line-height: var(--font-heading-2xl-line-height);
-    margin: 0 0 var(--spacing-sm) 0;
-    color: var(--color-blue-700);
+    margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+    color: light-dark(#1f2937, #f3f4f6);
     font-weight: 700;
 }
 
 .subtitle {
     font-size: var(--font-text-md-size);
-    color: var(--color-blue-600);
-    margin: 0;
+    color: light-dark(#6b7280, #9ca3af);
+    margin: 0 0 var(--spacing-md) 0;
     font-weight: 500;
 }
 
-/* Badge-style buttons similar to npm/MIT badges */
+/* Badge container */
 .badgeContainer {
     display: flex;
     gap: var(--spacing-sm);
@@ -46,57 +48,21 @@
     margin-top: var(--spacing-md);
 }
 
-.badge {
+.badgeContainer a {
     display: inline-flex;
-    align-items: center;
-    padding: 4px 8px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    font-family: var(--font-mono);
-    border-radius: 4px;
-    text-decoration: none;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease;
 }
 
-.badgeBlue {
-    background: #3178c6;
-    color: white;
-    border: 1px solid #3178c6;
+.badgeContainer a:hover {
+    transform: translateY(-2px);
 }
 
-.badgeBlue:hover {
-    background: #235a97;
-    border-color: #235a97;
-}
-
-.badgeGreen {
-    background: #4caf50;
-    color: white;
-    border: 1px solid #4caf50;
-}
-
-.badgeGreen:hover {
-    background: #3d8b40;
-    border-color: #3d8b40;
-}
-
-.badgeYellow {
-    background: #ffc107;
-    color: #212529;
-    border: 1px solid #ffc107;
-}
-
-.badgeYellow:hover {
-    background: #e0a800;
-    border-color: #e0a800;
-}
-
-/* Tab Navigation - Badge style */
+/* Tab Navigation */
 .tabNav {
     display: flex;
     gap: var(--spacing-sm);
     margin-bottom: var(--spacing-lg);
-    border-bottom: 1px solid var(--color-blue-200);
+    border-bottom: 1px solid light-dark(#e5e7eb, #374151);
     padding-bottom: var(--spacing-sm);
 }
 
@@ -107,28 +73,28 @@
     padding: var(--spacing-sm) var(--spacing-md);
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 4px;
-    color: var(--color-text-primary);
+    border-radius: 6px;
+    color: light-dark(#4b5563, #9ca3af);
     font-size: var(--font-text-md-size);
-    font-weight: var(--font-weight-normal);
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .tabButton:hover {
-    background: var(--color-blue-100);
-    color: var(--color-blue-700);
+    background: light-dark(#f3f4f6, #262626);
+    color: light-dark(#1f2937, #f3f4f6);
 }
 
 .tabActive {
-    background: var(--color-blue-600);
+    background: var(--color-accent);
     color: white;
-    border-color: var(--color-blue-600);
-    font-weight: var(--font-weight-bold);
+    border-color: transparent;
+    font-weight: 600;
 }
 
 .tabActive:hover {
-    background: var(--color-blue-700);
+    background: var(--color-accent-hover);
     color: white;
 }
 
@@ -154,55 +120,55 @@
     padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-text-md-size);
     font-family: var(--font-sans);
-    background-color: var(--color-background-primary);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-blue-300);
-    border-radius: 4px;
+    background-color: light-dark(var(--color-background-primary), #262626);
+    color: light-dark(#1f2937, #f3f4f6);
+    border: 1px solid light-dark(#d1d5db, #4b5563);
+    border-radius: 6px;
     outline: none;
     transition: border-color 0.2s;
 }
 
 .searchInput:focus {
-    border-color: var(--color-blue-500);
+    border-color: var(--color-accent);
 }
 
-/* Search button - npm badge style */
+.searchInput::placeholder {
+    color: light-dark(#9ca3af, #6b7280);
+}
+
+/* Search button */
 .searchButton {
     padding: var(--spacing-sm) var(--spacing-lg);
-    background: #3178c6;
-    color: white;
-    border: 1px solid #3178c6;
-    border-radius: 4px;
-    font-weight: var(--font-weight-bold);
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
     font-size: var(--font-text-md-size);
-    font-family: var(--font-mono);
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
 }
 
 .searchButton:hover:not(:disabled) {
-    background: #235a97;
-    border-color: #235a97;
+    background: var(--color-accent-hover);
 }
 
 .searchButton:disabled {
-    background: var(--color-blue-300);
-    border-color: var(--color-blue-300);
+    background: light-dark(#9ca3af, #4b5563);
     cursor: not-allowed;
-    opacity: 0.7;
 }
 
-/* Results - Clean flat cards */
+/* Results */
 .resultsContainer {
     animation: fadeIn 0.3s ease;
     max-height: 350px;
     overflow-y: auto;
     overflow-x: hidden;
     margin-top: var(--spacing-md);
-    border: 1px solid var(--color-blue-200);
-    border-radius: 4px;
-    background-color: var(--color-background-primary);
+    border: 1px solid light-dark(#e5e7eb, #374151);
+    border-radius: 6px;
+    background-color: light-dark(var(--color-background-primary), #171717);
     padding: var(--spacing-md);
 }
 
@@ -213,14 +179,13 @@
 
 .resultsInfo {
     font-size: var(--font-text-md-size);
-    color: var(--color-blue-700);
+    color: light-dark(#374151, #d1d5db);
     margin-bottom: var(--spacing-md);
     font-weight: 600;
     padding: var(--spacing-sm);
-    background: var(--color-blue-50);
-    border: 1px solid var(--color-blue-200);
-    border-radius: 4px;
-    font-family: var(--font-mono);
+    background: light-dark(#f3f4f6, #262626);
+    border: 1px solid light-dark(#e5e7eb, #374151);
+    border-radius: 6px;
 }
 
 .resultsList {
@@ -234,27 +199,27 @@
 
 .resultItem {
     padding: var(--spacing-md);
-    background: var(--color-background-primary);
-    border: 1px solid var(--color-blue-200);
-    border-radius: 4px;
+    background: light-dark(var(--color-background-primary), #262626);
+    border: 1px solid light-dark(#e5e7eb, #374151);
+    border-radius: 6px;
     transition: border-color 0.2s;
 }
 
 .resultItem:hover {
-    border-color: var(--color-blue-400);
+    border-color: var(--color-accent);
 }
 
 .resultTitle {
     font-size: var(--font-heading-md-size);
     line-height: var(--font-heading-md-line-height);
     margin: 0 0 var(--spacing-xs) 0;
-    color: var(--color-blue-700);
-    font-weight: 700;
+    color: light-dark(#111827, #f3f4f6);
+    font-weight: 600;
 }
 
 .resultDescription {
     font-size: var(--font-text-md-size);
-    color: var(--color-text-primary);
+    color: light-dark(#4b5563, #9ca3af);
     margin: 0 0 var(--spacing-sm) 0;
     line-height: 1.5;
 }
@@ -262,32 +227,32 @@
 .resultLink {
     display: inline-flex;
     align-items: center;
-    color: var(--color-blue-600);
+    color: var(--color-accent);
     text-decoration: none;
-    font-weight: var(--font-weight-bold);
+    font-weight: 600;
     font-size: var(--font-text-md-size);
-    transition: color 0.2s;
+    transition: all 0.2s;
     gap: 4px;
 }
 
 .resultLink:hover {
-    color: var(--color-blue-800);
     text-decoration: underline;
+    gap: 8px;
 }
 
-/* No Results - Red badge style */
+/* No Results */
 .noResults {
     padding: var(--spacing-lg);
     text-align: center;
-    background: light-dark(var(--color-red-50), rgba(254, 242, 242, 0.1));
-    border: 1px solid light-dark(var(--color-red-300), var(--color-red-800));
-    border-radius: 4px;
+    background: light-dark(#fef2f2, rgba(254, 242, 242, 0.1));
+    border: 1px solid light-dark(#fecaca, #7f1d1d);
+    border-radius: 6px;
 }
 
 .noResults p {
     margin: 0 0 var(--spacing-md) 0;
-    font-weight: var(--font-weight-bold);
-    color: light-dark(var(--color-red-700), var(--color-red-300));
+    font-weight: 600;
+    color: light-dark(#dc2626, #fca5a5);
 }
 
 .suggestions {
@@ -300,29 +265,29 @@
 
 .suggestions li {
     padding: var(--spacing-xs) 0;
-    color: light-dark(#374151, #d1d5db);
+    color: light-dark(#4b5563, #9ca3af);
     font-size: 0.9rem;
 }
 
 .suggestions li::before {
     content: "• ";
-    color: light-dark(#3178c6, #60a5fa);
+    color: var(--color-accent);
     font-weight: bold;
 }
 
-/* Feedback Section - Green badge style */
+/* Feedback Section */
 .feedbackIntro {
     padding: var(--spacing-md);
-    background: var(--color-green-50);
-    border: 1px solid var(--color-green-300);
-    border-radius: 4px;
+    background: light-dark(#f0fdf4, rgba(240, 253, 244, 0.1));
+    border: 1px solid light-dark(#bbf7d0, #166534);
+    border-radius: 6px;
     margin-bottom: var(--spacing-lg);
 }
 
 .feedbackIntro p {
     margin: 0;
     font-size: var(--font-text-md-size);
-    color: var(--color-green-800);
+    color: light-dark(#166534, #86efac);
 }
 
 /* Form Elements */
@@ -332,10 +297,10 @@
 
 .label {
     display: block;
-    font-weight: var(--font-weight-bold);
+    font-weight: 600;
     font-size: var(--font-text-md-size);
     margin-bottom: var(--spacing-xs);
-    color: var(--color-blue-700);
+    color: light-dark(#374151, #d1d5db);
 }
 
 .select {
@@ -344,17 +309,17 @@
     padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-text-md-size);
     font-family: var(--font-sans);
-    background-color: var(--color-background-primary);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-blue-300);
-    border-radius: 4px;
+    background-color: light-dark(var(--color-background-primary), #262626);
+    color: light-dark(#1f2937, #f3f4f6);
+    border: 1px solid light-dark(#d1d5db, #4b5563);
+    border-radius: 6px;
     cursor: pointer;
     outline: none;
     transition: border-color 0.2s;
 }
 
 .select:focus {
-    border-color: var(--color-blue-500);
+    border-color: var(--color-accent);
 }
 
 .textarea {
@@ -363,64 +328,63 @@
     padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-text-md-size);
     font-family: var(--font-sans);
-    background-color: var(--color-background-primary);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-blue-300);
-    border-radius: 4px;
+    background-color: light-dark(var(--color-background-primary), #262626);
+    color: light-dark(#1f2937, #f3f4f6);
+    border: 1px solid light-dark(#d1d5db, #4b5563);
+    border-radius: 6px;
     resize: vertical;
     outline: none;
     transition: border-color 0.2s;
 }
 
 .textarea:focus {
-    border-color: var(--color-blue-500);
+    border-color: var(--color-accent);
 }
 
-/* Submit button - Green badge style */
+.textarea::placeholder {
+    color: light-dark(#9ca3af, #6b7280);
+}
+
+/* Submit button */
 .submitButton {
     padding: var(--spacing-sm) var(--spacing-lg);
-    background: #4caf50;
+    background: var(--color-green-600);
     color: white;
-    border: 1px solid #4caf50;
-    border-radius: 4px;
-    font-weight: var(--font-weight-bold);
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
     font-size: var(--font-text-md-size);
-    font-family: var(--font-mono);
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .submitButton:hover:not(:disabled) {
-    background: #3d8b40;
-    border-color: #3d8b40;
+    background: var(--color-green-700);
 }
 
 .submitButton:disabled {
     background: light-dark(#9ca3af, #4b5563);
-    border-color: light-dark(#9ca3af, #4b5563);
-    color: light-dark(#f3f4f6, #9ca3af);
     cursor: not-allowed;
 }
 
-/* Success message - Green badge style */
+/* Success message */
 .successMessage {
     margin-top: var(--spacing-md);
     padding: var(--spacing-md);
-    background: var(--color-green-100);
-    color: var(--color-green-800);
-    border: 1px solid var(--color-green-300);
-    border-radius: 4px;
-    font-weight: var(--font-weight-bold);
+    background: light-dark(#dcfce7, rgba(220, 252, 231, 0.1));
+    color: light-dark(#166534, #86efac);
+    border: 1px solid light-dark(#bbf7d0, #166534);
+    border-radius: 6px;
+    font-weight: 600;
     animation: fadeIn 0.3s ease;
-    font-family: var(--font-mono);
 }
 
-/* Legacy styles (kept for compatibility) */
+/* Legacy styles */
 .action {
     margin-bottom: var(--spacing-lg);
     padding: var(--spacing-md);
-    border: 1px solid var(--color-blue-300);
-    border-radius: 4px;
+    border: 1px solid light-dark(#e5e7eb, #374151);
+    border-radius: 6px;
 }
 
 .action p {
@@ -430,25 +394,18 @@
 
 .action button {
     padding: var(--spacing-sm) var(--spacing-md);
-    background: #3178c6;
+    background: var(--color-accent);
     color: white;
-    border: 1px solid #3178c6;
-    border-radius: 4px;
+    border: none;
+    border-radius: 6px;
     cursor: pointer;
-    font-weight: var(--font-weight-bold);
+    font-weight: 600;
     font-size: var(--font-text-md-size);
-    font-family: var(--font-mono);
     transition: all 0.2s ease;
 }
 
 .action button:hover {
-    background: #235a97;
-    border-color: #235a97;
-}
-
-.action button:active {
-    background: #1a4270;
-    border-color: #1a4270;
+    background: var(--color-accent-hover);
 }
 
 .action textarea,
@@ -458,25 +415,23 @@
     margin-bottom: var(--spacing-sm);
     font-family: var(--font-sans);
     font-size: var(--font-text-md-size);
-    background-color: var(--color-background-primary);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-blue-300);
-    border-radius: 4px;
+    background-color: light-dark(var(--color-background-primary), #262626);
+    color: light-dark(#1f2937, #f3f4f6);
+    border: 1px solid light-dark(#d1d5db, #4b5563);
+    border-radius: 6px;
 }
 
 .action textarea {
     min-height: 80px;
     resize: vertical;
-    font-family: var(--font-mono);
 }
 
 .notice {
     padding: var(--spacing-sm);
-    background-color: var(--color-blue-50);
-    color: var(--color-blue-700);
-    border: 1px solid var(--color-blue-300);
-    border-radius: 4px;
+    background-color: light-dark(#eff6ff, rgba(239, 246, 255, 0.1));
+    color: light-dark(#1e40af, #93c5fd);
+    border: 1px solid light-dark(#dbeafe, #1e3a8a);
+    border-radius: 6px;
     margin-bottom: var(--spacing-lg);
     font-size: var(--font-heading-sm-size);
-    font-family: var(--font-mono);
 }

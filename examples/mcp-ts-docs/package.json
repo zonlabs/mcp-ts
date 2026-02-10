@@ -1,11 +1,11 @@
 {
-    "name": "@modelcontextprotocol/server-mcp-ts-docs",
+    "name": "@mcp-ts/server-mcp-ts-docs",
     "version": "1.0.0",
     "type": "module",
     "description": "MCP App Server for mcp-ts documentation search and feedback",
     "repository": {
         "type": "git",
-        "url": "https://github.com/modelcontextprotocol/ext-apps",
+        "url": "https://github.com/mcp-ts/ext-apps",
         "directory": "examples/basic-server-react"
     },
     "license": "MIT",
@@ -32,8 +32,8 @@
         "prepublishOnly": "npm run build"
     },
     "dependencies": {
-        "@modelcontextprotocol/ext-apps": "^1.0.0",
-        "@modelcontextprotocol/sdk": "^1.24.0",
+        "@mcp-ts/ext-apps": "^1.0.0",
+        "@mcp-ts/sdk": "^1.24.0",
         "cors": "^2.8.5",
         "express": "^5.1.0",
         "react": "^19.2.0",

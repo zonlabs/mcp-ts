@@ -40,51 +40,32 @@
     --spacing-md: var(--spacing-unit);
     --spacing-lg: calc(var(--spacing-unit) * 1.5);
 
-    /* Primary Blue - npm badge style */
-    --color-blue-50: #e8f4fd;
-    --color-blue-100: #d1e9fa;
-    --color-blue-200: #b3d9f7;
-    --color-blue-300: #8ec4f2;
-    --color-blue-400: #61a8ec;
-    --color-blue-500: #3178c6;
-    --color-blue-600: #2563eb;
-    --color-blue-700: #1d4ed8;
-    --color-blue-800: #1e40af;
-    --color-blue-900: #1e3a8a;
-
-    /* Success Green - badge style */
-    --color-green-50: #f1f8e9;
-    --color-green-100: #dcedc8;
-    --color-green-200: #c5e1a5;
-    --color-green-300: #aed581;
-    --color-green-400: #8bc34a;
-    --color-green-500: #4caf50;
-    --color-green-600: #43a047;
-    --color-green-700: #388e3c;
-    --color-green-800: #2e7d32;
-    --color-green-900: #1b5e20;
-
-    /* Error Red - badge style */
-    --color-red-50: #ffebee;
-    --color-red-100: #ffcdd2;
-    --color-red-200: #ef9a9a;
-    --color-red-300: #e57373;
-    --color-red-400: #ef5350;
-    --color-red-500: #f44336;
-    --color-red-600: #e53935;
-    --color-red-700: #d32f2f;
-    --color-red-800: #c62828;
-    --color-red-900: #b71c1c;
-
-    /* App accent color (npm blue) */
-    --color-accent: #3178c6;
-    --color-accent-hover: #235a97;
+    /* Primary - MCP brand colors */
+    --color-primary-light: #60a5fa;
+    --color-primary-dark: #3b82f6;
+    --color-accent: light-dark(#2563eb, #60a5fa);
+    --color-accent-hover: light-dark(#1d4ed8, #93c5fd);
     --color-text-on-accent: #ffffff;
 
+    /* Success Green */
+    --color-green-50: #f0fdf4;
+    --color-green-100: #dcfce7;
+    --color-green-200: #bbf7d0;
+    --color-green-500: #22c55e;
+    --color-green-600: #16a34a;
+    --color-green-700: #15803d;
+
+    /* Error Red */
+    --color-red-50: #fef2f2;
+    --color-red-100: #fee2e2;
+    --color-red-500: #ef4444;
+    --color-red-600: #dc2626;
+    --color-red-700: #b91c1c;
+
     /* Status colors */
-    --color-status-executing: #3178c6;
-    --color-status-success: #4caf50;
-    --color-status-error: #f44336;
+    --color-status-executing: light-dark(#3b82f6, #60a5fa);
+    --color-status-success: #22c55e;
+    --color-status-error: #ef4444;
 }
 
 * {
