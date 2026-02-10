@@ -1,10 +1,8 @@
 /**
  * @file MCP Docs App - Documentation search and feedback UI for mcp-ts library.
+ * SIMPLIFIED VERSION - No useApp hook to avoid React commit errors
  */
-import type { App, McpUiHostContext } from "@modelcontextprotocol/ext-apps";
-import { useApp } from "@modelcontextprotocol/ext-apps/react";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { StrictMode, useCallback, useEffect, useState, useMemo, useRef, Component, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import styles from "./mcp-app.module.css";
 
@@ -21,22 +19,7 @@ interface SearchResults {
   count: number;
 }
 
-interface ToolInput {
-  arguments?: {
-    query?: string;
-    feedback?: string;
-    category?: string;
-  };
-  toolName?: string;
-}
-
-// Connection timeout in milliseconds
-const CONNECTION_TIMEOUT = 5000;
-
-// Check if running in iframe
-const isInIframe = typeof window !== 'undefined' && window.parent !== window;
-
-// Documentation index for client-side search (used in standalone mode)
+// Documentation index for search
 const DOC_INDEX = [
   {
     title: "Getting Started with mcp-ts",
@@ -84,433 +67,122 @@ function performSearch(query: string): DocResult[] {
   }));
 }
 
-// Error Boundary to catch React commit errors
-interface ErrorBoundaryProps {
-  children: ReactNode;
-  fallback: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("McpConnectedUI Error Boundary caught error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-    return this.props.children;
-  }
-}
-
-// Standalone UI for when AppBridge is not available
-function StandaloneUI() {
-  const [activeTab, setActiveTab] = useState<"search" | "feedback">("search");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [localResults, setLocalResults] = useState<SearchResults | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+// Simple hook to check if we're in an iframe
+function useInIframe(): boolean {
+  const [inIframe, setInIframe] = useState(false);
   
+  useEffect(() => {
+    setInIframe(window.parent !== window);
+  }, []);
+  
+  return inIframe;
+}
+
+// Simple standalone search UI
+function StandaloneSearch() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResults | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
   const handleSearch = useCallback(() => {
-    if (!searchQuery.trim()) return;
+    if (!query.trim()) return;
     setIsSearching(true);
     
+    // Simulate network delay
     setTimeout(() => {
-      const results = performSearch(searchQuery);
-      setLocalResults({
-        query: searchQuery,
-        results,
-        count: results.length
+      const searchResults = performSearch(query);
+      setResults({
+        query,
+        results: searchResults,
+        count: searchResults.length
       });
       setIsSearching(false);
     }, 300);
-  }, [searchQuery]);
-  
+  }, [query]);
+
+  return (
+    <div>
+      <div className={styles.searchBox}>
+        <input
+          type="text"
+          className={styles.searchInput}
+          placeholder="Search for topics like 'React hooks', 'storage', 'OAuth'..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+        />
+        <button 
+          className={styles.searchButton}
+          onClick={handleSearch}
+          disabled={isSearching || !query.trim()}
+        >
+          {isSearching ? "Searching..." : "Search"}
+        </button>
+      </div>
+
+      {results && (
+        <div className={styles.resultsContainer}>
+          <p className={styles.resultsInfo}>
+            Found {results.count} result{results.count !== 1 ? "s" : ""} for &quot;{results.query}&quot;
+          </p>
+          
+          {results.results.length > 0 ? (
+            <ul className={styles.resultsList}>
+              {results.results.map((result, index) => (
+                <li key={index} className={styles.resultItem}>
+                  <h3 className={styles.resultTitle}>{result.title}</h3>
+                  <p className={styles.resultDescription}>{result.description}</p>
+                  <a 
+                    href={result.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className={styles.resultLink}
+                  >
+                    View Documentation →
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className={styles.noResults}>
+              <p>No results found. Try searching for:</p>
+              <ul className={styles.suggestions}>
+                <li>&quot;installation&quot; - Setup instructions</li>
+                <li>&quot;react&quot; - React integration</li>
+                <li>&quot;storage&quot; - Storage backends</li>
+                <li>&quot;adapters&quot; - Framework adapters</li>
+                <li>&quot;api&quot; - API reference</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Simple standalone feedback UI
+function StandaloneFeedback() {
+  return (
+    <div className={styles.feedbackIntro}>
+      <p>Feedback submission requires MCP server connection.</p>
+      <p>Please use this app through an MCP client that supports AppBridge.</p>
+    </div>
+  );
+}
+
+// Main App Component - Simplified to avoid React commit errors
+function DocsApp() {
+  const [activeTab, setActiveTab] = useState<"search" | "feedback">("search");
+  const inIframe = useInIframe();
+
   return (
     <main className={styles.main}>
       <header className={styles.header}>
         <h1 className={styles.title}>mcp-ts Documentation</h1>
-        <p className={styles.subtitle}>Standalone Mode - Direct Search</p>
-        <div className={styles.badgeContainer}>
-          <span style={{ color: '#f59e0b', fontSize: '14px' }}>⚠️ Running without MCP connection</span>
-        </div>
-      </header>
-
-      <nav className={styles.tabNav}>
-        <button
-          className={`${styles.tabButton} ${activeTab === "search" ? styles.tabActive : ""}`}
-          onClick={() => setActiveTab("search")}
-        >
-          Search Docs
-        </button>
-        <button
-          className={`${styles.tabButton} ${activeTab === "feedback" ? styles.tabActive : ""}`}
-          onClick={() => setActiveTab("feedback")}
-        >
-          Submit Feedback
-        </button>
-      </nav>
-
-      {activeTab === "search" && (
-        <section className={styles.section}>
-          <div className={styles.searchBox}>
-            <input
-              type="text"
-              className={styles.searchInput}
-              placeholder="Search documentation..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <button 
-              className={styles.searchButton}
-              onClick={handleSearch}
-              disabled={isSearching || !searchQuery.trim()}
-            >
-              {isSearching ? "Searching..." : "Search"}
-            </button>
-          </div>
-
-          {localResults && (
-            <div className={styles.resultsContainer}>
-              <p className={styles.resultsInfo}>
-                Found {localResults.count} result{localResults.count !== 1 ? "s" : ""} for &quot;{localResults.query}&quot;
-              </p>
-              
-              {localResults.results.length > 0 ? (
-                <ul className={styles.resultsList}>
-                  {localResults.results.map((result, index) => (
-                    <li key={index} className={styles.resultItem}>
-                      <h3 className={styles.resultTitle}>{result.title}</h3>
-                      <p className={styles.resultDescription}>{result.description}</p>
-                      <a 
-                        href={result.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className={styles.resultLink}
-                      >
-                        View Documentation →
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className={styles.noResults}>
-                  <p>No results found. Try different keywords.</p>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeTab === "feedback" && (
-        <section className={styles.section}>
-          <div className={styles.feedbackIntro}>
-            <p>Feedback submission requires MCP connection. Please use the full MCP app.</p>
-          </div>
-        </section>
-      )}
-    </main>
-  );
-}
-
-// Safe wrapper for useApp that handles errors gracefully
-function useSafeApp() {
-  const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'error' | 'timeout'>('connecting');
-  const [connectionError, setConnectionError] = useState<Error | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isMountedRef = useRef(true);
-
-  // Clear timeout on unmount
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Set up timeout
-  useEffect(() => {
-    timeoutRef.current = setTimeout(() => {
-      if (isMountedRef.current && connectionState === 'connecting') {
-        console.warn('MCP connection timed out, falling back to standalone mode');
-        setConnectionState('timeout');
-      }
-    }, CONNECTION_TIMEOUT);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [connectionState]);
-
-  // Call useApp with error handling
-  let appResult: ReturnType<typeof useApp>;
-  try {
-    appResult = useApp({
-      appInfo: { name: "mcp-ts Docs App", version: "1.0.0" },
-      capabilities: {},
-    });
-  } catch (err) {
-    console.error('useApp hook threw error:', err);
-    if (isMountedRef.current && connectionState === 'connecting') {
-      setConnectionState('error');
-      setConnectionError(err instanceof Error ? err : new Error(String(err)));
-    }
-    return { app: null, error: err instanceof Error ? err : new Error(String(err)), connectionState: 'error' as const };
-  }
-
-  const { app, error: appError } = appResult;
-
-  // Update connection state based on app/error changes
-  useEffect(() => {
-    if (!isMountedRef.current) return;
-    
-    if (appError && connectionState === 'connecting') {
-      setConnectionState('error');
-      setConnectionError(appError);
-    } else if (app && connectionState === 'connecting') {
-      setConnectionState('connected');
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    }
-  }, [app, appError, connectionState]);
-
-  return { app, error: connectionError || appError, connectionState };
-}
-
-// MCP-connected UI with proper error handling
-function McpConnectedUI() {
-  const [activeTab, setActiveTab] = useState<"search" | "feedback">("search");
-  const [hostContext, setHostContext] = useState<McpUiHostContext | undefined>();
-  const [toolResult, setToolResult] = useState<CallToolResult | null>(null);
-  const [initialInput, setInitialInput] = useState<ToolInput | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  
-  const { app, error, connectionState } = useSafeApp();
-
-  // Safe initialization with useEffect - no state updates during render
-  useEffect(() => {
-    if (!app || isInitialized) return;
-
-    // Use setTimeout to defer state updates to next tick
-    const initTimeout = setTimeout(() => {
-      setIsInitialized(true);
-      
-      try {
-        const context = app.getHostContext();
-        setHostContext(context);
-      } catch (e) {
-        console.error('Failed to get host context:', e);
-      }
-      
-      // Set up event handlers
-      app.ontoolinput = async (input) => {
-        console.info("Received tool call input:", input);
-        if (input?.arguments?.query || input?.arguments?.feedback) {
-          // Use setTimeout to ensure state update happens outside render cycle
-          setTimeout(() => {
-            setInitialInput(input as ToolInput);
-          }, 0);
-        }
-      };
-      
-      app.ontoolresult = async (result) => {
-        console.info("Received tool call result:", result);
-        // Use setTimeout to ensure state update happens outside render cycle
-        setTimeout(() => {
-          setToolResult(result);
-        }, 0);
-      };
-      
-      app.onerror = (err: Error) => {
-        console.error("App error:", err);
-      };
-    }, 0);
-
-    return () => {
-      clearTimeout(initTimeout);
-    };
-  }, [app, isInitialized]);
-
-  // Handle timeout/error - fallback to standalone
-  if (connectionState === 'timeout' || connectionState === 'error') {
-    console.warn('MCP connection failed or timed out, rendering standalone UI');
-    return <StandaloneUI />;
-  }
-
-  // Show loading state while connecting
-  if (connectionState === 'connecting' || !app) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Connecting to mcp-ts Docs...</p>
-        <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-          This may take a few seconds. Will fallback to standalone mode if connection fails.
+        <p className={styles.subtitle}>
+          {inIframe ? "Connected via MCP" : "Standalone Mode"}
         </p>
-      </div>
-    );
-  }
-
-  // Show error if any
-  if (error) {
-    console.error('MCP App error:', error);
-    return <StandaloneUI />;
-  }
-
-  return (
-    <DocsAppInner 
-      app={app} 
-      activeTab={activeTab} 
-      setActiveTab={setActiveTab}
-      toolResult={toolResult}
-      initialInput={initialInput}
-      hostContext={hostContext}
-    />
-  );
-}
-
-interface DocsAppInnerProps {
-  app: App;
-  activeTab: "search" | "feedback";
-  setActiveTab: (tab: "search" | "feedback") => void;
-  toolResult: CallToolResult | null;
-  initialInput: ToolInput | null;
-  hostContext?: McpUiHostContext;
-}
-
-function DocsAppInner({ app, activeTab, setActiveTab, toolResult, initialInput, hostContext }: DocsAppInnerProps) {
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-
-  // Feedback state
-  const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackCategory, setFeedbackCategory] = useState("general");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
-
-  // Handle initial tool input
-  useEffect(() => {
-    if (initialInput?.arguments?.query) {
-      setSearchQuery(initialInput.arguments.query);
-      setActiveTab("search");
-      setIsSearching(true);
-      app.callServerTool({ 
-        name: "search-docs-ui", 
-        arguments: { query: initialInput.arguments.query } 
-      }).catch(() => setIsSearching(false));
-    }
-  }, [initialInput, app, setActiveTab]);
-
-  // Parse tool results
-  useEffect(() => {
-    if (toolResult?.content) {
-      const text = toolResult.content.find((c) => c.type === "text")?.text;
-      if (text) {
-        try {
-          const data = JSON.parse(text);
-          if (data.results !== undefined) {
-            setSearchResults(data);
-            setIsSearching(false);
-          } else if (data.success) {
-            setSubmitMessage(data.message);
-            setIsSubmitting(false);
-            setFeedbackText("");
-            setFeedbackCategory("general");
-          }
-        } catch (e) {
-          console.error("Failed to parse tool result:", e);
-        }
-      }
-    }
-  }, [toolResult]);
-
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim() || isSearching) return;
-    setIsSearching(true);
-    setSearchResults(null);
-    
-    try {
-      const result = await app.callServerTool({ 
-        name: "search-docs-ui", 
-        arguments: { query: searchQuery } 
-      });
-      if (result?.content) {
-        const textContent = result.content.find((c) => c.type === "text");
-        if (textContent && "text" in textContent) {
-          const data = JSON.parse(textContent.text);
-          if (data.results !== undefined) {
-            setSearchResults(data);
-            setIsSearching(false);
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Search error:", e);
-      setIsSearching(false);
-    }
-  }, [app, searchQuery, isSearching]);
-
-  const handleSubmitFeedback = useCallback(async () => {
-    if (!feedbackText.trim() || isSubmitting) return;
-    setIsSubmitting(true);
-    setSubmitMessage(null);
-    
-    try {
-      const result = await app.callServerTool({ 
-        name: "submit-feedback", 
-        arguments: { feedback: feedbackText, category: feedbackCategory }
-      });
-      if (result?.content) {
-        const textContent = result.content.find((c) => c.type === "text");
-        if (textContent && "text" in textContent) {
-          const data = JSON.parse(textContent.text);
-          if (data.success) {
-            setSubmitMessage(data.message);
-            setIsSubmitting(false);
-            setFeedbackText("");
-            setFeedbackCategory("general");
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Feedback error:", e);
-      setIsSubmitting(false);
-    }
-  }, [app, feedbackText, feedbackCategory, isSubmitting]);
-
-  return (
-    <main
-      className={styles.main}
-      style={{
-        paddingTop: hostContext?.safeAreaInsets?.top,
-        paddingRight: hostContext?.safeAreaInsets?.right,
-        paddingBottom: hostContext?.safeAreaInsets?.bottom,
-        paddingLeft: hostContext?.safeAreaInsets?.left,
-      }}
-    >
-      <header className={styles.header}>
-        <h1 className={styles.title}>mcp-ts Documentation</h1>
-        <p className={styles.subtitle}>Search guides, API docs, and examples</p>
         <div className={styles.badgeContainer}>
           <a href="https://www.npmjs.com/package/@mcp-ts/sdk" target="_blank" rel="noopener noreferrer">
             <img src="https://img.shields.io/npm/v/@mcp-ts/sdk.svg?style=flat&color=3178c6" alt="npm version" />
@@ -522,6 +194,11 @@ function DocsAppInner({ app, activeTab, setActiveTab, toolResult, initialInput, 
             <img src="https://img.shields.io/badge/docs-website-brightgreen.svg?style=flat&color=ffc107" alt="Documentation" />
           </a>
         </div>
+        {!inIframe && (
+          <p style={{ color: '#f59e0b', fontSize: '14px', marginTop: '10px' }}>
+            ⚠️ Running in standalone mode (no MCP connection)
+          </p>
+        )}
       </header>
 
       <nav className={styles.tabNav}>
@@ -541,135 +218,18 @@ function DocsAppInner({ app, activeTab, setActiveTab, toolResult, initialInput, 
 
       {activeTab === "search" && (
         <section className={styles.section}>
-          <div className={styles.searchBox}>
-            <input
-              type="text"
-              className={styles.searchInput}
-              placeholder="Search for topics like 'React hooks', 'storage', 'OAuth'..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <button 
-              className={styles.searchButton}
-              onClick={handleSearch}
-              disabled={isSearching || !searchQuery.trim()}
-            >
-              {isSearching ? "Searching..." : "Search"}
-            </button>
-          </div>
-
-          {searchResults && (
-            <div className={styles.resultsContainer}>
-              <p className={styles.resultsInfo}>
-                Found {searchResults.count} result{searchResults.count !== 1 ? "s" : ""} for &quot;{searchResults.query}&quot;
-              </p>
-              
-              {searchResults.results.length > 0 ? (
-                <ul className={styles.resultsList}>
-                  {searchResults.results.map((result, index) => (
-                    <li key={index} className={styles.resultItem}>
-                      <h3 className={styles.resultTitle}>{result.title}</h3>
-                      <p className={styles.resultDescription}>{result.description}</p>
-                      <a 
-                        href={result.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className={styles.resultLink}
-                      >
-                        View Documentation →
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className={styles.noResults}>
-                  <p>No results found. Try searching for:</p>
-                  <ul className={styles.suggestions}>
-                    <li>&quot;installation&quot; - Setup instructions</li>
-                    <li>&quot;react&quot; - React integration</li>
-                    <li>&quot;storage&quot; - Storage backends</li>
-                    <li>&quot;adapters&quot; - Framework adapters</li>
-                    <li>&quot;api&quot; - API reference</li>
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
+          <StandaloneSearch />
         </section>
       )}
 
       {activeTab === "feedback" && (
         <section className={styles.section}>
-          <div className={styles.feedbackIntro}>
-            <p>Help us improve mcp-ts! Your feedback is valuable for making the library better.</p>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="category">Category (optional)</label>
-            <select
-              id="category"
-              className={styles.select}
-              value={feedbackCategory}
-              onChange={(e) => setFeedbackCategory(e.target.value)}
-            >
-              <option value="general">General Feedback</option>
-              <option value="bug">Bug Report</option>
-              <option value="feature-request">Feature Request</option>
-              <option value="documentation">Documentation Issue</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="feedback">Your Feedback</label>
-            <textarea
-              id="feedback"
-              className={styles.textarea}
-              placeholder="Describe your experience, issues, or suggestions..."
-              value={feedbackText}
-              onChange={(e) => setFeedbackText(e.target.value)}
-              rows={5}
-            />
-          </div>
-
-          <button
-            className={styles.submitButton}
-            onClick={handleSubmitFeedback}
-            disabled={isSubmitting || !feedbackText.trim()}
-          >
-            {isSubmitting ? "Submitting..." : "Submit Feedback"}
-          </button>
-
-          {submitMessage && (
-            <div className={styles.successMessage}>
-              {submitMessage}
-            </div>
-          )}
+          <StandaloneFeedback />
         </section>
       )}
     </main>
   );
 }
 
-// Root component that decides which UI to render
-function DocsApp() {
-  // Use memo to prevent recalculation on re-renders
-  const shouldUseStandalone = useMemo(() => !isInIframe, []);
-  
-  if (shouldUseStandalone) {
-    return <StandaloneUI />;
-  }
-  
-  return (
-    <ErrorBoundary fallback={<StandaloneUI />}>
-      <McpConnectedUI />
-    </ErrorBoundary>
-  );
-}
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <DocsApp />
-  </StrictMode>,
-);
+// Render the app
+createRoot(document.getElementById("root")!).render(<DocsApp />);
