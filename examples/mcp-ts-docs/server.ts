@@ -5,10 +5,26 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 
-// Works both from source (server.ts) and compiled (dist/server.js)
-const DIST_DIR = import.meta.filename.endsWith(".ts")
-    ? path.join(import.meta.dirname, "dist")
-    : import.meta.dirname;
+// Determine the correct dist directory for different environments
+// Local development: dist/ folder next to source
+// Vercel serverless: files are in /var/task/ (root of deployment)
+function getDistDir(): string {
+    const currentDir = import.meta.dirname;
+    
+    // Check if we're in Vercel's serverless environment
+    if (currentDir.includes('/var/task/')) {
+        return currentDir; // In Vercel, files are in the same directory
+    }
+    
+    // Local development - check if we're running from source or compiled
+    if (import.meta.filename.endsWith(".ts")) {
+        return path.join(currentDir, "dist");
+    }
+    
+    return currentDir;
+}
+
+const DIST_DIR = getDistDir();
 
 // Documentation index for search functionality
 const DOC_INDEX = [
@@ -240,6 +256,27 @@ export function createServer(): McpServer {
         },
     );
 
+    // Helper function to read HTML file from multiple possible locations
+    async function getHtmlContent(): Promise<string> {
+        const possiblePaths = [
+            path.join(DIST_DIR, "mcp-app.html"),
+            path.join(process.cwd(), "dist", "mcp-app.html"),
+            path.join(process.cwd(), "mcp-app.html"),
+            "/var/task/dist/mcp-app.html",
+            "/var/task/mcp-app.html",
+        ];
+        
+        for (const htmlPath of possiblePaths) {
+            try {
+                return await fs.readFile(htmlPath, "utf-8");
+            } catch {
+                continue;
+            }
+        }
+        
+        throw new Error("Could not find mcp-app.html in any of the expected locations");
+    }
+
     // Register the search UI resource
     registerAppResource(
         server,
@@ -247,7 +284,7 @@ export function createServer(): McpServer {
         SEARCH_UI_RESOURCE_URI,
         { mimeType: RESOURCE_MIME_TYPE },
         async (): Promise<ReadResourceResult> => {
-            const html = await fs.readFile(path.join(DIST_DIR, "mcp-app.html"), "utf-8");
+            const html = await getHtmlContent();
             return {
                 contents: [{ uri: SEARCH_UI_RESOURCE_URI, mimeType: RESOURCE_MIME_TYPE, text: html }],
             };
@@ -261,7 +298,7 @@ export function createServer(): McpServer {
         FEEDBACK_RESOURCE_URI,
         { mimeType: RESOURCE_MIME_TYPE },
         async (): Promise<ReadResourceResult> => {
-            const html = await fs.readFile(path.join(DIST_DIR, "mcp-app.html"), "utf-8");
+            const html = await getHtmlContent();
             return {
                 contents: [{ uri: FEEDBACK_RESOURCE_URI, mimeType: RESOURCE_MIME_TYPE, text: html }],
             };

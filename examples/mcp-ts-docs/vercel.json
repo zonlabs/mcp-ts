@@ -1,13 +1,25 @@
 {
   "version": 2,
   "name": "mcp-ts-docs",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "installCommand": "npm install",
   "builds": [
     {
       "src": "api/index.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "dist/mcp-app.html",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
+    {
+      "src": "/dist/mcp-app.html",
+      "dest": "/dist/mcp-app.html"
+    },
     {
       "src": "/mcp",
       "dest": "/api/index.ts"
@@ -19,5 +31,11 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "files": [
+    "api/**",
+    "dist/**",
+    "server.ts",
+    "package.json"
+  ]
 }
