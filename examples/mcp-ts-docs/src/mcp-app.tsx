@@ -6,6 +6,26 @@ import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import styles from "./mcp-app.module.css";
 
+// --- Types ---
+
+interface JsonRpcRequest {
+  jsonrpc: "2.0";
+  id: number | string;
+  method: string;
+  params?: any;
+}
+
+interface JsonRpcResponse {
+  jsonrpc: "2.0";
+  id: number | string;
+  result?: any;
+  error?: {
+    code: number;
+    message: string;
+    data?: any;
+  };
+}
+
 // Search result type
 interface DocResult {
   title: string;
@@ -18,6 +38,8 @@ interface SearchResults {
   results: DocResult[];
   count: number;
 }
+
+// --- Documentation Data ---
 
 // Documentation index for search
 const DOC_INDEX = [
@@ -67,38 +89,165 @@ function performSearch(query: string): DocResult[] {
   }));
 }
 
+// --- MCP Bridge Implementation (SEP-1865) ---
+
+class McpBridge {
+  private nextId = 1;
+  private pendingRequests = new Map<number | string, { resolve: (value: any) => void; reject: (reason: any) => void }>();
+  private connected = false;
+
+  constructor() {
+    window.addEventListener("message", this.handleMessage);
+  }
+
+  private handleMessage = (event: MessageEvent) => {
+    const data = event.data as JsonRpcResponse;
+    if (data && data.jsonrpc === "2.0") {
+      if (data.id !== undefined) {
+        // Response to a request
+        const request = this.pendingRequests.get(data.id);
+        if (request) {
+          if (data.error) {
+            request.reject(data.error);
+          } else {
+            request.resolve(data.result);
+          }
+          this.pendingRequests.delete(data.id);
+        }
+      }
+      // Handle notifications (optional, if we need to listen to server events)
+    }
+  };
+
+  async connect(): Promise<void> {
+    if (this.connected) return;
+
+    // Send initialize request
+    try {
+      await this.sendRequest("initialize", {
+        capabilities: {},
+        clientInfo: { name: "mcp-ts-docs", version: "1.0.0" },
+        protocolVersion: "2024-11-05" // Use a recent date-based version or check spec
+      });
+      console.log("MCP Bridge Connected");
+      this.connected = true;
+
+      // Notify host that we are initialized
+      this.sendNotification("notifications/initialized", {});
+    } catch (e) {
+      console.error("Failed to connect to MCP Host:", e);
+      throw e;
+    }
+  }
+
+  sendRequest(method: string, params: any): Promise<any> {
+    const id = this.nextId++;
+    const request: JsonRpcRequest = {
+      jsonrpc: "2.0",
+      id,
+      method,
+      params
+    };
+
+    return new Promise((resolve, reject) => {
+      this.pendingRequests.set(id, { resolve, reject });
+      window.parent.postMessage(request, "*");
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        if (this.pendingRequests.has(id)) {
+          this.pendingRequests.delete(id);
+          reject(new Error(`Request ${method} timed out`));
+        }
+      }, 10000);
+    });
+  }
+
+  sendNotification(method: string, params: any): void {
+    const notification = {
+      jsonrpc: "2.0",
+      method,
+      params
+    };
+    window.parent.postMessage(notification, "*");
+  }
+
+  // Renamed to match reference implementation style
+  async callServerTool(name: string, args: any): Promise<any> {
+    return this.sendRequest("tools/call", {
+      name,
+      arguments: args
+    });
+  }
+}
+
+// Global bridge instance
+const mcpBridge = new McpBridge();
+
+// --- Components ---
+
 // Simple hook to check if we're in an iframe
 function useInIframe(): boolean {
   const [inIframe, setInIframe] = useState(false);
-  
+
   useEffect(() => {
     setInIframe(window.parent !== window);
   }, []);
-  
+
   return inIframe;
 }
 
+function useMcpConnection() {
+  const inIframe = useInIframe();
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    if (inIframe) {
+      mcpBridge.connect().then(() => setConnected(true)).catch(() => setConnected(false));
+    }
+  }, [inIframe]);
+
+  return { connected, bridge: mcpBridge };
+}
+
+
 // Simple standalone search UI
-function StandaloneSearch() {
+function StandaloneSearch({ bridge, connected }: { bridge: McpBridge, connected: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = useCallback(() => {
+  const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
     setIsSearching(true);
-    
-    // Simulate network delay
-    setTimeout(() => {
-      const searchResults = performSearch(query);
-      setResults({
-        query,
-        results: searchResults,
-        count: searchResults.length
-      });
+
+    try {
+      if (connected) {
+        const result = await bridge.callServerTool("search-docs", { query });
+        // Result content is usually { content: [{ type: "text", text: "..." }] }
+        // Our tool returns a JSON string in the text field.
+        if (result && result.content && result.content[0] && result.content[0].text) {
+          const parsed = JSON.parse(result.content[0].text);
+          setResults(parsed);
+        }
+      } else {
+        // Local fallback
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const searchResults = performSearch(query);
+        setResults({
+          query,
+          results: searchResults,
+          count: searchResults.length
+        });
+      }
+    } catch (error) {
+      console.error("Search failed:", error);
+    } finally {
       setIsSearching(false);
-    }, 300);
-  }, [query]);
+    }
+
+  }, [query, connected, bridge]);
 
   return (
     <div>
@@ -111,7 +260,7 @@ function StandaloneSearch() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
         />
-        <button 
+        <button
           className={styles.searchButton}
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}
@@ -125,16 +274,16 @@ function StandaloneSearch() {
           <p className={styles.resultsInfo}>
             Found {results.count} result{results.count !== 1 ? "s" : ""} for &quot;{results.query}&quot;
           </p>
-          
+
           {results.results.length > 0 ? (
             <ul className={styles.resultsList}>
               {results.results.map((result, index) => (
                 <li key={index} className={styles.resultItem}>
                   <h3 className={styles.resultTitle}>{result.title}</h3>
                   <p className={styles.resultDescription}>{result.description}</p>
-                  <a 
-                    href={result.link} 
-                    target="_blank" 
+                  <a
+                    href={result.link}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className={styles.resultLink}
                   >
@@ -161,6 +310,95 @@ function StandaloneSearch() {
   );
 }
 
+// Feedback Form Component
+function FeedbackForm({ bridge }: { bridge: McpBridge }) {
+  const [feedback, setFeedback] = useState("");
+  const [category, setCategory] = useState("general");
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedback.trim()) return;
+
+    setStatus("submitting");
+    try {
+      const result = await bridge.callServerTool("submit-feedback", { feedback, category });
+      if (result && result.content && result.content[0] && result.content[0].text) {
+        const parsed = JSON.parse(result.content[0].text);
+        if (parsed.success) {
+          setStatus("success");
+          setMessage(parsed.message);
+          setFeedback("");
+        } else {
+          throw new Error("Feedback submission failed");
+        }
+      }
+    } catch (error) {
+      console.error("Feedback submission error:", error);
+      setStatus("error");
+      setMessage("Failed to submit feedback. Check console for details.");
+    }
+  };
+
+  if (status === "success") {
+    return (
+      <div className={styles.feedbackSuccess}>
+        <h3>✅ Feedback Sent</h3>
+        <p>{message}</p>
+        <button
+          className={styles.resetButton}
+          onClick={() => { setStatus("idle"); setMessage(""); }}
+        >
+          Send Another
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className={styles.feedbackForm} onSubmit={handleSubmit}>
+      <div className={styles.formGroup}>
+        <label htmlFor="category">Category</label>
+        <select
+          id="category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className={styles.selectInput}
+        >
+          <option value="general">General</option>
+          <option value="bug">Bug Report</option>
+          <option value="feature-request">Feature Request</option>
+          <option value="documentation">Documentation</option>
+        </select>
+      </div>
+
+      <div className={styles.formGroup}>
+        <label htmlFor="feedback">Your Feedback</label>
+        <textarea
+          id="feedback"
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder="Tell us what you think..."
+          className={styles.textareaInput}
+          required
+          rows={5}
+        />
+      </div>
+
+      {status === "error" && <p className={styles.errorMessage}>{message}</p>}
+
+      <button
+        type="submit"
+        className={styles.submitButton}
+        disabled={status === "submitting" || !feedback.trim()}
+      >
+        {status === "submitting" ? "Sending..." : "Submit Feedback"}
+      </button>
+    </form>
+  );
+}
+
 // Simple standalone feedback UI
 function StandaloneFeedback() {
   return (
@@ -175,13 +413,14 @@ function StandaloneFeedback() {
 function DocsApp() {
   const [activeTab, setActiveTab] = useState<"search" | "feedback">("search");
   const inIframe = useInIframe();
+  const { connected, bridge } = useMcpConnection();
 
   return (
     <main className={styles.main}>
       <header className={styles.header}>
         <h1 className={styles.title}>mcp-ts Documentation</h1>
         <p className={styles.subtitle}>
-          {inIframe ? "Connected via MCP" : "Standalone Mode"}
+          {connected ? "Connected via MCP" : (inIframe ? "Connecting..." : "Standalone Mode")}
         </p>
         <div className={styles.badgeContainer}>
           <a href="https://www.npmjs.com/package/@mcp-ts/sdk" target="_blank" rel="noopener noreferrer">
@@ -218,13 +457,17 @@ function DocsApp() {
 
       {activeTab === "search" && (
         <section className={styles.section}>
-          <StandaloneSearch />
+          <StandaloneSearch bridge={bridge} connected={connected} />
         </section>
       )}
 
       {activeTab === "feedback" && (
         <section className={styles.section}>
-          <StandaloneFeedback />
+          {connected ? (
+            <FeedbackForm bridge={bridge} />
+          ) : (
+            <StandaloneFeedback />
+          )}
         </section>
       )}
     </main>
