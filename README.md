@@ -106,41 +106,6 @@ export const { GET, POST } = createNextMcpHandler({
     //  your logic here
   }
 });
-});
-```
-
-### Using with Vercel AI SDK
-
-For advanced usage with `ai` SDK (e.g., `streamText`), use `MultiSessionClient` to aggregate tools from multiple servers.
-
-```typescript
-// app/api/chat/route.ts
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
-import { streamText } from 'ai';
-import { openai } from '@ai-sdk/openai';
-
-export async function POST(req: Request) {
-  const { messages, identity } = await req.json();
-  const client = new MultiSessionClient(identity);
-
-  try {
-    await client.connect();
-    const tools = await AIAdapter.getTools(client);
-    const result = streamText({
-      model: openai('gpt-4'),
-      messages,
-      tools,
-      onFinish: async () => {
-        await mcp.disconnect();
-      }
-    });
-    return result.toDataStreamResponse();
-  } catch (error) {
-    await mcp.disconnect();
-    throw error;
-  }
-}
 ```
 
 ### Client-Side (React)
@@ -185,9 +150,51 @@ function App() {
 }
 ```
 
+### Using with Vercel AI SDK
+
+For advanced usage with `ai` SDK (e.g., `streamText`), use `MultiSessionClient` to aggregate tools from multiple servers.
+
+<details>
+<summary>View Vercel AI SDK Integration (AI Adapter)</summary>
+
+```typescript
+// app/api/chat/route.ts
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+export async function POST(req: Request) {
+  const { messages, identity } = await req.json();
+  const client = new MultiSessionClient(identity);
+
+  try {
+    await client.connect();
+    const tools = await AIAdapter.getTools(client);
+    const result = streamText({
+      model: openai('gpt-4'),
+      messages,
+      tools,
+      onFinish: async () => {
+        await mcp.disconnect();
+      }
+    });
+    return result.toDataStreamResponse();
+  } catch (error) {
+    await mcp.disconnect();
+    throw error;
+  }
+}
+```
+
+</details>
+
 ### <img src="docs/static/img/agent-framework/agui.webp" width="20" height="20" align="center" /> AG-UI Middleware
 
 Execute MCP tools server-side when using remote agents (LangGraph, AutoGen, etc.):
+
+<details>
+<summary>View AG-UI Integration (Agent Middleware)</summary>
 
 ```typescript
 import { HttpAgent } from "@ag-ui/client";
@@ -210,6 +217,8 @@ agent.use(createMcpMiddleware({
   tools: mcpTools,
 }));
 ```
+
+</details>
 
 The middleware intercepts tool calls from remote agents, executes MCP tools server-side, and returns results back to the agent.
 
@@ -316,9 +325,13 @@ For more details, refer to the documentation and follow the **installation guide
 
 Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on how to contribute.
 
-## License
 
-MIT © MCP Assistant
+<br />
+
+<p align="center">
+  <em> Thanks for visiting ✨ @mcp-ts!</em><br><br>
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=zonlabs.mcp-ts&style=for-the-badge&color=00d4ff" alt="Views">
+</p>
 
 
 
