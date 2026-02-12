@@ -3,24 +3,25 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult, ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 // Determine the correct dist directory for different environments
 // Local development: dist/ folder next to source
 // Vercel serverless: files are in /var/task/ (root of deployment)
 function getDistDir(): string {
-    const currentDir = import.meta.dirname;
-    
+    const currentDir = import.meta.dirname || path.dirname(fileURLToPath(import.meta.url));
+
     // Check if we're in Vercel's serverless environment
     if (currentDir.includes('/var/task/')) {
         return currentDir; // In Vercel, files are in the same directory
     }
-    
+
     // Local development - check if we're running from source or compiled
     if (import.meta.filename.endsWith(".ts")) {
         return path.join(currentDir, "dist");
     }
-    
+
     return currentDir;
 }
 
@@ -135,7 +136,7 @@ const FEEDBACK_RESOURCE_URI = "ui://docs/feedback.html";
 // Shared search function
 function performSearch(query: string): Array<{ title: string; description: string; link: string }> {
     const normalizedQuery = query.toLowerCase();
-    
+
     const results = DOC_INDEX.filter(doc => {
         const inTitle = doc.title.toLowerCase().includes(normalizedQuery);
         const inDescription = doc.description.toLowerCase().includes(normalizedQuery);
@@ -172,11 +173,12 @@ export function createServer(): McpServer {
             _meta: {}, // Empty _meta for LLM use - no UI resource
         },
         async (args: { query: string }): Promise<CallToolResult> => {
+            console.log(`[Request] Tool 'search-docs' called with query: "${args.query}"`);
             const formattedResults = performSearch(args.query);
 
             return {
-                content: [{ 
-                    type: "text", 
+                content: [{
+                    type: "text",
                     text: JSON.stringify({
                         query: args.query,
                         results: formattedResults,
@@ -200,12 +202,13 @@ export function createServer(): McpServer {
             _meta: { ui: { resourceUri: SEARCH_UI_RESOURCE_URI } },
         },
         async (args: { query?: string }): Promise<CallToolResult> => {
+            console.log(`[Request] Tool 'search-docs-ui' called with query: "${args.query || ''}"`);
             const query = args.query || "";
             const formattedResults = query ? performSearch(query) : [];
 
             return {
-                content: [{ 
-                    type: "text", 
+                content: [{
+                    type: "text",
                     text: JSON.stringify({
                         query: query,
                         results: formattedResults,
@@ -231,8 +234,9 @@ export function createServer(): McpServer {
             _meta: { ui: { resourceUri: FEEDBACK_RESOURCE_URI } },
         },
         async (args: { feedback: string; category?: string }): Promise<CallToolResult> => {
+            console.log(`[Request] Tool 'submit-feedback' called`);
             const id = `feedback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
+
             // Store feedback
             feedbackStorage.push({
                 id,
@@ -244,8 +248,8 @@ export function createServer(): McpServer {
             console.log(`[Feedback Received] ${id}: ${args.category || "general"} - ${args.feedback.substring(0, 100)}...`);
 
             return {
-                content: [{ 
-                    type: "text", 
+                content: [{
+                    type: "text",
                     text: JSON.stringify({
                         success: true,
                         message: "Thank you for your feedback! It helps us improve mcp-ts.",
@@ -265,7 +269,7 @@ export function createServer(): McpServer {
             "/var/task/dist/mcp-app.html",
             "/var/task/mcp-app.html",
         ];
-        
+
         for (const htmlPath of possiblePaths) {
             try {
                 return await fs.readFile(htmlPath, "utf-8");
@@ -273,7 +277,7 @@ export function createServer(): McpServer {
                 continue;
             }
         }
-        
+
         throw new Error("Could not find mcp-app.html in any of the expected locations");
     }
 
@@ -284,6 +288,7 @@ export function createServer(): McpServer {
         SEARCH_UI_RESOURCE_URI,
         { mimeType: RESOURCE_MIME_TYPE },
         async (): Promise<ReadResourceResult> => {
+            console.log(`[Request] Resource accessed: ${SEARCH_UI_RESOURCE_URI}`);
             const html = await getHtmlContent();
             return {
                 contents: [{ uri: SEARCH_UI_RESOURCE_URI, mimeType: RESOURCE_MIME_TYPE, text: html }],
@@ -298,6 +303,7 @@ export function createServer(): McpServer {
         FEEDBACK_RESOURCE_URI,
         { mimeType: RESOURCE_MIME_TYPE },
         async (): Promise<ReadResourceResult> => {
+            console.log(`[Request] Resource accessed: ${FEEDBACK_RESOURCE_URI}`);
             const html = await getHtmlContent();
             return {
                 contents: [{ uri: FEEDBACK_RESOURCE_URI, mimeType: RESOURCE_MIME_TYPE, text: html }],
