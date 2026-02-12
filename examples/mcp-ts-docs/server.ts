@@ -18,7 +18,7 @@ function getDistDir(): string {
     }
 
     // Local development - check if we're running from source or compiled
-    if (import.meta.filename.endsWith(".ts")) {
+    if (fileURLToPath(import.meta.url).endsWith(".ts")) {
         return path.join(currentDir, "dist");
     }
 
