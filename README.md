@@ -116,15 +116,13 @@ export const { GET, POST } = createNextMcpHandler({
 import { useMcp } from '@mcp-ts/sdk/client/react';
 
 function App() {
-  const { connections, connect, status } = useMcp({
+  const { connections, connect } = useMcp({
     url: '/api/mcp',
     identity: 'user-123',
   });
 
   return (
-    <>
-      <p>Status: {status}</p>
-
+    <div className="flex flex-col items-center gap-4">
       <button
         onClick={() =>
           connect({
@@ -137,7 +135,6 @@ function App() {
       >
         Connect
       </button>
-
       {connections.map((conn) => (
         <div key={conn.sessionId}>
           <h3>{conn.serverName}</h3>
@@ -145,17 +142,17 @@ function App() {
           <p>Tools: {conn.tools.length}</p>
         </div>
       ))}
-    </>
+    </div>
   );
 }
 ```
 
-### Using with Vercel AI SDK
+### Adapters
 
-For advanced usage with `ai` SDK (e.g., `streamText`), use `MultiSessionClient` to aggregate tools from multiple servers.
+Integrating with agent frameworks is simple using built-in adapters.
 
 <details>
-<summary>View Vercel AI SDK Integration (AI Adapter)</summary>
+<summary>Vercel AI SDK</summary>
 
 ```typescript
 // app/api/chat/route.ts
@@ -176,12 +173,12 @@ export async function POST(req: Request) {
       messages,
       tools,
       onFinish: async () => {
-        await mcp.disconnect();
+        await client.disconnect();
       }
     });
     return result.toDataStreamResponse();
   } catch (error) {
-    await mcp.disconnect();
+    await client.disconnect();
     throw error;
   }
 }
@@ -189,12 +186,43 @@ export async function POST(req: Request) {
 
 </details>
 
-### <img src="docs/static/img/agent-framework/agui.webp" width="20" height="20" align="center" /> AG-UI Middleware
+<details>
+<summary>Agui Adapter</summary>
+
+```typescript
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
+
+const client = new MultiSessionClient("user_123");
+await client.connect();
+
+const adapter = new AguiAdapter(client);
+const tools = await adapter.getTools();
+```
+
+</details>
+
+<details>
+<summary>Mastra Adapter</summary>
+
+```typescript
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { MastraAdapter } from '@mcp-ts/sdk/adapters/mastra-adapter';
+
+const client = new MultiSessionClient("user_123");
+await client.connect();
+
+const tools = await MastraAdapter.getTools(client);
+```
+
+</details>
+
+### AG-UI Middleware
 
 Execute MCP tools server-side when using remote agents (LangGraph, AutoGen, etc.):
 
 <details>
-<summary>View AG-UI Integration (Agent Middleware)</summary>
+<summary>View AG-UI (Agent Middleware)</summary>
 
 ```typescript
 import { HttpAgent } from "@ag-ui/client";
@@ -221,6 +249,47 @@ agent.use(createMcpMiddleware({
 </details>
 
 The middleware intercepts tool calls from remote agents, executes MCP tools server-side, and returns results back to the agent.
+
+### MCP Apps (SEP-1865)
+
+Render interactive UIs for your tools using the `useMcpApps` hook.
+
+<details>
+<summary>View MCP Apps</summary>
+
+```typescript
+import { useRenderToolCall } from "@copilotkit/react-core";
+import { useMcpApps } from "@mcp-ts/sdk/client/react";
+import { useMcpContext } from "./mcp";
+
+export function ToolRenderer() {
+  const { mcpClient } = useMcpContext();
+  const { getAppMetadata, McpAppRenderer } = useMcpApps(mcpClient);
+
+  useRenderToolCall({
+    name: "*",
+    render: ({ name, args, result, status }) => {
+      const metadata = getAppMetadata(name);
+      
+      if (!metadata) return null;
+
+      return (
+        <McpAppRenderer
+          metadata={metadata}
+          input={args}
+          result={result}
+          status={status}
+          sseClient={mcpClient.sseClient}
+        />
+      );
+    },
+  });
+
+  return null;
+}
+```
+
+</details>
 
 ## Documentation
 
