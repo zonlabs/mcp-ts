@@ -387,11 +387,6 @@ export class MCPClient {
       return;
     }
 
-    // Ensure createdAt is always set
-    if (!this.createdAt) {
-      this.createdAt = Date.now();
-    }
-
     const sessionData = {
       sessionId: this.sessionId,
       identity: this.identity,
@@ -399,8 +394,8 @@ export class MCPClient {
       serverName: this.serverName,
       serverUrl: this.serverUrl,
       callbackUrl: this.callbackUrl,
-      transportType: this.transportType || 'streamable_http' as TransportType,
-      createdAt: this.createdAt,
+      transportType: (this.transportType || 'streamable_http') as TransportType,
+      createdAt: this.createdAt || Date.now(),
     };
 
     // Try to update first, create if doesn't exist

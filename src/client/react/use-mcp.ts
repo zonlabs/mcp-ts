@@ -271,7 +271,12 @@ export function useMcp(options: UseMcpOptions): McpClient {
           const existing = prev.find((c: McpConnection) => c.sessionId === event.sessionId);
           if (existing) {
             return prev.map((c: McpConnection) =>
-              c.sessionId === event.sessionId ? { ...c, state: event.state } : c
+              c.sessionId === event.sessionId ? {
+                ...c,
+                state: event.state,
+                // update createdAt if present in event, otherwise keep existing
+                createdAt: event.createdAt ? new Date(event.createdAt) : c.createdAt
+              } : c
             );
           } else {
             // Fix: Don't add back disconnected sessions that were just removed
