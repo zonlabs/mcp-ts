@@ -274,6 +274,11 @@ export function useMcp(options: UseMcpOptions): McpClient {
               c.sessionId === event.sessionId ? { ...c, state: event.state } : c
             );
           } else {
+            // Fix: Don't add back disconnected sessions that were just removed
+            if (event.state === 'DISCONNECTED') {
+              return prev;
+            }
+
             return [
               ...prev,
               {
