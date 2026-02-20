@@ -10,20 +10,36 @@ You are an expert assistant, an AI assistant that helps users with their tasks u
 export async function createMcpAgent(identity: string = 'demo-user-123') {
     const manager = new MultiSessionClient(identity);
 
+    const notificationSubscription = manager.setNotificationHandlers({
+        onProgress: (event) => {
+            console.log(`[MCP][progress][${event.serverId}] ${event.progress}/${event.total ?? '?'} ${event.message ?? ''}`);
+        },
+        onTaskStatus: (event) => {
+            console.log(`[MCP][task][${event.serverId}] ${event.taskId ?? 'unknown'} -> ${event.status ?? 'unknown'}`);
+        },
+    });
+
     try {
         await manager.connect();
     } catch (error) {
+        notificationSubscription.dispose();
         console.error("[MCP] Connection failed:", error);
     }
 
     const tools = await AIAdapter.getTools(manager);
     console.log(`[MCP] Loaded ${Object.keys(tools).length} tools for agent.`);
 
-    return new ToolLoopAgent({
+    const agent = new ToolLoopAgent({
         model: openai('gpt-4.1-mini'),
         instructions: INSTRUCTIONS,
         tools: tools as any,
         stopWhen: stepCountIs(5),
     });
+
+    // Optional: if your runtime has explicit teardown, call both:
+    // notificationSubscription.dispose();
+    // manager.dispose();
+
+    return agent;
 }
 export type McpAgentUIMessage = InferAgentUIMessage<Awaited<ReturnType<typeof createMcpAgent>>>;

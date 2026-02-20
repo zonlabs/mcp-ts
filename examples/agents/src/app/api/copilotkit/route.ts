@@ -29,6 +29,15 @@ export const POST = async (req: NextRequest) => {
   const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
   const client = new MultiSessionClient(identity);
 
+  const notificationSubscription = client.setNotificationHandlers({
+    onProgress: (event) => {
+      console.log(`[CopilotKit][progress][${event.serverId}] ${event.progress}/${event.total ?? '?'} ${event.message ?? ''}`);
+    },
+    onTaskStatus: (event) => {
+      console.log(`[CopilotKit][task][${event.serverId}] ${event.taskId ?? 'unknown'} -> ${event.status ?? 'unknown'}`);
+    },
+  });
+
   // Connect to all active sessions before getting tools
   await client.connect();
 
@@ -69,5 +78,11 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
     });
 
-  return handleRequest(req);
+  const response = await handleRequest(req);
+
+  // In long-lived runtimes, prefer managed lifecycle hooks. For this per-request example,
+  // clean up subscriptions after request handling.
+  notificationSubscription.dispose();
+
+  return response;
 };
