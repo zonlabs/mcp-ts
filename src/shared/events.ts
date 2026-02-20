@@ -130,14 +130,6 @@ export type McpConnectionEvent =
     serverId: string;
     message: string;
     timestamp: number;
-  }
-  | {
-    type: 'server_notification';
-    sessionId: string;
-    serverId: string;
-    method: string;
-    params?: Record<string, unknown>;
-    timestamp: number;
   };
 
 /**

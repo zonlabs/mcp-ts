@@ -858,8 +858,7 @@ type McpConnectionEvent =
   | { type: 'auth_required'; sessionId: string; authUrl: string; ... }
   | { type: 'error'; sessionId: string; error: string; ... }
   | { type: 'disconnected'; sessionId: string; reason?: string; ... }
-  | { type: 'progress'; sessionId: string; message: string; ... }
-  | { type: 'server_notification'; sessionId: string; method: string; params?: Record<string, unknown>; ... };
+  | { type: 'progress'; sessionId: string; message: string; ... };
 ```
 
 ### Tool Types
