@@ -228,15 +228,22 @@ import { MultiSessionClient } from '@mcp-ts/sdk/server';
 const client = new MultiSessionClient('user_123');
 await client.connect();
 
-client.onNotification((event) => {
-  if (event.method === 'notifications/progress') {
-    console.log('Progress:', event.params);
-  }
-
-  if (event.method === 'notifications/tasks/status') {
-    console.log('Task status update:', event.params);
-  }
+const subscription = client.setNotificationHandlers({
+  onProgress: (event) => {
+    const total = event.total ?? event.progress;
+    const percent = total > 0 ? (event.progress / total) * 100 : event.progress;
+    console.log(`Progress ${percent.toFixed(1)}%`, event.message);
+  },
+  onTaskStatus: (event) => {
+    console.log('Task status update:', event.status, event.taskId);
+  },
+  onToolListChanged: () => {
+    console.log('Tools changed, refresh cache');
+  },
 });
+
+// Later if needed:
+subscription.dispose();
 ```
 
 ### AG-UI Middleware

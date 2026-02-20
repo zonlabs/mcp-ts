@@ -242,6 +242,33 @@ mcp.disconnect();
 
 ---
 
+**Notification Events and Handlers**
+
+`MultiSessionClient` exposes both a generic event stream and typed notification hooks:
+
+- `onNotification(event)` - raw notification stream with `method` + `params`
+- `onProgress(event)` - `notifications/progress`
+- `onLoggingMessage(event)` - `notifications/message`
+- `onToolListChanged(event)` - `notifications/tools/list_changed`
+- `onResourceListChanged(event)` - `notifications/resources/list_changed`
+- `onPromptListChanged(event)` - `notifications/prompts/list_changed`
+- `onResourceUpdated(event)` - `notifications/resources/updated`
+- `onTaskStatus(event)` - `notifications/tasks/status`
+
+You can also register a FastMCP-style callback object:
+
+```typescript
+const subscription = mcp.setNotificationHandlers({
+  onProgress: (event) => console.log(event.progress, event.total),
+  onLoggingMessage: (event) => console.log(event.level, event.data),
+  onToolListChanged: () => console.log('tool list changed'),
+});
+
+subscription.dispose();
+```
+
+---
+
 
 ### Adapters
 
