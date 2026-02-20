@@ -78,4 +78,26 @@ test.describe('MultiSessionClient notification listeners', () => {
 
     expect(progressEvents).toHaveLength(1);
   });
+
+
+  test('dispose removes notification listeners', () => {
+    const client = new MultiSessionClient('user-1');
+
+    const received: any[] = [];
+    client.onNotification((event) => {
+      received.push(event);
+    });
+
+    client.dispose();
+
+    (client as any)._onNotification.fire({
+      sessionId: 'session-1',
+      serverId: 'server-1',
+      method: 'notifications/progress',
+      timestamp: Date.now(),
+    });
+
+    expect(received).toHaveLength(0);
+  });
+
 });

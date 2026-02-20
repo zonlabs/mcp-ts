@@ -325,4 +325,21 @@ export class MultiSessionClient {
         });
         this.clients = [];
     }
+    /**
+     * Dispose this multi-session client and all event listeners.
+     * Use this when the instance will no longer be reused.
+     */
+    dispose(): void {
+        this.disconnect();
+        this.notificationForwarders.clear();
+        this._onNotification.dispose();
+        this._onProgress.dispose();
+        this._onLoggingMessage.dispose();
+        this._onToolListChanged.dispose();
+        this._onResourceListChanged.dispose();
+        this._onPromptListChanged.dispose();
+        this._onResourceUpdated.dispose();
+        this._onTaskStatus.dispose();
+    }
+
 }
