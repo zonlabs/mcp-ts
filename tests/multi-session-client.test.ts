@@ -81,6 +81,57 @@ test.describe('MultiSessionClient notification listeners', () => {
 
 
 
+  test('supports cancelled notifications', () => {
+    const client = new MultiSessionClient('user-1');
+
+    const cancelledEvents: any[] = [];
+
+    const subscription = client.setNotificationHandlers({
+      onCancelled: (event) => {
+        cancelledEvents.push(event);
+      },
+    });
+
+    (client as any).fireTypedNotifications({
+      sessionId: 'session-1',
+      serverId: 'server-1',
+      method: 'notifications/cancelled',
+      params: { requestId: 99, reason: 'stopped by user' },
+      timestamp: Date.now(),
+    });
+
+    expect(cancelledEvents).toHaveLength(1);
+    expect(cancelledEvents[0].requestId).toBe(99);
+    expect(cancelledEvents[0].reason).toBe('stopped by user');
+
+    subscription.dispose();
+  });
+
+  test('supports elicitation complete notifications', () => {
+    const client = new MultiSessionClient('user-1');
+
+    const events: any[] = [];
+
+    const subscription = client.setNotificationHandlers({
+      onElicitationComplete: (event) => {
+        events.push(event);
+      },
+    });
+
+    (client as any).fireTypedNotifications({
+      sessionId: 'session-1',
+      serverId: 'server-1',
+      method: 'notifications/elicitation/complete',
+      params: { elicitationId: 'elicit-1' },
+      timestamp: Date.now(),
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0].elicitationId).toBe('elicit-1');
+
+    subscription.dispose();
+  });
+
   test('disconnect clears stale forwarders even without connected clients', () => {
     const client = new MultiSessionClient('user-1');
 
