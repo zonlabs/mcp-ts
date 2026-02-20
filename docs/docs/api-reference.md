@@ -638,6 +638,9 @@ const {
   autoConnect?: boolean,
   autoInitialize?: boolean,
   onConnectionEvent?: (event) => void,
+  onNotification?: (event) => void,
+  onProgress?: (event) => void,
+  onTaskStatus?: (event) => void,
   onLog?: (level, message, metadata) => void,
 });
 ```
@@ -649,6 +652,9 @@ const {
 - `autoConnect` - Auto-connect SSE on mount (default: true)
 - `autoInitialize` - Auto-load sessions on mount (default: true)
 - `onConnectionEvent` - Connection event handler (optional)
+- `onNotification` - Raw server notification handler (`type: 'server_notification'`) (optional)
+- `onProgress` - Convenience handler for `notifications/progress` events (optional)
+- `onTaskStatus` - Convenience handler for `notifications/tasks/status` events (optional)
 - `onLog` - Debug log handler (optional)
 
 **Returns:** Object with state and methods

@@ -58,6 +58,17 @@ useMcp({
     console.log('Event:', event);
   },
 
+  // Optional: Cleaner notification callbacks
+  onNotification: (event) => {
+    console.log('Server notification:', event.method, event.params);
+  },
+  onProgress: (event) => {
+    console.log('Progress:', event.params);
+  },
+  onTaskStatus: (event) => {
+    console.log('Task status:', event.params);
+  },
+
   // Optional: Debug log handler
   onLog: (level, message, metadata) => {
     console.log(`[${level}] ${message}`, metadata);
@@ -192,7 +203,7 @@ type McpConnectionState =
 
 ## Event Handling
 
-Handle connection events for custom logic:
+Handle connection lifecycle and notifications with either a single event stream (`onConnectionEvent`) or cleaner notification-specific callbacks.
 
 ```typescript
 const { connections } = useMcp({
@@ -209,7 +220,6 @@ const { connections } = useMcp({
         break;
 
       case 'auth_required':
-        // Redirect to OAuth
         window.location.href = event.authUrl;
         break;
 
@@ -221,6 +231,17 @@ const { connections } = useMcp({
         console.log('Disconnected:', event.reason);
         break;
     }
+  },
+
+  // Optional convenience notification handlers
+  onNotification: (event) => {
+    console.log('Raw notification:', event.method, event.params);
+  },
+  onProgress: (event) => {
+    console.log('Progress update:', event.params);
+  },
+  onTaskStatus: (event) => {
+    console.log('Task status update:', event.params);
   },
 });
 ```
