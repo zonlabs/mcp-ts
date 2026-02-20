@@ -8,7 +8,7 @@ export { MCPClient } from './mcp/oauth-client.js';
 export { UnauthorizedError } from '../shared/errors.js';
 export { storage, type StorageBackend } from './storage/index.js';
 export { StorageOAuthClientProvider } from './mcp/storage-oauth-provider.js';
-export { MultiSessionClient, type MultiSessionNotificationEvent } from './mcp/multi-session-client.js';
+export { MultiSessionClient, type MultiSessionNotificationEvent, type MultiSessionNotificationHandlers, type MultiSessionProgressEvent, type MultiSessionLoggingEvent, type MultiSessionListChangedEvent, type MultiSessionResourceUpdatedEvent, type MultiSessionTaskStatusEvent } from './mcp/multi-session-client.js';
 
 /** SSE handler for real-time connections */
 export { createSSEHandler, SSEConnectionManager, type SSEHandlerOptions, type ClientMetadata } from './handlers/sse-handler.js';

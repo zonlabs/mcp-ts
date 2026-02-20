@@ -1,8 +1,7 @@
 
-
 import { MCPClient } from './oauth-client.js';
 import { storage, type SessionData } from '../storage/index.js';
-import { Emitter, type Event } from '../../shared/events.js';
+import { Emitter, type Disposable, type Event } from '../../shared/events.js';
 
 /**
  * Manages multiple MCP connections for a single user identity.
@@ -34,6 +33,50 @@ export interface MultiSessionNotificationEvent {
     timestamp: number;
 }
 
+export interface MultiSessionProgressEvent extends MultiSessionNotificationEvent {
+    method: 'notifications/progress';
+    progress: number;
+    total?: number;
+    message?: string;
+    progressToken?: string | number;
+}
+
+export interface MultiSessionLoggingEvent extends MultiSessionNotificationEvent {
+    method: 'notifications/message';
+    level?: string;
+    data?: unknown;
+    logger?: string;
+}
+
+export interface MultiSessionListChangedEvent extends MultiSessionNotificationEvent {
+    method:
+    | 'notifications/tools/list_changed'
+    | 'notifications/resources/list_changed'
+    | 'notifications/prompts/list_changed';
+}
+
+export interface MultiSessionResourceUpdatedEvent extends MultiSessionNotificationEvent {
+    method: 'notifications/resources/updated';
+    uri?: string;
+}
+
+export interface MultiSessionTaskStatusEvent extends MultiSessionNotificationEvent {
+    method: 'notifications/tasks/status';
+    taskId?: string;
+    status?: string;
+}
+
+export interface MultiSessionNotificationHandlers {
+    onNotification?: (event: MultiSessionNotificationEvent) => void;
+    onProgress?: (event: MultiSessionProgressEvent) => void;
+    onLoggingMessage?: (event: MultiSessionLoggingEvent) => void;
+    onToolListChanged?: (event: MultiSessionListChangedEvent) => void;
+    onResourceListChanged?: (event: MultiSessionListChangedEvent) => void;
+    onPromptListChanged?: (event: MultiSessionListChangedEvent) => void;
+    onResourceUpdated?: (event: MultiSessionResourceUpdatedEvent) => void;
+    onTaskStatus?: (event: MultiSessionTaskStatusEvent) => void;
+}
+
 /**
  * Manages multiple MCP connections for a single user identity.
  * Allows aggregating tools from all connected servers.
@@ -43,7 +86,23 @@ export class MultiSessionClient {
     private identity: string;
     private options: MultiSessionOptions;
     private readonly _onNotification = new Emitter<MultiSessionNotificationEvent>();
+    private readonly _onProgress = new Emitter<MultiSessionProgressEvent>();
+    private readonly _onLoggingMessage = new Emitter<MultiSessionLoggingEvent>();
+    private readonly _onToolListChanged = new Emitter<MultiSessionListChangedEvent>();
+    private readonly _onResourceListChanged = new Emitter<MultiSessionListChangedEvent>();
+    private readonly _onPromptListChanged = new Emitter<MultiSessionListChangedEvent>();
+    private readonly _onResourceUpdated = new Emitter<MultiSessionResourceUpdatedEvent>();
+    private readonly _onTaskStatus = new Emitter<MultiSessionTaskStatusEvent>();
+    private readonly notificationForwarders = new Map<string, Disposable>();
+
     public readonly onNotification: Event<MultiSessionNotificationEvent> = this._onNotification.event;
+    public readonly onProgress: Event<MultiSessionProgressEvent> = this._onProgress.event;
+    public readonly onLoggingMessage: Event<MultiSessionLoggingEvent> = this._onLoggingMessage.event;
+    public readonly onToolListChanged: Event<MultiSessionListChangedEvent> = this._onToolListChanged.event;
+    public readonly onResourceListChanged: Event<MultiSessionListChangedEvent> = this._onResourceListChanged.event;
+    public readonly onPromptListChanged: Event<MultiSessionListChangedEvent> = this._onPromptListChanged.event;
+    public readonly onResourceUpdated: Event<MultiSessionResourceUpdatedEvent> = this._onResourceUpdated.event;
+    public readonly onTaskStatus: Event<MultiSessionTaskStatusEvent> = this._onTaskStatus.event;
 
     constructor(identity: string, options: MultiSessionOptions = {}) {
         this.identity = identity;
@@ -52,6 +111,51 @@ export class MultiSessionClient {
             maxRetries: 2,
             retryDelay: 1000,
             ...options
+        };
+    }
+
+    /**
+     * Registers a notification handler object similar to FastMCP-style callbacks.
+     */
+    setNotificationHandlers(handlers: MultiSessionNotificationHandlers): Disposable {
+        const subscriptions: Disposable[] = [];
+
+        if (handlers.onNotification) {
+            subscriptions.push(this.onNotification(handlers.onNotification));
+        }
+
+        if (handlers.onProgress) {
+            subscriptions.push(this.onProgress(handlers.onProgress));
+        }
+
+        if (handlers.onLoggingMessage) {
+            subscriptions.push(this.onLoggingMessage(handlers.onLoggingMessage));
+        }
+
+        if (handlers.onToolListChanged) {
+            subscriptions.push(this.onToolListChanged(handlers.onToolListChanged));
+        }
+
+        if (handlers.onResourceListChanged) {
+            subscriptions.push(this.onResourceListChanged(handlers.onResourceListChanged));
+        }
+
+        if (handlers.onPromptListChanged) {
+            subscriptions.push(this.onPromptListChanged(handlers.onPromptListChanged));
+        }
+
+        if (handlers.onResourceUpdated) {
+            subscriptions.push(this.onResourceUpdated(handlers.onResourceUpdated));
+        }
+
+        if (handlers.onTaskStatus) {
+            subscriptions.push(this.onTaskStatus(handlers.onTaskStatus));
+        }
+
+        return {
+            dispose: () => {
+                subscriptions.forEach((subscription) => subscription.dispose());
+            }
         };
     }
 
@@ -99,6 +203,74 @@ export class MultiSessionClient {
         console.error(`[MultiSessionClient] Failed to connect to session ${session.sessionId} after ${maxRetries + 1} attempts:`, lastError);
     }
 
+    private toNotificationParams(params: unknown): Record<string, unknown> | undefined {
+        if (!params || typeof params !== 'object') {
+            return undefined;
+        }
+        return params as Record<string, unknown>;
+    }
+
+    private fireTypedNotifications(event: MultiSessionNotificationEvent): void {
+        const params = this.toNotificationParams(event.params);
+
+        switch (event.method) {
+            case 'notifications/progress': {
+                const progress = params?.progress;
+                if (typeof progress !== 'number') {
+                    return;
+                }
+
+                this._onProgress.fire({
+                    ...event,
+                    method: 'notifications/progress',
+                    progress,
+                    total: typeof params?.total === 'number' ? params.total : undefined,
+                    message: typeof params?.message === 'string' ? params.message : undefined,
+                    progressToken:
+                        typeof params?.progressToken === 'string' || typeof params?.progressToken === 'number'
+                            ? params.progressToken
+                            : undefined,
+                });
+                return;
+            }
+            case 'notifications/message':
+                this._onLoggingMessage.fire({
+                    ...event,
+                    method: 'notifications/message',
+                    level: typeof params?.level === 'string' ? params.level : undefined,
+                    data: params?.data,
+                    logger: typeof params?.logger === 'string' ? params.logger : undefined,
+                });
+                return;
+            case 'notifications/tools/list_changed':
+                this._onToolListChanged.fire({ ...event, method: 'notifications/tools/list_changed' });
+                return;
+            case 'notifications/resources/list_changed':
+                this._onResourceListChanged.fire({ ...event, method: 'notifications/resources/list_changed' });
+                return;
+            case 'notifications/prompts/list_changed':
+                this._onPromptListChanged.fire({ ...event, method: 'notifications/prompts/list_changed' });
+                return;
+            case 'notifications/resources/updated':
+                this._onResourceUpdated.fire({
+                    ...event,
+                    method: 'notifications/resources/updated',
+                    uri: typeof params?.uri === 'string' ? params.uri : undefined,
+                });
+                return;
+            case 'notifications/tasks/status':
+                this._onTaskStatus.fire({
+                    ...event,
+                    method: 'notifications/tasks/status',
+                    taskId: typeof params?.taskId === 'string' ? params.taskId : undefined,
+                    status: typeof params?.status === 'string' ? params.status : undefined,
+                });
+                return;
+            default:
+                return;
+        }
+    }
+
     private async createAndConnectClient(session: SessionData): Promise<MCPClient> {
         const client = new MCPClient({
             identity: this.identity,
@@ -111,22 +283,70 @@ export class MultiSessionClient {
             headers: session.headers,
         });
 
-        client.onServerNotification((event) => {
+        const existingForwarder = this.notificationForwarders.get(session.sessionId);
+        existingForwarder?.dispose();
+
+        const forwarder = client.onServerNotification((event) => {
             this._onNotification.fire(event);
+            this.fireTypedNotifications(event);
         });
+        this.notificationForwarders.set(session.sessionId, forwarder);
 
         const timeoutMs = this.options.timeout ?? 15000;
         const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => reject(new Error(`Connection timed out after ${timeoutMs}ms`)), timeoutMs);
         });
 
-        await Promise.race([client.connect(), timeoutPromise]);
-        return client;
+        try {
+            await Promise.race([client.connect(), timeoutPromise]);
+            return client;
+        } catch (error) {
+            this.notificationForwarders.get(session.sessionId)?.dispose();
+            this.notificationForwarders.delete(session.sessionId);
+            throw error;
+        }
     }
 
     async connect(): Promise<void> {
         const sessions = await this.getActiveSessions();
         await this.connectInBatches(sessions);
+    }
+
+
+    private getClientBySessionId(sessionId: string): MCPClient {
+        const client = this.clients.find((item) => item.getSessionId() === sessionId);
+        if (!client) {
+            throw new Error(`No connected client found for session ${sessionId}`);
+        }
+        return client;
+    }
+
+    /**
+     * Get the latest task state for a specific session.
+     */
+    async getTask(sessionId: string, taskId: string) {
+        return await this.getClientBySessionId(sessionId).getTask(taskId);
+    }
+
+    /**
+     * Get final task payload for a specific session.
+     */
+    async getTaskResult(sessionId: string, taskId: string) {
+        return await this.getClientBySessionId(sessionId).getTaskResult(taskId);
+    }
+
+    /**
+     * List tasks for a specific session.
+     */
+    async listTasks(sessionId: string, cursor?: string) {
+        return await this.getClientBySessionId(sessionId).listTasks(cursor);
+    }
+
+    /**
+     * Cancel a task for a specific session.
+     */
+    async cancelTask(sessionId: string, taskId: string) {
+        return await this.getClientBySessionId(sessionId).cancelTask(taskId);
     }
 
     /**
@@ -140,9 +360,31 @@ export class MultiSessionClient {
      * Disconnects all clients.
      */
     disconnect(): void {
-        this.clients.forEach((client) => client.disconnect());
+        this.clients.forEach((client) => {
+            client.disconnect();
+        });
         this.clients = [];
-        this._onNotification.dispose();
-    }
-}
 
+        this.notificationForwarders.forEach((forwarder) => {
+            forwarder.dispose();
+        });
+        this.notificationForwarders.clear();
+    }
+    /**
+     * Dispose this multi-session client and all event listeners.
+     * Use this when the instance will no longer be reused.
+     */
+    dispose(): void {
+        this.disconnect();
+        this.notificationForwarders.clear();
+        this._onNotification.dispose();
+        this._onProgress.dispose();
+        this._onLoggingMessage.dispose();
+        this._onToolListChanged.dispose();
+        this._onResourceListChanged.dispose();
+        this._onPromptListChanged.dispose();
+        this._onResourceUpdated.dispose();
+        this._onTaskStatus.dispose();
+    }
+
+}

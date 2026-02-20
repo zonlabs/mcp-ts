@@ -35,7 +35,7 @@
 ## Features
 
 - **SSE** - Server-Sent Events for connection state and observability updates
-- **Server Notifications** - Handles MCP notifications (progress, tasks/status, list updates, logs) without polling
+- **Server Notifications** - Real-time push updates for progress, task status, list changes, and logs
 - **Flexible Storage** - Redis, SQLite, File System, or In-Memory backends
 - **Serverless** - Works in serverless environments (Vercel, AWS Lambda, etc.)
 - **React Hook** - `useMcp` hook for easy React integration
@@ -218,7 +218,7 @@ const tools = await MastraAdapter.getTools(client);
 
 </details>
 
-### Server Notifications (no polling)
+### Real-Time Server Notifications
 
 `MCPClient` and `MultiSessionClient` now forward standard MCP notifications (like `notifications/progress`, `notifications/tasks/status`, and list-changed updates) so autonomous agents can react in real time.
 
@@ -228,15 +228,100 @@ import { MultiSessionClient } from '@mcp-ts/sdk/server';
 const client = new MultiSessionClient('user_123');
 await client.connect();
 
-client.onNotification((event) => {
-  if (event.method === 'notifications/progress') {
-    console.log('Progress:', event.params);
+const subscription = client.setNotificationHandlers({
+  onProgress: (event) => {
+    const total = event.total ?? event.progress;
+    const percent = total > 0 ? (event.progress / total) * 100 : event.progress;
+    console.log(`Progress ${percent.toFixed(1)}%`, event.message);
+  },
+  onTaskStatus: (event) => {
+    console.log('Task status update:', event.status, event.taskId);
+  },
+  onToolListChanged: () => {
+    console.log('Tools changed, refresh cache');
+  },
+});
+
+// Later if needed:
+subscription.dispose();
+```
+
+### Verification Example: MCP Server Emitting Notifications
+
+Use this pattern to verify end-to-end notification handling from your side. The MCP server emits progress + task status notifications during a long-running tool call, and your runtime subscribes with `setNotificationHandlers`.
+
+```typescript
+// server/mock-mcp-notifier.ts
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+const server = new McpServer({ name: 'mock-notifier', version: '0.1.0' });
+
+// Pseudo-code shape: emit progress/task-status notifications while executing the tool.
+// (Use the SDK notification API available in your server runtime adapter.)
+server.registerTool('long_job', {
+  description: 'Simulates long work and emits notifications',
+  inputSchema: {},
+}, async () => {
+  // Emit examples:
+  // notifications/progress: { progressToken: 'job-1', progress: 25, total: 100, message: 'Step 1/4' }
+  // notifications/tasks/status: { taskId: 'task-1', status: 'working', statusMessage: 'Still running' }
+
+  return {
+    content: [{ type: 'text', text: 'done' }],
+  };
+});
+```
+
+```typescript
+// app runtime
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+
+const client = new MultiSessionClient('user_123');
+await client.connect();
+
+const sub = client.setNotificationHandlers({
+  onProgress: (event) => {
+    console.log('[progress]', event.serverId, event.progress, event.total, event.message);
+  },
+  onTaskStatus: (event) => {
+    console.log('[task-status]', event.serverId, event.taskId, event.status);
+  },
+});
+
+// Call your tool through adapter/runtime; verify logs arrive.
+// await ...tool invocation...
+
+sub.dispose();
+client.disconnect();
+```
+
+### Task RPC Helpers (session-scoped)
+
+`MultiSessionClient` now provides task helper methods for polling and retrieval by session.
+
+```typescript
+const client = new MultiSessionClient('user_123');
+await client.connect();
+
+const sessionId = client.getClients()[0]?.getSessionId();
+if (!sessionId) throw new Error('No connected sessions');
+
+const list = await client.listTasks(sessionId);
+
+if (list.tasks.length > 0) {
+  const taskId = list.tasks[0].taskId;
+  const state = await client.getTask(sessionId, taskId);
+
+  if (state.status === 'working') {
+    // optional: cancel if needed
+    // await client.cancelTask(sessionId, taskId);
   }
 
-  if (event.method === 'notifications/tasks/status') {
-    console.log('Task status update:', event.params);
+  if (state.status === 'completed') {
+    const payload = await client.getTaskResult(sessionId, taskId);
+    console.log('Task payload:', payload);
   }
-});
+}
 ```
 
 ### AG-UI Middleware

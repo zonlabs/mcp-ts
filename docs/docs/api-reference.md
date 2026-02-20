@@ -242,6 +242,52 @@ mcp.disconnect();
 
 ---
 
+**Task RPC Helper Methods (session-scoped)**
+
+```typescript
+const state = await mcp.getTask(sessionId: string, taskId: string);
+const payload = await mcp.getTaskResult(sessionId: string, taskId: string);
+const list = await mcp.listTasks(sessionId: string, cursor?: string);
+const cancelled = await mcp.cancelTask(sessionId: string, taskId: string);
+```
+
+These delegate to the underlying `MCPClient` for the specified `sessionId`.
+
+---
+
+**Notification Events and Handlers**
+
+`MultiSessionClient` exposes both a generic event stream and typed notification hooks:
+
+- `onNotification(event)` - raw notification stream with `method` + `params`
+- `onProgress(event)` - `notifications/progress`
+- `onLoggingMessage(event)` - `notifications/message`
+- `onToolListChanged(event)` - `notifications/tools/list_changed`
+- `onResourceListChanged(event)` - `notifications/resources/list_changed`
+- `onPromptListChanged(event)` - `notifications/prompts/list_changed`
+- `onResourceUpdated(event)` - `notifications/resources/updated`
+- `onTaskStatus(event)` - `notifications/tasks/status`
+
+You can also register a FastMCP-style callback object:
+
+```typescript
+const subscription = mcp.setNotificationHandlers({
+  onProgress: (event) => console.log(event.progress, event.total),
+  onLoggingMessage: (event) => console.log(event.level, event.data),
+  onToolListChanged: () => console.log('tool list changed'),
+});
+
+subscription.dispose();
+```
+
+**Tasks compatibility note (MCP 2025-11-25):**
+
+- `mcp-ts` currently exposes task-related notifications such as `notifications/tasks/status` through `onTaskStatus`.
+- Full task RPC lifecycle helpers (`tasks/get`, `tasks/result`, `tasks/list`, `tasks/cancel`) are not yet exposed as first-class convenience methods in `MultiSessionClient`.
+- For now, use status/progress notifications for real-time UX and rely on your MCP server/runtime task APIs for polling and result retrieval.
+
+---
+
 
 ### Adapters
 
