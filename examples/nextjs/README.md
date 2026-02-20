@@ -231,6 +231,7 @@ Once connected:
 - Click **Run Tool**
 - View the result in the modal
 
+
 **Programmatic Usage**:
 ```typescript
 const { callTool } = useMcp({ ... });
@@ -240,6 +241,28 @@ const result = await callTool(
   'tool_name',
   { arg1: 'value1' }
 );
+```
+
+**Server-side task helpers (no frontend polling loop required in UI code):**
+```typescript
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+
+const manager = new MultiSessionClient(identity);
+await manager.connect();
+
+const sessionId = manager.getClients()[0]?.getSessionId();
+if (!sessionId) throw new Error('No connected sessions');
+
+const created = await manager.callToolTask(sessionId, 'long_job', { durationMs: 2000 }, 60000);
+let state = await manager.getTask(sessionId, created.task.taskId);
+
+while (state.status === 'working' || state.status === 'input_required') {
+  await new Promise((resolve) => setTimeout(resolve, state.pollInterval ?? 1000));
+  state = await manager.getTask(sessionId, created.task.taskId);
+}
+
+const payload = await manager.getTaskResult(sessionId, created.task.taskId);
+console.log(payload);
 ```
 
 ### 5. Disconnect

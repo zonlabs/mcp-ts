@@ -242,6 +242,53 @@ mcp.disconnect();
 
 ---
 
+**Task RPC Helper Methods (session-scoped)**
+
+```typescript
+const created = await mcp.callToolTask(sessionId: string, toolName: string, args: Record<string, unknown>, ttl?: number);
+const state = await mcp.getTask(sessionId: string, taskId: string);
+const payload = await mcp.getTaskResult(sessionId: string, taskId: string);
+const list = await mcp.listTasks(sessionId: string, cursor?: string);
+const cancelled = await mcp.cancelTask(sessionId: string, taskId: string);
+```
+
+These delegate to the underlying `MCPClient` for the specified `sessionId`.
+
+---
+
+**Notification Events and Handlers**
+
+`MultiSessionClient` exposes both a generic event stream and typed notification hooks:
+
+- `onNotification(event)` - raw notification stream with `method` + `params`
+- `onProgress(event)` - `notifications/progress`
+- `onLoggingMessage(event)` - `notifications/message`
+- `onToolListChanged(event)` - `notifications/tools/list_changed`
+- `onResourceListChanged(event)` - `notifications/resources/list_changed`
+- `onPromptListChanged(event)` - `notifications/prompts/list_changed`
+- `onResourceUpdated(event)` - `notifications/resources/updated`
+- `onTaskStatus(event)` - `notifications/tasks/status`
+
+You can also register a FastMCP-style callback object:
+
+```typescript
+const subscription = mcp.setNotificationHandlers({
+  onProgress: (event) => console.log(event.progress, event.total),
+  onLoggingMessage: (event) => console.log(event.level, event.data),
+  onToolListChanged: () => console.log('tool list changed'),
+});
+
+subscription.dispose();
+```
+
+**Tasks compatibility note (MCP 2025-11-25):**
+
+- `mcp-ts` currently exposes task-related notifications such as `notifications/tasks/status` through `onTaskStatus`.
+- Task RPC helper methods are exposed on `MCPClient` and delegated by `MultiSessionClient` (`callToolTask`, `getTask`, `getTaskResult`, `listTasks`, `cancelTask`).
+- Use status/progress notifications for real-time UX and task helpers for polling, retrieval, and cancellation flows.
+
+---
+
 
 ### Adapters
 
@@ -591,6 +638,9 @@ const {
   autoConnect?: boolean,
   autoInitialize?: boolean,
   onConnectionEvent?: (event) => void,
+  onNotification?: (event) => void,
+  onProgress?: (event) => void,
+  onTaskStatus?: (event) => void,
   onLog?: (level, message, metadata) => void,
 });
 ```
@@ -602,6 +652,9 @@ const {
 - `autoConnect` - Auto-connect SSE on mount (default: true)
 - `autoInitialize` - Auto-load sessions on mount (default: true)
 - `onConnectionEvent` - Connection event handler (optional)
+- `onNotification` - Raw server notification handler (`type: 'server_notification'`) (optional)
+- `onProgress` - Convenience handler for `notifications/progress` events (optional)
+- `onTaskStatus` - Convenience handler for `notifications/tasks/status` events (optional)
 - `onLog` - Debug log handler (optional)
 
 **Returns:** Object with state and methods

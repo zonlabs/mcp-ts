@@ -16,6 +16,10 @@ import type {
   SessionInfo,
 } from '../../shared/types';
 
+type ServerNotificationEvent = Extract<McpConnectionEvent, { type: 'server_notification' }>;
+type ProgressNotificationEvent = ServerNotificationEvent & { method: 'notifications/progress' };
+type TaskStatusNotificationEvent = ServerNotificationEvent & { method: 'notifications/tasks/status' };
+
 export interface UseMcpOptions {
   /**
    * SSE endpoint URL
@@ -48,6 +52,21 @@ export interface UseMcpOptions {
    * Connection event callback
    */
   onConnectionEvent?: (event: McpConnectionEvent) => void;
+
+  /**
+   * Raw server notification callback (`type: 'server_notification'`)
+   */
+  onNotification?: (event: ServerNotificationEvent) => void;
+
+  /**
+   * Progress notification callback (`notifications/progress`)
+   */
+  onProgress?: (event: ProgressNotificationEvent) => void;
+
+  /**
+   * Task status notification callback (`notifications/tasks/status`)
+   */
+  onTaskStatus?: (event: TaskStatusNotificationEvent) => void;
 
   /**
    * Debug logging callback
@@ -201,6 +220,9 @@ export function useMcp(options: UseMcpOptions): McpClient {
     autoConnect = true,
     autoInitialize = true,
     onConnectionEvent,
+    onNotification,
+    onProgress,
+    onTaskStatus,
     onLog,
     onRedirect,
   } = options;
@@ -227,6 +249,18 @@ export function useMcp(options: UseMcpOptions): McpClient {
       onConnectionEvent: (event) => {
         // Update local state based on event
         updateConnectionsFromEvent(event);
+
+        if (event.type === 'server_notification') {
+          onNotification?.(event);
+
+          if (event.method === 'notifications/progress') {
+            onProgress?.(event as ProgressNotificationEvent);
+          }
+
+          if (event.method === 'notifications/tasks/status') {
+            onTaskStatus?.(event as TaskStatusNotificationEvent);
+          }
+        }
 
         // Call user callback
         onConnectionEvent?.(event);

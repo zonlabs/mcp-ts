@@ -34,6 +34,20 @@ import {
   PromptListChangedNotificationSchema,
   ToolListChangedNotificationSchema,
   TaskStatusNotificationSchema,
+  GetTaskRequest,
+  GetTaskResult,
+  GetTaskResultSchema,
+  GetTaskPayloadRequest,
+  GetTaskPayloadResult,
+  GetTaskPayloadResultSchema,
+  ListTasksRequest,
+  ListTasksResult,
+  ListTasksResultSchema,
+  CancelTaskRequest,
+  CancelTaskResult,
+  CancelTaskResultSchema,
+  CreateTaskResult,
+  CreateTaskResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OAuthClientMetadata, OAuthTokens, OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
@@ -964,6 +978,91 @@ export class MCPClient {
     };
 
     return await this.client.request(request, ReadResourceResultSchema);
+  }
+
+  /**
+   * Executes a tool as a task-augmented request.
+   */
+  async callToolTask(toolName: string, toolArgs: Record<string, unknown>, ttl?: number): Promise<CreateTaskResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request = {
+      method: 'tools/call',
+      params: {
+        name: toolName,
+        arguments: toolArgs,
+        task: ttl !== undefined ? { ttl } : {},
+      },
+    } as const;
+
+    return await this.client.request(request, CreateTaskResultSchema);
+  }
+
+  /**
+   * Gets current state for a task.
+   */
+  async getTask(taskId: string): Promise<GetTaskResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: GetTaskRequest = {
+      method: 'tasks/get',
+      params: { taskId },
+    };
+
+    return await this.client.request(request, GetTaskResultSchema);
+  }
+
+  /**
+   * Gets the final payload result for a task.
+   * The returned shape matches the original request's result type.
+   */
+  async getTaskResult(taskId: string): Promise<GetTaskPayloadResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: GetTaskPayloadRequest = {
+      method: 'tasks/result',
+      params: { taskId },
+    };
+
+    return await this.client.request(request, GetTaskPayloadResultSchema);
+  }
+
+  /**
+   * Lists tasks available to the current session.
+   */
+  async listTasks(cursor?: string): Promise<ListTasksResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: ListTasksRequest = {
+      method: 'tasks/list',
+      params: cursor ? { cursor } : {},
+    };
+
+    return await this.client.request(request, ListTasksResultSchema);
+  }
+
+  /**
+   * Cancels an active task.
+   */
+  async cancelTask(taskId: string): Promise<CancelTaskResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request: CancelTaskRequest = {
+      method: 'tasks/cancel',
+      params: { taskId },
+    };
+
+    return await this.client.request(request, CancelTaskResultSchema);
   }
 
   /**
