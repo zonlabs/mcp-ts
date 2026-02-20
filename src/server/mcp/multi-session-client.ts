@@ -322,6 +322,13 @@ export class MultiSessionClient {
     }
 
     /**
+     * Execute a tool as a task for a specific session.
+     */
+    async callToolTask(sessionId: string, toolName: string, toolArgs: Record<string, unknown>, ttl?: number) {
+        return await this.getClientBySessionId(sessionId).callToolTask(toolName, toolArgs, ttl);
+    }
+
+    /**
      * Get the latest task state for a specific session.
      */
     async getTask(sessionId: string, taskId: string) {

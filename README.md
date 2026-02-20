@@ -306,10 +306,12 @@ await client.connect();
 const sessionId = client.getClients()[0]?.getSessionId();
 if (!sessionId) throw new Error('No connected sessions');
 
+const created = await client.callToolTask(sessionId, 'long_job', { durationMs: 2500 }, 60000);
+const taskId = created.task.taskId;
+
 const list = await client.listTasks(sessionId);
 
 if (list.tasks.length > 0) {
-  const taskId = list.tasks[0].taskId;
   const state = await client.getTask(sessionId, taskId);
 
   if (state.status === 'working') {

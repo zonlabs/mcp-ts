@@ -245,6 +245,7 @@ mcp.disconnect();
 **Task RPC Helper Methods (session-scoped)**
 
 ```typescript
+const created = await mcp.callToolTask(sessionId: string, toolName: string, args: Record<string, unknown>, ttl?: number);
 const state = await mcp.getTask(sessionId: string, taskId: string);
 const payload = await mcp.getTaskResult(sessionId: string, taskId: string);
 const list = await mcp.listTasks(sessionId: string, cursor?: string);
@@ -283,8 +284,8 @@ subscription.dispose();
 **Tasks compatibility note (MCP 2025-11-25):**
 
 - `mcp-ts` currently exposes task-related notifications such as `notifications/tasks/status` through `onTaskStatus`.
-- Full task RPC lifecycle helpers (`tasks/get`, `tasks/result`, `tasks/list`, `tasks/cancel`) are not yet exposed as first-class convenience methods in `MultiSessionClient`.
-- For now, use status/progress notifications for real-time UX and rely on your MCP server/runtime task APIs for polling and result retrieval.
+- Task RPC helper methods are exposed on `MCPClient` and delegated by `MultiSessionClient` (`callToolTask`, `getTask`, `getTaskResult`, `listTasks`, `cancelTask`).
+- Use status/progress notifications for real-time UX and task helpers for polling, retrieval, and cancellation flows.
 
 ---
 

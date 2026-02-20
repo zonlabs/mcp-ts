@@ -17,6 +17,18 @@ test.describe('MCP task helper methods', () => {
       request: async (request: any) => {
         calls.push(request);
 
+        if (request.method === 'tools/call') {
+          return {
+            task: {
+              taskId: 'task-1',
+              status: 'working',
+              ttl: 60000,
+              createdAt: '2026-01-01T00:00:00Z',
+              lastUpdatedAt: '2026-01-01T00:00:01Z',
+            },
+          };
+        }
+
         if (request.method === 'tasks/get') {
           return {
             taskId: request.params.taskId,
@@ -59,17 +71,20 @@ test.describe('MCP task helper methods', () => {
       },
     };
 
+    const created = await client.callToolTask('long_job', { durationMs: 500 }, 60000);
     const state = await client.getTask('task-1');
     const payload = await client.getTaskResult('task-1');
     const list = await client.listTasks();
     const cancelled = await client.cancelTask('task-1');
 
+    expect(created.task.taskId).toBe('task-1');
     expect(state.status).toBe('working');
     expect((payload as any).content[0].text).toBe('done');
     expect(list.tasks[0].taskId).toBe('task-1');
     expect(cancelled.status).toBe('cancelled');
 
     expect(calls.map((c) => c.method)).toEqual([
+      'tools/call',
       'tasks/get',
       'tasks/result',
       'tasks/list',
@@ -96,6 +111,10 @@ test.describe('MCP task helper methods', () => {
           delegated.push(['listTasks', cursor]);
           return { tasks: [] };
         },
+        callToolTask: async (toolName: string, args: Record<string, unknown>, ttl?: number) => {
+          delegated.push(['callToolTask', toolName, args, ttl]);
+          return { task: { taskId: 'task-1' } };
+        },
         cancelTask: async (taskId: string) => {
           delegated.push(['cancelTask', taskId]);
           return { taskId, status: 'cancelled' };
@@ -103,12 +122,14 @@ test.describe('MCP task helper methods', () => {
       },
     ];
 
+    await multi.callToolTask('session-1', 'long_job', { durationMs: 500 }, 60000);
     await multi.getTask('session-1', 'task-1');
     await multi.getTaskResult('session-1', 'task-1');
     await multi.listTasks('session-1', 'cursor-1');
     await multi.cancelTask('session-1', 'task-1');
 
     expect(delegated).toEqual([
+      ['callToolTask', 'long_job', { durationMs: 500 }, 60000],
       ['getTask', 'task-1'],
       ['getTaskResult', 'task-1'],
       ['listTasks', 'cursor-1'],

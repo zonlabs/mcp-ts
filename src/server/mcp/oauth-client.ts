@@ -46,6 +46,8 @@ import {
   CancelTaskRequest,
   CancelTaskResult,
   CancelTaskResultSchema,
+  CreateTaskResult,
+  CreateTaskResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OAuthClientMetadata, OAuthTokens, OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
@@ -978,6 +980,25 @@ export class MCPClient {
     return await this.client.request(request, ReadResourceResultSchema);
   }
 
+  /**
+   * Executes a tool as a task-augmented request.
+   */
+  async callToolTask(toolName: string, toolArgs: Record<string, unknown>, ttl?: number): Promise<CreateTaskResult> {
+    if (!this.client) {
+      throw new Error('Not connected to server');
+    }
+
+    const request = {
+      method: 'tools/call',
+      params: {
+        name: toolName,
+        arguments: toolArgs,
+        task: ttl !== undefined ? { ttl } : {},
+      },
+    } as const;
+
+    return await this.client.request(request, CreateTaskResultSchema);
+  }
 
   /**
    * Gets current state for a task.
