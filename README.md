@@ -20,19 +20,19 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@mcp-ts/sdk">
-    <img src="https://img.shields.io/npm/v/@mcp-ts/sdk.svg" alt="npm version" />
+    <img src="https://img.shields.io/npm/v/@mcp-ts/sdk?style=flat-square&logo=npm&logoColor=white&label=%40mcp-ts%2Fsdk&color=dc2626" alt="npm version" />
   </a>
   <a href="https://zonlabs.github.io/mcp-ts/">
-    <img src="https://img.shields.io/badge/docs-website-brightgreen.svg" alt="Documentation" />
+    <img src="https://img.shields.io/badge/docs-website-2563eb?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation" />
   </a>
   <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+    <img src="https://img.shields.io/badge/license-MIT-84cc16?style=flat-square" alt="License: MIT" />
   </a>
 </p>
 
 
 
-## Features
+## ✨ Features
 
 - **SSE** - Server-Sent Events for connection state and observability updates
 - **Server Notifications** - Real-time push updates for progress, task status, list changes, and logs
@@ -44,7 +44,7 @@
 - **Agent Adapters** - Built-in adapters for AI SDK, LangChain, Mastra, and AG-UI
 - **MCP Apps Extension (SEP-1865)** - Interactive UI-driven tool interfaces
 
-## Examples
+## 🧪 Examples
 
 Check out working examples demonstrating the MCP Apps extension and agent integrations in the [examples/agents](examples/agents) directory.
 
@@ -64,11 +64,11 @@ Check out working examples demonstrating the MCP Apps extension and agent integr
   <p><em>Interactive UIs for MCP tools</em></p>
 </div>
 
-## Inspiration
+## 💡 Inspiration
 
 > I got the idea for `@mcp-ts` while working on 🌐 **[MCP Assistant](https://mcp-assistant.in)**.
-While building custom storage for persistence, managing the flow became harder than it should have been.
-So I built this client to handle the heavy lifting of client applications and make agent interactions easier.
+As the project grew, I had a few problems: storage, using different AI frameworks like LangGraph and ADK for different use cases, and figuring out how to get progressive SSE updates at each step so I could see what was happening.
+So with that idea in mind, I built this SDK to make setup easier and keep the user experience smooth.
 That’s how `@mcp-ts` started.
 
 <br/>
@@ -79,7 +79,7 @@ That’s how `@mcp-ts` started.
 
 <br/>
 
-## Installation
+## 📦 Installation
 
 ```bash
 npm install @mcp-ts/sdk
@@ -91,9 +91,9 @@ The package supports multiple storage backends out of the box:
 - **SQLite** (fast local persistence, requires `npm install better-sqlite3`)
 - **Redis** (production-ready, requires `npm install ioredis`)
 
-## Quick Start
+## 🚀 Quick Start
 
-### Server-Side (Next.js)
+### 🖥️ Server-Side (Next.js)
 
 ```typescript
 // app/api/mcp/route.ts
@@ -109,7 +109,7 @@ export const { GET, POST } = createNextMcpHandler({
 });
 ```
 
-### Client-Side (React)
+### 🎯 Client-Side (React)
 
 ```typescript
 'use client';
@@ -148,7 +148,7 @@ function App() {
 }
 ```
 
-### Adapters
+### 🔌 Adapters
 
 Integrating with agent frameworks is simple using built-in adapters.
 
@@ -218,115 +218,7 @@ const tools = await MastraAdapter.getTools(client);
 
 </details>
 
-### Real-Time Server Notifications
-
-`MCPClient` and `MultiSessionClient` now forward standard MCP notifications (like `notifications/progress`, `notifications/tasks/status`, and list-changed updates) so autonomous agents can react in real time.
-
-```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-
-const client = new MultiSessionClient('user_123');
-await client.connect();
-
-const subscription = client.setNotificationHandlers({
-  onProgress: (event) => {
-    const total = event.total ?? event.progress;
-    const percent = total > 0 ? (event.progress / total) * 100 : event.progress;
-    console.log(`Progress ${percent.toFixed(1)}%`, event.message);
-  },
-  onTaskStatus: (event) => {
-    console.log('Task status update:', event.status, event.taskId);
-  },
-  onToolListChanged: () => {
-    console.log('Tools changed, refresh cache');
-  },
-});
-
-// Later if needed:
-subscription.dispose();
-```
-
-### Verification Example: MCP Server Emitting Notifications
-
-Use this pattern to verify end-to-end notification handling from your side. The MCP server emits progress + task status notifications during a long-running tool call, and your runtime subscribes with `setNotificationHandlers`.
-
-```typescript
-// server/mock-mcp-notifier.ts
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-
-const server = new McpServer({ name: 'mock-notifier', version: '0.1.0' });
-
-// Pseudo-code shape: emit progress/task-status notifications while executing the tool.
-// (Use the SDK notification API available in your server runtime adapter.)
-server.registerTool('long_job', {
-  description: 'Simulates long work and emits notifications',
-  inputSchema: {},
-}, async () => {
-  // Emit examples:
-  // notifications/progress: { progressToken: 'job-1', progress: 25, total: 100, message: 'Step 1/4' }
-  // notifications/tasks/status: { taskId: 'task-1', status: 'working', statusMessage: 'Still running' }
-
-  return {
-    content: [{ type: 'text', text: 'done' }],
-  };
-});
-```
-
-```typescript
-// app runtime
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-
-const client = new MultiSessionClient('user_123');
-await client.connect();
-
-const sub = client.setNotificationHandlers({
-  onProgress: (event) => {
-    console.log('[progress]', event.serverId, event.progress, event.total, event.message);
-  },
-  onTaskStatus: (event) => {
-    console.log('[task-status]', event.serverId, event.taskId, event.status);
-  },
-});
-
-// Call your tool through adapter/runtime; verify logs arrive.
-// await ...tool invocation...
-
-sub.dispose();
-client.disconnect();
-```
-
-### Task RPC Helpers (session-scoped)
-
-`MultiSessionClient` now provides task helper methods for polling and retrieval by session.
-
-```typescript
-const client = new MultiSessionClient('user_123');
-await client.connect();
-
-const sessionId = client.getClients()[0]?.getSessionId();
-if (!sessionId) throw new Error('No connected sessions');
-
-const created = await client.callToolTask(sessionId, 'long_job', { durationMs: 2500 }, 60000);
-const taskId = created.task.taskId;
-
-const list = await client.listTasks(sessionId);
-
-if (list.tasks.length > 0) {
-  const state = await client.getTask(sessionId, taskId);
-
-  if (state.status === 'working') {
-    // optional: cancel if needed
-    // await client.cancelTask(sessionId, taskId);
-  }
-
-  if (state.status === 'completed') {
-    const payload = await client.getTaskResult(sessionId, taskId);
-    console.log('Task payload:', payload);
-  }
-}
-```
-
-### AG-UI Middleware
+### 🧩 AG-UI Middleware
 
 Execute MCP tools server-side when using remote agents (LangGraph, AutoGen, etc.):
 
@@ -359,7 +251,7 @@ agent.use(createMcpMiddleware({
 
 The middleware intercepts tool calls from remote agents, executes MCP tools server-side, and returns results back to the agent.
 
-### MCP Apps (SEP-1865)
+### 🛠️ MCP Apps (SEP-1865)
 
 Render interactive UIs for your tools using the `useMcpApps` hook.
 
@@ -400,11 +292,11 @@ export function ToolRenderer() {
 
 </details>
 
-## Documentation
+## 📚 Documentation
 
 Full documentation is available at: **[Docs](https://zonlabs.github.io/mcp-ts/)**
 
-### Topics Covered:
+### 🗂️ Topics Covered:
 
 - **[Getting Started](https://zonlabs.github.io/mcp-ts/docs/)** - Quick setup and overview
 - **[Installation](https://zonlabs.github.io/mcp-ts/docs/installation)** - Detailed installation guide
@@ -413,13 +305,13 @@ Full documentation is available at: **[Docs](https://zonlabs.github.io/mcp-ts/)*
 - **[React Hook Guide](https://zonlabs.github.io/mcp-ts/docs/react-hook)** - Using the useMcp hook
 - **[API Reference](https://zonlabs.github.io/mcp-ts/docs/api-reference)** - Complete API documentation
 
-## Environment Setup
+## ⚙️ Environment Setup
 
 The library supports multiple storage backends. You can explicitly select one using `MCP_TS_STORAGE_TYPE` or rely on automatic detection.
 
 **Supported Types:** `redis`, `sqlite`, `file`, `memory`.
 
-### Configuration Examples
+### 🧷 Configuration Examples
 
 1.  **<img src="docs/static/img/storage-backend/redis.svg" width="20" height="20" align="center" /> Redis** (Recommended for production)
     ```bash
@@ -445,7 +337,7 @@ The library supports multiple storage backends. You can explicitly select one us
     MCP_TS_STORAGE_TYPE=memory
     ```
 
-## Architecture
+## 🏗️ Architecture
 
 This package uses **Server-Sent Events (SSE)** instead of WebSockets:
 
@@ -499,7 +391,7 @@ For more details, refer to the documentation and follow the **installation guide
 - [Redis Storage Installation Guide](https://zonlabs.github.io/mcp-ts/docs/storage-backends#-redis-production)
 
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on how to contribute.
 
