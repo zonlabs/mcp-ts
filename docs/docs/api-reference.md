@@ -266,6 +266,8 @@ These delegate to the underlying `MCPClient` for the specified `sessionId`.
 - `onToolListChanged(event)` - `notifications/tools/list_changed`
 - `onResourceListChanged(event)` - `notifications/resources/list_changed`
 - `onPromptListChanged(event)` - `notifications/prompts/list_changed`
+- `onCancelled(event)` - `notifications/cancelled` *(request cancellation signal)*
+- `onElicitationComplete(event)` - `notifications/elicitation/complete` *(out-of-band elicitation complete)*
 - `onResourceUpdated(event)` - `notifications/resources/updated`
 - `onTaskStatus(event)` - `notifications/tasks/status`
 
@@ -276,10 +278,17 @@ const subscription = mcp.setNotificationHandlers({
   onProgress: (event) => console.log(event.progress, event.total),
   onLoggingMessage: (event) => console.log(event.level, event.data),
   onToolListChanged: () => console.log('tool list changed'),
+  onCancelled: (event) => console.log('cancelled', event.requestId, event.reason),
 });
 
-subscription.dispose();
+subscription.dispose(); // only dispose when you no longer need notifications
 ```
+
+`dispose()` is final cleanup for the client and its event emitters. After calling it, the instance cannot receive new notifications. For long-lived streams (chat sessions, background jobs), keep the client/subscription alive and dispose during teardown.
+
+For always-on use cases (for example, watching an inbox and reacting to new mail), do **not** tie the client lifecycle to a single HTTP request. Keep a long-lived process/runtime that owns the `MultiSessionClient`, and dispose only when shutting that runtime down.
+
+Note: `notifications/roots/list_changed` is a client-to-server signal in MCP, so `MultiSessionClient` (as a client) does not expose it as an incoming server notification handler.
 
 **Tasks compatibility note (MCP 2025-11-25):**
 

@@ -142,6 +142,10 @@ export async function POST(req: Request) {
   const { messages, identity } = await req.json();
 
   const client = new MultiSessionClient(identity);
+  const notificationSubscription = client.setNotificationHandlers({
+    onProgress: (event) => console.log('progress', event.progress),
+    onTaskStatus: (event) => console.log('task', event.taskId, event.status),
+  });
 
   try {
     await client.connect();
@@ -154,17 +158,23 @@ export async function POST(req: Request) {
       messages,
       tools,
       onFinish: async () => {
-        await mcp.disconnect();
+        notificationSubscription.dispose();
+        client.disconnect();
       }
     });
 
     return result.toDataStreamResponse();
   } catch (error) {
-    await mcp.disconnect();
+    notificationSubscription.dispose();
+    client.disconnect();
     throw error;
   }
 }
 ```
+
+> `dispose()` is final teardown. If you dispose immediately, notifications stop.
+>
+> For request-scoped chat routes, cleanup in `onFinish` + `catch` is correct. But for always-on automations (for example: “summarize every new Gmail inbox email”), use a long-lived worker/service that keeps `MultiSessionClient` connected across events and only disposes on process shutdown.
 
 For more details, see the [AI SDK Adapter documentation](./adapters.md#ai-sdk-adapter).
 

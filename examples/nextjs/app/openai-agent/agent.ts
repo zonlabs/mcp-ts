@@ -23,7 +23,7 @@ export async function createMcpAgent(identity: string = 'demo-user-123') {
         await manager.connect();
     } catch (error) {
         notificationSubscription.dispose();
-        console.error("[MCP] Connection failed:", error);
+        console.error('[MCP] Connection failed:', error);
     }
 
     const tools = await AIAdapter.getTools(manager);
@@ -36,10 +36,16 @@ export async function createMcpAgent(identity: string = 'demo-user-123') {
         stopWhen: stepCountIs(5),
     });
 
-    // Optional: if your runtime has explicit teardown, call both:
+    // Reference only (optional long-lived pattern):
+    // Keep one MultiSessionClient per identity in a process-level map when you need
+    // always-on notifications across multiple requests (e.g., inbox watcher workers).
+    // In that pattern, DO NOT dispose after each request; dispose on worker shutdown.
+
+    // Optional explicit teardown if your runtime provides a request/session end hook:
     // notificationSubscription.dispose();
     // manager.dispose();
 
     return agent;
 }
+
 export type McpAgentUIMessage = InferAgentUIMessage<Awaited<ReturnType<typeof createMcpAgent>>>;

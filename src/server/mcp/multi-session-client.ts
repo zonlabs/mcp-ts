@@ -55,6 +55,17 @@ export interface MultiSessionListChangedEvent extends MultiSessionNotificationEv
     | 'notifications/prompts/list_changed';
 }
 
+export interface MultiSessionCancelledEvent extends MultiSessionNotificationEvent {
+    method: 'notifications/cancelled';
+    requestId?: string | number;
+    reason?: string;
+}
+
+export interface MultiSessionElicitationCompleteEvent extends MultiSessionNotificationEvent {
+    method: 'notifications/elicitation/complete';
+    elicitationId?: string;
+}
+
 export interface MultiSessionResourceUpdatedEvent extends MultiSessionNotificationEvent {
     method: 'notifications/resources/updated';
     uri?: string;
@@ -73,6 +84,8 @@ export interface MultiSessionNotificationHandlers {
     onToolListChanged?: (event: MultiSessionListChangedEvent) => void;
     onResourceListChanged?: (event: MultiSessionListChangedEvent) => void;
     onPromptListChanged?: (event: MultiSessionListChangedEvent) => void;
+    onCancelled?: (event: MultiSessionCancelledEvent) => void;
+    onElicitationComplete?: (event: MultiSessionElicitationCompleteEvent) => void;
     onResourceUpdated?: (event: MultiSessionResourceUpdatedEvent) => void;
     onTaskStatus?: (event: MultiSessionTaskStatusEvent) => void;
 }
@@ -91,6 +104,8 @@ export class MultiSessionClient {
     private readonly _onToolListChanged = new Emitter<MultiSessionListChangedEvent>();
     private readonly _onResourceListChanged = new Emitter<MultiSessionListChangedEvent>();
     private readonly _onPromptListChanged = new Emitter<MultiSessionListChangedEvent>();
+    private readonly _onCancelled = new Emitter<MultiSessionCancelledEvent>();
+    private readonly _onElicitationComplete = new Emitter<MultiSessionElicitationCompleteEvent>();
     private readonly _onResourceUpdated = new Emitter<MultiSessionResourceUpdatedEvent>();
     private readonly _onTaskStatus = new Emitter<MultiSessionTaskStatusEvent>();
     private readonly notificationForwarders = new Map<string, Disposable>();
@@ -101,6 +116,8 @@ export class MultiSessionClient {
     public readonly onToolListChanged: Event<MultiSessionListChangedEvent> = this._onToolListChanged.event;
     public readonly onResourceListChanged: Event<MultiSessionListChangedEvent> = this._onResourceListChanged.event;
     public readonly onPromptListChanged: Event<MultiSessionListChangedEvent> = this._onPromptListChanged.event;
+    public readonly onCancelled: Event<MultiSessionCancelledEvent> = this._onCancelled.event;
+    public readonly onElicitationComplete: Event<MultiSessionElicitationCompleteEvent> = this._onElicitationComplete.event;
     public readonly onResourceUpdated: Event<MultiSessionResourceUpdatedEvent> = this._onResourceUpdated.event;
     public readonly onTaskStatus: Event<MultiSessionTaskStatusEvent> = this._onTaskStatus.event;
 
@@ -142,6 +159,14 @@ export class MultiSessionClient {
 
         if (handlers.onPromptListChanged) {
             subscriptions.push(this.onPromptListChanged(handlers.onPromptListChanged));
+        }
+
+        if (handlers.onCancelled) {
+            subscriptions.push(this.onCancelled(handlers.onCancelled));
+        }
+
+        if (handlers.onElicitationComplete) {
+            subscriptions.push(this.onElicitationComplete(handlers.onElicitationComplete));
         }
 
         if (handlers.onResourceUpdated) {
@@ -250,6 +275,24 @@ export class MultiSessionClient {
                 return;
             case 'notifications/prompts/list_changed':
                 this._onPromptListChanged.fire({ ...event, method: 'notifications/prompts/list_changed' });
+                return;
+            case 'notifications/cancelled':
+                this._onCancelled.fire({
+                    ...event,
+                    method: 'notifications/cancelled',
+                    requestId:
+                        typeof params?.requestId === 'string' || typeof params?.requestId === 'number'
+                            ? params.requestId
+                            : undefined,
+                    reason: typeof params?.reason === 'string' ? params.reason : undefined,
+                });
+                return;
+            case 'notifications/elicitation/complete':
+                this._onElicitationComplete.fire({
+                    ...event,
+                    method: 'notifications/elicitation/complete',
+                    elicitationId: typeof params?.elicitationId === 'string' ? params.elicitationId : undefined,
+                });
                 return;
             case 'notifications/resources/updated':
                 this._onResourceUpdated.fire({
@@ -390,6 +433,8 @@ export class MultiSessionClient {
         this._onToolListChanged.dispose();
         this._onResourceListChanged.dispose();
         this._onPromptListChanged.dispose();
+        this._onCancelled.dispose();
+        this._onElicitationComplete.dispose();
         this._onResourceUpdated.dispose();
         this._onTaskStatus.dispose();
     }
