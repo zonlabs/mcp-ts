@@ -108,7 +108,7 @@ function McpPageContent() {
         onUpdatePublicServer={handleUpdatePublicServer}
         onUpdateUserServer={handleUpdateUserServer}
         hasNextPage={hasNextPage}
-        isLoadingMore={false}
+        isLoadingMore={publicLoading && (publicServers?.length ?? 0) > 0}
         onLoadMore={loadMorePublicServers}
       />
     </>
