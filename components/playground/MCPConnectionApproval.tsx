@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ServerIcon } from '../common/ServerIcon';
 import { useMcpStore } from '@/lib/stores/mcp-store';
@@ -29,29 +29,104 @@ export function MCPConnectionApproval({
   onApprove,
   onDeny,
 }: MCPConnectionApprovalProps) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [connectRequested, setConnectRequested] = useState(false);
 
-  // Use the global store for connections
+  // Use the global store for actions and live connection state
   const connectServer = useMcpStore(state => state.connect);
-  const disconnectServer = useMcpStore(state => state.disconnect);
   const connections = useMcpStore(state => state.connections);
-  const activeConnections = useMcpStore(state => state.activeConnectionCount);
-  const getConnectionByServerId = useMcpStore(state => state.getConnectionByServerId);
+
+  const normalizeServerUrl = (url?: string | null): string | null => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url.trim());
+      const path = parsed.pathname.replace(/\/+$/, '') || '/';
+      return `${parsed.origin}${path}${parsed.search}`;
+    } catch {
+      return url.trim().replace(/\/+$/, '');
+    }
+  };
 
   // Check if we already have a connection for this server
-  const existingConnection = getConnectionByServerId(serverId);
-  const isConnected = existingConnection?.connectionStatus === 'CONNECTED';
-  const isConnecting = existingConnection?.connectionStatus === 'CONNECTING' || existingConnection?.connectionStatus === 'VALIDATING';
+  const normalizedTargetUrl = normalizeServerUrl(serverUrl);
+  const existingConnection = Object.values(connections).find((conn) => {
+    if (conn.serverId === serverId) return true;
+    if (!normalizedTargetUrl) return false;
+    return normalizeServerUrl(conn.url) === normalizedTargetUrl;
+  });
+  const isConnected = existingConnection?.connectionStatus === 'READY';
+  const isStatusConnecting = !!existingConnection?.connectionStatus && [
+    'INITIALIZING',
+    'VALIDATING',
+    'CONNECTING',
+    'AUTHENTICATING',
+    'AUTHENTICATED',
+    'CONNECTED',
+    'DISCOVERING',
+  ].includes(existingConnection.connectionStatus);
+  const isTerminalState =
+    existingConnection?.connectionStatus === 'READY' ||
+    existingConnection?.connectionStatus === 'FAILED' ||
+    existingConnection?.connectionStatus === 'DISCONNECTED';
+  const isConnecting = isStatusConnecting || (connectRequested && !isTerminalState);
 
   // Watch for successful connection
   const [hasTriggeredApprove, setHasTriggeredApprove] = useState(false);
-
-  if (isConnected && !hasTriggeredApprove) {
+  useEffect(() => {
+    if (!connectRequested || !isConnected || hasTriggeredApprove || !existingConnection?.sessionId) return;
+    console.log('[MCPConnectionApproval] Auto-approving tool after READY state', {
+      serverName,
+      serverUrl,
+      sessionId: existingConnection.sessionId,
+      status: existingConnection.connectionStatus,
+    });
     setHasTriggeredApprove(true);
-    onApprove({ sessionId: existingConnection!.sessionId });
-  }
+    onApprove({ sessionId: existingConnection.sessionId });
+  }, [connectRequested, isConnected, hasTriggeredApprove, existingConnection?.sessionId, existingConnection?.connectionStatus, onApprove, serverName, serverUrl]);
+
+  useEffect(() => {
+    const handleOAuthSuccess = (event: Event) => {
+      if (hasTriggeredApprove) return;
+
+      const customEvent = event as CustomEvent<{ state?: string; serverUrl?: string; sessionId?: string }>;
+      const matchedByUrl =
+        !!customEvent.detail?.serverUrl && customEvent.detail.serverUrl === serverUrl;
+
+      // Ignore OAuth success events for other servers.
+      if (!matchedByUrl && customEvent.detail?.serverUrl) return;
+
+      // Mark this approval card as actively connecting; approval still waits for READY.
+      console.log('[MCPConnectionApproval] OAuth success event received', {
+        serverName,
+        serverUrl,
+        state: customEvent.detail?.state,
+        sessionId: customEvent.detail?.sessionId,
+      });
+      setConnectRequested(true);
+
+      // OAuth code exchange is already complete at this point; approve immediately to resume agent flow.
+      if (customEvent.detail?.sessionId) {
+        console.log('[MCPConnectionApproval] Approving immediately after OAuth success', {
+          sessionId: customEvent.detail.sessionId,
+        });
+        setHasTriggeredApprove(true);
+        onApprove({ sessionId: customEvent.detail.sessionId });
+      }
+    };
+
+    window.addEventListener('mcp-oauth-success', handleOAuthSuccess);
+    return () => {
+      window.removeEventListener('mcp-oauth-success', handleOAuthSuccess);
+    };
+  }, [hasTriggeredApprove, onApprove, serverName, serverUrl]);
 
   const handleConnect = async () => {
+    console.log('[MCPConnectionApproval] Connect button clicked', {
+      serverName,
+      serverUrl,
+      serverId,
+      transportType,
+    });
+    setConnectRequested(true);
     try {
       await connectServer({
         id: serverId,
@@ -60,8 +135,16 @@ export function MCPConnectionApproval({
         transport: transportType,
       } as any); // Cast to McpServer type as needed
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isExpectedOAuthTransition =
+        message.toLowerCase().includes('oauth authorization required');
+
+      if (isExpectedOAuthTransition) {
+        // OAuth popup flow continues via useMcp.onRedirect; do not deny tool approval.
+        return;
+      }
+
       console.error('[MCPConnectionApproval] Connection failed:', error);
-      onDeny();
     }
   };
 

@@ -25,9 +25,11 @@ export function ServerListItem({
 }: ServerListItemProps) {
   const getStatusColor = (status?: string | null) => {
     const upperStatus = status?.toUpperCase();
-    if (upperStatus === "CONNECTED") return "bg-green-500 animate-pulse";
+    if (upperStatus === "READY") return "bg-green-500 animate-pulse";
     if (upperStatus === "FAILED") return "bg-red-500";
-    if (upperStatus === "VALIDATING") return "bg-yellow-500 animate-pulse";
+    if (upperStatus === "VALIDATING" || upperStatus === "CONNECTING" || upperStatus === "DISCOVERING" || upperStatus === "INITIALIZING") {
+      return "bg-yellow-500 animate-pulse";
+    }
     return "hidden";
   };
 

@@ -3,7 +3,19 @@ import { initiateMcpConnection } from '@/tool/initiate-mcp-connection';
 import { searchMcpServers } from '@/tool/search-mcp-servers';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from 'ai';
-import { MCPClient } from '@/lib/mcp';
+import { MCPClient } from '@mcp-ts/sdk/server';
+import { getActiveMcpConnections } from '@/lib/mcp-connections';
+
+function normalizeUrl(url?: string): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.trim());
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.origin}${path}${parsed.search}`;
+  } catch {
+    return url.trim().replace(/\/+$/, '');
+  }
+}
 
 const INSTRUCTIONS = `
 You are MCP Assistant, an AI agent that helps users complete tasks by discovering and connecting to Model Context Protocol (MCP) servers.
@@ -40,8 +52,20 @@ export async function createMcpAgent(userId?: string) {
   const mcpServers: any[] = [];
 
   if (userId) {
+    const activeConnections = await getActiveMcpConnections(userId);
+    const activeUrls = new Set(
+      activeConnections
+        .map((conn) => normalizeUrl(conn.serverUrl))
+        .filter((url): url is string => Boolean(url))
+    );
+
     const mcpConfig = await MCPClient.getMcpServerConfig(userId);
     for (const [sessionId, config] of Object.entries(mcpConfig)) {
+      const configUrl = normalizeUrl((config as any)?.url);
+      if (!configUrl || !activeUrls.has(configUrl)) {
+        continue;
+      }
+
       mcpServers.push({
         serverLabel: config.serverLabel || sessionId,
         serverUrl: config.url,

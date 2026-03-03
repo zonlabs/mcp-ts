@@ -17,6 +17,8 @@ export interface AuthPopupResult {
   serverUrl?: string;
 }
 
+const pendingAuthPopups = new Map<string, Promise<AuthPopupResult>>();
+
 /**
  * Open OAuth authorization URL in a popup window and wait for callback
  * @param options - Popup configuration
@@ -24,6 +26,9 @@ export interface AuthPopupResult {
  */
 export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResult> {
   const { url, width = 600, height = 700, windowName = 'auth-popup' } = options;
+
+  const existing = pendingAuthPopups.get(windowName);
+  if (existing) return existing;
 
   // Calculate center position relative to parent window
   const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
@@ -44,11 +49,14 @@ export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResul
   popup.focus();
 
   // Return promise that resolves when we receive the postMessage
-  return new Promise((resolve, reject) => {
+  const promise = new Promise<AuthPopupResult>((resolve, reject) => {
     let messageReceived = false;
+    let settled = false;
 
     // Listen for postMessage from popup
     const handleMessage = (event: MessageEvent) => {
+      if (settled) return;
+
       // Verify origin for security
       if (event.origin !== window.location.origin) {
         console.warn('[Auth Popup] Ignoring message from unknown origin:', event.origin);
@@ -58,14 +66,16 @@ export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResul
       const { type, sessionId, serverName, serverId, serverUrl, error } = event.data;
 
       if (type === 'mcp-auth-success') {
+        settled = true;
         console.log('[Auth Popup] Authentication successful');
         messageReceived = true;
-        cleanup();
+        cleanup(false);
         resolve({ sessionId, serverName, serverId, serverUrl });
       } else if (type === 'mcp-auth-error') {
+        settled = true;
         console.error('[Auth Popup] Authentication error:', error);
         messageReceived = true;
-        cleanup();
+        cleanup(false);
         reject(new Error(error || 'Authentication failed'));
       }
     };
@@ -73,18 +83,19 @@ export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResul
     // Check if popup was closed without completing auth
     const popupCheckInterval = setInterval(() => {
       if (popup.closed) {
-        cleanup();
+        cleanup(false);
         if (!messageReceived) {
+          settled = true;
           reject(new Error('Authentication was cancelled'));
         }
       }
     }, 500);
 
     // Cleanup function
-    const cleanup = () => {
+    const cleanup = (closePopup: boolean = false) => {
       window.removeEventListener('message', handleMessage);
       clearInterval(popupCheckInterval);
-      if (!popup.closed) {
+      if (closePopup && !popup.closed) {
         popup.close();
       }
     };
@@ -95,9 +106,15 @@ export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResul
     // Timeout after 10 minutes
     setTimeout(() => {
       if (!messageReceived) {
-        cleanup();
+        settled = true;
+        cleanup(true);
         reject(new Error('Authentication timeout - please try again'));
       }
     }, 10 * 60 * 1000);
+  });
+
+  pendingAuthPopups.set(windowName, promise);
+  return promise.finally(() => {
+    pendingAuthPopups.delete(windowName);
   });
 }

@@ -20,7 +20,7 @@ export function RegistryServerCard({
   const displayName = server.title || server.shortName;
 
   const connectionStatus = server.connectionStatus;
-  const isConnected = connectionStatus === 'CONNECTED';
+  const isConnected = connectionStatus === 'READY';
   const isValidating = connectionStatus === 'VALIDATING';
   const isFailed = connectionStatus === 'FAILED';
 

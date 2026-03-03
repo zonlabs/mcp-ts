@@ -4,7 +4,6 @@ import toast from 'react-hot-toast';
 import type { McpServer, ToolInfo, ParsedRegistryServer } from '@/types/mcp';
 import { query } from '@/lib/graphql-client';
 import { MCP_SERVERS_QUERY } from '@/lib/graphql';
-import { openAuthPopup } from '@/lib/auth-popup-utils';
 
 /**
  * Stored Connection Type
@@ -16,11 +15,13 @@ import { openAuthPopup } from '@/lib/auth-popup-utils';
  */
 export type ConnectionStatus =
   | 'DISCONNECTED'      // Not connected
+  | 'INITIALIZING'      // Session/config initialization
   | 'CONNECTING'        // Initial connection attempt
   | 'AUTHENTICATING'    // OAuth flow in progress
   | 'AUTHENTICATED'     // OAuth complete, pre-connect
   | 'DISCOVERING'       // Fetching tools from server
   | 'CONNECTED'         // Fully connected with tools
+  | 'READY'             // Final ready state after discovery
   | 'VALIDATING'        // Legacy: validating existing session
   | 'FAILED';           // Connection error
 
@@ -33,6 +34,54 @@ export interface StoredConnection {
   connectionStatus: ConnectionStatus;
   tools: ToolInfo[];
   connectedAt: string;
+}
+
+function normalizeConnectionStatus(
+  status?: string | null
+): ConnectionStatus {
+  if (!status) return 'DISCONNECTED';
+  const upper = status.toUpperCase();
+  switch (upper) {
+    case 'DISCONNECTED':
+    case 'INITIALIZING':
+    case 'CONNECTING':
+    case 'AUTHENTICATING':
+    case 'AUTHENTICATED':
+    case 'DISCOVERING':
+    case 'CONNECTED':
+    case 'READY':
+    case 'VALIDATING':
+    case 'FAILED':
+      return upper as ConnectionStatus;
+    default:
+      return 'DISCONNECTED';
+  }
+}
+
+function normalizeServerUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.trim());
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.origin}${path}${parsed.search}`;
+  } catch {
+    return url.trim().replace(/\/+$/, '');
+  }
+}
+
+export function findConnectionForServer<T extends { id: string; url?: string | null }>(
+  connections: Record<string, StoredConnection>,
+  server: T
+): StoredConnection | undefined {
+  const byId = Object.values(connections).find((c) => c.serverId === server.id);
+  if (byId) return byId;
+
+  const normalizedServerUrl = normalizeServerUrl(server.url);
+  if (!normalizedServerUrl) return undefined;
+
+  return Object.values(connections).find(
+    (c) => normalizeServerUrl(c.url) === normalizedServerUrl
+  );
 }
 
 /**
@@ -142,6 +191,9 @@ interface ConnectionActions {
   syncConnections: (connections: Record<string, any>) => void;
   setMcpActions: (actions: { connect: any; disconnect: any; callTool: any }) => void;
   mcpActions: { connect: any; disconnect: any; callTool: any } | null;
+  validateSession: (sessionId: string) => Promise<void>;
+  validateAllSessions: () => Promise<void>;
+  fetchSessionTools: (sessionId: string) => Promise<ToolInfo[]>;
   updateConnectionStatus: (sessionId: string, status: ConnectionStatus, tools?: ToolInfo[]) => void;
   getConnection: (sessionId: string) => StoredConnection | undefined;
   getConnectionByServerId: (serverId: string) => StoredConnection | undefined;
@@ -490,19 +542,22 @@ export const useMcpStore = create<McpStore>()(
         syncConnections: (connections) => {
           set({
             connections: Object.entries(connections).reduce((acc, [key, val]: [string, any]) => {
+              const normalizedStatus = normalizeConnectionStatus(val.state);
               acc[key] = {
                 sessionId: val.sessionId,
                 serverId: val.serverId || val.identity, // Fallback if needed
                 serverName: val.serverName,
                 url: val.serverUrl,
                 transport: 'sse', // Default or extract
-                connectionStatus: val.state, // Map mcp-ts state to ConnectionStatus
+                connectionStatus: normalizedStatus,
                 tools: val.tools || [],
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available
               };
               return acc;
             }, {} as Record<string, StoredConnection>),
-            activeConnectionCount: Object.values(connections).filter((c: any) => c.state === 'CONNECTED').length
+            activeConnectionCount: Object.values(connections).filter(
+              (c: any) => normalizeConnectionStatus(c.state) === 'READY'
+            ).length
           });
         },
 
@@ -562,6 +617,7 @@ export const useMcpStore = create<McpStore>()(
          * Used by SSE stream to provide real-time status updates
          */
         updateConnectionStatus: (sessionId, status, tools) => {
+          const normalizedStatus = normalizeConnectionStatus(status);
           set((state) => {
             const connection = state.connections[sessionId];
             if (!connection) {
@@ -570,11 +626,11 @@ export const useMcpStore = create<McpStore>()(
             }
 
             const prevActiveCount = Object.values(state.connections).filter(
-              (c) => c.connectionStatus === 'CONNECTED'
+              (c) => c.connectionStatus === 'READY'
             ).length;
 
-            const wasConnected = connection.connectionStatus === 'CONNECTED';
-            const isNowConnected = status === 'CONNECTED';
+            const wasConnected = connection.connectionStatus === 'READY';
+            const isNowConnected = normalizedStatus === 'READY';
 
             const newActiveCount = wasConnected && !isNowConnected
               ? prevActiveCount - 1
@@ -587,7 +643,7 @@ export const useMcpStore = create<McpStore>()(
                 ...state.connections,
                 [sessionId]: {
                   ...connection,
-                  connectionStatus: status,
+                  connectionStatus: normalizedStatus,
                   ...(tools && { tools }),
                 },
               },
@@ -597,7 +653,7 @@ export const useMcpStore = create<McpStore>()(
 
           console.log('[MCP Store] Connection status updated:', {
             sessionId,
-            status,
+            status: normalizedStatus,
             toolCount: tools?.length,
           });
         },
@@ -613,7 +669,16 @@ export const useMcpStore = create<McpStore>()(
          * Get connection by server ID
          */
         getConnectionByServerId: (serverId) => {
-          return Object.values(get().connections).find((c) => c.serverId === serverId);
+          const byId = Object.values(get().connections).find((c) => c.serverId === serverId);
+          if (byId) return byId;
+
+          // Fallback for cases where caller passes URL instead of an internal ID.
+          const normalizedInput = normalizeServerUrl(serverId);
+          if (!normalizedInput) return undefined;
+
+          return Object.values(get().connections).find(
+            (c) => normalizeServerUrl(c.url) === normalizedInput
+          );
         },
 
         /**
@@ -628,7 +693,7 @@ export const useMcpStore = create<McpStore>()(
          */
         isServerConnected: (serverId) => {
           return Object.values(get().connections).some(
-            (c) => c.serverId === serverId && c.connectionStatus === 'CONNECTED'
+            (c) => c.serverId === serverId && c.connectionStatus === 'READY'
           );
         },
 
@@ -688,9 +753,7 @@ export const selectServersWithConnections = (state: McpStore) => {
   const servers = state.activeTab === 'public' ? state.publicServers : state.userServers;
 
   return servers.map((server) => {
-    const connection = Object.values(state.connections).find(
-      (c) => c.serverId === server.id
-    );
+    const connection = findConnectionForServer(state.connections, server);
 
     return {
       ...server,
@@ -732,7 +795,7 @@ export const selectFilteredServers = (state: McpStore) => {
  */
 export const selectActiveConnections = (state: McpStore) => {
   return Object.values(state.connections).filter(
-    (c) => c.connectionStatus === 'CONNECTED'
+    (c) => c.connectionStatus === 'READY'
   );
 };
 

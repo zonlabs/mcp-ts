@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { GET } from '@/app/api/mcp/connections/route';
-import { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { getActiveMcpConnections } from '@/lib/mcp-connections';
 
 export const initiateMcpConnection = tool({
   description: 'Initiate an MCP connection to a specified server',
@@ -18,48 +18,37 @@ export const initiateMcpConnection = tool({
     try {
       console.log('[initiateMcpConnection] Tool approved, verifying connection');
 
-      // The approval UI already handled the connection and OAuth
-      // Just verify the connection exists by checking active connections
-      const request = new NextRequest('http://localhost:3000/api/mcp/connections', {
-        method: 'GET',
-      });
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      const response = await GET(request);
-      console.log('[initiateMcpConnection] Connections check status:', response.status);
-
-      const data = await response.json();
-      console.log('[initiateMcpConnection] Connections data:', data);
-
-      if (response.ok && data.connections) {
-        // Find connection for this server
-        const connection = data.connections.find(
-          (conn: any) => conn.serverUrl === serverUrl
-        );
-
-        if (connection && connection.active) {
-          console.log('[initiateMcpConnection] Connection verified');
-          yield {
-            state: 'ready' as const,
-            success: true,
-            sessionId: connection.sessionId,
-            message: `Successfully connected to ${serverName}`,
-          };
-        } else {
-          console.warn('[initiateMcpConnection] Connection not found or inactive');
-          yield {
-            state: 'ready' as const,
-            success: false,
-            error: 'Connection not found',
-            message: `Connection to ${serverName} was not established. Please try again.`,
-          };
-        }
-      } else {
-        console.error('[initiateMcpConnection] Failed to verify connections:', data);
+      if (!user?.id) {
         yield {
           state: 'ready' as const,
           success: false,
-          error: data.error || 'Failed to verify connection',
-          message: `Failed to verify connection to ${serverName}`,
+          error: 'Unauthorized',
+          message: 'Please sign in to connect MCP servers.',
+        };
+        return;
+      }
+
+      const connections = await getActiveMcpConnections(user.id);
+      const connection = connections.find((conn) => conn.serverUrl === serverUrl);
+
+      if (connection && connection.active) {
+        console.log('[initiateMcpConnection] Connection verified');
+        yield {
+          state: 'ready' as const,
+          success: true,
+          sessionId: connection.sessionId,
+          message: `Successfully connected to ${serverName}`,
+        };
+      } else {
+        console.warn('[initiateMcpConnection] Connection not found or inactive');
+        yield {
+          state: 'ready' as const,
+          success: false,
+          error: 'Connection not found',
+          message: `Connection to ${serverName} was not established. Please try again.`,
         };
       }
     } catch (error) {

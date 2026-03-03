@@ -6,6 +6,7 @@ import { gql } from "@apollo/client";
 import { McpServer } from "@/types/mcp";
 import { useMcpConnection } from "./useMcpConnection";
 import { MCP_SERVERS_QUERY } from "@/lib/graphql";
+import { findConnectionForServer } from "@/lib/stores/mcp-store";
 
 const GET_MCP_SERVERS = gql`${MCP_SERVERS_QUERY}`;
 
@@ -36,8 +37,8 @@ export function useMcpServersPagination(first: number = 10) {
   // Merge with connection state from API
   const mergeWithConnectionState = useCallback((servers: McpServer[]) => {
     return servers.map((server) => {
-      const stored = connections[server.id];
-      if (stored && stored.connectionStatus === "CONNECTED") {
+      const stored = findConnectionForServer(connections, server);
+      if (stored && stored.connectionStatus === "READY") {
         return {
           ...server,
           connectionStatus: stored.connectionStatus,

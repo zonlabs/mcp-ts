@@ -1,7 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from "react-hot-toast";
 import { McpServer, ToolInfo } from '@/types/mcp';
-import { useMcpStore, type McpStore, type StoredConnection } from '@/lib/stores/mcp-store';
+import {
+  useMcpStore,
+  type McpStore,
+  type StoredConnection,
+  findConnectionForServer
+} from '@/lib/stores/mcp-store';
 
 // Re-export StoredConnection for backward compatibility
 export type { StoredConnection };
@@ -24,6 +29,17 @@ type ConnectableServer = {
 
 const UNSUPPORTED_TRANSPORTS = ['stdio', 'websocket'];
 
+function normalizeServerUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.trim());
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.origin}${path}${parsed.search}`;
+  } catch {
+    return url.trim().replace(/\/+$/, '');
+  }
+}
+
 function extractServerUrl(server: ConnectableServer): string | null {
   return server.remoteUrl || server.url || null;
 }
@@ -43,17 +59,30 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
 
   // Get connection by sessionId
   const getConnection = useCallback((id: string) => {
-    return connections[id] || null;
+    const bySession = connections[id];
+    if (bySession) return bySession;
+
+    const byServerId = Object.values(connections).find((c) => c.serverId === id);
+    if (byServerId) return byServerId;
+
+    const normalizedInput = normalizeServerUrl(id);
+    if (!normalizedInput) return null;
+
+    return (
+      Object.values(connections).find(
+        (c) => normalizeServerUrl(c.url) === normalizedInput
+      ) || null
+    );
   }, [connections]);
 
   // Get connection status
   const getConnectionStatus = useCallback((id: string): 'CONNECTED' | 'DISCONNECTED' => {
-    return connections[id]?.connectionStatus === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED';
+    return connections[id]?.connectionStatus === 'READY' ? 'CONNECTED' : 'DISCONNECTED';
   }, [connections]);
 
   // Check if connected
   const isServerConnected = useCallback((id: string): boolean => {
-    return connections[id]?.connectionStatus === 'CONNECTED';
+    return connections[id]?.connectionStatus === 'READY';
   }, [connections]);
 
   // Get tools
@@ -64,7 +93,7 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
   // Active connections
   const activeConnections = useMemo(() => {
     return Object.entries(connections)
-      .filter(([_, conn]) => conn.connectionStatus === 'CONNECTED')
+      .filter(([_, conn]) => conn.connectionStatus === 'READY')
       .reduce((acc, [id, conn]) => {
         acc[id] = conn;
         return acc;
@@ -83,8 +112,7 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
   // Merge with server list
   const mergeWithStoredState = useCallback(<T extends { id: string, connectionStatus?: string | null | undefined, tools?: ToolInfo[] }>(serverList: T[]): T[] => {
     return serverList.map((server) => {
-      // Find connection by serverId (not sessionId)
-      const stored = Object.values(connections).find((c) => c.serverId === server.id);
+      const stored = findConnectionForServer(connections, server);
       if (stored) {
         return {
           ...server,
@@ -147,7 +175,11 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
     // So getConnection(server.id) probably returns undefined if server.id is not sessionId.
 
     // We should use getConnectionByServerId(server.id)
-    const storedConnection = useMcpStore.getState().getConnectionByServerId(server.id);
+    const storedConnection =
+      useMcpStore.getState().getConnectionByServerId(server.id) ||
+      (extractServerUrl(server)
+        ? useMcpStore.getState().getConnectionByServerId(extractServerUrl(server) as string)
+        : undefined);
 
     if (!storedConnection?.sessionId) {
       // Try lookup by assuming server.id is sessionId (legacy behavior?)

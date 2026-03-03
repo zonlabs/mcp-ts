@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import McpClientLayout from "@/components/mcp-client/McpClientLayout";
 import { McpServer } from "@/types/mcp";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 import {
   usePublicServers,
   useUserServers,
@@ -119,9 +118,7 @@ function McpPageContent() {
 export default function McpPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <McpStoreProvider>
-        <McpPageContent />
-      </McpStoreProvider>
+      <McpPageContent />
     </Suspense>
   );
 }

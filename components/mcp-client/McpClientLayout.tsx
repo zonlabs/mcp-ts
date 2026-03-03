@@ -117,7 +117,9 @@ export default function McpClientLayout({
       if (updatedServer) {
         setSelectedServer(updatedServer);
       } else {
-        const storedConnection = getConnectionByServerId(selectedServer.id);
+        const storedConnection =
+          getConnectionByServerId(selectedServer.id) ||
+          (selectedServer.url ? getConnectionByServerId(selectedServer.url) : undefined);
         if (storedConnection) {
           setSelectedServer(prev => prev ? ({
             ...prev,

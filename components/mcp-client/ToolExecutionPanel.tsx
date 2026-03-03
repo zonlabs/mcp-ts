@@ -125,7 +125,9 @@ export default function ToolExecutionPanel({
       }
 
       // Get sessionId from store
-      const connection = useMcpStore.getState().getConnectionByServerId(server.id);
+      const connection =
+        useMcpStore.getState().getConnectionByServerId(server.id) ||
+        (server.url ? useMcpStore.getState().getConnectionByServerId(server.url) : undefined);
       const sessionId = connection?.sessionId;
 
       if (!sessionId) {

@@ -52,6 +52,7 @@ export function ServerDetails({
 
   // Use connection status from hook (current data) if available, otherwise fall back to server prop
   const connectionStatus = connection?.connectionStatus ?? server.connectionStatus ?? "DISCONNECTED";
+  const isConnected = connectionStatus?.toUpperCase() === "READY";
 
   const handleCopyUrl = () => {
     if (server.url) {
@@ -88,7 +89,7 @@ export function ServerDetails({
 
           <div className="flex items-center gap-2">
             <ServerManagement
-              server={server}
+              server={{ ...server, connectionStatus }}
               onAction={onAction}
               onEdit={canEdit ? onEdit : undefined}
               onDelete={canDelete ? onDelete : undefined}
@@ -162,7 +163,7 @@ export function ServerDetails({
                 <span className="font-medium">Status:</span>
                 <Badge
                   variant={
-                    connectionStatus === "CONNECTED"
+                    isConnected
                       ? "default"
                       : "secondary"
                   }

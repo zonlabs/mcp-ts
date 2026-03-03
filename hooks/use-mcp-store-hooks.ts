@@ -1,4 +1,10 @@
-import { useMcpStore, selectActiveConnections, selectIsLoading, type McpStore } from '@/lib/stores/mcp-store';
+import {
+  useMcpStore,
+  selectActiveConnections,
+  selectIsLoading,
+  findConnectionForServer,
+  type McpStore
+} from '@/lib/stores/mcp-store';
 import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -27,9 +33,7 @@ export function usePublicServers() {
   // Memoize servers with connection state
   const servers = useMemo(() => {
     return publicServers.map((server) => {
-      const connection = Object.values(connections).find(
-        (c) => c.serverId === server.id
-      );
+      const connection = findConnectionForServer(connections, server);
 
       return {
         ...server,
@@ -78,9 +82,7 @@ export function useUserServers() {
   // Memoize servers with connection state
   const servers = useMemo(() => {
     return userServers.map((server) => {
-      const connection = Object.values(connections).find(
-        (c) => c.serverId === server.id
-      );
+      const connection = findConnectionForServer(connections, server);
       return {
         ...server,
         connectionStatus: connection?.connectionStatus || 'DISCONNECTED',
@@ -127,9 +129,7 @@ export function useFilteredServers() {
     // Get base servers with connection state
     const baseServers = activeTab === 'public' ? publicServers : userServers;
     let serversWithConnections = baseServers.map((server) => {
-      const connection = Object.values(connections).find(
-        (c) => c.serverId === server.id
-      );
+      const connection = findConnectionForServer(connections, server);
 
       return {
         ...server,

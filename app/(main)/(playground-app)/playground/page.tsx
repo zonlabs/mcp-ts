@@ -126,11 +126,16 @@ export default function PlaygroundPage() {
                                       serverId={input.serverId || ''}
                                       transportType={input.transportType || 'sse'}
                                       approvalId={approvalId || ''}
-                                      onApprove={() => {
+                                      onApprove={(data) => {
                                         if (approvalId && addToolApprovalResponse) {
+                                          console.log('[Playground] Sending MCP tool approval response', {
+                                            approvalId,
+                                            data,
+                                          });
                                           addToolApprovalResponse({
                                             id: approvalId,
                                             approved: true,
+                                            ...(data ? { data } : {}),
                                           });
                                         }
                                       }}
