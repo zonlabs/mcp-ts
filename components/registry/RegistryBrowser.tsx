@@ -12,12 +12,16 @@ import { ServerDetail } from "./ServerDetail";
 import type { ParsedRegistryServer } from "@/types/mcp";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useOAuthCallback } from "@/hooks/useOAuthCallback";
-import { connectionStore } from "@/lib/mcp/connection-store";
-import { useConnectionContext } from "@/components/providers/ConnectionProvider";
+import {
+  useMcpStore,
+  findConnectionForServer,
+  type McpStore
+} from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
 
 export function RegistryBrowser() {
-  const { activeCount, connections } = useConnectionContext();
+  const activeCount = useMcpStore((state: McpStore) => state.activeConnectionCount);
+  const connections = useMcpStore((state: McpStore) => state.connections);
   const { mergeWithStoredState } = useMcpConnection();
   const {
     servers: rawServers,
@@ -78,7 +82,10 @@ export function RegistryBrowser() {
   // If a server is selected, show detail view
   if (selectedServer) {
     // Merge latest connection status into selected server to ensure reactivity
-    const storedConnection = connections[selectedServer.id];
+    const storedConnection = findConnectionForServer(connections, {
+      id: selectedServer.id,
+      url: selectedServer.remoteUrl,
+    });
     const serverWithLatestStatus = storedConnection ? {
       ...selectedServer,
       connectionStatus: storedConnection.connectionStatus,

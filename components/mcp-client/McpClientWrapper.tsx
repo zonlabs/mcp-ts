@@ -1,5 +1,3 @@
-"use client";
-import { useMemo } from "react";
 import { Session } from "@supabase/supabase-js";
 import McpClientLayout from "@/components/mcp-client/McpClientLayout";
 import { useMcpServers } from "@/hooks/useMcpServers";
@@ -21,20 +19,12 @@ export default function McpClientWrapper({ session }: McpClientWrapperProps) {
     handleServerDelete,
   } = useMcpServers();
 
-  // Split servers into public and user servers
-  const { publicServers, userServers } = useMemo(() => {
-    if (!servers) return { publicServers: null, userServers: null };
 
-    return {
-      publicServers: servers.filter(s => s.isPublic),
-      userServers: servers.filter(s => !s.isPublic),
-    };
-  }, [servers]);
 
   return (
     <McpClientLayout
-      publicServers={publicServers}
-      userServers={userServers}
+      publicServers={servers?.filter(s => s.isPublic) ?? null}
+      userServers={servers?.filter(s => !s.isPublic) ?? null}
       publicLoading={loading}
       userLoading={loading}
       publicError={error}

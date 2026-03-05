@@ -1,14 +1,16 @@
 <div align="center">
-  <img src="public/images/readme-banner.svg" alt="MCP Assistant Banner" width="920">
+  <img src="./public/logo.svg" alt="MCP Assistant Logo" width="96" height="96" />
+  <h1>MCP Assistant</h1>
+  <p><strong>Web-based MCP client for remote servers and AI tool workflows.</strong></p>
 
-  [![Website](https://img.shields.io/badge/Website-mcp--assistant.in-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.mcp-assistant.in/)
-  [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+  [![Website](https://img.shields.io/badge/Website-mcp--assistant.in-0A66C2?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.mcp-assistant.in/)
+  [![Docs](https://img.shields.io/badge/Docs-mcp--ts-111827?style=for-the-badge&logo=readthedocs&logoColor=white)](https://zonlabs.github.io/mcp-ts/)
+  [![License](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 </div>
 
 ## 🌐 Overview
 
-MCP Assistant helps developers discover, connect, and use Model Context Protocol (MCP) servers from a clean web interface.  
-It is designed for teams that want fast setup, secure access, and better visibility while working with multiple MCP endpoints.
+MCP Assistant addresses common pain points when working with the Model Context Protocol:
 
 ## ✨ Why MCP Assistant
 
@@ -34,6 +36,20 @@ It is designed for teams that want fast setup, secure access, and better visibil
 - Human-in-the-loop review and approval flows
 
 ## 🏗️ Architecture
+
+### Local Gateway for ChatGPT, Claude, and Other MCP Clients
+
+<img src="./public/images/mcpassistant-gateway.png" alt="MCP Assistant Gateway Banner" width="100%" />
+
+MCP Assistant includes a local gateway that exposes your configured MCP servers through one local endpoint, so desktop/web clients can connect without reconfiguring each remote server.
+
+Run the gateway with:
+
+```bash
+uvx mcpassistant-gateway
+```
+
+You can then connect that local gateway from ChatGPT, Claude, or any MCP-compatible client.
 
 ```mermaid
 flowchart TD

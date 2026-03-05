@@ -32,6 +32,7 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
 
     return matchesSearch;
   });
+  const isConnected = server.connectionStatus === 'READY';
 
 
   const getToolCategory = (toolName: string) => {
@@ -57,7 +58,7 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
 
   if (!tools || tools.length === 0) {
     const getNoToolsMessage = () => {
-      if (server.connectionStatus === 'CONNECTED') {
+      if (isConnected) {
         return "This server is connected but doesn't have any tools available.";
       } else if (server.connectionStatus === 'FAILED') {
         return "Server connection failed. Tools cannot be loaded.";
@@ -162,7 +163,7 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
                 >
                   <Card
                     className="h-full hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer"
-                    onClick={() => server.connectionStatus === 'CONNECTED' && onOpenToolTester?.(tool.name)}
+                    onClick={() => isConnected && onOpenToolTester?.(tool.name)}
                   >
                     <CardHeader>
                       <div className="flex flex-col gap-2 min-w-0">
@@ -214,7 +215,7 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
                 >
                   <Card
                     className="hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                    onClick={() => server.connectionStatus === 'CONNECTED' && onOpenToolTester?.(tool.name)}
+                    onClick={() => isConnected && onOpenToolTester?.(tool.name)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">

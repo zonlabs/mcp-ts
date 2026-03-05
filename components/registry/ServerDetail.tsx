@@ -45,8 +45,9 @@ export function ServerDetail({ server }: ServerDetailProps) {
     tools,
   } = useMcpConnection({ serverId: server.id });
 
-  const isConnected = server.connectionStatus === 'CONNECTED';
+  const isConnected = server.connectionStatus === 'READY';
   const isValidating = server.connectionStatus === 'VALIDATING';
+  const effectiveTools = tools.length > 0 ? tools : (server.tools || []);
 
   const handleConnect = () => connect(server);
 
@@ -76,8 +77,8 @@ export function ServerDetail({ server }: ServerDetailProps) {
     transport: server.transportType || 'sse',
     url: server.remoteUrl,
     requiresOauth2: false,
-    connectionStatus: isConnected ? 'CONNECTED' : 'DISCONNECTED',
-    tools: tools,
+    connectionStatus: isConnected ? 'READY' : 'DISCONNECTED',
+    tools: effectiveTools,
     updated_at: server.updatedAt,
     createdAt: server.publishedAt,
   };
@@ -131,7 +132,7 @@ export function ServerDetail({ server }: ServerDetailProps) {
                       )}
                     </div>
 
-                    {server.connectionStatus === 'CONNECTED' && (
+                    {server.connectionStatus === 'READY' && (
                       <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                         <CheckCircle2 className="h-4 w-4" />
                         <span className="text-sm font-medium">Connected</span>
@@ -364,7 +365,7 @@ export function ServerDetail({ server }: ServerDetailProps) {
           >
             <ToolExecutionPanel
               server={mcpServer}
-              tools={tools}
+              tools={effectiveTools}
               onClose={() => {
                 setToolTesterOpen(false);
                 setSelectedToolName(null);

@@ -4,14 +4,9 @@ import { Suspense } from "react";
 import { RegistryBrowser } from "@/components/registry/RegistryBrowser";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Package } from "lucide-react";
-import { ConnectionProvider } from "@/components/providers/ConnectionProvider";
-
 function RegistryPageContent() {
   return <RegistryBrowser />;
 }
-
-// Stable filter function to prevent unnecessary re-renders
-const registryServerFilter = (serverId: string) => !serverId.startsWith('mcp_');
 
 export default function RegistryPage() {
   return (
@@ -40,10 +35,7 @@ export default function RegistryPage() {
         </div>
       }
     >
-      {/* Only validate registry server connections (NOT starting with mcp_) */}
-      <ConnectionProvider filter={registryServerFilter}>
-        <RegistryPageContent />
-      </ConnectionProvider>
+      <RegistryPageContent />
     </Suspense>
   );
 }

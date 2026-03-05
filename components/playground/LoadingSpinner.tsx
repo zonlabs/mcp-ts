@@ -2,18 +2,8 @@
 
 import React from "react";
 import Image from "next/image";
-import { useTheme } from "next-themes";
 
 export const LoadingSpinner = () => {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const logoSrc = resolvedTheme === "dark" ? "/images/logo-dark.png" : "/images/logo-light.png";
-
   return (
     <div className="flex items-center px-4">
       <div className="relative w-16 h-16 flex items-center justify-center">
@@ -33,15 +23,13 @@ export const LoadingSpinner = () => {
 
         {/* Center logo */}
         <div className="relative w-10 h-10 z-10 flex items-center justify-center bg-background rounded-full">
-          {mounted && (
-            <Image
-              src={logoSrc}
-              alt="Loading"
-              width={32}
-              height={32}
-              className="object-contain"
-            />
-          )}
+          <Image
+            src="/logo.svg"
+            alt="Loading"
+            width={32}
+            height={32}
+            className="object-contain"
+          />
         </div>
       </div>
     </div>

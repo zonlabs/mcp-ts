@@ -69,7 +69,7 @@ export default function SignInPage() {
             <Logo />
             <span className="text-lg font-semibold text-foreground">MCP Assistant</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight">
             Sign in to your account
           </h1>
           <p className="text-sm text-muted-foreground">

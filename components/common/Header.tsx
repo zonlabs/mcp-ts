@@ -13,7 +13,7 @@ export default function Header() {
   const user = userSession?.user;
 
   return (
-    <nav className="sticky top-0 z-50 bg-background/80">
+    <nav className="sticky top-0 z-[200] bg-background/80">
       <div className="max-w-5xl mx-auto px-6 py-4">
         <div className="relative flex items-center justify-between">
           {/* Left: Mobile menu, Logo */}
@@ -25,7 +25,7 @@ export default function Header() {
 
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2">
-              <Logo />
+              <Logo size={34} />
               <span className="text-sm font-semibold text-foreground hidden sm:inline-block">
                 MCP Assistant
               </span>

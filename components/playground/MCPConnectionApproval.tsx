@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ServerIcon } from '../common/ServerIcon';
+import { useMcpStore } from '@/lib/stores/mcp-store';
 
 interface MCPConnectionApprovalProps {
   serverName: string;
@@ -14,6 +15,11 @@ interface MCPConnectionApprovalProps {
   onDeny: () => void;
 }
 
+/**
+ * Get user-friendly status message for connection phase
+ */
+
+
 export function MCPConnectionApproval({
   serverName,
   serverUrl,
@@ -23,129 +29,122 @@ export function MCPConnectionApproval({
   onApprove,
   onDeny,
 }: MCPConnectionApprovalProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [connectRequested, setConnectRequested] = useState(false);
+
+  // Use the global store for actions and live connection state
+  const connectServer = useMcpStore(state => state.connect);
+  const connections = useMcpStore(state => state.connections);
+
+  const normalizeServerUrl = (url?: string | null): string | null => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url.trim());
+      const path = parsed.pathname.replace(/\/+$/, '') || '/';
+      return `${parsed.origin}${path}${parsed.search}`;
+    } catch {
+      return url.trim().replace(/\/+$/, '');
+    }
+  };
+
+  // Check if we already have a connection for this server
+  const normalizedTargetUrl = normalizeServerUrl(serverUrl);
+  const existingConnection = Object.values(connections).find((conn) => {
+    if (conn.serverId === serverId) return true;
+    if (!normalizedTargetUrl) return false;
+    return normalizeServerUrl(conn.url) === normalizedTargetUrl;
+  });
+  const isConnected = existingConnection?.connectionStatus === 'READY';
+  const isStatusConnecting = !!existingConnection?.connectionStatus && [
+    'INITIALIZING',
+    'VALIDATING',
+    'CONNECTING',
+    'AUTHENTICATING',
+    'AUTHENTICATED',
+    'CONNECTED',
+    'DISCOVERING',
+  ].includes(existingConnection.connectionStatus);
+  const isTerminalState =
+    existingConnection?.connectionStatus === 'READY' ||
+    existingConnection?.connectionStatus === 'FAILED' ||
+    existingConnection?.connectionStatus === 'DISCONNECTED';
+  const isConnecting = isStatusConnecting || (connectRequested && !isTerminalState);
+
+  // Watch for successful connection
+  const [hasTriggeredApprove, setHasTriggeredApprove] = useState(false);
+  useEffect(() => {
+    if (!connectRequested || !isConnected || hasTriggeredApprove || !existingConnection?.sessionId) return;
+    console.log('[MCPConnectionApproval] Auto-approving tool after READY state', {
+      serverName,
+      serverUrl,
+      sessionId: existingConnection.sessionId,
+      status: existingConnection.connectionStatus,
+    });
+    setHasTriggeredApprove(true);
+    onApprove({ sessionId: existingConnection.sessionId });
+  }, [connectRequested, isConnected, hasTriggeredApprove, existingConnection?.sessionId, existingConnection?.connectionStatus, onApprove, serverName, serverUrl]);
+
+  useEffect(() => {
+    const handleOAuthSuccess = (event: Event) => {
+      if (hasTriggeredApprove) return;
+
+      const customEvent = event as CustomEvent<{ state?: string; serverUrl?: string; sessionId?: string }>;
+      const matchedByUrl =
+        !!customEvent.detail?.serverUrl && customEvent.detail.serverUrl === serverUrl;
+
+      // Ignore OAuth success events for other servers.
+      if (!matchedByUrl && customEvent.detail?.serverUrl) return;
+
+      // Mark this approval card as actively connecting; approval still waits for READY.
+      console.log('[MCPConnectionApproval] OAuth success event received', {
+        serverName,
+        serverUrl,
+        state: customEvent.detail?.state,
+        sessionId: customEvent.detail?.sessionId,
+      });
+      setConnectRequested(true);
+
+      // OAuth code exchange is already complete at this point; approve immediately to resume agent flow.
+      if (customEvent.detail?.sessionId) {
+        console.log('[MCPConnectionApproval] Approving immediately after OAuth success', {
+          sessionId: customEvent.detail.sessionId,
+        });
+        setHasTriggeredApprove(true);
+        onApprove({ sessionId: customEvent.detail.sessionId });
+      }
+    };
+
+    window.addEventListener('mcp-oauth-success', handleOAuthSuccess);
+    return () => {
+      window.removeEventListener('mcp-oauth-success', handleOAuthSuccess);
+    };
+  }, [hasTriggeredApprove, onApprove, serverName, serverUrl]);
 
   const handleConnect = async () => {
-    setIsLoading(true);
+    console.log('[MCPConnectionApproval] Connect button clicked', {
+      serverName,
+      serverUrl,
+      serverId,
+      transportType,
+    });
+    setConnectRequested(true);
     try {
-      // Make API call to initiate connection
-      const response = await fetch('/api/mcp/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          serverName,
-          serverUrl,
-          serverId,
-          callbackUrl: `${window.location.origin}/api/mcp/auth/callback`,
-          sourceUrl: `${window.location.origin}/auth/callback/success`,
-          transportType,
-        }),
-      });
-
-      const data = await response.json();
-      console.log('Connect API response:', data);
-
-      // Store sessionId for later reference
-      const sessionId = data.sessionId;
-
-      // If response contains an auth URL, open popup window
-      const authUrl = data.authUrl || data.url;
-      if (authUrl) {
-        console.log('Opening popup with URL:', authUrl);
-
-        // Open popup window with specific dimensions
-        const width = 600;
-        const height = 700;
-        const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
-        const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
-
-        try {
-          const popup = window.open(
-            authUrl,
-            'oauth-popup',
-            `width=${width},height=${height},left=${left},top=${top},popup=yes,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=yes`
-          );
-
-          if (popup && !popup.closed) {
-            console.log('Popup opened successfully');
-            popup.focus();
-
-            let popupCheckInterval: NodeJS.Timeout | null = null;
-
-            const handleMessage = (event: MessageEvent) => {
-              // Verify the message is from our domain
-              if (event.origin !== window.location.origin) {
-                console.warn('Ignoring message from unknown origin:', event.origin);
-                return;
-              }
-
-              console.log('Received postMessage:', event.data);
-
-              if (event.data.type === 'mcp-auth-success') {
-                console.log('Auth success, approving tool');
-
-                // Clean up listeners and interval
-                if (popupCheckInterval) {
-                  clearInterval(popupCheckInterval);
-                }
-                window.removeEventListener('message', handleMessage);
-                setIsLoading(false);
-
-                // Approve the tool - connection already established in Redis
-                // Tool's execute function will verify the connection
-                onApprove({
-                  sessionId: event.data.sessionId || sessionId,
-                });
-              } else if (event.data.type === 'mcp-auth-error') {
-                console.error('Auth error:', event.data.error);
-
-                // Clean up listeners and interval
-                if (popupCheckInterval) {
-                  clearInterval(popupCheckInterval);
-                }
-                window.removeEventListener('message', handleMessage);
-                setIsLoading(false);
-
-                onDeny();
-              }
-            };
-
-            window.addEventListener('message', handleMessage);
-
-            // Also check for popup close (fallback)
-            popupCheckInterval = setInterval(() => {
-              if (popup.closed) {
-                console.log('Popup closed without message');
-                clearInterval(popupCheckInterval!);
-                window.removeEventListener('message', handleMessage);
-                setIsLoading(false);
-              }
-            }, 500);
-          } else {
-            // Popup was blocked
-            console.error('Popup was blocked by the browser');
-            alert('Please allow popups for this site to connect your account.');
-            setIsLoading(false);
-          }
-        } catch (popupError) {
-          console.error('Error opening popup:', popupError);
-          alert('Failed to open authentication window. Please check your browser settings.');
-          setIsLoading(false);
-        }
-      } else {
-        // No URL returned, connection successful without OAuth
-        console.log('No auth URL, connection successful');
-        setIsLoading(false);
-        onApprove({
-          sessionId: data.sessionId || sessionId,
-        });
-      }
+      await connectServer({
+        id: serverId,
+        name: serverName,
+        url: serverUrl,
+        transport: transportType,
+      } as any); // Cast to McpServer type as needed
     } catch (error) {
-      console.error('Connection error:', error);
-      setIsLoading(false);
-      onDeny();
+      const message = error instanceof Error ? error.message : String(error);
+      const isExpectedOAuthTransition =
+        message.toLowerCase().includes('oauth authorization required');
+
+      if (isExpectedOAuthTransition) {
+        // OAuth popup flow continues via useMcp.onRedirect; do not deny tool approval.
+        return;
+      }
+
+      console.error('[MCPConnectionApproval] Connection failed:', error);
     }
   };
 
@@ -170,7 +169,7 @@ export function MCPConnectionApproval({
           size="default"
           onClick={onDeny}
           variant="outline"
-          disabled={isLoading}
+          disabled={isConnecting}
         >
           Deny
         </Button>
@@ -179,11 +178,11 @@ export function MCPConnectionApproval({
           onClick={handleConnect}
           variant="default"
           className="cursor-pointer gap-2"
-          disabled={isLoading}
+          disabled={isConnecting}
         >
-          {isLoading ? (
+          {isConnecting ? (
             <>
-              Connecting...
+              <span className="text-sm">Connecting...</span>
               <svg
                 className="animate-spin"
                 xmlns="http://www.w3.org/2000/svg"

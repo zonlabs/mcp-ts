@@ -5,7 +5,7 @@ import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { McpServer, Category } from "@/types/mcp";
 import { MCP_SERVERS_QUERY } from "@/lib/graphql";
-import { useConnectionContext } from "@/components/providers/ConnectionProvider";
+import { useMcpStore, findConnectionForServer, type McpStore } from "@/lib/stores/mcp-store";
 
 const GET_MCP_SERVERS = gql`${MCP_SERVERS_QUERY}`;
 
@@ -24,7 +24,7 @@ export function useMcpServersFiltered(
   first: number = 10
 ) {
   const { searchQuery, categorySlug, categories } = options;
-  const { connections } = useConnectionContext();
+  const connections = useMcpStore((state: McpStore) => state.connections);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Build GraphQL filter variables
@@ -71,11 +71,11 @@ export function useMcpServersFiltered(
     fetchPolicy: "cache-and-network",
   });
 
-  // Merge with connection state from API
+  // Merge with connection state from store
   const mergeWithConnectionState = useCallback((servers: McpServer[]) => {
     return servers.map((server) => {
-      const stored = connections[server.id];
-      if (stored && stored.connectionStatus === "CONNECTED") {
+      const stored = findConnectionForServer(connections, server);
+      if (stored && stored.connectionStatus === "READY") {
         return {
           ...server,
           connectionStatus: stored.connectionStatus,

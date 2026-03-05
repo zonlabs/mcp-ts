@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   PanelLeftClose,
   Plus,
@@ -11,6 +12,7 @@ import {
   Globe,
   User as UserIcon,
   Loader2,
+  ChevronDown,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -92,6 +94,7 @@ export function ServerSidebar({
   session,
   userSession,
 }: ServerSidebarProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -196,7 +199,7 @@ export function ServerSidebar({
       exit="exit"
       variants={sidebarVariants}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="w-80 border-r border-border flex flex-col fixed h-screen z-50 bg-background"
+      className="w-80 border-r border-border flex flex-col fixed h-screen z-[80] bg-background"
     >
       {/* Header */}
       <div className="p-4 border-b border-border flex-shrink-0">
@@ -240,15 +243,25 @@ export function ServerSidebar({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAddServer}
-            className="flex items-center gap-1 flex-1"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="text-xs">Add</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex items-center justify-between gap-1 flex-1"
+              >
+                <span className="flex items-center gap-1">
+                  <Plus className="h-4 w-4" />
+                  <span className="text-xs">Add</span>
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="z-[220] w-52">
+              <DropdownMenuItem onClick={onAddServer}>Add Remote MCP</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/remote-bridge")}>Add Local Proxy</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             onClick={() => {
               if (activeTab === "public") {
@@ -292,7 +305,7 @@ export function ServerSidebar({
               </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="z-[220] w-48">
               <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {categoriesLoading ? (

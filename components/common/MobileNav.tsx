@@ -41,7 +41,7 @@ export function MobileNav() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={toggleMenu}
-              className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm"
+              className="fixed inset-0 z-[210] bg-background/80 backdrop-blur-sm"
             />
 
             {/* Menu (left drawer) */}
@@ -50,7 +50,7 @@ export function MobileNav() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
-              className="fixed inset-y-0 left-0 z-[101] bg-background p-6 shadow-xl"
+              className="fixed inset-y-0 left-0 z-[211] bg-background p-6 shadow-xl"
             >
               <div className="mb-8 flex items-center justify-between">
                 {/* Optional title */}

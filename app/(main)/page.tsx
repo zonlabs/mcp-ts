@@ -1,15 +1,18 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Server,
   Play,
   ArrowRight,
   Code,
-  Package
+  Package,
+  Copy,
+  Check,
+  ArrowUpRight,
 } from "lucide-react";
 import McpServersSection from "@/components/home/McpServersSection";
-import McpArchitecture from "@/components/home/McpArchitecture";
 import Footer from "@/components/home/Footer";
 import { motion, Variants } from 'framer-motion';
 import {
@@ -18,7 +21,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ArrowUpRight } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { HeroGridPattern } from "@/components/home/hero-grid-pattern";
 import { Stack } from "@/components/stack";
 
@@ -49,18 +57,6 @@ const item: Variants = {
   },
 };
 
-const logoHover: Variants = {
-  rest: { y: 0, scale: 1 },
-  hover: {
-    y: -6,
-    scale: 1.05,
-    transition: {
-      duration: 0.3,
-      ease: "easeOut" as const
-    }
-  },
-};
-
 const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 40 },
   visible: {
@@ -73,7 +69,65 @@ const fadeInUp: Variants = {
 // -------------------------------------------------------------------
 // Component
 // -------------------------------------------------------------------
+function VideoPlayer({ autoPlay = false }: { autoPlay?: boolean }) {
+  return (
+    <div className="w-full">
+      <video
+        controls
+        width="100%"
+        preload="metadata"
+        autoPlay={autoPlay}
+        muted={autoPlay}
+        playsInline
+      >
+        <source
+          src="https://d1nja2c4hm7c7d.cloudfront.net/media/demo.mcp-assistant.mp4"
+          type="video/mp4"
+        />
+      </video>
+    </div>
+  );
+}
+
 export default function Home() {
+  const [copied, setCopied] = useState(false);
+  const searchParams = useSearchParams();
+  const localProxySectionRef = useRef<HTMLElement | null>(null);
+  const demoParam = searchParams.get("demo");
+  const shouldPlayDemo = demoParam === "mcp-assistant-gateway";
+
+  useEffect(() => {
+    if (shouldPlayDemo) {
+      localProxySectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [shouldPlayDemo]);
+
+  const copyInstallCommand = async () => {
+    const command = "uvx mcpassistant-gateway";
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(command);
+      } else if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.value = command;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <div className="relative max-w-5xl mx-auto min-h-screen overflow-hidden">
       {/* Hero Section */}
@@ -115,9 +169,10 @@ export default function Home() {
                   href="https://modelcontextprotocol.io/docs/learn/client-concepts"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline decoration-primary/50 hover:decoration-primary transition-colors pointer-events-auto"
+                  className="text-foreground hover:text-primary transition-colors pointer-events-auto"
                 >
-                  Model Context Protocol (MCP)
+                  <span>Model Context Protocol</span>{" "}
+                  <span className="font-semibold">(MCP)</span>
                 </Link>{' '}
                 client that lets you easily connect to and interact with remote
                 MCP-compatible servers directly from your browser.
@@ -168,36 +223,68 @@ export default function Home() {
         </Stack>
       </Stack>
 
-      {/* Recent MCP Servers Section */}
-      <div className="container mx-auto px-6 py-10">
-        <McpServersSection />
-      </div>
-
-      {/* Categories Section */}
-      {/* <div className="container mx-auto px-6 py-16">
-        <Categories />
-      </div> */}
-
-      {/* Architecture Visualization Section */}
-      <div className="relative max-w-5xl mx-auto py-8 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+      {/* Local Proxy Section */}
+      <section
+        ref={localProxySectionRef}
+        id="local-gateway-demo"
+        className="relative max-w-5xl mx-auto px-6 py-12"
+      >
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
+          viewport={{ once: true }}
           variants={container}
-          className="container mx-auto px-6"
+          className="space-y-4"
         >
-          <motion.div variants={fadeInUp} className="text-center mb-6">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
-              How It Works
-            </h2>
-            <p className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
-              A seamless flow from your interface to AI-powered agents with dynamic MCP server connections
-            </p>
+          <motion.h2 variants={fadeInUp} className="text-2xl sm:text-3xl font-bold tracking-tight">
+            MCP Assistant Local Proxy
+          </motion.h2>
+          <motion.p variants={fadeInUp} className="text-muted-foreground leading-relaxed">
+            Use Local Proxy to let client applications like ChatGPT, Claude, and any MCP-compatible client access your local MCP servers through a secure bridge.
+          </motion.p>
+          <motion.div variants={fadeInUp} className="space-y-3">
+            <p className="text-sm font-semibold text-foreground">Install Gateway</p>
+            <div className="inline-flex max-w-full items-center justify-between rounded-2xl border border-border/70 bg-muted/40 px-4 py-3 sm:px-5">
+              <code className="font-mono text-sm sm:text-base text-foreground">
+                uvx <span className="text-emerald-500">mcpassistant-gateway</span>
+              </code>
+              <TooltipProvider delayDuration={120}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => { void copyInstallCommand(); }}
+                      className="ml-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background/70 transition-colors"
+                      aria-label="Copy install command"
+                    >
+                      {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {copied ? "Copied" : "Copy"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </motion.div>
-          <McpArchitecture className="max-w-6xl w-full" />
+          <motion.div variants={fadeInUp}>
+            <Link
+              href="/remote-bridge"
+              className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
+            >
+              Open Local Proxy Manager
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
+          <motion.div variants={fadeInUp} className="pt-4">
+            <VideoPlayer autoPlay={shouldPlayDemo} />
+          </motion.div>
         </motion.div>
+      </section>
+
+      {/* Recent MCP Servers Section */}
+      <div className="container mx-auto px-6 py-10">
+        <McpServersSection />
       </div>
 
       {/* Features Section */}
@@ -301,7 +388,7 @@ export default function Home() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Accordion type="single" collapsible className="w-full space-y-4">
+            <Accordion type="single" collapsible className="w-full">
               {[
                 {
                   q: "What is MCP Assistant?",
@@ -327,12 +414,12 @@ export default function Home() {
                 <AccordionItem
                   key={i}
                   value={`item-${i}`}
-                  className="border border-border/50 rounded-xl px-6 bg-background/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+                  className="border-b border-border/50 px-0 bg-transparent rounded-none shadow-none"
                 >
-                  <AccordionTrigger className="text-base font-semibold hover:no-underline py-5">
+                  <AccordionTrigger className="text-base font-semibold hover:no-underline py-5 px-1">
                     {faq.q}
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground leading-relaxed pb-5">
+                  <AccordionContent className="text-muted-foreground leading-relaxed pb-5 px-1">
                     {faq.a}
                   </AccordionContent>
                 </AccordionItem>
@@ -357,3 +444,9 @@ export default function Home() {
     </div>
   );
 }
+
+
+
+
+
+

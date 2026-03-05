@@ -32,6 +32,17 @@ interface ServerManagementProps {
 
 export default function ServerManagement({ server, onAction, onEdit, onDelete }: ServerManagementProps) {
   const [loading, setLoading] = useState<string | null>(null);
+  const status = server.connectionStatus?.toUpperCase();
+  const isReady = status === "READY";
+  const isInProgress = !!status && [
+    "INITIALIZING",
+    "VALIDATING",
+    "CONNECTING",
+    "AUTHENTICATING",
+    "AUTHENTICATED",
+    "CONNECTED",
+    "DISCOVERING",
+  ].includes(status);
 
   const handleAction = async (action: 'activate' | 'deactivate') => {
     setLoading(action);
@@ -55,6 +66,8 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
   const getStatusColor = (status: string | null | undefined) => {
     if (!status) return "outline";
     switch (status.toUpperCase()) {
+      case "READY":
+        return "default";
       case "CONNECTED":
         return "default";
       case "DISCONNECTED":
@@ -71,6 +84,8 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
   const getStatusIcon = (status: string | null | undefined) => {
     if (!status) return <Power className="h-3 w-3" />;
     switch (status.toUpperCase()) {
+      case "READY":
+        return <CheckCircle className="h-3 w-3" />;
       case "CONNECTED":
         return <CheckCircle className="h-3 w-3" />;
       case "DISCONNECTED":
@@ -89,9 +104,9 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
 
     switch (action) {
       case 'activate':
-        return server.connectionStatus?.toUpperCase() === "CONNECTED";
+        return isReady || isInProgress;
       case 'deactivate':
-        return server.connectionStatus?.toUpperCase() !== "CONNECTED";
+        return !isReady || isInProgress;
       default:
         return false;
     }
@@ -128,7 +143,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
         {/* Primary Action Button */}
-        {server.connectionStatus?.toUpperCase() === "CONNECTED" ? (
+        {isReady ? (
           <Button
             onClick={() => handleAction('deactivate')}
             disabled={isActionDisabled('deactivate')}
@@ -150,12 +165,12 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
             size="sm"
             className="flex items-center gap-2 cursor-pointer"
           >
-            {loading === 'activate' ? (
+            {loading === 'activate' || isInProgress ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Play className="h-4 w-4" />
             )}
-            Activate
+            {isInProgress ? "Activating..." : "Activate"}
           </Button>
         )}
 

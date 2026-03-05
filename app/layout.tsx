@@ -4,6 +4,7 @@ import "./globals.css";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { ApolloProvider } from "@/components/providers/ApolloProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,24 +34,36 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+import { createClient } from "@/lib/supabase/server";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  // Cast session to any to satisfy UserSession type which extends Session
+  const userSession = session as any;
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}>
-        <AuthProvider>
+        <AuthProvider userSession={userSession}>
           <ApolloProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-            </ThemeProvider>
+            <McpStoreProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+              </ThemeProvider>
+            </McpStoreProvider>
           </ApolloProvider>
         </AuthProvider>
       </body>

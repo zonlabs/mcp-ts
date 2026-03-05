@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,19 +37,9 @@ export const PlaygroundSidebar = () => {
   const user = userSession?.user;
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';
   const userImage = user?.user_metadata?.avatar_url;
-
-  // Determine which logo to show based on theme
-  const currentTheme = mounted ? (resolvedTheme || theme) : 'dark';
-  const logoSrc = currentTheme === 'dark' ? '/images/logo-dark.png' : '/images/logo-light.png';
 
   const handleSignOut = async () => {
     const supabase = createClient();

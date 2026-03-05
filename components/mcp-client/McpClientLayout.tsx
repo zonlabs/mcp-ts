@@ -24,8 +24,7 @@ import { ServerDetails } from "./ServerDetails";
 import { ServerPlaceholder } from "./ServerPlaceholder";
 import ToolsExplorer from "./ToolsExplorer";
 import ToolExecutionPanel from "./ToolExecutionPanel";
-import { connectionStore } from "@/lib/mcp/connection-store";
-import { useConnectionContext } from "@/components/providers/ConnectionProvider";
+import { useMcpStore, type McpStore } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { UserSession } from "@/components/providers/AuthProvider";
 
@@ -88,7 +87,8 @@ export default function McpClientLayout({
   const [activeTab, setActiveTab] = useState<'public' | 'user'>('public');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const { activeCount: activeServersCount } = useConnectionContext();
+  const activeServersCount = useMcpStore((state: McpStore) => state.activeConnectionCount);
+  const getConnectionByServerId = useMcpStore((state: McpStore) => state.getConnectionByServerId);
   const { mergeWithStoredState } = useMcpConnection();
 
   const searchParams = useSearchParams();
@@ -117,7 +117,9 @@ export default function McpClientLayout({
       if (updatedServer) {
         setSelectedServer(updatedServer);
       } else {
-        const storedConnection = connectionStore.get(selectedServer.id);
+        const storedConnection =
+          getConnectionByServerId(selectedServer.id) ||
+          (selectedServer.url ? getConnectionByServerId(selectedServer.url) : undefined);
         if (storedConnection) {
           setSelectedServer(prev => prev ? ({
             ...prev,
@@ -209,6 +211,9 @@ export default function McpClientLayout({
   const handleServerSelect = (server: McpServer) => {
     setSelectedServer(server);
     setViewMode('browse'); // Switch back to details view if selecting a server
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setSidebarOpen(false);
+    }
   };
 
   const mainVariants = {
@@ -272,14 +277,14 @@ export default function McpClientLayout({
           animate="visible"
           variants={mainVariants}
           transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
-          className={`flex-1 flex transition-all duration-300 ${sidebarOpen ? 'ml-80' : 'ml-0'}`}
+          className={`flex-1 flex transition-all duration-300 ${sidebarOpen ? 'ml-0 lg:ml-80' : 'ml-0'}`}
         >
           {/* Left Side - Main Content - Hidden when tool tester is open */}
           {!toolTesterOpen && (
             <div className="flex-1 flex flex-col min-w-0">
               {/* Show Sidebar Button - Only when sidebar is closed */}
               {!sidebarOpen && (
-                <div className="p-4 border-b border-border">
+                <div className="sticky top-0 z-[70] border-b border-border bg-background/90 p-4 backdrop-blur">
                   <Button
                     variant="ghost"
                     size="sm"

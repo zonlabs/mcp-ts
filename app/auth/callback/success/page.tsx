@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useTheme } from "next-themes";
 
 function CallbackSuccessContent() {
   const searchParams = useSearchParams();
-  const { resolvedTheme } = useTheme();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const hasPostedResultRef = useRef(false);
 
   const step = searchParams.get("step");
   const sessionId = searchParams.get("sessionId");
@@ -20,11 +19,12 @@ function CallbackSuccessContent() {
   const serverUrl = searchParams.get("serverUrl");
   const error = searchParams.get("error");
 
-  const logoSrc = resolvedTheme === "dark" ? "/images/logo-dark.png" : "/images/logo-light.png";
-
   useEffect(() => {
+    if (hasPostedResultRef.current) return;
+
     // Check if we have a step parameter
     if (step === "success" && sessionId) {
+      hasPostedResultRef.current = true;
       setStatus("success");
 
       // Send message to parent window to resolve the promise
@@ -46,6 +46,7 @@ function CallbackSuccessContent() {
         }, 2000);
       }
     } else if (step === "error" || error) {
+      hasPostedResultRef.current = true;
       setStatus("error");
       setErrorMessage(error || "Authentication failed");
 
@@ -60,7 +61,7 @@ function CallbackSuccessContent() {
         );
       }
     }
-  }, [step, sessionId, serverName, serverId, error]);
+  }, [step, sessionId, serverName, serverId, serverUrl, error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -68,7 +69,7 @@ function CallbackSuccessContent() {
         {/* MCP Assistant Logo */}
         <div className="flex justify-center">
           <Image
-            src={logoSrc}
+            src="/logo.svg"
             alt="MCP Assistant"
             width={120}
             height={120}

@@ -10,6 +10,7 @@ import { AlertCircle, CheckCircle, Loader, X, ChevronDown } from "lucide-react";
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { motion, AnimatePresence } from "framer-motion";
+import { useMcpStore } from "@/lib/stores/mcp-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -123,62 +124,35 @@ export default function ToolExecutionPanel({
         }
       }
 
-      // Get sessionId from localStorage
-      const connectionData = localStorage.getItem('mcp_connections');
-      let sessionId: string | null = null;
+      // Get sessionId from store
+      const connection =
+        useMcpStore.getState().getConnectionByServerId(server.id) ||
+        (server.url ? useMcpStore.getState().getConnectionByServerId(server.url) : undefined);
+      const sessionId = connection?.sessionId;
 
-      if (connectionData) {
-        try {
-          const connections = JSON.parse(connectionData);
-          // Use server.id for connection lookup (handles both mcp_ IDs and registry IDs)
-          const serverConnection = connections[server.id];
-          sessionId = serverConnection?.sessionId || null;
-        } catch (e) {
-          console.error('Failed to parse connection data:', e);
-        }
-      }
-
-      // Call the API endpoint
-      const response = await fetch('/api/mcp/tool/call', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          serverName: server.name,
-          toolName: tool.name,
-          toolInput,
-          sessionId // Pass sessionId to backend
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || result.errors) {
-        const errorMessage = result.errors?.[0]?.message || 'Failed to call tool';
-        toast.error(errorMessage);
-        setResult({
-          success: false,
-          message: errorMessage,
-          error: errorMessage
-        });
-        setShowResult(true);
+      if (!sessionId) {
+        toast.error("Not connected to this server");
+        setIsSubmitting(false);
         return;
       }
 
-      const toolResult = result.data?.callMcpServerTool;
+      const mcpActions = useMcpStore.getState().mcpActions;
 
-      if (!toolResult) {
-        throw new Error('Invalid response from server');
+      if (!mcpActions) {
+        toast.error("MCP Actions not initialized");
+        setIsSubmitting(false);
+        return;
       }
 
-      if (!toolResult.success) {
-        toast.error(toolResult.message);
-      } else {
-        toast.success(toolResult.message);
-      }
+      const result = await mcpActions.callTool(sessionId, tool.name, toolInput);
 
-      setResult(toolResult);
+      toast.success("Tool executed successfully");
+
+      setResult({
+        success: true,
+        message: "Tool executed successfully",
+        result: result
+      });
       setShowResult(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to call tool";
@@ -235,8 +209,8 @@ export default function ToolExecutionPanel({
         {/* Top Bar - Server Info and Close Button */}
         <div className="p-4 pb-0 flex items-center justify-between gap-3">
           {/* <div className="flex-1 min-w-0 flex items-center gap-2"> */}
-            {/* <p className="text-xs text-muted-foreground uppercase tracking-wide flex-shrink-0">Server:</p> */}
-            <h2 className="text-sm font-semibold text-foreground truncate">{server.name}</h2>
+          {/* <p className="text-xs text-muted-foreground uppercase tracking-wide flex-shrink-0">Server:</p> */}
+          <h2 className="text-sm font-semibold text-foreground truncate">{server.name}</h2>
           {/* </div> */}
           <Button
             variant="ghost"
@@ -352,92 +326,91 @@ export default function ToolExecutionPanel({
                 </div>
               )}
 
-          {/* Input */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Tool Input (JSON)</label>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const fixed = fixWindowsPaths(inputJson);
-                  if (fixed !== inputJson) {
-                    setInputJson(fixed);
-                    toast.success("Windows paths escaped");
-                  } else {
-                    toast("No paths to fix");
-                  }
-                }}
-                className="h-7 text-xs cursor-pointer"
-                title="Automatically escape Windows backslashes in paths"
-              >
-                Fix Paths
-              </Button>
-            </div>
-            <textarea
-              value={inputJson}
-              onChange={(e) => setInputJson(e.target.value)}
-              placeholder='{"key": "value"}'
-              className={`w-full font-mono text-xs h-24 p-3 rounded-md border focus:outline-none focus:ring-2 resize-none overflow-x-hidden scrollbar-minimal ${
-                theme === 'dark'
-                  ? 'border-slate-700 bg-slate-900 text-gray-200 placeholder:text-gray-600 focus:ring-slate-600'
-                  : 'border-slate-300 bg-slate-50 text-slate-900 placeholder:text-slate-500 focus:ring-slate-400'
-              }`}
-            />
-          </div>
+              {/* Input */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Tool Input (JSON)</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const fixed = fixWindowsPaths(inputJson);
+                      if (fixed !== inputJson) {
+                        setInputJson(fixed);
+                        toast.success("Windows paths escaped");
+                      } else {
+                        toast("No paths to fix");
+                      }
+                    }}
+                    className="h-7 text-xs cursor-pointer"
+                    title="Automatically escape Windows backslashes in paths"
+                  >
+                    Fix Paths
+                  </Button>
+                </div>
+                <textarea
+                  value={inputJson}
+                  onChange={(e) => setInputJson(e.target.value)}
+                  placeholder='{"key": "value"}'
+                  className={`w-full font-mono text-xs h-24 p-3 rounded-md border focus:outline-none focus:ring-2 resize-none overflow-x-hidden scrollbar-minimal ${theme === 'dark'
+                    ? 'border-slate-700 bg-slate-900 text-gray-200 placeholder:text-gray-600 focus:ring-slate-600'
+                    : 'border-slate-300 bg-slate-50 text-slate-900 placeholder:text-slate-500 focus:ring-slate-400'
+                    }`}
+                />
+              </div>
 
-          {/* Result - Only show when there's a result */}
-          <AnimatePresence>
-            {showResult && result && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-2"
-              >
-                <label className="text-sm font-medium">Result</label>
-                {result.success ? (
-                  <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-700">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800 dark:text-green-200">
-                      {result.message}
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800 dark:text-red-200">
-                      {result.message}
-                      {result.error && <div className="text-xs mt-2">{result.error}</div>}
-                    </AlertDescription>
-                  </Alert>
+              {/* Result - Only show when there's a result */}
+              <AnimatePresence>
+                {showResult && result && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-2"
+                  >
+                    <label className="text-sm font-medium">Result</label>
+                    {result.success ? (
+                      <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-700">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-800 dark:text-green-200">
+                          {result.message}
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <AlertDescription className="text-red-800 dark:text-red-200">
+                          {result.message}
+                          {result.error && <div className="text-xs mt-2">{result.error}</div>}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {result.result ? (
+                      <div className="mt-2 rounded-md border border-slate-700 w-full min-w-0 overflow-hidden">
+                        <p className="text-xs font-semibold text-gray-300 dark:text-gray-400 px-3 pt-3">Response:</p>
+                        <div className="max-h-96 overflow-x-auto overflow-y-auto scrollbar-minimal w-2xl">
+                          <SyntaxHighlighter
+                            language="json"
+                            style={atomOneDark}
+                            customStyle={{
+                              margin: 0,
+                              padding: '12px',
+                              fontSize: '11px',
+                              whiteSpace: 'pre',
+                              minWidth: 'min-content'
+                            }}
+                          >
+                            {typeof result.result === 'string'
+                              ? result.result
+                              : JSON.stringify(result.result, null, 2)}
+                          </SyntaxHighlighter>
+                        </div>
+                      </div>
+                    ) : null}
+                  </motion.div>
                 )}
-
-                {result.result ? (
-                  <div className="mt-2 rounded-md border border-slate-700 w-full min-w-0 overflow-hidden">
-                    <p className="text-xs font-semibold text-gray-300 dark:text-gray-400 px-3 pt-3">Response:</p>
-                    <div className="max-h-96 overflow-x-auto overflow-y-auto scrollbar-minimal w-2xl">
-                      <SyntaxHighlighter
-                        language="json"
-                        style={atomOneDark}
-                        customStyle={{
-                          margin: 0,
-                          padding: '12px',
-                          fontSize: '11px',
-                          whiteSpace: 'pre',
-                          minWidth: 'min-content'
-                        }}
-                      >
-                        {typeof result.result === 'string'
-                          ? result.result
-                          : JSON.stringify(result.result, null, 2)}
-                      </SyntaxHighlighter>
-                    </div>
-                  </div>
-                ) : null}
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </AnimatePresence>
             </>
           )}
         </div>
