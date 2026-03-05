@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "agentId and mcpServer are required" }, { status: 400 });
     }
     const data = await fetchJsonWithTimeout(
-      `${REMOTE_PROXY_BASE_URL}/manage/${encodeURIComponent(agentId)}/${encodeURIComponent(mcpServer)}/server-info`,
+      `${REMOTE_PROXY_BASE_URL}/manage/${encodeURIComponent(agentId)}/${encodeURIComponent(mcpServer)}/server-info?subject=${encodeURIComponent(subject)}`,
       { method: "POST", headers: jsonHeaders(), body: "{}" }
     );
     return NextResponse.json({ success: true, data });
@@ -115,3 +115,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
