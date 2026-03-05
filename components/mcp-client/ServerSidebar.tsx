@@ -259,7 +259,7 @@ export function ServerSidebar({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="z-[220] w-52">
               <DropdownMenuItem onClick={onAddServer}>Add Remote MCP</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/remote-bridge")}>Add Local Proxy</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/gateway")}>Add Gateway</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
@@ -481,3 +481,4 @@ export function ServerSidebar({
     </motion.div>
   );
 }
+

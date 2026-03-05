@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 type Action = "agents" | "server-info" | "issue-token" | "revoke-token";
 
@@ -19,14 +20,20 @@ function jsonHeaders(): Record<string, string> {
   };
 }
 
-function generateSubject(length = 10): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let result = "";
-  for (let i = 0; i < length; i += 1) {
-    const index = Math.floor(Math.random() * chars.length);
-    result += chars[index];
+async function getSubjectFromSession(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const uid = session?.user?.id || "";
+  if (!uid) {
+    throw new Error("Unauthorized");
   }
-  return result;
+  const subject = uid.slice(-10);
+  if (!subject) {
+    throw new Error("Unauthorized");
+  }
+  return subject;
 }
 
 async function fetchJsonWithTimeout(url: string, init: RequestInit, timeoutSeconds = DEFAULT_TIMEOUT_SECONDS): Promise<unknown> {
@@ -50,6 +57,7 @@ async function fetchJsonWithTimeout(url: string, init: RequestInit, timeoutSecon
 
 export async function POST(request: Request) {
   try {
+    const subject = await getSubjectFromSession();
     const body = (await request.json()) as RemoteBridgeRequestBody;
     const action = body?.action;
     if (!action || !["agents", "server-info", "issue-token", "revoke-token"].includes(action)) {
@@ -58,14 +66,13 @@ export async function POST(request: Request) {
 
     if (action === "agents") {
       const response = (await fetchJsonWithTimeout(
-        `${REMOTE_PROXY_BASE_URL}/manage/agents/details`,
+        `${REMOTE_PROXY_BASE_URL}/manage/agents/details?subject=${encodeURIComponent(subject)}`,
         { method: "GET", headers: jsonHeaders() }
       )) as Record<string, unknown>;
       return NextResponse.json({ success: true, agents: Array.isArray(response?.agents) ? response.agents : [] });
     }
 
     if (action === "issue-token") {
-      const subject = generateSubject(10);
       const expiryMinutes = Math.max(1, Math.min(1440, Number(body?.expiryMinutes) || 60));
       const response = await fetchJsonWithTimeout(`${REMOTE_PROXY_BASE_URL}/manage/jwt/issue`, {
         method: "POST",
@@ -104,6 +111,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message === "Unauthorized" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

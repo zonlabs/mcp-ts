@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Home, Server, Code, ScrollText, Package } from "lucide-react";
+import { Menu, X, Home, Server, Code, Package, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -18,7 +18,7 @@ export function MobileNav() {
     { href: "/mcp", label: "MCP", icon: Server },
     { href: "/registry", label: "Registry", icon: Package },
     { href: "/playground", label: "Playground", icon: Code },
-    { href: "/changelog", label: "Changelog", icon: ScrollText },
+    { href: "https://zonlabs.github.io/mcp-ts/", label: "Docs", icon: BookOpen, external: true },
   ];
 
   return (
@@ -35,7 +35,6 @@ export function MobileNav() {
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -44,7 +43,6 @@ export function MobileNav() {
               className="fixed inset-0 z-[210] bg-background/80 backdrop-blur-sm"
             />
 
-            {/* Menu (left drawer) */}
             <motion.div
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
@@ -53,8 +51,6 @@ export function MobileNav() {
               className="fixed inset-y-0 left-0 z-[211] bg-background p-6 shadow-xl"
             >
               <div className="mb-8 flex items-center justify-between">
-                {/* Optional title */}
-                {/* <span className="text-lg font-bold">Menu</span> */}
                 <Button variant="ghost" size="icon" onClick={toggleMenu}>
                   <X className="h-5 w-5" />
                 </Button>
@@ -63,13 +59,15 @@ export function MobileNav() {
               <div className="flex flex-col space-y-3">
                 {navLinks.map((link) => {
                   const Icon = link.icon;
-                  const isActive = pathname === link.href;
+                  const isActive = !link.external && pathname === link.href;
 
                   return (
                     <Link
                       key={link.href}
                       href={link.href}
                       onClick={toggleMenu}
+                      target={link.external ? "_blank" : undefined}
+                      rel={link.external ? "noopener noreferrer" : undefined}
                       className={`flex items-center gap-3 rounded-full border px-4 py-3 text-sm font-medium transition-colors
                         ${
                           isActive

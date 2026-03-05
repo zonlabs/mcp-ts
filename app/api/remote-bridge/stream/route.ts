@@ -1,13 +1,32 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const REMOTE_PROXY_BASE_URL = (process.env.REMOTE_PROXY_BASE_URL || "https://hub.linkos.in/agent").replace(/\/+$/, "");
 
+async function getSubjectFromSession(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const uid = session?.user?.id || "";
+  if (!uid) {
+    throw new Error("Unauthorized");
+  }
+  const subject = uid.slice(-10);
+  if (!subject) {
+    throw new Error("Unauthorized");
+  }
+  return subject;
+}
+
 export async function GET() {
   try {
-    const upstream = await fetch(`${REMOTE_PROXY_BASE_URL}/manage/agents/stream`, {
+    const subject = await getSubjectFromSession();
+
+    const upstream = await fetch(`${REMOTE_PROXY_BASE_URL}/manage/agents/stream?subject=${encodeURIComponent(subject)}`, {
       method: "GET",
       cache: "no-store",
       headers: {
@@ -34,6 +53,7 @@ export async function GET() {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected stream error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message === "Unauthorized" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

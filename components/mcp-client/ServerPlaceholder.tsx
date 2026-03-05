@@ -86,11 +86,11 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
 
           <motion.div variants={itemVariants} className="mt-6 sm:mt-8 flex justify-center">
             <Link
-              href="/remote-bridge"
+              href="/gateway"
               className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
               <RadioTower className="h-4 w-4" />
-              Open Remote Bridge Manager
+              Open Gateway Manager
             </Link>
           </motion.div>
         </motion.div>
@@ -141,3 +141,5 @@ function FeatureCard({ icon, title, description, variants }: { icon: React.React
     </motion.div>
   )
 }
+
+
