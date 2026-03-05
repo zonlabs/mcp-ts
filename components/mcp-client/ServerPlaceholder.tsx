@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Server, Zap, Activity, Grid, Search } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
+import { Server, Zap, Activity, Grid, Search, RadioTower } from "lucide-react";
 
 interface ServerPlaceholderProps {
   type: "no-selection" | "no-servers";
@@ -83,6 +83,16 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
               description="Run tools directly from the interface and see results instantly."
             />
           </div>
+
+          <motion.div variants={itemVariants} className="mt-6 sm:mt-8 flex justify-center">
+            <Link
+              href="/remote-bridge"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              <RadioTower className="h-4 w-4" />
+              Open Remote Bridge Manager
+            </Link>
+          </motion.div>
         </motion.div>
       </div>
     );
@@ -121,15 +131,13 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
 function FeatureCard({ icon, title, description, variants }: { icon: React.ReactNode, title: string, description: string, variants: any }) {
   return (
     <motion.div variants={variants}>
-      <Card className="h-full border-border/40 shadow-sm hover:shadow-md transition-all hover:border-blue-500/20 dark:hover:border-blue-400/20 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm group cursor-default">
-        <CardContent className="p-4 sm:p-6 flex flex-col items-center text-center h-full">
-          <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 mb-4 group-hover:scale-110 transition-transform duration-300">
-            {icon}
-          </div>
-          <h3 className="font-semibold text-sm mb-2 text-foreground/90">{title}</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
-        </CardContent>
-      </Card>
+      <div className="h-full p-4 sm:p-6 text-center">
+        <div className="mb-4 inline-flex p-2.5">
+          {icon}
+        </div>
+        <h3 className="mb-2 text-sm font-semibold text-foreground/90">{title}</h3>
+        <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
+      </div>
     </motion.div>
   )
 }

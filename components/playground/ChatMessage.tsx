@@ -23,28 +23,15 @@ type MessageLike = {
 };
 
 function AssistantAvatar() {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const logoSrc = resolvedTheme === "dark" ? "/images/logo-dark.png" : "/images/logo-light.png";
-
   return (
     <div className="w-full h-full flex items-center justify-center rounded-full bg-muted">
-      {mounted ? (
-        <Image
-          src={logoSrc}
-          alt="Assistant avatar"
-          width={32}
-          height={32}
-          className="rounded-full object-contain"
-        />
-      ) : (
-        null
-      )}
+      <Image
+        src="/logo.svg"
+        alt="Assistant avatar"
+        width={32}
+        height={32}
+        className="rounded-full object-contain"
+      />
     </div>
   );
 }

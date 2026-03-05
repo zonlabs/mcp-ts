@@ -1,30 +1,18 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import Image from "next/image";
-import { useEffect, useState } from "react";
 
-export default function Logo() {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+type LogoProps = {
+  size?: number;
+};
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    // Return a placeholder with the same dimensions to prevent layout shift
-    return (
-      <div className="w-10 h-10 bg-muted animate-pulse rounded" />
-    );
-  }
-
+export default function Logo({ size = 40 }: LogoProps) {
   return (
-    <Image 
-      src={resolvedTheme === 'dark' ? "/images/logo-dark.png" : "/images/logo-light.png"} 
-      alt="MCP Platform" 
-      width={40} 
-      height={40} 
+    <Image
+      src="/logo.svg"
+      alt="MCP Platform"
+      width={size}
+      height={size}
     />
   );
 }

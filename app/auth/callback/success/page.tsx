@@ -5,11 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useTheme } from "next-themes";
 
 function CallbackSuccessContent() {
   const searchParams = useSearchParams();
-  const { resolvedTheme } = useTheme();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const hasPostedResultRef = useRef(false);
@@ -20,8 +18,6 @@ function CallbackSuccessContent() {
   const serverId = searchParams.get("serverId");
   const serverUrl = searchParams.get("serverUrl");
   const error = searchParams.get("error");
-
-  const logoSrc = resolvedTheme === "dark" ? "/images/logo-dark.png" : "/images/logo-light.png";
 
   useEffect(() => {
     if (hasPostedResultRef.current) return;
@@ -73,7 +69,7 @@ function CallbackSuccessContent() {
         {/* MCP Assistant Logo */}
         <div className="flex justify-center">
           <Image
-            src={logoSrc}
+            src="/logo.svg"
             alt="MCP Assistant"
             width={120}
             height={120}
