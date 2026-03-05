@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Server,
   Play,
@@ -68,10 +69,17 @@ const fadeInUp: Variants = {
 // -------------------------------------------------------------------
 // Component
 // -------------------------------------------------------------------
-function VideoPlayer() {
+function VideoPlayer({ autoPlay = false }: { autoPlay?: boolean }) {
   return (
     <div className="w-full">
-      <video controls width="100%" preload="metadata">
+      <video
+        controls
+        width="100%"
+        preload="metadata"
+        autoPlay={autoPlay}
+        muted={autoPlay}
+        playsInline
+      >
         <source
           src="https://d1nja2c4hm7c7d.cloudfront.net/media/demo.mcp-assistant.mp4"
           type="video/mp4"
@@ -83,6 +91,19 @@ function VideoPlayer() {
 
 export default function Home() {
   const [copied, setCopied] = useState(false);
+  const searchParams = useSearchParams();
+  const localProxySectionRef = useRef<HTMLElement | null>(null);
+  const demoParam = searchParams.get("demo");
+  const shouldPlayDemo = demoParam === "mcp-assistant-gateway";
+
+  useEffect(() => {
+    if (shouldPlayDemo) {
+      localProxySectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [shouldPlayDemo]);
 
   const copyInstallCommand = async () => {
     const command = "uvx mcpassistant-gateway";
@@ -203,7 +224,11 @@ export default function Home() {
       </Stack>
 
       {/* Local Proxy Section */}
-      <section className="relative max-w-5xl mx-auto px-6 py-12">
+      <section
+        ref={localProxySectionRef}
+        id="local-gateway-demo"
+        className="relative max-w-5xl mx-auto px-6 py-12"
+      >
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -252,7 +277,7 @@ export default function Home() {
             </Link>
           </motion.div>
           <motion.div variants={fadeInUp} className="pt-4">
-            <VideoPlayer />
+            <VideoPlayer autoPlay={shouldPlayDemo} />
           </motion.div>
         </motion.div>
       </section>
