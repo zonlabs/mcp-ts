@@ -13,9 +13,9 @@ updates:
       timezone: "Asia/Kolkata"
     open-pull-requests-limit: 10
     reviewers:
-      - "ashen-dusk"
+      - "zonlabs"
     assignees:
-      - "ashen-dusk"
+      - "zonlabs"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -72,9 +72,9 @@ updates:
       timezone: "Asia/Kolkata"
     open-pull-requests-limit: 5
     reviewers:
-      - "ashen-dusk"
+      - "zonlabs"
     assignees:
-      - "ashen-dusk"
+      - "zonlabs"
     commit-message:
       prefix: "chore(ci)"
 

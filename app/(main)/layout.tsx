@@ -1,4 +1,4 @@
-import Header from "@/components/common/Header";
+import MainHeader from "@/components/common/MainHeader";
 import { createClient } from "@/lib/supabase/server";
 import AuthProvider from "@/components/providers/AuthProvider";
 
@@ -23,7 +23,7 @@ export default async function MainLayout({
         <AuthProvider userSession={userSession}>
             <div className="min-h-screen">
                 <div className="mx-auto max-w-5xl w-full">
-                    <Header />
+                    <MainHeader />
                     <main>
                         {children}
                     </main>
@@ -32,3 +32,4 @@ export default async function MainLayout({
         </AuthProvider>
     );
 }
+

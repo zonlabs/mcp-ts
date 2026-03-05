@@ -223,7 +223,7 @@ export default function Home() {
         </Stack>
       </Stack>
 
-      {/* Local Proxy Section */}
+      {/* Gateway Section */}
       <section
         ref={localProxySectionRef}
         id="local-gateway-demo"
@@ -237,10 +237,10 @@ export default function Home() {
           className="space-y-4"
         >
           <motion.h2 variants={fadeInUp} className="text-2xl sm:text-3xl font-bold tracking-tight">
-            MCP Assistant Local Proxy
+            MCP Assistant Gateway
           </motion.h2>
           <motion.p variants={fadeInUp} className="text-muted-foreground leading-relaxed">
-            Use Local Proxy to let client applications like ChatGPT, Claude, and any MCP-compatible client access your local MCP servers through a secure bridge.
+            Use Gateway to let client applications like ChatGPT, Claude, and any MCP-compatible client access your local MCP servers through a secure bridge.
           </motion.p>
           <motion.div variants={fadeInUp} className="space-y-3">
             <p className="text-sm font-semibold text-foreground">Install Gateway</p>
@@ -269,7 +269,7 @@ export default function Home() {
           </motion.div>
           <motion.div variants={fadeInUp}>
             <Link
-              href="/remote-bridge"
+              href="/gateway"
               className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
             >
               Open Local Proxy Manager
@@ -444,6 +444,7 @@ export default function Home() {
     </div>
   );
 }
+
 
 
 
