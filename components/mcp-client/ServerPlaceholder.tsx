@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { Server, Zap, Activity, Grid, Search, RadioTower } from "lucide-react";
+import Logo from "../common/Logo";
 
 interface ServerPlaceholderProps {
   type: "no-selection" | "no-servers";
@@ -38,21 +39,8 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
         >
           {/* Hero Section */}
           <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8">
-            <div className="relative h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4">
-              <Image
-                src="/technologies/mcp-light.webp"
-                alt="MCP"
-                width={64}
-                height={64}
-                className="dark:hidden relative z-10 drop-shadow-sm w-full h-full object-contain"
-              />
-              <Image
-                src="/technologies/mcp.webp"
-                alt="MCP"
-                width={64}
-                height={64}
-                className="hidden dark:block relative z-10 drop-shadow-sm w-full h-full object-contain"
-              />
+            <div className="relative h-12 w-12 sm:h-16 sm:w-16 mx-auto">
+              <Logo size={50} />
             </div>
             <h2 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 mb-3 tracking-tight">
               Welcome to MCP Assistant

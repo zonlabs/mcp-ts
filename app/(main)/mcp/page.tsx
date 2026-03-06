@@ -7,8 +7,8 @@ import {
   usePublicServers,
   useUserServers,
   useServerActions,
-  useConnectionActions,
 } from "@/hooks/use-mcp-store-hooks";
+import { useMcpConnection } from "@/hooks/useMcpConnection";
 
 function McpPageContent() {
   const { userSession } = useAuth();
@@ -35,7 +35,7 @@ function McpPageContent() {
 
   // Get actions from Zustand store (toast notifications handled in store)
   const { addServer, updateServer, deleteServer, refreshAllServers } = useServerActions();
-  const { connect, disconnect } = useConnectionActions();
+  const { connect, disconnect } = useMcpConnection();
 
   const handleServerAction = async (server: McpServer, action: 'activate' | 'deactivate') => {
     if (action === 'activate') {
@@ -44,10 +44,7 @@ function McpPageContent() {
     }
 
     if (action === 'deactivate') {
-      const sessionId = (server as any).sessionId;
-      if (sessionId) {
-        await disconnect(sessionId);
-      }
+      await disconnect(server);
       return { success: true };
     }
   };
