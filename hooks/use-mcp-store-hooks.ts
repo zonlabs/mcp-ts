@@ -5,7 +5,7 @@ import {
   findConnectionForServer,
   type McpStore
 } from '@/lib/stores/mcp-store';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 /**
@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/react/shallow';
 export function usePublicServers() {
   const fetchPublicServers = useMcpStore((state: McpStore) => state.fetchPublicServers);
   const loadMore = useMcpStore((state: McpStore) => state.loadMorePublicServers);
+  const hasAttemptedInitialFetch = useRef(false);
 
   // Use shallow comparison to prevent unnecessary re-renders
   const { publicServers, connections, activeTab } = useMcpStore(
@@ -45,11 +46,19 @@ export function usePublicServers() {
   }, [publicServers, connections]);
 
   useEffect(() => {
-    // Only fetch if we don't have servers yet
-    if (servers.length === 0 && !loading) {
-      fetchPublicServers();
+    // Run only one automatic initial fetch. Avoid infinite retries on persistent API errors.
+    if (hasAttemptedInitialFetch.current) return;
+
+    if (servers.length > 0) {
+      hasAttemptedInitialFetch.current = true;
+      return;
     }
-  }, [fetchPublicServers, servers.length, loading]);
+
+    if (servers.length === 0 && !loading && !error) {
+      hasAttemptedInitialFetch.current = true;
+      void fetchPublicServers();
+    }
+  }, [fetchPublicServers, servers.length, loading, error]);
 
   return {
     servers,

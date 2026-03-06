@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 /* ---------------------------------- */
 
 type ToolState =
+  | 'loading'
   | 'input-streaming'
   | 'input-available'
   | 'approval-requested'
@@ -120,8 +121,10 @@ function CodeBlock({ label, content }: { label: string; content: string }) {
 
 function ToolIcon({ state }: { state: ToolState }) {
   switch (state) {
+    case 'loading':
     case 'input-streaming':
     case 'input-available':
+    case 'approval-responded':
       return <Loader2 className="w-4 h-4 animate-spin text-gray-500" />;
     case 'approval-requested':
       return <AlertCircle className="w-4 h-4 text-amber-500" />;
@@ -146,7 +149,12 @@ export default function MCPToolCall({
   errorText,
 }: MCPToolCallProps) {
   const [open, setOpen] = React.useState(false);
-  const isRunning = state === 'input-streaming' || state === 'input-available';
+  const isRunning =
+    state === 'loading' ||
+    state === 'input-streaming' ||
+    state === 'input-available' ||
+    state === 'approval-responded';
+  const statusLabel = isRunning ? 'in progress' : state.replace('-', ' ');
 
   return (
     <div className="group border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden transition-all shadow-sm">
@@ -165,7 +173,7 @@ export default function MCPToolCall({
               </ShimmerText>
             </span>
             <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">
-               {state.replace('-', ' ')}
+               {statusLabel}
             </span>
           </div>
         </div>

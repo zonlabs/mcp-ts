@@ -48,7 +48,7 @@ const faqs = [
         question: "Do I need to install anything?",
         answer: (
             <p>
-                No — MCP Assistant works <strong>entirely in your browser</strong>. There’s <strong>no local setup or installation required</strong>. Just open the site, connect to a remote MCP server, and start interacting.
+                For remote MCP servers, no installation is required - MCP Assistant works entirely in your browser. Installation is only needed for local access, when you want to expose MCP servers running on your own machine via Gateway.
             </p>
         ),
     },
@@ -57,7 +57,7 @@ const faqs = [
         question: "What is Model Context Protocol (MCP)?",
         answer: (
             <p>
-                MCP is a communication standard that acts like a <strong>universal interface</strong> between AI models and tools, allowing AI to access real-time data and services safely and consistently — similar to how USB-C standardizes device connections.
+                MCP is a communication standard that acts like a <strong>universal interface</strong> between AI models and tools, allowing AI to access real-time data and services safely and consistently Ã¢â‚¬â€ similar to how USB-C standardizes device connections.
             </p>
         ),
     },
@@ -68,10 +68,10 @@ const faqs = [
             <div className="space-y-2">
                 <p>With MCP Assistant you can:</p>
                 <ul className="list-disc pl-5 space-y-1">
-                    <li>🔗 <strong>Connect instantly</strong> to remote MCP servers via URL</li>
-                    <li>🛠 <strong>Interact with MCP servers</strong> to execute tool calls and retrieve contextual data</li>
-                    <li>🧪 <strong>Explore and test MCP tools and workflows</strong> directly from your browser</li>
-                    <li>💡 <strong>Use the AI Playground</strong> to experiment with agents connected to dynamic MCP toolsets</li>
+                    <li>Ã°Å¸â€â€” <strong>Connect instantly</strong> to remote MCP servers via URL</li>
+                    <li>Ã°Å¸â€ºÂ  <strong>Interact with MCP servers</strong> to execute tool calls and retrieve contextual data</li>
+                    <li>Ã°Å¸Â§Âª <strong>Explore and test MCP tools and workflows</strong> directly from your browser</li>
+                    <li>Ã°Å¸â€™Â¡ <strong>Use the AI Playground</strong> to experiment with agents connected to dynamic MCP toolsets</li>
                 </ul>
             </div>
         ),
@@ -81,7 +81,7 @@ const faqs = [
         question: "How do I connect to an MCP server?",
         answer: (
             <p>
-                You connect using the <strong>MCP server’s URL</strong>. Once connected, MCP Assistant will establish communication with the server and make its tools available for interaction. Simply enter the server URL into the relevant connection field.
+                You connect using the <strong>MCP serverÃ¢â‚¬â„¢s URL</strong>. Once connected, MCP Assistant will establish communication with the server and make its tools available for interaction. Simply enter the server URL into the relevant connection field.
             </p>
         ),
     },
@@ -105,7 +105,7 @@ const faqs = [
         answer: (
             <p>
                 You can add your MCP server from the MCP page in MCP Assistant.
-                Once your server is published, it will appear in the list and can be discovered and connected to by others — as long as the MCP server is remote and publicly accessible.
+                Once your server is published, it will appear in the list and can be discovered and connected to by others Ã¢â‚¬â€ as long as the MCP server is remote and publicly accessible.
             </p>
         ),
     },
@@ -133,7 +133,7 @@ const faqs = [
         question: "Is using MCP Assistant secure?",
         answer: (
             <p>
-                MCP Assistant connects securely to remote MCP servers over standard web protocols. However, <strong>security also depends on the MCP servers you connect to</strong> — ensure you trust the server and understand its privacy implications before connecting.
+                MCP Assistant connects securely to remote MCP servers over standard web protocols. However, <strong>security also depends on the MCP servers you connect to</strong> Ã¢â‚¬â€ ensure you trust the server and understand its privacy implications before connecting.
             </p>
         ),
     },
@@ -157,7 +157,7 @@ const faqs = [
         question: "What platforms does MCP Assistant support?",
         answer: (
             <p>
-                Since MCP Assistant runs in your browser, it works on any <strong>modern device or operating system</strong> — including desktops, laptops, and most mobile browsers — with no special requirements.
+                Since MCP Assistant runs in your browser, it works on any <strong>modern device or operating system</strong> Ã¢â‚¬â€ including desktops, laptops, and most mobile browsers Ã¢â‚¬â€ with no special requirements.
             </p>
         ),
     },
@@ -168,13 +168,13 @@ const faqs = [
             <div className="space-y-4">
                 <div className="grid gap-2">
                     <a href="https://modelcontextprotocol.io" target="_blank" className="flex items-center gap-2 text-primary hover:underline">
-                        <ExternalLink className="h-4 w-4" /> 📘 <strong>MCP Protocol Docs</strong>
+                        <ExternalLink className="h-4 w-4" /> Ã°Å¸â€œËœ <strong>MCP Protocol Docs</strong>
                     </a>
                     <a href="https://github.com/mcp-assistant/mcp-assistant" target="_blank" className="flex items-center gap-2 text-primary hover:underline">
-                        <ExternalLink className="h-4 w-4" /> 🔧 <strong>GitHub Repository</strong>
+                        <ExternalLink className="h-4 w-4" /> Ã°Å¸â€Â§ <strong>GitHub Repository</strong>
                     </a>
                 </div>
-                <p>📩 <strong>Contact Support:</strong> himanshu.mehta.sde@gmail.com</p>
+                <p>Ã°Å¸â€œÂ© <strong>Contact Support:</strong> himanshu.mehta.sde@gmail.com</p>
             </div>
         ),
     },
@@ -332,3 +332,4 @@ function FaqItem({ faq }: { faq: any }) {
         </Accordion>
     )
 }
+

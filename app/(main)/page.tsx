@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import {
   Server,
   Play,
@@ -69,15 +68,15 @@ const fadeInUp: Variants = {
 // -------------------------------------------------------------------
 // Component
 // -------------------------------------------------------------------
-function VideoPlayer({ autoPlay = false }: { autoPlay?: boolean }) {
+function VideoPlayer() {
   return (
     <div className="w-full">
       <video
         controls
         width="100%"
         preload="metadata"
-        autoPlay={autoPlay}
-        muted={autoPlay}
+        autoPlay
+        muted
         playsInline
       >
         <source
@@ -91,19 +90,6 @@ function VideoPlayer({ autoPlay = false }: { autoPlay?: boolean }) {
 
 export default function Home() {
   const [copied, setCopied] = useState(false);
-  const searchParams = useSearchParams();
-  const localProxySectionRef = useRef<HTMLElement | null>(null);
-  const demoParam = searchParams.get("demo");
-  const shouldPlayDemo = demoParam === "mcp-assistant-gateway";
-
-  useEffect(() => {
-    if (shouldPlayDemo) {
-      localProxySectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-  }, [shouldPlayDemo]);
 
   const copyInstallCommand = async () => {
     const command = "uvx mcpassistant-gateway";
@@ -225,7 +211,6 @@ export default function Home() {
 
       {/* Gateway Section */}
       <section
-        ref={localProxySectionRef}
         id="local-gateway-demo"
         className="relative max-w-5xl mx-auto px-6 py-12"
       >
@@ -234,51 +219,65 @@ export default function Home() {
           whileInView="visible"
           viewport={{ once: true }}
           variants={container}
-          className="space-y-4"
+          className="rounded-3xl border border-border/50 bg-card/30 p-5 sm:p-7"
         >
-          <motion.h2 variants={fadeInUp} className="text-2xl sm:text-3xl font-bold tracking-tight">
-            MCP Assistant Gateway
-          </motion.h2>
-          <motion.p variants={fadeInUp} className="text-muted-foreground leading-relaxed">
-            Use Gateway to let client applications like ChatGPT, Claude, and any MCP-compatible client access your local MCP servers through a secure bridge.
-          </motion.p>
-          <motion.div variants={fadeInUp} className="space-y-3">
-            <p className="text-sm font-semibold text-foreground">Install Gateway</p>
-            <div className="inline-flex max-w-full items-center justify-between rounded-2xl border border-border/70 bg-muted/40 px-4 py-3 sm:px-5">
-              <code className="font-mono text-sm sm:text-base text-foreground">
-                uvx <span className="text-emerald-500">mcpassistant-gateway</span>
-              </code>
-              <TooltipProvider delayDuration={120}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => { void copyInstallCommand(); }}
-                      className="ml-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background/70 transition-colors"
-                      aria-label="Copy install command"
-                    >
-                      {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {copied ? "Copied" : "Copy"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
+            <div className="space-y-5">
+              <motion.h2 variants={fadeInUp} className="text-2xl sm:text-3xl font-bold tracking-tight">
+                MCP Assistant Gateway
+              </motion.h2>
+              <motion.p variants={fadeInUp} className="text-muted-foreground leading-relaxed">
+                Use Gateway to let client applications like ChatGPT, Claude, and any MCP-compatible client access your local MCP servers through a secure bridge.
+              </motion.p>
+
+              <motion.div variants={fadeInUp} className="space-y-3">
+                <p className="text-sm font-semibold text-foreground">Install Gateway</p>
+                <div className="inline-flex max-w-full items-center rounded-xl border border-border/70 bg-muted/40 px-3 py-2.5">
+                  <code className="font-mono text-sm sm:text-base text-foreground">
+                    uvx mcpassistant-gateway
+                  </code>
+                  <TooltipProvider delayDuration={120}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => { void copyInstallCommand(); }}
+                          className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background/70 transition-colors"
+                          aria-label="Copy install command"
+                        >
+                          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        {copied ? "Copied" : "Copy"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </motion.div>
+
+              <motion.div variants={fadeInUp} className="space-y-1 text-sm text-muted-foreground">
+                <p>1. Start gateway on your machine.</p>
+                <p>2. Generate JWT from the Gateway page.</p>
+                <p>3. Use token to authorize in your client.</p>
+                <p>4. Use generated URL to connect your client.</p>
+              </motion.div>
+
+              <motion.div variants={fadeInUp}>
+                <Link
+                  href="/gateway"
+                  className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
+                >
+                  Open Gateway
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </motion.div>
             </div>
-          </motion.div>
-          <motion.div variants={fadeInUp}>
-            <Link
-              href="/gateway"
-              className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
-            >
-              Open Local Proxy Manager
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </motion.div>
-          <motion.div variants={fadeInUp} className="pt-4">
-            <VideoPlayer autoPlay={shouldPlayDemo} />
-          </motion.div>
+
+            <motion.div variants={fadeInUp} className="rounded-2xl border border-border/50 bg-background/60 p-2 sm:p-3">
+              <VideoPlayer />
+            </motion.div>
+          </div>
         </motion.div>
       </section>
 
@@ -309,7 +308,7 @@ export default function Home() {
               variants={fadeInUp}
               className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed"
             >
-              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use our client to instantly connect to remote servers, explore technical docs, or chat with agents—all for free, in your browser. Have an MCP server? <Link href="/publish" className="text-primary font-medium hover:underline inline-flex items-center gap-1">Publish it to modelcontextprotocol.io registry <ArrowUpRight className="h-3.5 w-3.5" /></Link> so others can discover and use it instantly.
+              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use our client to instantly connect to remote servers, explore technical docs, or chat with agentsÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Âall for free, in your browser. Have an MCP server? <Link href="/publish" className="text-primary font-medium hover:underline inline-flex items-center gap-1">Publish it to modelcontextprotocol.io registry <ArrowUpRight className="h-3.5 w-3.5" /></Link> so others can discover and use it instantly.
             </motion.p>
           </motion.div>
 
@@ -364,7 +363,7 @@ export default function Home() {
 
 
       {/* FAQ Section */}
-      < section className="relative max-w-5xl mx-auto py-16 overflow-hidden" >
+      <section className="relative max-w-5xl mx-auto py-16 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
         <div className="px-6">
           <motion.div
@@ -400,7 +399,7 @@ export default function Home() {
                 },
                 {
                   q: "Do I need to install anything?",
-                  a: "No — MCP Assistant works entirely in your browser. There’s no local setup or installation required. Just open the site, connect to a remote MCP server, and start interacting."
+                  a: "For remote MCP servers, no installation is required - MCP Assistant works in your browser. Installation is only needed for local access, when you want to expose MCP servers running on your own machine via Gateway."
                 },
                 {
                   q: "Is using MCP Assistant free?",
@@ -437,13 +436,14 @@ export default function Home() {
             </div>
           </motion.div>
         </div>
-      </section >
+      </section>
 
       {/* Footer */}
       < Footer />
     </div>
   );
 }
+
 
 
 

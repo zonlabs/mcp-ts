@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const REMOTE_PROXY_BASE_URL = "https://hub.linkos.in/agent";
+const GATEWAY_INSTALL_COMMAND = "uvx mcpassistant-gateway";
 
 interface RemoteAgent {
   agent_id?: string;
@@ -282,11 +283,13 @@ export default function GatewayPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <main className="mx-auto max-w-6xl p-5 lg:p-6">
-        <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight">Gateway</h1>
-            <p className="mt-1 text-xs text-muted-foreground">Generate JWT and inspect connected agents.</p>
-            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
+          <div className="min-w-0 space-y-4">
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight">Gateway</h1>
+              <p className="mt-1 text-xs text-muted-foreground">Generate JWT and inspect connected agents.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{agents.length} agents</span>
               <span>|</span>
               <span>{totalCapabilities} servers</span>
@@ -306,9 +309,33 @@ export default function GatewayPage() {
               <span>|</span>
               <span className="inline-flex items-center gap-1">
                 <span className={localAgentConnected ? "h-1.5 w-1.5 rounded-full bg-emerald-500" : "h-1.5 w-1.5 rounded-full bg-red-500"} />
-                Local Agent: {localAgentConnected ? "connected" : "disconnected"}
+                Gateway: {localAgentConnected ? "connected" : "disconnected"}
               </span>
             </div>
+
+            <section className="w-full max-w-md">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Install Gateway</p>
+              <div className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-2 py-1.5">
+                <code className="overflow-x-auto whitespace-nowrap text-xs font-mono text-foreground">
+                  {GATEWAY_INSTALL_COMMAND}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyText(GATEWAY_INSTALL_COMMAND, "Install command", "gateway-install")}
+                  className="h-7 gap-1 px-2 text-muted-foreground hover:text-foreground hover:bg-accent"
+                >
+                  {copiedKey === "gateway-install" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+
+              <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                <p>1. Start the gateway on your machine.</p>
+                <p>2. Generate a JWT.</p>
+                <p>3. Paste the token in your gateway server to authorize.</p>
+                <p>4. Copy the server URL below and connect it in your preferred client.</p>
+              </div>
+            </section>
           </div>
 
           <div className="w-full lg:w-[420px] lg:max-w-[420px]">
@@ -380,7 +407,7 @@ export default function GatewayPage() {
         <section>
           <div className="mb-3">
             <h2 className="text-lg font-semibold tracking-tight">Connected Agents</h2>
-            <p className="text-xs text-muted-foreground">Live updates from the remote bridge stream.</p>
+            <p className="text-xs text-muted-foreground">Real-time status updates for connected servers.</p>
           </div>
 
           {agents.length === 0 ? (

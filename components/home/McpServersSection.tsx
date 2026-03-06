@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, Check, Copy, Star } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { McpServer, ParsedRegistryServer } from "@/types/mcp";
+import { McpServer } from "@/types/mcp";
 import { RECENT_MCP_SERVERS_QUERY } from "@/lib/graphql";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { useRegistryRecentServers } from "@/hooks/useRegistryRecentServers";
@@ -19,7 +19,7 @@ const GET_RECENT_SERVERS = gql`${RECENT_MCP_SERVERS_QUERY}`;
 
 function ServerItemSkeleton() {
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-lg">
+    <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-card/40 p-4">
       <Skeleton className="h-10 w-10 rounded-lg" />
       <div className="space-y-2">
         <Skeleton className="h-4 w-24" />
@@ -45,7 +45,7 @@ function ServerCard({ server }: { server: McpServer }) {
   };
 
   return (
-    <div className="group flex flex-col gap-3 p-4 rounded-lg transition-all duration-300">
+    <div className="group flex h-full flex-col gap-3 p-2 transition-all duration-300">
       {/* Icon and Transport Badge Row */}
       <div className="flex items-center justify-between">
         <ServerIcon
@@ -125,23 +125,21 @@ export default function McpServersSection() {
   const localServers: McpServer[] = edges.map((edge: { node: McpServer }) => edge.node);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-5xl mx-auto space-y-10">
       {/* Registry Section */}
       {(registryLoading || registryServers.length > 0) && (
-        <section className="relative -mx-6 px-6 py-8 overflow-hidden rounded-3xl">
-          <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
-          <div className="mb-8 text-center max-w-2xl mx-auto">
-            <div className="flex flex-col items-center justify-center mb-3">
-              <Link href="/registry" className="group">
-                <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold group-hover:text-primary transition-colors flex items-center gap-2">
-                  Official MCP Registry
-                  <ArrowRight className="h-6 w-6 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                </h2>
-              </Link>
-            </div>
-            <p className="text-sm md:text-base text-muted-foreground">
+        <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/25 p-6 sm:p-8">
+          <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Official MCP Registry</h2>
+              <p className="text-sm md:text-base text-muted-foreground">
               Explore the newest additions and updates from the official MCP registry.
-            </p>
+              </p>
+            </div>
+            <Link href="/registry" className="group inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+              Browse Registry
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
 
           {registryLoading ? (
@@ -166,19 +164,21 @@ export default function McpServersSection() {
 
       {/* Local Section */}
       {!localError && (localLoading || localServers.length > 0) && (
-        <section className="relative -mx-6 px-6 py-8 overflow-hidden rounded-3xl">
-          <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
-          <div className="mb-8 text-center max-w-2xl mx-auto">
-            <Link href="/mcp" className="group">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 group-hover:text-primary transition-colors flex items-center justify-center gap-2">
-                <Star className="h-6 w-6 text-yellow-500" />
+        <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/25 p-6 sm:p-8">
+          <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <h2 className="flex items-center gap-2 text-2xl md:text-3xl font-bold tracking-tight">
+                <Star className="h-5 w-5 text-yellow-500" />
                 Featured on MCP Assistant
-                <ArrowRight className="h-6 w-6 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h2>
-            </Link>
-            <p className="text-sm md:text-base text-muted-foreground">
+              <p className="text-sm md:text-base text-muted-foreground">
               Discover a curated selection of MCP servers you can access and test in Playground.
-            </p>
+              </p>
+            </div>
+            <Link href="/mcp" className="group inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+              Open MCP
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
 
           {localLoading && localServers.length === 0 ? (
