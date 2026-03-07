@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-type Action = "agents" | "server-info" | "issue-token" | "revoke-token";
+type Action = "agents" | "server-info" | "issue-token" | "revoke-token" | "invoke";
 
 interface RemoteBridgeRequestBody {
   action: Action;
@@ -11,6 +11,7 @@ interface RemoteBridgeRequestBody {
   mcp_server?: string;
   expiryMinutes?: number;
   token?: string;
+  payload?: unknown;
 }
 
 const REMOTE_PROXY_BASE_URL = (process.env.REMOTE_PROXY_BASE_URL || "https://hub.linkos.in/agent").replace(/\/+$/, "");
@@ -19,6 +20,7 @@ const DEFAULT_TIMEOUT_SECONDS = Math.max(1, Math.min(60, Number(process.env.REMO
 function jsonHeaders(): Record<string, string> {
   return {
     "Content-Type": "application/json",
+    Accept: "application/json",
   };
 }
 
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
     const subject = await getSubjectFromSession();
     const body = (await request.json()) as RemoteBridgeRequestBody;
     const action = body?.action;
-    if (!action || !["agents", "server-info", "issue-token", "revoke-token"].includes(action)) {
+    if (!action || !["agents", "server-info", "issue-token", "revoke-token", "invoke"].includes(action)) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
@@ -105,6 +107,15 @@ export async function POST(request: Request) {
     const mcpServer = String(body?.mcpServer ?? body?.mcp_server ?? "").trim();
     if (!agentId || !mcpServer) {
       return NextResponse.json({ error: "agentId and mcpServer are required" }, { status: 400 });
+    }
+    if (action === "invoke") {
+      const payload = body?.payload ?? {};
+      const data = await fetchJsonWithTimeout(
+        `${REMOTE_PROXY_BASE_URL}/${encodeURIComponent(agentId)}/${encodeURIComponent(mcpServer)}/mcp`,
+        { method: "POST", headers: jsonHeaders(), body: JSON.stringify(payload) },
+        Math.max(DEFAULT_TIMEOUT_SECONDS, 120)
+      );
+      return NextResponse.json({ success: true, data });
     }
     const data = await fetchJsonWithTimeout(
       `${REMOTE_PROXY_BASE_URL}/manage/${encodeURIComponent(agentId)}/${encodeURIComponent(mcpServer)}/server-info?subject=${encodeURIComponent(subject)}`,
