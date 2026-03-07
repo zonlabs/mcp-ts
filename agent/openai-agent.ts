@@ -3,19 +3,8 @@ import { initiateMcpConnection } from '@/tool/initiate-mcp-connection';
 import { searchMcpServers } from '@/tool/search-mcp-servers';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from 'ai';
-import { MCPClient } from '@mcp-ts/sdk/server';
-import { getActiveMcpConnections } from '@/lib/mcp-connections';
-
-function normalizeUrl(url?: string): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
-}
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
 
 const INSTRUCTIONS = `
 You are MCP Assistant, an AI agent that helps users complete tasks by discovering and connecting to Model Context Protocol (MCP) servers.
@@ -48,49 +37,35 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 - Keep responses concise and actionable
 `;
 
-export async function createMcpAgent(userId?: string) {
-  const mcpServers: any[] = [];
+export async function createMcpAgent(identity: string = 'demo-user-123') {
+  const manager = new MultiSessionClient(identity);
 
-  if (userId) {
-    const activeConnections = await getActiveMcpConnections(userId);
-    const activeUrls = new Set(
-      activeConnections
-        .map((conn) => normalizeUrl(conn.serverUrl))
-        .filter((url): url is string => Boolean(url))
-    );
-
-    const mcpConfig = await MCPClient.getMcpServerConfig(userId);
-    for (const [sessionId, config] of Object.entries(mcpConfig)) {
-      const configUrl = normalizeUrl((config as any)?.url);
-      if (!configUrl || !activeUrls.has(configUrl)) {
-        continue;
-      }
-
-      mcpServers.push({
-        serverLabel: config.serverLabel || sessionId,
-        serverUrl: config.url,
-        requireApproval: 'never',
-        ...(config.headers && { headers: config.headers }),
-      });
-    }
+  try {
+    await manager.connect();
+  } catch (error) {
+    console.error('[MCP] Connection failed:', error);
   }
+
+  const mcpTools = await AIAdapter.getTools(manager);
+  console.log(`[MCP] Loaded ${Object.keys(mcpTools).length} tools for agent.`);
 
   const tools: any = {
     MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS: checkMcpConnections,
     MCPASSISTANT_SEARCH_SERVERS: searchMcpServers,
     MCPASSISTANT_INITIATE_CONNECTION: initiateMcpConnection,
+    ...mcpTools,
   };
 
-  mcpServers.forEach((serverConfig) => {
-    const toolKey = mcpServers.length === 1 ? 'mcp' : `mcp_${serverConfig.serverLabel}`;
-    tools[toolKey] = openai.tools.mcp(serverConfig);
-  });
-
-  return new ToolLoopAgent({
+  const agent = new ToolLoopAgent({
     model: openai('gpt-4.1-mini'),
     instructions: INSTRUCTIONS,
     tools: tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(10),
+    onFinish: () => {
+      manager.disconnect();
+    },
   });
+
+  return agent;
 }
 export type McpAgentUIMessage = InferAgentUIMessage<Awaited<ReturnType<typeof createMcpAgent>>>;
