@@ -258,8 +258,8 @@ export default function Home() {
 
               <motion.div variants={fadeInUp} className="space-y-1 text-sm text-muted-foreground">
                 <p>1. Start gateway on your machine.</p>
-                <p>2. Generate JWT from the Gateway page.</p>
-                <p>3. Use token to authorize in your client.</p>
+                <p>2. Login using CLI with <code>/login</code>.</p>
+                <p>3. Authorize your client using the CLI session.</p>
                 <p>4. Use generated URL to connect your client.</p>
               </motion.div>
 

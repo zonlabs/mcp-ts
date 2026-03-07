@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
-import { Check, ChevronDown, ChevronRight, Copy, Loader2, Play, RefreshCw } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, Download, Loader2, Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -441,40 +441,64 @@ export default function GatewayPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <main className="mx-auto max-w-6xl p-5 lg:p-6">
-        <div className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
+        <div className="mb-6 grid gap-5 xl:grid-cols-2 xl:items-start">
           <div className="min-w-0 space-y-4">
             <div>
               <h1 className="text-xl font-semibold tracking-tight">Gateway</h1>
-              <p className="mt-1 text-xs text-muted-foreground">Generate JWT and inspect connected agents.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Inspect connected agents and server endpoints.</p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{agents.length} agents</span>
-              <span>|</span>
-              <span>{totalCapabilities} servers</span>
-              <span>|</span>
-              <span className="inline-flex items-center gap-1">
-                <span
-                  className={
-                    remoteProxyStatus === "ok"
-                      ? "h-1.5 w-1.5 rounded-full bg-emerald-500"
-                      : remoteProxyStatus === "down"
-                        ? "h-1.5 w-1.5 rounded-full bg-red-500"
-                        : "h-1.5 w-1.5 rounded-full bg-amber-500"
-                  }
-                />
-                Remote Proxy: {remoteProxyStatus === "ok" ? "ok" : remoteProxyStatus === "down" ? "down" : "checking"}
-              </span>
-              <span>|</span>
-              <span className="inline-flex items-center gap-1">
-                <span className={localAgentConnected ? "h-1.5 w-1.5 rounded-full bg-emerald-500" : "h-1.5 w-1.5 rounded-full bg-red-500"} />
-                Gateway: {localAgentConnected ? "connected" : "disconnected"}
-              </span>
+            <div className="space-y-2 text-sm">
+              <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
+                <span>{agents.length} agents</span>
+                <span>{totalCapabilities} servers</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="inline-flex items-center gap-2">
+                  <span
+                    className={
+                      remoteProxyStatus === "ok"
+                        ? "h-2 w-2 rounded-full bg-emerald-500"
+                        : remoteProxyStatus === "down"
+                          ? "h-2 w-2 rounded-full bg-red-500"
+                          : "h-2 w-2 rounded-full bg-amber-500"
+                    }
+                  />
+                  <span className="font-medium text-foreground">Remote Proxy</span>
+                  <span className="text-muted-foreground">
+                    {remoteProxyStatus === "ok" ? "ok" : remoteProxyStatus === "down" ? "down" : "checking"}
+                  </span>
+                  <Button
+                    onClick={refreshAll}
+                    disabled={loadingAgents || loadingAllInfo}
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    title={loadingAgents || loadingAllInfo ? "Refreshing..." : "Refresh"}
+                  >
+                    {loadingAgents || loadingAllInfo ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
+                <div className="inline-flex items-center gap-2">
+                  <span className={localAgentConnected ? "h-2 w-2 rounded-full bg-emerald-500" : "h-2 w-2 rounded-full bg-red-500"} />
+                  <span className="font-medium text-foreground">Gateway</span>
+                  <span className="text-muted-foreground">{localAgentConnected ? "connected" : "disconnected"}</span>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <section className="w-full max-w-md">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Install Gateway</p>
-              <div className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-2 py-1.5">
-                <code className="overflow-x-auto whitespace-nowrap text-xs font-mono text-foreground">
+          <div className="w-full">
+            <section className="w-full p-1">
+              <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.14em] text-muted-foreground">
+                <Download className="h-3.5 w-3.5" />
+                Install the Gateway
+              </p>
+              <div className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-2 py-1.5">
+                <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-xs font-mono text-foreground">
                   {GATEWAY_INSTALL_COMMAND}
                 </code>
                 <Button
@@ -494,10 +518,8 @@ export default function GatewayPage() {
                 <p>4. Copy the server URL below and connect it in your preferred client.</p>
               </div>
             </section>
-          </div>
 
-          <div className="w-full lg:w-[420px] lg:max-w-[420px]">
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
               {/* JWT generation and settings are now handled from CLI.
                   Keep this block commented for fallback/reference only.
               <Button onClick={issueToken} disabled={issuing} className="h-9 gap-2 bg-emerald-600 text-white hover:bg-emerald-500">
@@ -509,19 +531,6 @@ export default function GatewayPage() {
                 Settings
               </Button>
               */}
-              <Button
-                onClick={refreshAll}
-                disabled={loadingAgents || loadingAllInfo}
-                variant="outline"
-                className="group h-9 gap-2 rounded-full border-border/70 bg-background/70 px-4 hover:bg-background"
-              >
-                {loadingAgents || loadingAllInfo ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
-                )}
-                {loadingAgents || loadingAllInfo ? "Refreshing..." : "Refresh"}
-              </Button>
             </div>
 
             {/* {settingsOpen ? (
