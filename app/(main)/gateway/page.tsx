@@ -66,6 +66,55 @@ function normalizeServerInfo(raw: unknown, agentId: string, mcpServer: string): 
   };
 }
 
+function generatePayloadFromSchema(schema: unknown): unknown {
+  if (!schema || typeof schema !== "object") return null;
+  const s = schema as Record<string, unknown>;
+
+  if (s.default !== undefined) {
+    return s.default;
+  }
+
+  if (Array.isArray(s.enum) && s.enum.length > 0) {
+    return s.enum[0];
+  }
+
+  const oneOf = Array.isArray(s.oneOf) ? s.oneOf : [];
+  if (oneOf.length > 0) {
+    return generatePayloadFromSchema(oneOf[0]);
+  }
+  const anyOf = Array.isArray(s.anyOf) ? s.anyOf : [];
+  if (anyOf.length > 0) {
+    return generatePayloadFromSchema(anyOf[0]);
+  }
+  const allOf = Array.isArray(s.allOf) ? s.allOf : [];
+  if (allOf.length > 0) {
+    return generatePayloadFromSchema(allOf[0]);
+  }
+
+  const type = typeof s.type === "string" ? s.type : "";
+  if (type === "object") {
+    const properties = s.properties && typeof s.properties === "object" ? (s.properties as Record<string, unknown>) : {};
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(properties)) {
+      result[key] = generatePayloadFromSchema(value);
+    }
+    return result;
+  }
+
+  if (type === "array") {
+    if (s.items && typeof s.items === "object") {
+      return [generatePayloadFromSchema(s.items)];
+    }
+    return [];
+  }
+
+  if (type === "string") return "";
+  if (type === "integer" || type === "number") return 0;
+  if (type === "boolean") return false;
+
+  return null;
+}
+
 export default function GatewayPage() {
   const [expiryMinutes, setExpiryMinutes] = useState("60");
   const [issuedToken, setIssuedToken] = useState("");
@@ -325,10 +374,9 @@ export default function GatewayPage() {
       setTesterPayload("{}");
       return;
     }
-    const schema = selectedToolSchema;
-    const payloadStarter = {
-      ...(schema && Object.keys(schema).length ? { _schema_hint: schema } : {}),
-    };
+    const schemaPayload = generatePayloadFromSchema(selectedToolSchema);
+    const payloadStarter =
+      schemaPayload && typeof schemaPayload === "object" && !Array.isArray(schemaPayload) ? schemaPayload : {};
     setTesterPayload(JSON.stringify(payloadStarter, null, 2));
   }, [selectedToolName, selectedToolSchemaText]);
 
@@ -354,7 +402,6 @@ export default function GatewayPage() {
       toast.error("Payload must be valid JSON");
       return;
     }
-    delete args._schema_hint;
     const payload: Record<string, unknown> = {
       jsonrpc: "2.0",
       id: "call-1",
