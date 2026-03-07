@@ -7,6 +7,8 @@ interface RemoteBridgeRequestBody {
   action: Action;
   agentId?: string;
   mcpServer?: string;
+  agent_id?: string;
+  mcp_server?: string;
   expiryMinutes?: number;
   token?: string;
 }
@@ -99,8 +101,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, data: response });
     }
 
-    const agentId = (body?.agentId || "").trim();
-    const mcpServer = (body?.mcpServer || "").trim();
+    const agentId = String(body?.agentId ?? body?.agent_id ?? "").trim();
+    const mcpServer = String(body?.mcpServer ?? body?.mcp_server ?? "").trim();
     if (!agentId || !mcpServer) {
       return NextResponse.json({ error: "agentId and mcpServer are required" }, { status: 400 });
     }

@@ -11,7 +11,7 @@ const REMOTE_PROXY_BASE_URL = "https://hub.linkos.in/agent";
 const GATEWAY_INSTALL_COMMAND = "uvx mcpassistant-gateway";
 
 interface RemoteAgent {
-  agent_id?: string;
+  subject?: string;
   capabilities?: string[];
 }
 
@@ -23,7 +23,7 @@ interface ServerInfo {
   version: string;
   instructions: string;
   tools_count: number;
-  tools: Array<{ name?: string; description?: string }>;
+  tools: Array<{ name?: string; description?: string; [key: string]: unknown }>;
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -32,6 +32,38 @@ function normalizeBaseUrl(url: string): string {
 
 function invokeUrl(agentId: string, mcpServer: string): string {
   return `${normalizeBaseUrl(REMOTE_PROXY_BASE_URL)}/${agentId}/${mcpServer}/mcp`;
+}
+
+function normalizeAgentId(agent: RemoteAgent): string {
+  return String(agent.subject || "").trim();
+}
+
+function normalizeCapabilities(agent: RemoteAgent): string[] {
+  const raw = Array.isArray(agent.capabilities) ? agent.capabilities : [];
+  return raw.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function normalizeServerInfo(raw: unknown, agentId: string, mcpServer: string): ServerInfo {
+  const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const nestedTools = data.tools;
+  const toolsArray = Array.isArray(nestedTools)
+    ? nestedTools
+    : (nestedTools && typeof nestedTools === "object" && Array.isArray((nestedTools as Record<string, unknown>).tools))
+      ? ((nestedTools as Record<string, unknown>).tools as unknown[])
+      : [];
+  const tools = toolsArray
+    .map((tool) => (tool && typeof tool === "object" ? (tool as Record<string, unknown>) : null))
+    .filter(Boolean) as Array<{ name?: string; description?: string; [key: string]: unknown }>;
+  return {
+    status: data.status === "error" ? "error" : "connected",
+    agent_id: String(data.agent_id || agentId || ""),
+    mcp_server: String(data.mcp_server || mcpServer || ""),
+    title: String(data.title || ""),
+    version: String(data.version || ""),
+    instructions: String(data.instructions || ""),
+    tools_count: Number.isFinite(Number(data.tools_count)) ? Number(data.tools_count) : tools.length,
+    tools,
+  };
 }
 
 export default function GatewayPage() {
@@ -80,9 +112,15 @@ export default function GatewayPage() {
   const inspectAllServers = useCallback(async (agentsData: RemoteAgent[]) => {
     const pairs: Array<{ agentId: string; mcpServer: string; key: string }> = [];
     for (const agent of agentsData) {
-      const agentId = String(agent.agent_id || "");
-      const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities : [];
+      const agentId = normalizeAgentId(agent);
+      const capabilities = normalizeCapabilities(agent);
+      if (!agentId) {
+        continue;
+      }
       for (const mcpServer of capabilities) {
+        if (!mcpServer) {
+          continue;
+        }
         pairs.push({ agentId, mcpServer, key: `${agentId}::${mcpServer}` });
       }
     }
@@ -110,7 +148,7 @@ export default function GatewayPage() {
             if (!response.ok) {
               throw new Error(data?.error || "Failed to inspect server");
             }
-            return [key, data.data as ServerInfo] as const;
+            return [key, normalizeServerInfo(data.data, agentId, mcpServer)] as const;
           } catch (error) {
             return [
               key,
@@ -169,8 +207,8 @@ export default function GatewayPage() {
     (agentsData: RemoteAgent[]) => {
       const signature = JSON.stringify(
         (agentsData || []).map((agent) => ({
-          agent_id: String(agent.agent_id || ""),
-          capabilities: Array.isArray(agent.capabilities) ? [...agent.capabilities].sort() : [],
+          agent_id: normalizeAgentId(agent),
+          capabilities: normalizeCapabilities(agent).sort(),
         }))
       );
       if (signature === lastAgentsSignatureRef.current) {
@@ -224,6 +262,7 @@ export default function GatewayPage() {
   const issueToken = async () => {
     setIssuing(true);
     try {
+      /*
       const response = await fetch("/api/remote-bridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -241,6 +280,8 @@ export default function GatewayPage() {
       setIssuedSubject(subject);
       setRevokeToken(token);
       toast.success("JWT generated");
+      */
+      toast("Token issue is now handled by CLI (/login).");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to issue token");
     } finally {
@@ -256,6 +297,7 @@ export default function GatewayPage() {
     }
     setRevoking(true);
     try {
+      /*
       const response = await fetch("/api/remote-bridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -273,6 +315,8 @@ export default function GatewayPage() {
       }
       setRevokeToken("");
       toast.success("Token revoked");
+      */
+      toast("Token revoke is now handled by CLI (/logout).");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to revoke token");
     } finally {
@@ -331,8 +375,8 @@ export default function GatewayPage() {
 
               <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                 <p>1. Start the gateway on your machine.</p>
-                <p>2. Generate a JWT.</p>
-                <p>3. Paste the token in your gateway server to authorize.</p>
+                <p>2. Login from CLI using <code>/login</code>.</p>
+                <p>3. Start bridge from CLI using <code>/start</code>.</p>
                 <p>4. Copy the server URL below and connect it in your preferred client.</p>
               </div>
             </section>
@@ -340,21 +384,24 @@ export default function GatewayPage() {
 
           <div className="w-full lg:w-[420px] lg:max-w-[420px]">
             <div className="flex flex-wrap items-center justify-end gap-2">
+              {/* JWT generation and settings are now handled from CLI.
+                  Keep this block commented for fallback/reference only.
               <Button onClick={issueToken} disabled={issuing} className="h-9 gap-2 bg-emerald-600 text-white hover:bg-emerald-500">
                 {issuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                Generate JWT
+                Generate JWT (CLI)
               </Button>
               <Button variant="outline" onClick={() => setSettingsOpen((v) => !v)} className="h-9 gap-2">
                 <Settings2 className="h-4 w-4" />
                 Settings
               </Button>
+              */}
               <Button onClick={refreshAll} disabled={loadingAgents || loadingAllInfo} variant="outline" className="h-9 gap-2">
                 {loadingAgents || loadingAllInfo ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Refresh
               </Button>
             </div>
 
-            {settingsOpen ? (
+            {/* {settingsOpen ? (
               <div className="mt-3 rounded-xl bg-muted/30 p-4">
                 <div className="space-y-3">
                   <div className="space-y-2">
@@ -381,14 +428,14 @@ export default function GatewayPage() {
                     />
                     <Button variant="destructive" onClick={revokeIssuedToken} disabled={revoking} className="h-10 w-full gap-2">
                       {revoking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4" />}
-                      Revoke token
+                      Revoke token (CLI)
                     </Button>
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : null} */}
 
-            {issuedToken ? (
+            {/* {issuedToken ? (
               <div className="mt-3 rounded-xl bg-muted/20 p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Latest token</p>
@@ -400,7 +447,7 @@ export default function GatewayPage() {
                 <p className="mb-1 text-xs text-muted-foreground">Agent: <span className="font-mono">{issuedSubject || "-"}</span></p>
                 <code className="block overflow-x-auto whitespace-nowrap rounded bg-background/60 px-2 py-1.5 text-xs">{issuedToken}</code>
               </div>
-            ) : null}
+            ) : null} */}
           </div>
         </div>
 
@@ -417,8 +464,11 @@ export default function GatewayPage() {
           ) : (
             <div className="space-y-5">
               {agents.map((agent) => {
-                const agentId = String(agent.agent_id || "");
-                const capabilities = Array.isArray(agent.capabilities) ? agent.capabilities : [];
+                const agentId = normalizeAgentId(agent);
+                const capabilities = normalizeCapabilities(agent);
+                if (!agentId) {
+                  return null;
+                }
 
                 return (
                   <section key={agentId} className="space-y-2">
