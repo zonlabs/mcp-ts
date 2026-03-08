@@ -79,7 +79,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-8 max-w-2xl">
-        {/* Profile Section */}
         <section className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground">Profile</h3>
 
@@ -109,7 +108,6 @@ export default function SettingsPage() {
 
         <div className="border-t border-border"></div>
 
-        {/* Account Information */}
         <section className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground">
             Account Information
@@ -152,7 +150,6 @@ export default function SettingsPage() {
 
         <div className="border-t border-border"></div>
 
-        {/* Connected Providers */}
         {user?.identities && user.identities.length > 0 && (
           <>
             <section className="space-y-4">
@@ -189,7 +186,6 @@ export default function SettingsPage() {
           </>
         )}
 
-        {/* Preferences Section */}
         <section className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground">
             Preferences
@@ -204,7 +200,6 @@ export default function SettingsPage() {
 
         <div className="border-t border-border"></div>
 
-        {/* Sign Out Button */}
         <section>
           <button
             onClick={handleSignOut}

@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getBridgeSubjectFromUserId,
+  getRemoteAgents,
+  getRemoteServerInfo,
+  invokeRemoteServer,
+} from "@/lib/remote-bridge";
 
 type Action = "agents" | "server-info" | "issue-token" | "revoke-token" | "invoke";
 
@@ -15,7 +21,6 @@ interface RemoteBridgeRequestBody {
 }
 
 const REMOTE_PROXY_BASE_URL = (process.env.REMOTE_PROXY_BASE_URL || "https://hub.linkos.in/agent").replace(/\/+$/, "");
-const DEFAULT_TIMEOUT_SECONDS = Math.max(1, Math.min(60, Number(process.env.REMOTE_PROXY_TIMEOUT_SECONDS || "15")));
 
 function jsonHeaders(): Record<string, string> {
   return {
@@ -29,34 +34,11 @@ async function getSubjectFromSession(): Promise<string> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const uid = session?.user?.id || "";
+  const uid = session?.user?.id;
   if (!uid) {
     throw new Error("Unauthorized");
   }
-  const subject = uid.slice(-10);
-  if (!subject) {
-    throw new Error("Unauthorized");
-  }
-  return subject;
-}
-
-async function fetchJsonWithTimeout(url: string, init: RequestInit, timeoutSeconds = DEFAULT_TIMEOUT_SECONDS): Promise<unknown> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
-  try {
-    const response = await fetch(url, {
-      ...init,
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(text || `${response.status} ${response.statusText}`);
-    }
-    return text ? JSON.parse(text) : {};
-  } finally {
-    clearTimeout(timeout);
-  }
+  return getBridgeSubjectFromUserId(uid);
 }
 
 export async function POST(request: Request) {
@@ -69,16 +51,13 @@ export async function POST(request: Request) {
     }
 
     if (action === "agents") {
-      const response = (await fetchJsonWithTimeout(
-        `${REMOTE_PROXY_BASE_URL}/manage/agents/details?subject=${encodeURIComponent(subject)}`,
-        { method: "GET", headers: jsonHeaders() }
-      )) as Record<string, unknown>;
-      return NextResponse.json({ success: true, agents: Array.isArray(response?.agents) ? response.agents : [] });
+      const agents = await getRemoteAgents(subject);
+      return NextResponse.json({ success: true, agents });
     }
 
     if (action === "issue-token") {
       const expiryMinutes = Math.max(1, Math.min(1440, Number(body?.expiryMinutes) || 60));
-      const response = await fetchJsonWithTimeout(`${REMOTE_PROXY_BASE_URL}/manage/jwt/issue`, {
+      const response = await fetch(`${REMOTE_PROXY_BASE_URL}/manage/jwt/issue`, {
         method: "POST",
         headers: jsonHeaders(),
         body: JSON.stringify({
@@ -87,7 +66,11 @@ export async function POST(request: Request) {
           capabilities: ["*"],
         }),
       });
-      return NextResponse.json({ success: true, data: response });
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(text || `${response.status} ${response.statusText}`);
+      }
+      return NextResponse.json({ success: true, data: text ? JSON.parse(text) : {} });
     }
 
     if (action === "revoke-token") {
@@ -95,12 +78,16 @@ export async function POST(request: Request) {
       if (!token) {
         return NextResponse.json({ error: "token is required" }, { status: 400 });
       }
-      const response = await fetchJsonWithTimeout(`${REMOTE_PROXY_BASE_URL}/manage/jwt/revoke`, {
+      const response = await fetch(`${REMOTE_PROXY_BASE_URL}/manage/jwt/revoke`, {
         method: "POST",
         headers: jsonHeaders(),
         body: JSON.stringify({ token }),
       });
-      return NextResponse.json({ success: true, data: response });
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(text || `${response.status} ${response.statusText}`);
+      }
+      return NextResponse.json({ success: true, data: text ? JSON.parse(text) : {} });
     }
 
     const agentId = String(body?.agentId ?? body?.agent_id ?? "").trim();
@@ -110,17 +97,10 @@ export async function POST(request: Request) {
     }
     if (action === "invoke") {
       const payload = body?.payload ?? {};
-      const data = await fetchJsonWithTimeout(
-        `${REMOTE_PROXY_BASE_URL}/${encodeURIComponent(agentId)}/${encodeURIComponent(mcpServer)}/mcp`,
-        { method: "POST", headers: jsonHeaders(), body: JSON.stringify(payload) },
-        Math.max(DEFAULT_TIMEOUT_SECONDS, 120)
-      );
+      const data = await invokeRemoteServer(agentId, mcpServer, payload);
       return NextResponse.json({ success: true, data });
     }
-    const data = await fetchJsonWithTimeout(
-      `${REMOTE_PROXY_BASE_URL}/manage/${encodeURIComponent(agentId)}/${encodeURIComponent(mcpServer)}/server-info?subject=${encodeURIComponent(subject)}`,
-      { method: "POST", headers: jsonHeaders(), body: "{}" }
-    );
+    const data = await getRemoteServerInfo(subject, agentId, mcpServer);
     return NextResponse.json({ success: true, data });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";

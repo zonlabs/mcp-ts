@@ -14,6 +14,7 @@ import { LoadingSpinner } from '@/components/playground/LoadingSpinner';
 import { RecipeComponent } from '@/components/playground/RecipeComponent';
 import { Button } from '@/components/ui/button';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
+import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 
 export default function PlaygroundPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -43,7 +44,16 @@ export default function PlaygroundPage() {
   ];
 
   const { error, status, sendMessage, messages, addToolApprovalResponse } = useChat({
-    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      prepareSendMessagesRequest: ({ body, messages }) => ({
+        body: {
+          messages,
+          ...(body ?? {}),
+          gatewaySelections: readGatewaySelectionsFromStorage(),
+        },
+      }),
+    }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 

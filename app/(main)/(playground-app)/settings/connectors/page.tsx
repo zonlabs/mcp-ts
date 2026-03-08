@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, XCircle, Clock, Trash2, Calendar } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Trash2, Calendar, CheckCircle2, Loader2, RefreshCw, Server } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { toast } from "react-hot-toast";
 import { useMcpStore } from "@/lib/stores/mcp-store";
+import { useGatewaySelections } from "@/hooks/useGatewaySelections";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { selectionKey } from "@/lib/gateway-access";
 
 interface Connection {
   sessionId: string;
@@ -29,6 +34,16 @@ export default function ConnectorsPage() {
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const disconnect = useMcpStore((state) => state.disconnect);
+  const {
+    detectedSelections,
+    enabledSelectionKeys,
+    enabledDetectedCount,
+    loadingGatewayServers,
+    serverInfoMap,
+    gatewayLoadError,
+    persistSelections,
+    fetchGatewayServers,
+  } = useGatewaySelections();
 
   useEffect(() => {
     loadConnections();
@@ -120,6 +135,101 @@ export default function ConnectorsPage() {
           Active MCP server connections
         </p>
       </div>
+
+      <section className="space-y-4 mb-8">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Local MCP Access For Playground
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enable local gateway servers to let the agent execute their MCP tools.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchGatewayServers()}
+            disabled={loadingGatewayServers}
+            className="h-8 gap-2"
+          >
+            {loadingGatewayServers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Refresh
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <Badge variant="secondary" className="gap-1">
+            <Server className="w-3 h-3" />
+            {detectedSelections.length} detected
+          </Badge>
+          <Badge variant={enabledDetectedCount > 0 ? "default" : "outline"}>
+            {enabledDetectedCount} enabled
+          </Badge>
+        </div>
+
+        {gatewayLoadError ? (
+          <p className="text-sm text-red-600 dark:text-red-400">{gatewayLoadError}</p>
+        ) : null}
+
+        {loadingGatewayServers ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Detecting gateway MCP servers...
+          </div>
+        ) : detectedSelections.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No gateway MCP servers detected. Start your local gateway and refresh.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {detectedSelections.map((selection) => {
+              const key = selectionKey(selection);
+              const enabled = enabledSelectionKeys.includes(key);
+              const info = serverInfoMap[key];
+              const toolCount = info?.tools_count ?? 0;
+
+              return (
+                <label
+                  key={key}
+                  className="flex items-start gap-3 rounded-md border border-border/60 px-3 py-2.5 cursor-pointer hover:bg-accent/20"
+                >
+                  <Checkbox
+                    checked={enabled}
+                    onCheckedChange={(checked) => {
+                      const next = checked
+                        ? Array.from(new Set([...enabledSelectionKeys, key]))
+                        : enabledSelectionKeys.filter((value) => value !== key);
+                      persistSelections(next);
+                    }}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium break-all">{selection.mcpServer}</p>
+                      <Badge variant="outline" className="font-mono text-[10px]">{selection.agentId}</Badge>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {info?.status === "connected" ? (
+                        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Connected
+                        </span>
+                      ) : info?.status === "error" ? (
+                        <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                          <XCircle className="w-3 h-3" />
+                          {info.instructions || "Error"}
+                        </span>
+                      ) : null}
+                      <span>{toolCount} tools</span>
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
