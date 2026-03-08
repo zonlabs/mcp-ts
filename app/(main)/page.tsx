@@ -316,13 +316,13 @@ export default function Home() {
               variants={fadeInUp}
               className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground"
             >
-              Everything you need to work with MCP&apos;s
+              Everything you need to work with MCPs
             </motion.h2>
             <motion.p
               variants={fadeInUp}
               className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed"
             >
-              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use our client to instantly connect to remote servers, explore technical docs, or chat with agentsÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âall for free, in your browser. Have an MCP server? <Link href="/publish" className="text-primary font-medium hover:underline inline-flex items-center gap-1">Publish it to modelcontextprotocol.io registry <ArrowUpRight className="h-3.5 w-3.5" /></Link> so others can discover and use it instantly.
+              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use our client to instantly connect to remote servers, explore technical docs, or chat with agents, all for free, in your browser. Have an MCP server? <Link href="/publish" className="text-primary font-medium hover:underline inline-flex items-center gap-1">Publish it to modelcontextprotocol.io registry <ArrowUpRight className="h-3.5 w-3.5" /></Link> so others can discover and use it instantly.
             </motion.p>
           </motion.div>
 
@@ -408,7 +408,7 @@ export default function Home() {
                   a: "MCP Assistant is a web-based Model Context Protocol (MCP) client that lets you connect to and interact with remote MCP-compatible servers directly through your browser. It offers a lightweight, accessible, and developer-friendly way to test MCP servers without installing anything locally."
                 },
                 {
-                  q: "What does â€œMCPâ€ stand for?",
+                  q: "What does \"MCP\" stand for?",
                   a: "MCP stands for Model Context Protocol, an open standard that enables AI assistants and applications to communicate effectively with external tools, data sources, and services."
                 },
                 {
