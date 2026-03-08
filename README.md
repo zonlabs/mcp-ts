@@ -1,6 +1,7 @@
-<div align="center">
+﻿<div align="center">
   <img src="./public/logo.svg" alt="MCP Assistant Logo" width="96" height="96" />
   <h1>MCP Assistant</h1>
+  <img src="./public/images/mcpassistant.png" alt="MCP Assistant Banner" width="100%" />
   <p><strong>Web-based MCP client for remote servers and AI tool workflows.</strong></p>
 
   [![Website](https://img.shields.io/badge/Website-mcp--assistant.in-0A66C2?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.mcp-assistant.in/)
@@ -14,7 +15,7 @@ MCP Assistant addresses common pain points when working with the Model Context P
 
 ## ✨ Why MCP Assistant
 
-- Connect to remote MCP servers through `SSE` and `Streamable HTTP`
+- Connect to remote MCP servers from one interface
 - Manage multiple MCP servers from a single interface
 - Handle OAuth 2.0 and OpenID Connect flows without manual token juggling
 - Explore available tools and run them directly from the UI
@@ -23,17 +24,13 @@ MCP Assistant addresses common pain points when working with the Model Context P
 
 ## 🚀 Core Capabilities
 
-### 🔌 Model Context Protocol
-- Multi-transport connectivity for modern MCP deployments
-- Dynamic server registration and lifecycle management
-- Standards-aligned authentication support (`RFC 8414`, OIDC discovery)
-- Unified tool discovery and execution workflows
-
-### 🤖 Agent-User Interaction (AG-UI)
-- Real-time streaming for responsive conversations
-- Structured rendering of tool outputs
-- Live execution logs and event updates
-- Human-in-the-loop review and approval flows
+- Connect and manage MCP servers from a single workspace
+- Discover available tools and execute them from the UI
+- Use the local gateway to expose machine-local MCP tools through one endpoint
+- Use the same endpoint from any MCP-compatible client (for example: ChatGPT, Claude, and others)
+- Enable selected local gateway servers for Playground agent tool execution
+- Handle OAuth/OIDC auth flows for protected MCP servers
+- Browse registry servers and test integrations before production use
 
 ## 🏗️ Architecture
 
@@ -43,13 +40,16 @@ MCP Assistant addresses common pain points when working with the Model Context P
 
 MCP Assistant includes a local gateway that exposes your configured MCP servers through one local endpoint, so desktop/web clients can connect without reconfiguring each remote server.
 
-Run the gateway with:
+### ⚡ Gateway Quickstart
 
+1. Install and run the gateway:
 ```bash
 uvx mcpassistant-gateway
 ```
-
-You can then connect that local gateway from ChatGPT, Claude, or any MCP-compatible client.
+2. Log in from the gateway CLI using `/login`.
+3. Start the bridge using `/start`.
+4. Open the Gateway page in MCP Assistant and copy your generated MCP URL.
+5. Use that URL in your MCP client (for example: ChatGPT, Claude, or the MCP Assistant Playground).
 
 ```mermaid
 flowchart TD
@@ -85,8 +85,8 @@ flowchart TD
     PG -- "Execute" --> LA
     MPR -- "HTTPS" --> MCP_IO
     PG -- "AG-UI state (URL, transport, auth token, etc.)" --> LA
-    UI -- "SSE / MCP protocol" --> ToolsResources
-    LA -- "SSE / Streamable HTTP" --> ToolsResources
+    UI -- "MCP protocol" --> ToolsResources
+    LA -- "MCP protocol" --> ToolsResources
 ```
 
 ## ⚡ Quick Start
@@ -97,17 +97,17 @@ flowchart TD
 2. Click `Add Server`.
 3. Enter:
    - `Server Name`
-   - `Transport Type` (`SSE` or `Streamable HTTP`)
    - `Server URL`
    - Optional OAuth2 configuration
 4. Save to connect.
 
-### 💬 Start Using the Assistant
+### 🔧 Enable Local MCP Access for Playground
 
-1. Select one or more connected servers from the sidebar.
-2. Choose your LLM provider.
-3. Enter your API key.
-4. Start chatting and execute tools from connected MCP servers.
+1. Open `Settings` -> `Connectors`.
+2. In `Local MCP Access For Playground`, click `Refresh` to detect local gateway servers.
+3. Check the servers you want the Playground agent to use.
+4. Open Playground and ask for a task that requires those tools.
+
 
 ## 🤝 Contributing
 
