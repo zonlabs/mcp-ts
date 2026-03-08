@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle, XCircle, Clock, Trash2, Calendar } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { toast } from "react-hot-toast";
+import { useMcpStore } from "@/lib/stores/mcp-store";
 import {
   Tooltip,
   TooltipContent,
@@ -27,6 +28,7 @@ export default function ConnectorsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const disconnect = useMcpStore((state) => state.disconnect);
 
   useEffect(() => {
     loadConnections();
@@ -55,20 +57,9 @@ export default function ConnectorsPage() {
   const handleDisconnect = async (sessionId: string) => {
     setDisconnecting(sessionId);
     try {
-      const response = await fetch(`/api/mcp/disconnect`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ sessionId }),
-      });
-
-      if (response.ok) {
-        toast.success("Connection disconnected successfully");
-        await loadConnections();
-      } else {
-        toast.error("Failed to disconnect connection");
-      }
+      await disconnect(sessionId);
+      toast.success("Connection disconnected successfully");
+      await loadConnections();
     } catch (error) {
       console.error("Failed to disconnect:", error);
       toast.error("Failed to disconnect connection");
