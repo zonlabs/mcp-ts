@@ -24,7 +24,7 @@ export default function AssistantsPage() {
   };
 
   return (
-    <div className="pl-6">
+    <div className="px-1 md:px-6">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold mb-1">Assistants</h1>
           <p className="text-sm text-muted-foreground">
@@ -48,7 +48,7 @@ export default function AssistantsPage() {
             {assistants.map((assistant) => (
               <div
                 key={assistant.id}
-                className="flex items-start gap-3 p-3 rounded-md w-fit"
+                className="flex flex-col sm:flex-row sm:items-start gap-3 p-3 rounded-md border border-border/50 bg-card/40 w-full"
               >
                 {/* Assistant Icon */}
                 <div className="flex-shrink-0">
@@ -93,7 +93,7 @@ export default function AssistantsPage() {
                 </div>
 
                 {/* Status */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
                   {assistant.isActive ? (
                     <>
                       <CheckCircle2 className="w-4 h-4 text-green-500" />

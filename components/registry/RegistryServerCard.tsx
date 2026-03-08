@@ -25,10 +25,10 @@ export function RegistryServerCard({
   const isFailed = connectionStatus === 'FAILED';
 
   return (
-    <Card className="group relative overflow-hidden transition-all duration-300 border-0 bg-transparent shadow-none">
-      <div className="p-2">
+    <Card className="group relative overflow-hidden transition-all duration-300 border-0 bg-transparent shadow-none rounded-none sm:rounded-xl">
+      <div className="p-3 sm:p-2">
         {/* Header with Avatar */}
-        <div className="flex items-start gap-4 mb-4">
+        <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
           {/* Server Icon */}
           <ServerIcon
             serverName={server.name}
@@ -43,7 +43,7 @@ export function RegistryServerCard({
               {server.hasRemote && (
                 <Globe className="h-3.5 w-3.5 text-primary shrink-0" />
               )}
-              <h3 className="font-semibold text-lg truncate text-foreground">
+              <h3 className="font-semibold text-base sm:text-lg truncate text-foreground">
                 {displayName}
               </h3>
               {isConnected && (
@@ -104,7 +104,7 @@ export function RegistryServerCard({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-2 pt-4 border-t border-border/30">
+        <div className="flex items-center justify-between gap-2 pt-3 sm:pt-4 border-t border-border/30">
           <div className="flex gap-2">
             {server.websiteUrl && (
               <Button

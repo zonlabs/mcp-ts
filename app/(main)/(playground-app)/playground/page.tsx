@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
 import { useRef, useEffect } from 'react';
+import Image from 'next/image';
 import MCPToolCall from '@/components/playground/MCPToolCall';
 import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
 import { ChatInput } from '@/components/playground/ChatInput';
@@ -12,10 +13,34 @@ import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/playground/LoadingSpinner';
 import { RecipeComponent } from '@/components/playground/RecipeComponent';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { ArrowUpRight, RefreshCw } from 'lucide-react';
 
 export default function PlaygroundPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContentWidthClass = "w-full max-w-3xl mx-auto px-1 sm:px-4 lg:px-6";
+  const chatInnerContentInsetClass = "px-2 sm:px-2";
+  const mobileStarterPrompts = [
+    {
+      label: 'Market Analysis',
+      prompt: 'Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.',
+      icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
+    },
+    {
+      label: 'Semantic Search',
+      prompt: 'Search the web using Exa to find the latest research papers on LLM optimization from the past month.',
+      icon: 'https://awsmp-logos.s3.amazonaws.com/seller-7s5a3z2w3unay/b6519f9126c0432087c79827b95283c6.png',
+    },
+    {
+      label: 'Draft Follow-Up Email',
+      prompt: 'Draft a clear, professional follow-up email using Rube with access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
+      icon: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIB8EFu3xpWgE33JuAX-U-1geBFJnk8PAJSA&s',
+    },
+    {
+      label: 'Notion Meeting Prep',
+      prompt: 'Generate a briefing document by synthesizing project notes and recent updates directly from Notion.',
+      icon: 'https://api.iconify.design/logos:notion-icon.svg',
+    },
+  ];
 
   const { error, status, sendMessage, messages, addToolApprovalResponse } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
@@ -29,47 +54,105 @@ export default function PlaygroundPage() {
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-full min-h-0 bg-background">
       {!hasMessages ? (
-        /* Initial Empty State - Centered */
-        <div className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="w-full max-w-3xl space-y-8">
-            {/* Welcome Message */}
-            <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
-              <h1 className="text-5xl md:text-6xl font-serif tracking-tight text-foreground mb-12">
-                Let&apos;s figure it out together
-              </h1>
+        <>
+          {/* Mobile Empty State */}
+          <div className="sm:hidden flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
+              <div className="mb-7">
+                <Image
+                  src="/logo.svg"
+                  alt="Assistant logo"
+                  width={46}
+                  height={46}
+                  className="opacity-90"
+                />
+              </div>
+              <div className="w-full max-w-xs">
+                <p className="mb-2 px-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                  Quick Actions
+                </p>
+                <div className="space-y-1">
+                {mobileStarterPrompts.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => sendMessage({ text: item.prompt })}
+                    className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-foreground/90 hover:bg-accent/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={item.icon}
+                        alt=""
+                        className="w-3.5 h-3.5 rounded-sm object-cover shrink-0 opacity-90"
+                      />
+                      <span className="line-clamp-1">{item.label}</span>
+                      <ArrowUpRight className="w-3.5 h-3.5 ml-auto text-muted-foreground" />
+                    </div>
+                  </button>
+                ))}
+                </div>
+              </div>
             </div>
 
-            {/* Chat Input */}
-            <ChatInput
-              onSend={(data) => {
-                if (data.parts && data.parts.length > 0) {
-                  sendMessage({
-                    role: 'user',
-                    parts: data.parts,
-                  });
-                } else if (data.text) {
-                  sendMessage({ text: data.text });
-                }
-              }}
-              status={status}
-              disabled={status === 'submitted' || status === 'streaming'}
-            />
-
-            {/* Recipe badges */}
-            <div className="px-4">
-              <RecipeComponent
-                onAction={(prompt) => sendMessage({ text: prompt })}
-              />
+            <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+              <div className="px-1">
+                <ChatInput
+                  onSend={(data) => {
+                    if (data.parts && data.parts.length > 0) {
+                      sendMessage({
+                        role: 'user',
+                        parts: data.parts,
+                      });
+                    } else if (data.text) {
+                      sendMessage({ text: data.text });
+                    }
+                  }}
+                  status={status}
+                  disabled={status === 'submitted' || status === 'streaming'}
+                />
+              </div>
             </div>
           </div>
-        </div>
+
+          {/* Desktop Empty State */}
+          <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center px-6">
+            <div className="w-full max-w-3xl space-y-8">
+              <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
+                <h1 className="text-5xl md:text-6xl font-serif tracking-tight text-foreground mb-10 leading-tight">
+                  Let&apos;s figure it out together
+                </h1>
+              </div>
+
+              <ChatInput
+                onSend={(data) => {
+                  if (data.parts && data.parts.length > 0) {
+                    sendMessage({
+                      role: 'user',
+                      parts: data.parts,
+                    });
+                  } else if (data.text) {
+                    sendMessage({ text: data.text });
+                  }
+                }}
+                status={status}
+                disabled={status === 'submitted' || status === 'streaming'}
+              />
+
+              <div className="px-4">
+                <RecipeComponent
+                  onAction={(prompt) => sendMessage({ text: prompt })}
+                />
+              </div>
+            </div>
+          </div>
+        </>
       ) : (
         <>
           {/* Scrollable Messages Area */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-2xl mx-auto px-2 py-8 space-y-8">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className={`${chatContentWidthClass} py-4 sm:py-8 space-y-6 sm:space-y-8`}>
+              <div className={chatInnerContentInsetClass}>
               {/* Messages */}
               {messages.map((m, messageIndex) => {
                 return (
@@ -206,12 +289,13 @@ export default function PlaygroundPage() {
                 </div>
               )}
               <div ref={messagesEndRef} className="h-4" />
+              </div>
             </div>
           </div>
 
           {/* Sticky Input Area */}
-          <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-8">
-            <div className="w-full max-w-3xl mx-auto px-6">
+          <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
+            <div className={chatContentWidthClass}>
               <ChatInput
                 onSend={(data) => {
                   if (data.parts && data.parts.length > 0) {

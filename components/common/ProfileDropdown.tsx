@@ -37,7 +37,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
               <User className="h-4 w-4 text-primary" />
             </div>
           )}
-          <span className="text-sm font-medium">
+          <span className="hidden xl:inline text-sm font-medium max-w-[140px] truncate">
             {name}
           </span>
           <ChevronDown className="h-4 w-4" />

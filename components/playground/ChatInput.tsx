@@ -70,7 +70,7 @@ export function ChatInput({ onSend, disabled, status }: ChatInputProps) {
   };
 
   return (
-    <div className="w-full px-2 sm:px-4">
+    <div className="w-full px-0">
       <div
         className="
           bg-white dark:bg-transparent

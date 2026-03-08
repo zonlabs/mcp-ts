@@ -89,13 +89,13 @@ function CodeBlock({ label, content }: { label: string; content: string }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
           {label}
         </span>
         <button
           onClick={handleCopy}
           className={cn(
-            "flex items-center gap-1.5 text-xs font-medium transition-colors px-2 py-1 rounded-md hover:bg-secondary",
+            "flex items-center gap-1 text-[11px] sm:text-xs font-medium transition-colors px-1.5 py-0.5 rounded-md hover:bg-secondary",
             copied ? "text-green-600 dark:text-green-400" : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -108,7 +108,7 @@ function CodeBlock({ label, content }: { label: string; content: string }) {
         </button>
       </div>
 
-      <pre className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 text-xs overflow-auto max-h-[300px] font-mono leading-relaxed text-zinc-700 dark:text-zinc-300">
+      <pre className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg p-2.5 sm:p-3 text-[11px] sm:text-xs overflow-auto max-h-[260px] sm:max-h-[300px] font-mono leading-relaxed text-zinc-700 dark:text-zinc-300">
         {content}
       </pre>
     </div>
@@ -161,18 +161,18 @@ export default function MCPToolCall({
       {/* Header */}
       <div
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between px-4 py-2 cursor-pointer select-none hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors"
+        className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 cursor-pointer select-none hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors"
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <ToolIcon state={state} />
           
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
+            <span className="text-[13px] sm:text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
               <ShimmerText active={isRunning}>
                 {name}
               </ShimmerText>
             </span>
-            <span className="text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">
+            <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">
                {statusLabel}
             </span>
           </div>
@@ -195,7 +195,7 @@ export default function MCPToolCall({
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="px-4 pb-4 space-y-4 border-t border-zinc-100 dark:border-zinc-900 pt-4">
+            <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3 sm:space-y-4 border-t border-zinc-100 dark:border-zinc-900 pt-3 sm:pt-4">
               {input && (
                 <CodeBlock label="Request Parameters" content={formatContent(input)} />
               )}

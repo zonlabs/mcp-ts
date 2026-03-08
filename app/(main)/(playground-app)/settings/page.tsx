@@ -70,7 +70,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="pl-6 pb-16">
+    <div className="px-1 md:px-6 pb-16">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1">Account</h1>
         <p className="text-sm text-muted-foreground">
@@ -115,7 +115,7 @@ export default function SettingsPage() {
             Account Information
           </h3>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">User ID</p>
                 <p className="text-sm font-mono break-all">{user?.id || "N/A"}</p>
@@ -126,7 +126,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Member Since</p>
                 <p className="text-sm">{formatDate(user?.created_at)}</p>
@@ -137,7 +137,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Last Sign In</p>
                 <p className="text-sm">{formatDate(user?.last_sign_in_at)}</p>

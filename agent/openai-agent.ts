@@ -66,6 +66,9 @@ export async function createMcpAgent(identity: string = 'demo-user-123') {
     },
   });
 
-  return agent;
+  return {
+    agent,
+    cleanup: () => manager.disconnect(),
+  };
 }
-export type McpAgentUIMessage = InferAgentUIMessage<Awaited<ReturnType<typeof createMcpAgent>>>;
+export type McpAgentUIMessage = InferAgentUIMessage<Awaited<ReturnType<typeof createMcpAgent>>['agent']>;

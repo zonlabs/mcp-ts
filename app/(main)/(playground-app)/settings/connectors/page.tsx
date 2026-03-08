@@ -122,7 +122,7 @@ export default function ConnectorsPage() {
   };
 
   return (
-    <div className="pl-6">
+    <div className="px-1 md:px-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1">Connectors</h1>
         <p className="text-sm text-muted-foreground">
@@ -147,7 +147,7 @@ export default function ConnectorsPage() {
             {connections.map((conn) => (
               <div
                 key={conn.sessionId}
-                className="flex items-start gap-3 p-3 rounded-md w-fit"
+                className="flex flex-col sm:flex-row sm:items-start gap-3 p-3 rounded-md border border-border/50 bg-card/40 w-full"
               >
                 {/* Server Icon */}
                 <div className="flex-shrink-0">
@@ -193,7 +193,7 @@ export default function ConnectorsPage() {
                 </div>
 
                 {/* Status and Actions */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
                   {getStatusIcon(conn.connectionStatus)}
                   <span className={`text-xs font-medium ${getStatusColor(conn.connectionStatus)}`}>
                     {conn.connectionStatus}

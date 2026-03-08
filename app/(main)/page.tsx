@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import McpServersSection from "@/components/home/McpServersSection";
 import Footer from "@/components/home/Footer";
+import Image from "next/image";
 import { motion, Variants } from 'framer-motion';
 import {
   Accordion,
@@ -121,7 +122,7 @@ export default function Home() {
         dir="column"
         justify="center"
         items="center"
-        className="h-[93vh] overflow-hidden relative"
+        className="min-h-[calc(100vh-4rem)] sm:h-[93vh] overflow-visible relative"
       >
         <HeroGridPattern />
 
@@ -130,76 +131,89 @@ export default function Home() {
             initial="hidden"
             animate="visible"
             variants={container}
-            className="relative flex flex-col items-center justify-center px-6"
+            className="relative w-full flex flex-col items-center justify-center px-3 sm:px-6"
           >
             {/* ===== Hero Content ===== */}
-            <div className="relative z-10 max-w-5xl text-center px-6">
+            <div className="relative z-10 w-full max-w-5xl mx-auto text-center px-3 sm:px-6">
+              <motion.div variants={item} className="mb-5 flex flex-col items-center gap-2">
+                <Image
+                  src="/logo-mark-red.svg"
+                  alt="MCP Assistant"
+                  width={44}
+                  height={44}
+                />
+                <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                  MCP Assistant
+                </p>
+              </motion.div>
+
               <motion.h2
                 variants={item}
-                className="text-3xl sm:text-4xl md:text-6xl  tracking-tight leading-[1.05] mb-6"
+                className="text-3xl sm:text-4xl md:text-6xl tracking-tight leading-[1.05] mb-5"
               >
-                A Web Based MCP Client to access
-                <br />
-                <span className="text-zinc-600">remote MCP&apos;s</span>
+                Connect MCP servers
+                <br className="hidden sm:block" />
+                {" "}
+                <span className="text-zinc-600">directly from your browser</span>
               </motion.h2>
 
               <motion.p
                 variants={item}
-                className="mx-auto max-w-3xl text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground leading-relaxed mb-5"
+                className="mx-auto max-w-2xl text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed mb-6"
               >
-                <span className="font-semibold text-foreground">
-                  MCP Assistant
-                </span>{' '}
-                is a web-based{' '}
+                Use{' '}
                 <Link
                   href="https://modelcontextprotocol.io/docs/learn/client-concepts"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-foreground hover:text-primary transition-colors pointer-events-auto"
                 >
-                  <span>Model Context Protocol</span>{" "}
-                  <span className="font-semibold">(MCP)</span>
-                </Link>{' '}
-                client that lets you easily connect to and interact with remote
-                MCP-compatible servers directly from your browser.
+                  <span>Model Context Protocol (MCP)</span>
+                </Link>{' '}servers, test tool calls, and prototype workflows.
               </motion.p>
 
-              <motion.p
+              <motion.div
                 variants={item}
-                className="mx-auto max-w-3xl text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground leading-relaxed mb-8"
+                className="mb-8 flex flex-wrap items-center justify-center gap-2.5"
               >
-                Designed to be{' '}
-                <strong className="text-foreground">
-                  lightweight, accessible, and developer-friendly
-                </strong>
-                , providing a convenient interface for testing MCP servers and
-                experimenting with tool calls.
-              </motion.p>
+                {[
+                  "Browser client",
+                  "Local + Remote MCP",
+                  "Developer tools",
+                  "Free to use",
+                ].map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-red-500/40 dark:border-red-400/50 bg-background/50 backdrop-blur-sm px-3 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </motion.div>
 
               {/* ===== CTA Buttons ===== */}
               <motion.div
                 variants={item}
-                className="flex flex-col sm:flex-row gap-4 justify-center mb-7 pointer-events-auto"
+                className="flex flex-col sm:flex-row gap-3 justify-center mb-7 pointer-events-auto w-full max-w-sm sm:max-w-none mx-auto"
               >
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
                   <Link
                     href="/mcp"
-                    className="group relative inline-flex items-center gap-2.5 px-8 py-4 rounded-xl font-semibold text-base bg-primary text-primary-foreground shadow-lg hover:shadow-2xl hover:shadow-foreground/20 transition-all overflow-hidden"
+                    className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm sm:text-base bg-foreground text-background border border-foreground/20 hover:opacity-90 transition-all"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary/80 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <Server className="h-5 w-5 relative z-10" />
-                    <span className="relative z-10">Explore MCP</span>
-                    <ArrowRight className="h-4 w-4 relative z-10 transition-transform group-hover:translate-x-1" />
+                    <Server className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span>Explore Servers</span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </motion.div>
 
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
                   <Link
                     href="/playground"
-                    className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl font-semibold text-base border-2 border-border bg-background/50 backdrop-blur-sm hover:bg-accent/50 hover:border-primary/50 transition-all"
+                    className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm sm:text-base border border-border bg-background/40 hover:bg-accent/40 transition-all"
                   >
-                    <Play className="h-5 w-5" />
-                    <span>Try Playground</span>
+                    <Play className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <span>Open Playground</span>
                   </Link>
                 </motion.div>
               </motion.div>
@@ -212,7 +226,7 @@ export default function Home() {
       {/* Gateway Section */}
       <section
         id="local-gateway-demo"
-        className="relative max-w-5xl mx-auto px-6 py-12"
+        className="relative max-w-5xl mx-auto px-3 sm:px-6 py-12"
       >
         <motion.div
           initial="hidden"
@@ -282,7 +296,7 @@ export default function Home() {
       </section>
 
       {/* Recent MCP Servers Section */}
-      <div className="container mx-auto px-6 py-10">
+      <div className="container mx-auto px-3 sm:px-6 py-10">
         <McpServersSection />
       </div>
 
@@ -290,7 +304,7 @@ export default function Home() {
       <section className="py-24 relative overflow-hidden bg-background">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(var(--primary-rgb),0.03),transparent_70%)]" />
 
-        <div className="max-w-5xl mx-auto px-6 relative">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 relative">
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -308,7 +322,7 @@ export default function Home() {
               variants={fadeInUp}
               className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed"
             >
-              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use our client to instantly connect to remote servers, explore technical docs, or chat with agentsÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Âall for free, in your browser. Have an MCP server? <Link href="/publish" className="text-primary font-medium hover:underline inline-flex items-center gap-1">Publish it to modelcontextprotocol.io registry <ArrowUpRight className="h-3.5 w-3.5" /></Link> so others can discover and use it instantly.
+              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use our client to instantly connect to remote servers, explore technical docs, or chat with agentsÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âall for free, in your browser. Have an MCP server? <Link href="/publish" className="text-primary font-medium hover:underline inline-flex items-center gap-1">Publish it to modelcontextprotocol.io registry <ArrowUpRight className="h-3.5 w-3.5" /></Link> so others can discover and use it instantly.
             </motion.p>
           </motion.div>
 
@@ -365,7 +379,7 @@ export default function Home() {
       {/* FAQ Section */}
       <section className="relative max-w-5xl mx-auto py-16 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
-        <div className="px-6">
+        <div className="px-3 sm:px-6">
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -394,7 +408,7 @@ export default function Home() {
                   a: "MCP Assistant is a web-based Model Context Protocol (MCP) client that lets you connect to and interact with remote MCP-compatible servers directly through your browser. It offers a lightweight, accessible, and developer-friendly way to test MCP servers without installing anything locally."
                 },
                 {
-                  q: "What does “MCP” stand for?",
+                  q: "What does â€œMCPâ€ stand for?",
                   a: "MCP stands for Model Context Protocol, an open standard that enables AI assistants and applications to communicate effectively with external tools, data sources, and services."
                 },
                 {
@@ -443,6 +457,10 @@ export default function Home() {
     </div>
   );
 }
+
+
+
+
 
 
 

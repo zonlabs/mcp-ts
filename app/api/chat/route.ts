@@ -7,7 +7,8 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
   
   const { data: { user } } = await supabase.auth.getUser();
-  const agent = await createMcpAgent(user?.id);
+  const { agent, cleanup } = await createMcpAgent(user?.id);
+  req.signal.addEventListener('abort', cleanup, { once: true });
 
   return createAgentUIStreamResponse({
     agent,

@@ -30,6 +30,7 @@ export function MCPConnectionApproval({
   onDeny,
 }: MCPConnectionApprovalProps) {
   const [connectRequested, setConnectRequested] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
 
   // Use the global store for actions and live connection state
   const connectServer = useMcpStore(state => state.connect);
@@ -149,60 +150,73 @@ export function MCPConnectionApproval({
   };
 
   return (
-    <div className="flex items-center justify-between p-4 bg-background border border-border rounded-lg shadow-sm animate-in fade-in slide-in-from-bottom-2 max-w-2xl">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <ServerIcon
-          serverName={serverName}
-          serverUrl={serverUrl}
-          size={40}
-          className="rounded-lg flex-shrink-0"
-        />
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-base font-semibold text-foreground truncate">
-            {serverName}
-          </span>
-          <span className="text-xs text-muted-foreground truncate">{serverUrl}</span>
+    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2 p-2 sm:p-4 bg-background border border-border rounded-lg shadow-sm animate-in fade-in slide-in-from-bottom-2">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+          <ServerIcon
+            serverName={serverName}
+            serverUrl={serverUrl}
+            size={30}
+            className="rounded-lg flex-shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setShowUrl((v) => !v)}
+              className="min-w-0 text-left text-[15px] sm:text-base font-semibold text-foreground leading-tight hover:text-foreground/80 transition-colors"
+            >
+              <span className="truncate block">{serverName}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-1.5 shrink-0">
+          <Button
+            size="sm"
+            onClick={onDeny}
+            variant="outline"
+            disabled={isConnecting}
+            className="h-8 px-3 text-xs sm:text-sm"
+          >
+            Deny
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleConnect}
+            variant="default"
+            className="cursor-pointer gap-1 sm:gap-2 h-8 px-3 text-xs sm:text-sm"
+            disabled={isConnecting}
+          >
+            {isConnecting ? (
+              <>
+                <span className="text-xs sm:text-sm">Connecting...</span>
+                <svg
+                  className="animate-spin"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+              </>
+            ) : (
+              'Connect'
+            )}
+          </Button>
         </div>
       </div>
-      <div className="flex gap-2">
-        <Button
-          size="default"
-          onClick={onDeny}
-          variant="outline"
-          disabled={isConnecting}
-        >
-          Deny
-        </Button>
-        <Button
-          size="default"
-          onClick={handleConnect}
-          variant="default"
-          className="cursor-pointer gap-2"
-          disabled={isConnecting}
-        >
-          {isConnecting ? (
-            <>
-              <span className="text-sm">Connecting...</span>
-              <svg
-                className="animate-spin"
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-            </>
-          ) : (
-            'Connect'
-          )}
-        </Button>
-      </div>
+
+      {showUrl && (
+        <p className="pl-[42px] sm:pl-[46px] text-[10px] sm:text-xs text-muted-foreground break-all" title={serverUrl}>
+          {serverUrl}
+        </p>
+      )}
     </div>
   );
 }
