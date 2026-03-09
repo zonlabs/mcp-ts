@@ -14,7 +14,6 @@ import {
   Save,
   Edit2,
   Loader2,
-  Check,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -89,16 +88,15 @@ type ValidationMessage = {
 };
 
 const STEP_LABELS: Record<string, string> = {
-  required: "Required",
-  format: "URL Format",
+  format: "Input Validation",
   oauth: "OAuth",
-  connection: "Connection",
-  endpoint: "Reachability",
+  connection: "Connect to Server",
   save: "Submit",
 };
 
 const CONNECTION_STATUS_DETAILS: Record<string, string> = {
   INITIALIZING: "Initializing connection...",
+  VALIDATING: "Validating connection...",
   CONNECTING: "Connecting to server...",
   AUTHENTICATING: "Authentication in progress...",
   AUTHENTICATED: "Authentication completed.",
@@ -133,6 +131,7 @@ export default function ServerForm({
   const [isValidatingBeforeSubmit, setIsValidatingBeforeSubmit] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [validationMessages, setValidationMessages] = useState<ValidationMessage[]>([]);
+  const [connectionStatusTrail, setConnectionStatusTrail] = useState<string[]>([]);
   const { connect: activateServerConnection } = useMcpConnection();
 
   const { loading, error, data } = useQuery<{
@@ -175,17 +174,17 @@ export default function ServerForm({
   const watchedTransport = watch("transport");
 
   const buildInitialValidationSteps = ({
-    requiresPrivateValidation,
+    requiresValidation,
     requiresOauth,
   }: {
-    requiresPrivateValidation: boolean;
+    requiresValidation: boolean;
     requiresOauth: boolean;
   }): ValidationMessage[] => {
-    if (!requiresPrivateValidation) {
+    if (!requiresValidation) {
       return [{ key: "save", label: STEP_LABELS.save, state: "pending", detail: "Waiting to submit..." }];
     }
 
-    const keys = ["required", "format", ...(requiresOauth ? ["oauth"] : []), "connection", "endpoint", "save"];
+    const keys = ["format", ...(requiresOauth ? ["oauth"] : []), "connection", "save"];
     return keys.map((key) => ({
       key,
       label: STEP_LABELS[key] || key,
@@ -240,6 +239,7 @@ export default function ServerForm({
     }
 
     setValidationMessages([]);
+    setConnectionStatusTrail([]);
     setValidationError(null);
     setIsValidatingBeforeSubmit(false);
   }, [mode, server, reset]);
@@ -328,21 +328,9 @@ export default function ServerForm({
     const url = String(form.url || "").trim();
     const transport = form.transport;
 
-    upsertValidationMessage("required", {
-      state: "running",
-      detail: "Checking required fields...",
-    });
     if (!name || !url || !transport) {
-      upsertValidationMessage("required", {
-        state: "failed",
-        detail: "Name, URL, and transport are required.",
-      });
       throw new Error("Name, URL, and transport are required.");
     }
-    upsertValidationMessage("required", {
-      state: "done",
-      detail: "Required fields look good.",
-    });
 
     upsertValidationMessage("format", {
       state: "running",
@@ -397,7 +385,7 @@ export default function ServerForm({
     });
 
     try {
-      const connectionStatusTrail: string[] = [];
+      setConnectionStatusTrail([]);
       const verificationServer = {
         id: url || name,
         name,
@@ -448,9 +436,7 @@ export default function ServerForm({
         name,
         url,
         (status) => {
-          if (!connectionStatusTrail.includes(status)) {
-            connectionStatusTrail.push(status);
-          }
+          setConnectionStatusTrail((prev) => (prev.includes(status) ? prev : [...prev, status]));
           upsertValidationMessage("connection", {
             state: status === "READY" ? "done" : "running",
             detail: `${CONNECTION_STATUS_DETAILS[status] || `Status: ${status}`} (${status})`,
@@ -470,37 +456,6 @@ export default function ServerForm({
       });
       throw error;
     }
-
-    upsertValidationMessage("endpoint", {
-      state: "running",
-      detail: "Checking server reachability...",
-    });
-
-    const validationResponse = await fetch("/api/mcp/servers/validate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        url,
-        transport,
-        headers: form.headers || [],
-      }),
-    });
-
-    const payload = await validationResponse.json();
-    if (!validationResponse.ok || !payload?.ok) {
-      const message = payload?.error || "Unable to validate server endpoint.";
-      upsertValidationMessage("endpoint", {
-        state: "failed",
-        detail: message,
-      });
-      throw new Error(message);
-    }
-
-    upsertValidationMessage("endpoint", {
-      state: "done",
-      detail: payload?.message,
-    });
   };
 
   const handleFormSubmit = async (form: ServerFormData) => {
@@ -510,33 +465,39 @@ export default function ServerForm({
     }
 
     try {
+      const currentUrl = normalizeUrl(String(form.url || ""));
+      const originalUrl = normalizeUrl(server?.url || "");
+      const isUrlChangedOnEdit = mode === "edit" && Boolean(server) && currentUrl !== originalUrl;
       const requiresPrivateValidation = mode === "add" && !Boolean(form.isPublic);
+      const requiresValidation = requiresPrivateValidation || isUrlChangedOnEdit;
       const requiresOauth = Boolean(form.requiresOauth);
 
       setValidationError(null);
-      setValidationMessages(
-        buildInitialValidationSteps({
-          requiresPrivateValidation,
-          requiresOauth,
-        })
-      );
-
-      if (requiresPrivateValidation) {
+      if (requiresValidation) {
+        setValidationMessages(
+          buildInitialValidationSteps({
+            requiresValidation,
+            requiresOauth,
+          })
+        );
         setIsValidatingBeforeSubmit(true);
         await runPrivateServerValidation(form);
+        upsertValidationMessage("save", {
+          state: "running",
+          detail: mode === "add" ? "Creating server..." : "Updating server...",
+        });
+      } else {
+        setValidationMessages([]);
       }
-
-      upsertValidationMessage("save", {
-        state: "running",
-        detail: mode === "add" ? "Creating server..." : "Updating server...",
-      });
 
       await onSubmit(form);
 
-      upsertValidationMessage("save", {
-        state: "done",
-        detail: mode === "add" ? "Server created successfully." : "Server updated successfully.",
-      });
+      if (requiresValidation) {
+        upsertValidationMessage("save", {
+          state: "done",
+          detail: mode === "add" ? "Server created successfully." : "Server updated successfully.",
+        });
+      }
 
       toast.success(`Server ${mode === "add" ? "added" : "updated"} successfully`);
       onCancel();
@@ -549,23 +510,37 @@ export default function ServerForm({
     }
   };
 
-  const shouldShowStatus = validationMessages.length > 0 || Boolean(validationError);
+  const shouldShowStatus = validationMessages.length > 0;
   const orderedValidationMessages = useMemo(() => {
     const rank: Record<string, number> = {
-      required: 1,
-      format: 2,
-      oauth: 3,
-      connection: 4,
-      endpoint: 5,
-      save: 6,
+      format: 1,
+      oauth: 2,
+      connection: 3,
+      save: 4,
     };
     return [...validationMessages].sort((a, b) => (rank[a.key] || 99) - (rank[b.key] || 99));
   }, [validationMessages]);
-  const renderStatusIcon = (state: ValidationMessageState) => {
-    if (state === "running") return <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground/70" />;
-    if (state === "done") return <Check className="h-3.5 w-3.5 text-green-600" />;
-    if (state === "failed") return <AlertCircle className="h-3.5 w-3.5 text-red-600" />;
-    return <div className="h-2 w-2 rounded-full bg-muted-foreground/40" />;
+  const getTopStepPillClass = (state: ValidationMessageState) => {
+    if (state === "done") return "border-green-600/70 text-foreground";
+    if (state === "failed") return "border-red-600/70 text-red-500";
+    if (state === "running") return "border-foreground/70 text-foreground";
+    return "border-transparent text-muted-foreground";
+  };
+  const getTimelineMarkerClass = (state: ValidationMessageState) => {
+    if (state === "done") return "border-green-600 bg-green-600/20";
+    if (state === "failed") return "border-red-600 bg-red-600/20";
+    if (state === "running") return "border-foreground bg-foreground/15";
+    return "border-muted-foreground/50 bg-background";
+  };
+  const getTimelineMarkerInnerClass = (state: ValidationMessageState) => {
+    if (state === "done") return "bg-green-600";
+    if (state === "failed") return "bg-red-600";
+    if (state === "running") return "bg-foreground";
+    return "bg-muted-foreground/50";
+  };
+  const getTimelineItemClass = (state: ValidationMessageState) => {
+    if (state === "running") return "rounded-md border border-border/70 bg-muted/30";
+    return "";
   };
 
   return (
@@ -837,36 +812,40 @@ export default function ServerForm({
             {shouldShowStatus && (
               <div className="mr-auto min-w-[320px] max-w-[640px] py-1">
                 <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-b border-border/70 px-1">
                     {orderedValidationMessages.map((message) => (
-                      <div key={message.key} className="inline-flex items-center gap-2 text-xs">
-                        <span
-                          className={
-                            message.state === "done"
-                              ? "text-green-600"
-                              : message.state === "failed"
-                                ? "text-red-600"
-                                : message.state === "running"
-                                  ? "text-foreground"
-                                  : "text-muted-foreground"
-                          }
-                        >
-                          {renderStatusIcon(message.state)}
-                        </span>
-                        <span className="text-muted-foreground">{message.label}</span>
+                      <div
+                        key={message.key}
+                        className={`inline-flex min-h-8 items-center justify-center border-b-2 px-2 py-1 text-[11px] font-medium transition-colors ${getTopStepPillClass(message.state)}`}
+                      >
+                        <span className="leading-none">{message.label}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="relative ml-1 pl-1">
                     {orderedValidationMessages.map((message) => (
-                      <div key={`${message.key}-detail`} className="border-l-2 border-border/60 pl-3 text-xs">
-                        <div className="flex items-start gap-2">
-                          <div className="mt-0.5 shrink-0">{renderStatusIcon(message.state)}</div>
-                          <div className="min-w-0">
+                      <div key={`${message.key}-detail`} className="relative pb-3 pl-8 text-xs last:pb-0">
+                        <span
+                          className={`absolute left-0 top-1 h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${getTimelineMarkerClass(message.state)}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${getTimelineMarkerInnerClass(message.state)}`} />
+                        </span>
+                        <div className={`min-w-0 px-2 py-1 ${getTimelineItemClass(message.state)}`}>
                             <p className="font-medium text-foreground">{message.label}</p>
                             <p className="mt-0.5 text-muted-foreground break-words">{message.detail || "Pending..."}</p>
-                          </div>
+                            {message.key === "connection" && connectionStatusTrail.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {connectionStatusTrail.map((status) => (
+                                  <span
+                                    key={status}
+                                    className="rounded-sm border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                                  >
+                                    {status}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                         </div>
                       </div>
                     ))}
