@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   title: "MCP Assistant",
   description: "Web-based MCP (Model Context Protocol) client for managing servers and exploring tools",
   icons: {
-    icon: "/images/favicon.ico",
+    icon: "/favicon.ico",
   },
   verification: {
     google: "Not4GrBnowoe9oFiAJ1p11C-olKqFaDIuPV-19X8tBo",
