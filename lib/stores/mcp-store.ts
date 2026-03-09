@@ -358,10 +358,15 @@ export const useMcpStore = create<McpStore>()(
             }
 
             const data = await response.json();
+            const servers = Array.isArray(data?.servers)
+              ? data.servers
+              : Array.isArray(data?.data?.getUserMcpServers)
+                ? data.data.getUserMcpServers
+                : [];
 
             set({
-              userServers: data.servers || [],
-              userServersTotalCount: data.servers?.length || 0,
+              userServers: servers,
+              userServersTotalCount: servers.length,
               userServersLoading: false,
             });
           } catch (error) {
