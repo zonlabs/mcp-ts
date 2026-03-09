@@ -27,8 +27,6 @@ type ConnectableServer = {
   title?: string | null;
 };
 
-const UNSUPPORTED_TRANSPORTS = ['stdio', 'websocket'];
-
 function normalizeServerUrl(url?: string | null): string | null {
   if (!url) return null;
   try {
@@ -48,7 +46,7 @@ function extractTransport(server: ConnectableServer): string | null {
   return server.transportType || server.transport || null;
 }
 
-export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnectionProps = {}) {
+export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -77,18 +75,18 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
 
   // Get connection status
   const getConnectionStatus = useCallback((id: string): 'CONNECTED' | 'DISCONNECTED' => {
-    return connections[id]?.connectionStatus === 'READY' ? 'CONNECTED' : 'DISCONNECTED';
-  }, [connections]);
+    return getConnection(id)?.connectionStatus === 'READY' ? 'CONNECTED' : 'DISCONNECTED';
+  }, [getConnection]);
 
   // Check if connected
   const isServerConnected = useCallback((id: string): boolean => {
-    return connections[id]?.connectionStatus === 'READY';
-  }, [connections]);
+    return getConnection(id)?.connectionStatus === 'READY';
+  }, [getConnection]);
 
   // Get tools
   const getServerTools = useCallback((id: string): ToolInfo[] => {
-    return connections[id]?.tools || [];
-  }, [connections]);
+    return getConnection(id)?.tools || [];
+  }, [getConnection]);
 
   // Active connections
   const activeConnections = useMemo(() => {
@@ -135,46 +133,41 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
     }
 
     const transport = extractTransport(server);
-    // Removed strict transport check to allow library to handle defaults
-    // if (!transport) { ... }
 
     setIsConnecting(true);
     setConnectionError(null);
 
     try {
       const mcpActions = useMcpStore.getState().mcpActions;
-      if (!mcpActions) throw new Error("MCP Actions not initialized");
+      if (!mcpActions) {
+        throw new Error("Please sign in to activate MCP servers.");
+      }
 
       const callbackUrl = `${window.location.origin}/api/mcp/auth/callback`;
+      const identity = String(server.id || serverUrl || server.name || "").trim();
+      if (!identity) {
+        throw new Error("Missing server identity for connection.");
+      }
 
       await mcpActions.connect({
-        serverId: server.id,
+        serverId: identity,
         serverName: server.title || server.name,
         serverUrl: serverUrl,
         transportType: transport,
         callbackUrl
       });
 
-      // library handles toast and state update via store sync
-      // await validateAllSessions(); // No longer needed
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Failed to connect";
       setConnectionError(errorMsg);
       toast.error(errorMsg);
+      throw (error instanceof Error ? error : new Error(errorMsg));
     } finally {
       setIsConnecting(false);
     }
   }, []);
 
   const disconnect = useCallback(async (server: ConnectableServer) => {
-    const connection = getConnection(server.id);
-    // connection lookup might need to be robust if server.id vs sessionId
-    // But getConnection(server.id) in this file looks up by serverId actually? 
-    // No, getConnection takes 'id' which is used as key in connections.
-    // In mcp-store, connections are keyed by sessionId.
-    // So getConnection(server.id) probably returns undefined if server.id is not sessionId.
-
-    // We should use getConnectionByServerId(server.id)
     const storedConnection =
       useMcpStore.getState().getConnectionByServerId(server.id) ||
       (extractServerUrl(server)
@@ -190,7 +183,9 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
       }
       try {
         const mcpActions = useMcpStore.getState().mcpActions;
-        if (!mcpActions) throw new Error("MCP Actions not initialized");
+        if (!mcpActions) {
+          throw new Error("Please sign in to manage MCP server connections.");
+        }
         await mcpActions.disconnect(directConn.sessionId);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to disconnect");
@@ -200,10 +195,11 @@ export function useMcpConnection({ servers, setServers, serverId }: UseMcpConnec
 
     try {
       const mcpActions = useMcpStore.getState().mcpActions;
-      if (!mcpActions) throw new Error("MCP Actions not initialized");
+      if (!mcpActions) {
+        throw new Error("Please sign in to manage MCP server connections.");
+      }
 
       await mcpActions.disconnect(storedConnection.sessionId);
-      // await validateAllSessions();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to disconnect");
     }

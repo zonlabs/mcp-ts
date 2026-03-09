@@ -11,7 +11,7 @@ interface ServerListItemProps {
   isSelected: boolean;
   onClick: () => void;
   onEdit?: (server: McpServer) => void;
-  onDelete?: (serverName: string) => void;
+  onDelete?: (serverId: string) => void;
   showActions?: boolean;
 }
 
@@ -59,7 +59,7 @@ export function ServerListItem({
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              onDelete(server.name);
+              onDelete(server.id);
             }}
             className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 bg-background/90 shadow-sm cursor-pointer border"
           >

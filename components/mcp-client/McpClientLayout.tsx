@@ -44,7 +44,7 @@ interface McpClientLayoutProps {
   onServerAction: (server: McpServer, action: 'activate' | 'deactivate') => Promise<unknown>;
   onServerAdd: (data: Record<string, unknown>) => Promise<void>;
   onServerUpdate: (data: Record<string, unknown>) => Promise<void>;
-  onServerDelete: (serverName: string) => Promise<void>;
+  onServerDelete: (serverId: string) => Promise<void>;
   onUpdatePublicServer: (serverId: string, updates: Partial<McpServer>) => void;
   onUpdateUserServer: (serverId: string, updates: Partial<McpServer>) => void;
   hasNextPage: boolean;
@@ -163,17 +163,25 @@ export default function McpClientLayout({
     setEditingServer(server);
   };
 
-  const handleDeleteServer = (serverName: string) => {
-    setServerToDelete(serverName);
+  const handleDeleteServer = (serverId: string) => {
+    setServerToDelete(serverId);
     setDeleteDialogOpen(true);
   };
+
+  const serverToDeleteName = useMemo(() => {
+    if (!serverToDelete) return null;
+    const inUser = mergedUserServers?.find((s) => s.id === serverToDelete);
+    if (inUser?.name) return inUser.name;
+    const inPublic = mergedPublicServers?.find((s) => s.id === serverToDelete);
+    return inPublic?.name || serverToDelete;
+  }, [serverToDelete, mergedUserServers, mergedPublicServers]);
 
   const confirmDeleteServer = async () => {
     if (!serverToDelete) return;
 
     try {
       await onServerDelete(serverToDelete);
-      if (selectedServer?.name === serverToDelete) {
+      if (selectedServer?.id === serverToDelete) {
         setSelectedServer(null);
         setViewMode('browse');
       }
@@ -399,7 +407,7 @@ export default function McpClientLayout({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Server</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{serverToDelete}&quot;? This action cannot be undone.
+              Are you sure you want to delete &quot;{serverToDeleteName || serverToDelete}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

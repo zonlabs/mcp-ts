@@ -51,7 +51,7 @@ interface ServerSidebarProps {
   onServerSelect: (server: McpServer) => void;
   onAddServer: () => void;
   onEditServer: (server: McpServer) => void;
-  onDeleteServer: (serverName: string) => void;
+  onDeleteServer: (serverId: string) => void;
   onRefreshPublic: () => void;
   onRefreshUser: () => void;
   onClose: () => void;

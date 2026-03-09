@@ -34,7 +34,7 @@ interface ServerDetailsProps {
     action: "activate" | "deactivate"
   ) => Promise<unknown>;
   onEdit?: (server: McpServer) => void;
-  onDelete?: (serverName: string) => void;
+  onDelete?: (serverId: string) => void;
 }
 
 export function ServerDetails({

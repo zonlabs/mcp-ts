@@ -1,21 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-    Plus,
-    Trash2,
-    ChevronDown,
-    ChevronUp,
-    Rss,
-    Globe,
-    AlertCircle,
-    Save,
-    X,
-    Edit2
+  Plus,
+  Trash2,
+  ChevronDown,
+  Rss,
+  Globe,
+  AlertCircle,
+  Save,
+  Edit2,
+  Loader2,
+  Check,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -25,11 +24,17 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuCheckboxItem,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { McpServer } from "@/types/mcp";
 import { toast } from "react-hot-toast";
 import { Session } from "@supabase/supabase-js";
@@ -38,433 +43,863 @@ import { useQuery } from "@apollo/client/react";
 import { CATEGORIES_QUERY } from "@/lib/graphql";
 import { Category } from "@/types/mcp";
 import { gql } from "@apollo/client";
+import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
+import { useMcpConnection } from "@/hooks/useMcpConnection";
 
 const GET_CATEGORIES = gql`${CATEGORIES_QUERY}`;
 
 const serverSchema = z.object({
-    id: z.string().optional(),
-    name: z.string().min(1, "Server name is required"),
-    description: z.string().optional(),
-    transport: z.enum(["sse", "streamable_http"]),
-    categoryIds: z.array(z.string()).optional(),
-    url: z.string().optional(),
-    command: z.string().optional(),
-    args: z.string().optional(),
-    requiresOauth: z.boolean().optional(),
-    isPublic: z.boolean().optional(),
-    headers: z.array(z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, "Server name is required"),
+  description: z.string().optional(),
+  transport: z.enum(["sse", "streamable_http"]),
+  categoryIds: z.array(z.string()).optional(),
+  url: z.string().optional(),
+  command: z.string().optional(),
+  args: z.string().optional(),
+  requiresOauth: z.boolean().optional(),
+  isPublic: z.boolean().optional(),
+  headers: z
+    .array(
+      z.object({
         key: z.string(),
-        value: z.string()
-    })).optional()
+        value: z.string(),
+      })
+    )
+    .optional(),
 });
 
 type ServerFormData = z.infer<typeof serverSchema>;
 
 interface ServerFormProps {
-    server?: McpServer | null;
-    mode: 'add' | 'edit';
-    session: Session | null;
-    onSubmit: (data: ServerFormData) => Promise<void>;
-    onCancel: () => void;
+  server?: McpServer | null;
+  mode: "add" | "edit";
+  session: Session | null;
+  onSubmit: (data: ServerFormData) => Promise<void>;
+  onCancel: () => void;
 }
 
+type ValidationMessageState = "pending" | "running" | "done" | "failed";
+
+type ValidationMessage = {
+  key: string;
+  label: string;
+  detail?: string;
+  state: ValidationMessageState;
+};
+
+const STEP_LABELS: Record<string, string> = {
+  required: "Required",
+  format: "URL Format",
+  oauth: "OAuth",
+  connection: "Connection",
+  endpoint: "Reachability",
+  save: "Submit",
+};
+
+const CONNECTION_STATUS_DETAILS: Record<string, string> = {
+  INITIALIZING: "Initializing connection...",
+  CONNECTING: "Connecting to server...",
+  AUTHENTICATING: "Authentication in progress...",
+  AUTHENTICATED: "Authentication completed.",
+  DISCOVERING: "Discovering available tools...",
+  CONNECTED: "Connected. Finalizing setup...",
+  READY: "Connection verified successfully.",
+  FAILED: "Connection retry in progress...",
+};
+
+const normalizeUrl = (value?: string | null) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw);
+    const path = parsed.pathname.replace(/\/+$/, "") || "/";
+    return `${parsed.origin}${path}`;
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
+};
+
 export default function ServerForm({
-    server,
-    mode,
-    session,
-    onSubmit,
-    onCancel
+  server,
+  mode,
+  session,
+  onSubmit,
+  onCancel,
 }: ServerFormProps) {
-    const [showHeaders, setShowHeaders] = useState(false);
-    const [transportType, setTransportType] = useState<"sse" | "streamable_http">("streamable_http");
-    const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [transportType, setTransportType] = useState<"sse" | "streamable_http">("streamable_http");
+  const [useCustomTransport, setUseCustomTransport] = useState(false);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [isValidatingBeforeSubmit, setIsValidatingBeforeSubmit] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationMessages, setValidationMessages] = useState<ValidationMessage[]>([]);
+  const { connect: activateServerConnection } = useMcpConnection();
 
-    const { loading, error, data } = useQuery<{
-        categories: {
-            edges: Array<{ node: Category }>;
-        };
-    }>(GET_CATEGORIES, {
-        fetchPolicy: "cache-and-network",
-    });
-
-    const {
-        register,
-        handleSubmit,
-        formState: { errors, isSubmitting },
-        reset,
-        control,
-        watch,
-        setValue
-    } = useForm<ServerFormData>({
-        resolver: zodResolver(serverSchema),
-        defaultValues: {
-            name: "",
-            description: "",
-            transport: "streamable_http",
-            categoryIds: [],
-            url: "",
-            command: "",
-            args: "",
-            requiresOauth: false,
-            isPublic: false,
-            headers: []
-        }
-    });
-
-    const { fields, append, remove } = useFieldArray({
-        control,
-        name: "headers"
-    });
-
-    const watchedTransport = watch("transport");
-
-    useEffect(() => {
-        setTransportType(watchedTransport);
-    }, [watchedTransport]);
-
-    // Initial Data Load
-    useEffect(() => {
-        if (mode === 'edit' && server) {
-            const categoryIds = server.categories ? server.categories.map(cat => cat.id) : [];
-            setSelectedCategoryIds(categoryIds);
-            reset({
-                id: server.id,
-                name: server.name,
-                description: server.description || "",
-                transport: server.transport as "sse" | "streamable_http",
-                categoryIds: categoryIds,
-                url: server.url || "",
-                command: server.command || "",
-                args: server.args ? (typeof server.args === 'string' ? server.args : JSON.stringify(server.args)) : "",
-                requiresOauth: server.requiresOauth2 || false,
-                isPublic: server.isPublic || false,
-                headers: []
-            });
-            setTransportType(server.transport as "sse" | "streamable_http");
-        } else {
-            setSelectedCategoryIds([]);
-            reset({
-                name: "",
-                description: "",
-                transport: "streamable_http",
-                categoryIds: [],
-                url: "",
-                command: "",
-                args: "",
-                requiresOauth: false,
-                isPublic: false,
-                headers: []
-            });
-            setTransportType("streamable_http");
-        }
-        setShowHeaders(false);
-    }, [mode, server, reset]);
-
-    const handleFormSubmit = async (data: ServerFormData) => {
-        if (!session) {
-            toast.error("Please sign in to save server configuration");
-            return;
-        }
-
-        try {
-            await onSubmit(data);
-            toast.success(`Server ${mode === 'add' ? 'added' : 'updated'} successfully`);
-            onCancel(); // Use onCancel to "close" or navigate away
-        } catch (error) {
-            toast.error(`Failed to ${mode === 'add' ? 'add' : 'update'} server`);
-        }
+  const { loading, error, data } = useQuery<{
+    categories: {
+      edges: Array<{ node: Category }>;
     };
+  }>(GET_CATEGORIES, {
+    fetchPolicy: "cache-and-network",
+  });
 
-    return (
-        <div className="h-full flex flex-col bg-background animate-in slide-in-from-bottom-4 duration-300 max-w-2xl mx-auto w-full">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4">
-                <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Edit2 className="h-4 w-4 text-primary" />
-                    </div>
-                    <h2 className="text-xl font-semibold">
-                        {mode === 'add' ? 'Add New Server' : 'Edit Server'}
-                    </h2>
-                </div>
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+    control,
+    watch,
+    setValue,
+  } = useForm<ServerFormData>({
+    resolver: zodResolver(serverSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      transport: "streamable_http",
+      categoryIds: [],
+      url: "",
+      command: "",
+      args: "",
+      requiresOauth: false,
+      isPublic: false,
+      headers: [],
+    },
+  });
 
-            </div>
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "headers",
+  });
 
-            {/* Form Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-                <div className="w-full mx-auto space-y-8">
+  const watchedTransport = watch("transport");
 
-                    {/* Auth Warning */}
-                    {!session && (
-                        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
-                            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                            <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
-                                Please <Link href="/signin" className="font-semibold underline hover:text-amber-900 dark:hover:text-amber-100">sign in</Link> to save your server configuration.
-                            </AlertDescription>
-                        </Alert>
-                    )}
+  const buildInitialValidationSteps = ({
+    requiresPrivateValidation,
+    requiresOauth,
+  }: {
+    requiresPrivateValidation: boolean;
+    requiresOauth: boolean;
+  }): ValidationMessage[] => {
+    if (!requiresPrivateValidation) {
+      return [{ key: "save", label: STEP_LABELS.save, state: "pending", detail: "Waiting to submit..." }];
+    }
 
-                    {/* Basic Info */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-medium border-b pb-2">Basic Information</h3>
+    const keys = ["required", "format", ...(requiresOauth ? ["oauth"] : []), "connection", "endpoint", "save"];
+    return keys.map((key) => ({
+      key,
+      label: STEP_LABELS[key] || key,
+      state: "pending" as ValidationMessageState,
+      detail: "Pending...",
+    }));
+  };
 
-                        <div className="space-y-1">
-                            <Label htmlFor="name" className="text-xs">Server Name</Label>
-                            <Input
-                                {...register("name")}
-                                id="name"
-                                placeholder="My MCP Server"
-                                className="h-10"
-                            />
-                            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-                        </div>
+  useEffect(() => {
+    setTransportType(watchedTransport);
+  }, [watchedTransport]);
 
-                        <div className="space-y-1">
-                            <Label htmlFor="description" className="text-xs">Description</Label>
-                            <Textarea
-                                {...register("description")}
-                                id="description"
-                                placeholder="What does this server do? (optional/markdown supported)"
-                                className="min-h-[100px] resize-none leading-relaxed"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Markdown supported. Help others understand this server.
-                            </p>
-                        </div>
-                    </div>
+  useEffect(() => {
+    if (mode === "edit" && server) {
+      const categoryIds = server.categories ? server.categories.map((cat) => cat.id) : [];
+      setSelectedCategoryIds(categoryIds);
+      reset({
+        id: server.id,
+        name: server.name,
+        description: server.description || "",
+        transport: server.transport as "sse" | "streamable_http",
+        categoryIds,
+        url: server.url || "",
+        command: server.command || "",
+        args: server.args
+          ? typeof server.args === "string"
+            ? server.args
+            : JSON.stringify(server.args)
+          : "",
+        requiresOauth: server.requiresOauth2 || false,
+        isPublic: server.isPublic || false,
+        headers: [],
+      });
+      setTransportType(server.transport as "sse" | "streamable_http");
+      setUseCustomTransport(true);
+    } else {
+      setSelectedCategoryIds([]);
+      reset({
+        name: "",
+        description: "",
+        transport: "streamable_http",
+        categoryIds: [],
+        url: "",
+        command: "",
+        args: "",
+        requiresOauth: false,
+        isPublic: false,
+        headers: [],
+      });
+      setTransportType("streamable_http");
+      setUseCustomTransport(false);
+    }
 
-                    {/* Configuration */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-medium border-b pb-2">Connection Configuration</h3>
+    setValidationMessages([]);
+    setValidationError(null);
+    setIsValidatingBeforeSubmit(false);
+  }, [mode, server, reset]);
 
-                        <div className="space-y-1">
-                            <Label className="text-xs">Transport Type</Label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
-                                <label className={`
-                        flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all
-                        ${transportType === 'streamable_http' ? "border-primary bg-primary/5 shadow-sm" : "border-muted hover:border-primary/50 hover:bg-muted/50"}
-                        `}>
-                                    <input type="radio" {...register("transport")} value="streamable_http" className="sr-only" />
-                                    <Globe className="h-5 w-5 mb-2" />
-                                    <span className="font-semibold text-sm">HTTP</span>
-                                    <span className="text-[10px] text-muted-foreground">Streamable HTTP</span>
-                                </label>
-                                <label className={`
-                        flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all
-                        ${transportType === 'sse' ? "border-primary bg-primary/5 shadow-sm" : "border-muted hover:border-primary/50 hover:bg-muted/50"}
-                        `}>
-                                    <input type="radio" {...register("transport")} value="sse" className="sr-only" />
-                                    <Rss className="h-5 w-5 mb-2" />
-                                    <span className="font-semibold text-sm">SSE</span>
-                                    <span className="text-[10px] text-muted-foreground">Server-Sent Events</span>
-                                </label>
-                            </div>
-                        </div>
+  const upsertValidationMessage = (
+    key: string,
+    patch: Partial<ValidationMessage>
+  ) => {
+    setValidationMessages((prev) => {
+      const idx = prev.findIndex((item) => item.key === key);
+      if (idx === -1) {
+        return [
+          ...prev,
+          {
+            key,
+            label: patch.label || STEP_LABELS[key] || key,
+            state: patch.state || "pending",
+            detail: patch.detail || "Pending...",
+          },
+        ];
+      }
 
-                        <div className="space-y-1">
-                            <Label htmlFor="url" className="text-xs">Server URL</Label>
-                            <Input {...register("url")} id="url" placeholder="https://mcp.example.com/token/mcp" className="h-10 font-mono text-sm" />
-                            {errors.url && <p className="text-red-500 text-xs mt-1">{errors.url.message}</p>}
-                        </div>
-                    </div>
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        ...patch,
+        label: patch.label || next[idx].label,
+      };
+      return next;
+    });
+  };
 
-                    {/* HTTP Headers */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between border-b pb-2">
-                            <h3 className="text-lg font-medium">HTTP Headers</h3>
-                            <Button
-                                type="button"
-                                variant="default"
-                                size="sm"
-                                onClick={() => append({ key: "", value: "" })}
-                                className="h-8 text-xs"
-                            >
-                                <Plus className="mr-1 h-3 w-3" />
-                                Add Header
-                            </Button>
-                        </div>
+  const waitForConnectionVerification = async (
+    expectedServerName: string,
+    expectedUrl: string,
+    onStatus: (status: string) => void
+  ): Promise<{ status: "READY"; toolCount: number; sessionId?: string }> => {
+    return await new Promise((resolve) => {
+      let settled = false;
+      let unsubscribe: (() => void) | undefined;
 
-                        <div className="space-y-3">
-                            {fields.map((field, index) => (
-                                <div key={field.id} className="flex items-center gap-2 group">
-                                    <Input
-                                        {...register(`headers.${index}.key`)}
-                                        placeholder="Authorization"
-                                        className="w-1/3 h-9 font-mono text-xs"
-                                    />
-                                    <Input
-                                        {...register(`headers.${index}.value`)}
-                                        placeholder="Bearer token123"
-                                        className="flex-1 h-9 font-mono text-xs"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => remove(index)}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </div>
-                            ))}
-                            {fields.length === 0 && (
-                                <div className="text-center py-6 border-2 border-dashed rounded-lg text-muted-foreground text-sm">
-                                    No custom headers configured.
-                                </div>
-                            )}
-                        </div>
-                    </div>
+      const targetUrl = normalizeUrl(expectedUrl);
+      const targetName = expectedServerName.trim().toLowerCase();
 
+      const cleanup = (result: { status: "READY"; toolCount: number; sessionId?: string }) => {
+        if (settled) return;
+        settled = true;
+        if (unsubscribe) unsubscribe();
+        resolve(result);
+      };
 
-                    {/* Metadata & Visibility */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-medium border-b pb-2">Metadata & Visibility</h3>
+      const evaluate = (connectionsMap: Record<string, StoredConnection>) => {
+        const connections = Object.values(connectionsMap || {});
+        const candidates = connections.filter((c) => {
+          if (!c?.sessionId) return false;
+          const byName = String(c.serverName || "").trim().toLowerCase() === targetName;
+          const byUrl = normalizeUrl(c.url) === targetUrl;
+          return byName || byUrl;
+        });
+        const match = candidates[candidates.length - 1];
 
-                        <div className="space-y-1">
-                            <Label htmlFor="categoryIds" className="text-xs">Categories</Label>
-                            {loading ? (
-                                <p className="text-xs text-muted-foreground">Loading categories...</p>
-                            ) : error ? (
-                                <p className="text-xs text-red-500">Failed to load categories</p>
-                            ) : (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="w-full h-10 justify-between text-sm font-normal"
-                                        >
-                                            <div className="flex items-center gap-1.5 truncate">
-                                                {selectedCategoryIds.length > 0 ? (
-                                                    selectedCategoryIds.map((id) => {
-                                                        const category = data?.categories?.edges.find(
-                                                            ({ node }) => node.id === id
-                                                        )?.node;
-                                                        if (!category) return null;
-                                                        return (
-                                                            <div key={id} className="flex items-center gap-1 bg-secondary px-2 py-0.5 rounded">
-                                                                {category.icon && (
-                                                                    category.icon.includes('.') ? (
-                                                                        <Image
-                                                                            src={`/categories/${category.icon}`}
-                                                                            alt={category.name}
-                                                                            width={14}
-                                                                            height={14}
-                                                                        />
-                                                                    ) : (
-                                                                        <span className="text-xs">{category.icon}</span>
-                                                                    )
-                                                                )}
-                                                                <span className="text-xs">{category.name}</span>
-                                                            </div>
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <span className="text-muted-foreground">Select categories...</span>
-                                                )}
-                                            </div>
-                                            <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-[300px]" align="start">
-                                        {data?.categories?.edges.map(({ node }) => (
-                                            <DropdownMenuCheckboxItem
-                                                key={node.id}
-                                                checked={selectedCategoryIds.includes(node.id)}
-                                                onCheckedChange={(checked) => {
-                                                    const newIds = checked
-                                                        ? [...selectedCategoryIds, node.id]
-                                                        : selectedCategoryIds.filter((id) => id !== node.id);
-                                                    setSelectedCategoryIds(newIds);
-                                                    setValue("categoryIds", newIds);
-                                                }}
-                                            >
-                                                {node.name}
-                                            </DropdownMenuCheckboxItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            )}
-                        </div>
+        if (!match) return;
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-2">
+        const status = String(match.connectionStatus || "").toUpperCase();
+        onStatus(status);
+        if (status === "READY") {
+          cleanup({
+            status: "READY",
+            toolCount: Array.isArray(match.tools) ? match.tools.length : 0,
+            sessionId: match.sessionId,
+          });
+        }
+      };
 
-                            {/* Requires OAuth2 */}
-                            <div className="flex items-start space-x-3 py-3 border-b">
-                                <Controller
-                                    name="requiresOauth"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <Checkbox
-                                            id="requiresOauth"
-                                            checked={field.value}
-                                            onCheckedChange={field.onChange}
-                                            className="mt-0.5"
-                                        />
-                                    )}
-                                />
-                                <div className="space-y-1">
-                                    <Label htmlFor="requiresOauth" className="text-sm font-medium">
-                                        OAuth2.1
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Enable if the server requires OAuth2.1.
-                                    </p>
-                                </div>
-                            </div>
+      unsubscribe = useMcpStore.subscribe((state) => {
+        evaluate(state.connections);
+      });
 
-                            {/* Public */}
-                            <div className="flex items-start space-x-3 py-3 border-b">
-                                <Controller
-                                    name="isPublic"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <Checkbox
-                                            id="isPublic"
-                                            checked={field.value}
-                                            onCheckedChange={field.onChange}
-                                            className="mt-0.5"
-                                        />
-                                    )}
-                                />
-                                <div className="space-y-1">
-                                    <Label htmlFor="isPublic" className="text-sm font-medium">
-                                        Public
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Make this server accessible to the public.                                    </p>
-                                </div>
-                            </div>
-                        </div>
+      // Immediate check in case state already changed before subscription callback.
+      evaluate(useMcpStore.getState().connections);
+    });
+  };
 
-                        {/* Buttons Row */}
-                        <div className="flex justify-end gap-2 pt-4">
-                            <Button variant="ghost" onClick={onCancel}>
-                                Cancel
-                            </Button>
+  const runPrivateServerValidation = async (form: ServerFormData) => {
+    const name = String(form.name || "").trim();
+    const url = String(form.url || "").trim();
+    const transport = form.transport;
 
-                            <Button
-                                onClick={handleSubmit(handleFormSubmit)}
-                                disabled={!session || isSubmitting}
-                                className="gap-2"
-                            >
-                                {isSubmitting ? (
-                                    <span className="animate-spin">⏳</span>
-                                ) : (
-                                    <Save className="h-4 w-4" />
-                                )}
-                                {mode === "add" ? "Save Server" : "Update Server"}
-                            </Button>
-                        </div>
+    upsertValidationMessage("required", {
+      state: "running",
+      detail: "Checking required fields...",
+    });
+    if (!name || !url || !transport) {
+      upsertValidationMessage("required", {
+        state: "failed",
+        detail: "Name, URL, and transport are required.",
+      });
+      throw new Error("Name, URL, and transport are required.");
+    }
+    upsertValidationMessage("required", {
+      state: "done",
+      detail: "Required fields look good.",
+    });
 
+    upsertValidationMessage("format", {
+      state: "running",
+      detail: "Validating URL format...",
+    });
 
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      upsertValidationMessage("format", {
+        state: "failed",
+        detail: "Server URL must be a valid URL.",
+      });
+      throw new Error("Server URL must be a valid URL.");
+    }
 
-                    </div>
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      upsertValidationMessage("format", {
+        state: "failed",
+        detail: "Server URL must start with http:// or https://.",
+      });
+      throw new Error("Server URL must start with http:// or https://.");
+    }
 
-                    <div className="h-12" /> {/* Spacer */}
-                </div>
-            </div>
+    upsertValidationMessage("format", {
+      state: "done",
+      detail: "URL format is valid.",
+    });
+
+    if (form.requiresOauth) {
+      upsertValidationMessage("oauth", {
+        state: "running",
+        detail: "Checking OAuth configuration...",
+      });
+      if (parsed.protocol !== "https:") {
+        upsertValidationMessage("oauth", {
+          state: "failed",
+          detail: "OAuth-enabled servers should use HTTPS endpoints.",
+        });
+        throw new Error("OAuth-enabled servers should use HTTPS endpoints.");
+      }
+      upsertValidationMessage("oauth", {
+        state: "done",
+        detail: "OAuth configuration looks valid.",
+      });
+    }
+
+    upsertValidationMessage("connection", {
+      state: "running",
+      detail: "Starting connection check...",
+    });
+
+    try {
+      const connectionStatusTrail: string[] = [];
+      const verificationServer = {
+        id: url || name,
+        name,
+        url,
+        transportType: useCustomTransport ? transport : undefined,
+      };
+
+      try {
+        await activateServerConnection(verificationServer);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to start connection check.";
+        const normalized = message.toLowerCase();
+        if (normalized.includes("connection already exists")) {
+          const normalizedUrl = normalizeUrl(url);
+          const normalizedName = name.toLowerCase();
+          const existing = Object.values(useMcpStore.getState().connections).find((c) => {
+            const byName = String(c.serverName || "").trim().toLowerCase() === normalizedName;
+            const byUrl = normalizeUrl(c.url) === normalizedUrl;
+            return byName || byUrl;
+          });
+          const existingStatus = String(existing?.connectionStatus || "").toUpperCase();
+          if (existingStatus === "READY") {
+            upsertValidationMessage("connection", {
+              state: "done",
+              detail: "Existing verified connection found (READY).",
+            });
+            return;
+          }
+          upsertValidationMessage("connection", {
+            state: "running",
+            detail: existingStatus
+              ? `Existing connection is ${existingStatus}. Waiting for READY...`
+              : "Existing connection found. Waiting for READY...",
+          });
+          // Continue waiting for status transitions to READY.
+        } else if (normalized.includes("authorization required") || normalized.includes("oauth")) {
+          upsertValidationMessage("connection", {
+            state: "running",
+            detail: "Authorization required. Complete auth to continue verification.",
+          });
+          // Continue waiting for post-auth status transitions to READY.
+        } else {
+          throw error;
+        }
+      }
+
+      const runtimeResult = await waitForConnectionVerification(
+        name,
+        url,
+        (status) => {
+          if (!connectionStatusTrail.includes(status)) {
+            connectionStatusTrail.push(status);
+          }
+          upsertValidationMessage("connection", {
+            state: status === "READY" ? "done" : "running",
+            detail: `${CONNECTION_STATUS_DETAILS[status] || `Status: ${status}`} (${status})`,
+          });
+        }
+      );
+
+      upsertValidationMessage("connection", {
+        state: "done",
+        detail: `Connected successfully (${runtimeResult.toolCount} tools discovered).`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Server connection check failed.";
+      upsertValidationMessage("connection", {
+        state: "failed",
+        detail: message,
+      });
+      throw error;
+    }
+
+    upsertValidationMessage("endpoint", {
+      state: "running",
+      detail: "Checking server reachability...",
+    });
+
+    const validationResponse = await fetch("/api/mcp/servers/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        url,
+        transport,
+        headers: form.headers || [],
+      }),
+    });
+
+    const payload = await validationResponse.json();
+    if (!validationResponse.ok || !payload?.ok) {
+      const message = payload?.error || "Unable to validate server endpoint.";
+      upsertValidationMessage("endpoint", {
+        state: "failed",
+        detail: message,
+      });
+      throw new Error(message);
+    }
+
+    upsertValidationMessage("endpoint", {
+      state: "done",
+      detail: payload?.message,
+    });
+  };
+
+  const handleFormSubmit = async (form: ServerFormData) => {
+    if (!session) {
+      toast.error("Please sign in to save server configuration");
+      return;
+    }
+
+    try {
+      const requiresPrivateValidation = mode === "add" && !Boolean(form.isPublic);
+      const requiresOauth = Boolean(form.requiresOauth);
+
+      setValidationError(null);
+      setValidationMessages(
+        buildInitialValidationSteps({
+          requiresPrivateValidation,
+          requiresOauth,
+        })
+      );
+
+      if (requiresPrivateValidation) {
+        setIsValidatingBeforeSubmit(true);
+        await runPrivateServerValidation(form);
+      }
+
+      upsertValidationMessage("save", {
+        state: "running",
+        detail: mode === "add" ? "Creating server..." : "Updating server...",
+      });
+
+      await onSubmit(form);
+
+      upsertValidationMessage("save", {
+        state: "done",
+        detail: mode === "add" ? "Server created successfully." : "Server updated successfully.",
+      });
+
+      toast.success(`Server ${mode === "add" ? "added" : "updated"} successfully`);
+      onCancel();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Validation failed";
+      setValidationError(message);
+      toast.error(`Failed to ${mode === "add" ? "add" : "update"} server`);
+    } finally {
+      setIsValidatingBeforeSubmit(false);
+    }
+  };
+
+  const shouldShowStatus = validationMessages.length > 0 || Boolean(validationError);
+  const orderedValidationMessages = useMemo(() => {
+    const rank: Record<string, number> = {
+      required: 1,
+      format: 2,
+      oauth: 3,
+      connection: 4,
+      endpoint: 5,
+      save: 6,
+    };
+    return [...validationMessages].sort((a, b) => (rank[a.key] || 99) - (rank[b.key] || 99));
+  }, [validationMessages]);
+  const renderStatusIcon = (state: ValidationMessageState) => {
+    if (state === "running") return <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground/70" />;
+    if (state === "done") return <Check className="h-3.5 w-3.5 text-green-600" />;
+    if (state === "failed") return <AlertCircle className="h-3.5 w-3.5 text-red-600" />;
+    return <div className="h-2 w-2 rounded-full bg-muted-foreground/40" />;
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-background animate-in slide-in-from-bottom-4 duration-300 max-w-2xl mx-auto w-full">
+      <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Edit2 className="h-4 w-4 text-primary" />
+          </div>
+          <h2 className="text-xl font-semibold">{mode === "add" ? "Add New Server" : "Edit Server"}</h2>
         </div>
-    );
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="w-full mx-auto space-y-8">
+          {!session && (
+            <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+              <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
+                Please <Link href="/signin" className="font-semibold underline hover:text-amber-900 dark:hover:text-amber-100">sign in</Link> to save your server configuration.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 rounded-none border-b border-border/70">
+              <TabsTrigger
+                value="basic"
+                className="rounded-none border-b-2 border-transparent bg-transparent pb-2 pt-1 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+              >
+                Basic Info
+              </TabsTrigger>
+              <TabsTrigger
+                value="additional"
+                className="rounded-none border-b-2 border-transparent bg-transparent pb-2 pt-1 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+              >
+                Additional Info
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic" className="pt-4 space-y-4">
+              <h3 className="text-lg font-medium border-b pb-2">Basic Information</h3>
+
+              <div className="space-y-1">
+                <Label htmlFor="name" className="text-xs">Server Name</Label>
+                <Input {...register("name")} id="name" placeholder="My MCP Server" className="h-10" />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="description" className="text-xs">Description</Label>
+                <Textarea
+                  {...register("description")}
+                  id="description"
+                  placeholder="What does this server do? (optional/markdown supported)"
+                  className="min-h-[100px] resize-none leading-relaxed"
+                />
+                <p className="text-xs text-muted-foreground">Markdown supported. Help others understand this server.</p>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="url" className="text-xs">Server URL</Label>
+                <Input
+                  {...register("url")}
+                  id="url"
+                  placeholder="https://mcp.example.com/token/mcp"
+                  className="h-10 font-mono text-sm"
+                />
+                {errors.url && <p className="text-red-500 text-xs mt-1">{errors.url.message}</p>}
+              </div>
+
+              <div className="flex items-start space-x-3 py-3 border-b">
+                <Controller
+                  name="isPublic"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="isPublic"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="mt-0.5"
+                    />
+                  )}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="isPublic" className="text-sm font-medium">Visibility</Label>
+                  <p className="text-xs text-muted-foreground">Enable to list this server publicly.</p>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="additional" className="pt-4 space-y-6 border border-border/80 rounded-lg px-4 pb-4 bg-background/40">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium border-b border-border/80 pb-2">Connection Configuration</h3>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Transport Type</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setUseCustomTransport((prev) => !prev)}
+                    >
+                      {useCustomTransport ? "Use Auto" : "Set Manually"}
+                    </Button>
+                  </div>
+
+                  {!useCustomTransport ? (
+                    <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                      Auto (recommended) - transport is selected automatically.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                      <label
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          transportType === "streamable_http"
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-muted hover:border-primary/50 hover:bg-muted/50"
+                        }`}
+                      >
+                        <input type="radio" {...register("transport")} value="streamable_http" className="sr-only" />
+                        <Globe className="h-5 w-5 mb-2" />
+                        <span className="font-semibold text-sm">HTTP</span>
+                        <span className="text-[10px] text-muted-foreground">Streamable HTTP</span>
+                      </label>
+                      <label
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                          transportType === "sse"
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-muted hover:border-primary/50 hover:bg-muted/50"
+                        }`}
+                      >
+                        <input type="radio" {...register("transport")} value="sse" className="sr-only" />
+                        <Rss className="h-5 w-5 mb-2" />
+                        <span className="font-semibold text-sm">SSE</span>
+                        <span className="text-[10px] text-muted-foreground">Server-Sent Events</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/80 pb-2">
+                  <h3 className="text-lg font-medium">HTTP Headers</h3>
+                  <Button type="button" variant="default" size="sm" onClick={() => append({ key: "", value: "" })} className="h-8 text-xs">
+                    <Plus className="mr-1 h-3 w-3" />
+                    Add Header
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2 group">
+                      <Input
+                        {...register(`headers.${index}.key`)}
+                        placeholder="Authorization"
+                        className="w-1/3 h-9 font-mono text-xs"
+                      />
+                      <Input
+                        {...register(`headers.${index}.value`)}
+                        placeholder="Bearer token123"
+                        className="flex-1 h-9 font-mono text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => remove(index)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                  {fields.length === 0 && (
+                    <div className="text-center py-6 border-2 border-dashed rounded-lg text-muted-foreground text-sm">
+                      No custom headers configured.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium border-b border-border/80 pb-2">Metadata & Visibility</h3>
+
+                <div className="space-y-1">
+                  <Label htmlFor="categoryIds" className="text-xs">Categories</Label>
+                  {loading ? (
+                    <p className="text-xs text-muted-foreground">Loading categories...</p>
+                  ) : error ? (
+                    <p className="text-xs text-red-500">Failed to load categories</p>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full h-10 justify-between text-sm font-normal">
+                          <div className="flex items-center gap-1.5 truncate">
+                            {selectedCategoryIds.length > 0 ? (
+                              selectedCategoryIds.map((id) => {
+                                const category = data?.categories?.edges.find(({ node }) => node.id === id)?.node;
+                                if (!category) return null;
+                                return (
+                                  <div key={id} className="flex items-center gap-1 bg-secondary px-2 py-0.5 rounded">
+                                    {category.icon &&
+                                      (category.icon.includes(".") ? (
+                                        <Image src={`/categories/${category.icon}`} alt={category.name} width={14} height={14} />
+                                      ) : (
+                                        <span className="text-xs">{category.icon}</span>
+                                      ))}
+                                    <span className="text-xs">{category.name}</span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <span className="text-muted-foreground">Select categories...</span>
+                            )}
+                          </div>
+                          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-[300px]" align="start">
+                        {data?.categories?.edges.map(({ node }) => (
+                          <DropdownMenuCheckboxItem
+                            key={node.id}
+                            checked={selectedCategoryIds.includes(node.id)}
+                            onCheckedChange={(checked) => {
+                              const newIds = checked
+                                ? [...selectedCategoryIds, node.id]
+                                : selectedCategoryIds.filter((id) => id !== node.id);
+                              setSelectedCategoryIds(newIds);
+                              setValue("categoryIds", newIds);
+                            }}
+                          >
+                            {node.name}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-2">
+                  <div className="flex items-start space-x-3 py-3 border-b">
+                    <Controller
+                      name="requiresOauth"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          id="requiresOauth"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className="mt-0.5"
+                        />
+                      )}
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth2.1</Label>
+                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth2.1.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end gap-2 pt-2">
+            {shouldShowStatus && (
+              <div className="mr-auto min-w-[320px] max-w-[640px] py-1">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    {orderedValidationMessages.map((message) => (
+                      <div key={message.key} className="inline-flex items-center gap-2 text-xs">
+                        <span
+                          className={
+                            message.state === "done"
+                              ? "text-green-600"
+                              : message.state === "failed"
+                                ? "text-red-600"
+                                : message.state === "running"
+                                  ? "text-foreground"
+                                  : "text-muted-foreground"
+                          }
+                        >
+                          {renderStatusIcon(message.state)}
+                        </span>
+                        <span className="text-muted-foreground">{message.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    {orderedValidationMessages.map((message) => (
+                      <div key={`${message.key}-detail`} className="border-l-2 border-border/60 pl-3 text-xs">
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 shrink-0">{renderStatusIcon(message.state)}</div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">{message.label}</p>
+                            <p className="mt-0.5 text-muted-foreground break-words">{message.detail || "Pending..."}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {validationError && <p className="text-xs text-red-500">{validationError}</p>}
+                </div>
+              </div>
+            )}
+
+            <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+
+            <Button
+              onClick={handleSubmit(handleFormSubmit)}
+              disabled={!session || isSubmitting || isValidatingBeforeSubmit}
+              className="gap-2"
+            >
+              {isSubmitting || isValidatingBeforeSubmit ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {isValidatingBeforeSubmit
+                ? "Validating..."
+                : mode === "add"
+                  ? "Submit"
+                  : "Update Server"}
+            </Button>
+          </div>
+
+          <div className="h-12" />
+        </div>
+      </div>
+    </div>
+  );
 }

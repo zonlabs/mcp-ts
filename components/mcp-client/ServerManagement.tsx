@@ -27,7 +27,7 @@ interface ServerManagementProps {
   server: McpServer;
   onAction: (server: McpServer, action: 'activate' | 'deactivate') => Promise<unknown>;
   onEdit?: (server: McpServer) => void;
-  onDelete?: (serverName: string) => void;
+  onDelete?: (serverId: string) => void;
 }
 
 export default function ServerManagement({ server, onAction, onEdit, onDelete }: ServerManagementProps) {
@@ -199,7 +199,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
               )}
               {onDelete && (
                 <DropdownMenuItem
-                  onClick={() => onDelete(server.name)}
+                  onClick={() => onDelete(server.id)}
                   className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
