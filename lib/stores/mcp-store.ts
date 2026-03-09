@@ -576,7 +576,7 @@ export const useMcpStore = create<McpStore>()(
          */
         connect: async (server) => {
           const { mcpActions } = get();
-          if (!mcpActions) throw new Error("MCP Actions not initialized");
+          if (!mcpActions) throw new Error("Please sign in first.");
 
           try {
             const callbackUrl = `${window.location.origin}/api/mcp/auth/callback`; // This route might need to be re-thought or removed if mcp-ts handles it differently
@@ -600,7 +600,7 @@ export const useMcpStore = create<McpStore>()(
          */
         disconnect: async (sessionId) => {
           const { mcpActions } = get();
-          if (!mcpActions) throw new Error("MCP Actions not initialized");
+          if (!mcpActions) throw new Error("Please sign in first.");
 
           try {
             await mcpActions.disconnect(sessionId);

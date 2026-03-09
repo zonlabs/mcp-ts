@@ -505,7 +505,7 @@ export default function ServerForm({
 
   const handleFormSubmit = async (form: ServerFormData) => {
     if (!session) {
-      toast.error("Please sign in to save server configuration");
+      toast.error("Please sign in first.");
       return;
     }
 
@@ -585,7 +585,7 @@ export default function ServerForm({
             <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
               <AlertDescription className="text-sm text-amber-800 dark:text-amber-200">
-                Please <Link href="/signin" className="font-semibold underline hover:text-amber-900 dark:hover:text-amber-100">sign in</Link> to save your server configuration.
+                Please <Link href="/signin" className="font-semibold underline hover:text-amber-900 dark:hover:text-amber-100">sign in</Link> first.
               </AlertDescription>
             </Alert>
           )}

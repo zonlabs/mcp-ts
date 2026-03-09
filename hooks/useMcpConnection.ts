@@ -46,6 +46,10 @@ function extractTransport(server: ConnectableServer): string | null {
   return server.transportType || server.transport || null;
 }
 
+function showMcpErrorToast(scope: 'connect' | 'disconnect', message: string) {
+  toast.error(message);
+}
+
 export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -128,7 +132,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   const connect = useCallback(async (server: ConnectableServer) => {
     const serverUrl = extractServerUrl(server);
     if (!serverUrl) {
-      toast.error("No URL available for this server");
+      showMcpErrorToast('connect', "No URL available for this server");
       return;
     }
 
@@ -140,7 +144,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
     try {
       const mcpActions = useMcpStore.getState().mcpActions;
       if (!mcpActions) {
-        throw new Error("Please sign in to activate MCP servers.");
+        throw new Error("Please sign in first.");
       }
 
       const callbackUrl = `${window.location.origin}/api/mcp/auth/callback`;
@@ -160,7 +164,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Failed to connect";
       setConnectionError(errorMsg);
-      toast.error(errorMsg);
+      showMcpErrorToast('connect', errorMsg);
       throw (error instanceof Error ? error : new Error(errorMsg));
     } finally {
       setIsConnecting(false);
@@ -178,17 +182,17 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
       // Try lookup by assuming server.id is sessionId (legacy behavior?)
       const directConn = getConnection(server.id);
       if (!directConn) {
-        toast.error("Connection information not found");
+        showMcpErrorToast('disconnect', "Connection information not found");
         return;
       }
       try {
         const mcpActions = useMcpStore.getState().mcpActions;
         if (!mcpActions) {
-          throw new Error("Please sign in to manage MCP server connections.");
+          throw new Error("Please sign in first.");
         }
         await mcpActions.disconnect(directConn.sessionId);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to disconnect");
+        showMcpErrorToast('disconnect', error instanceof Error ? error.message : "Failed to disconnect");
       }
       return;
     }
@@ -196,12 +200,12 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
     try {
       const mcpActions = useMcpStore.getState().mcpActions;
       if (!mcpActions) {
-        throw new Error("Please sign in to manage MCP server connections.");
+        throw new Error("Please sign in first.");
       }
 
       await mcpActions.disconnect(storedConnection.sessionId);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to disconnect");
+      showMcpErrorToast('disconnect', error instanceof Error ? error.message : "Failed to disconnect");
     }
   }, []);
 

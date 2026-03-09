@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "react-hot-toast";
 import {
   Power,
   Play,
@@ -48,7 +47,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
     setLoading(action);
 
     try {
-      const result = await onAction(server, action);
+      await onAction(server, action);
 
       // Use the actual message from the response data if available
       // const message = (result && typeof result === 'object' && 'message' in result && typeof result.message === 'string')
@@ -56,8 +55,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
       //   : `Server ${action}d successfully`;
       // toast.success(message);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to ${action} server`;
-      toast.error(errorMessage);
+      // Error notifications are handled by the underlying action layer (hooks/store).
     } finally {
       setLoading(null);
     }

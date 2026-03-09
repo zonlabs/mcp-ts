@@ -139,7 +139,7 @@ export default function ToolExecutionPanel({
       const mcpActions = useMcpStore.getState().mcpActions;
 
       if (!mcpActions) {
-        toast.error("MCP Actions not initialized");
+        toast.error("Please sign in first.");
         setIsSubmitting(false);
         return;
       }
