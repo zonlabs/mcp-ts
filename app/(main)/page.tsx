@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   Server,
   Play,
-  ArrowRight,
   Code,
   Package,
   Copy,
@@ -161,7 +160,7 @@ export default function Home() {
                 variants={item}
                 className="mx-auto max-w-2xl text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed mb-6"
               >
-                Use{' '}
+                MCP Assistant is a{' '}
                 <Link
                   href="https://modelcontextprotocol.io/docs/learn/client-concepts"
                   target="_blank"
@@ -169,7 +168,7 @@ export default function Home() {
                   className="text-foreground hover:text-primary transition-colors pointer-events-auto"
                 >
                   <span>Model Context Protocol (MCP)</span>
-                </Link>{' '}servers, test tool calls, and prototype workflows.
+                </Link>{' '}client that lets you test your server, interact with other MCP servers in one place, and more.
               </motion.p>
 
               <motion.div
@@ -184,7 +183,7 @@ export default function Home() {
                 ].map((label) => (
                   <span
                     key={label}
-                    className="inline-flex items-center rounded-full border border-red-500/40 dark:border-red-400/50 bg-background/50 backdrop-blur-sm px-3 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground"
+                    className="inline-flex items-center rounded-full border-[1.5px] border-red-500/75 dark:border-red-400/85 bg-background/50 backdrop-blur-sm px-3 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground"
                   >
                     {label}
                   </span>
@@ -194,26 +193,25 @@ export default function Home() {
               {/* ===== CTA Buttons ===== */}
               <motion.div
                 variants={item}
-                className="flex flex-col sm:flex-row gap-3 justify-center mb-7 pointer-events-auto w-full max-w-sm sm:max-w-none mx-auto"
+                className="grid w-full max-w-sm grid-cols-2 gap-2.5 sm:gap-3 mb-7 pointer-events-auto mx-auto"
               >
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} className="min-w-0">
                   <Link
                     href="/mcp"
-                    className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm sm:text-base bg-foreground text-background border border-foreground/20 hover:opacity-90 transition-all"
+                    className="group inline-flex w-full items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base whitespace-nowrap bg-foreground text-background border-[1.5px] border-white/14 dark:border-black/12 hover:opacity-90 transition-all"
                   >
                     <Server className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span>Explore Servers</span>
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    <span>Explore</span>
                   </Link>
                 </motion.div>
 
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} className="min-w-0">
                   <Link
                     href="/playground"
-                    className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm sm:text-base border border-border bg-background/40 hover:bg-accent/40 transition-all"
+                    className="inline-flex w-full items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base whitespace-nowrap border-[1.5px] border-zinc-300/95 dark:border-zinc-700/95 bg-card/80 text-foreground backdrop-blur-md hover:border-foreground/25 hover:bg-accent/60 transition-all"
                   >
                     <Play className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span>Open Playground</span>
+                    <span>Playground</span>
                   </Link>
                 </motion.div>
               </motion.div>

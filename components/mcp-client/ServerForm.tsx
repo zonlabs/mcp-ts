@@ -323,7 +323,7 @@ export default function ServerForm({
     });
   };
 
-  const runPrivateServerValidation = async (form: ServerFormData) => {
+  const runServerValidation = async (form: ServerFormData) => {
     const name = String(form.name || "").trim();
     const url = String(form.url || "").trim();
     const transport = form.transport;
@@ -468,8 +468,11 @@ export default function ServerForm({
       const currentUrl = normalizeUrl(String(form.url || ""));
       const originalUrl = normalizeUrl(server?.url || "");
       const isUrlChangedOnEdit = mode === "edit" && Boolean(server) && currentUrl !== originalUrl;
-      const requiresPrivateValidation = mode === "add" && !Boolean(form.isPublic);
-      const requiresValidation = requiresPrivateValidation || isUrlChangedOnEdit;
+      const isNewServer = mode === "add";
+      const isVisibilityEnabledOnEdit =
+        mode === "edit" && Boolean(form.isPublic) && !Boolean(server?.isPublic);
+      const requiresValidation =
+        isNewServer || isUrlChangedOnEdit || isVisibilityEnabledOnEdit;
       const requiresOauth = Boolean(form.requiresOauth);
 
       setValidationError(null);
@@ -481,7 +484,7 @@ export default function ServerForm({
           })
         );
         setIsValidatingBeforeSubmit(true);
-        await runPrivateServerValidation(form);
+        await runServerValidation(form);
         upsertValidationMessage("save", {
           state: "running",
           detail: mode === "add" ? "Creating server..." : "Updating server...",
@@ -538,8 +541,7 @@ export default function ServerForm({
     if (state === "running") return "bg-foreground";
     return "bg-muted-foreground/50";
   };
-  const getTimelineItemClass = (state: ValidationMessageState) => {
-    if (state === "running") return "rounded-md border border-border/70 bg-muted/30";
+  const getTimelineItemClass = (_state: ValidationMessageState) => {
     return "";
   };
 
@@ -831,7 +833,7 @@ export default function ServerForm({
                         >
                           <span className={`h-1.5 w-1.5 rounded-full ${getTimelineMarkerInnerClass(message.state)}`} />
                         </span>
-                        <div className={`min-w-0 px-2 py-1 ${getTimelineItemClass(message.state)}`}>
+                        <div className={`min-w-0 py-0.5 ${getTimelineItemClass(message.state)}`}>
                             <p className="font-medium text-foreground">{message.label}</p>
                             <p className="mt-0.5 text-muted-foreground break-words">{message.detail || "Pending..."}</p>
                             {message.key === "connection" && connectionStatusTrail.length > 0 && (
