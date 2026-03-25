@@ -7,16 +7,10 @@ import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { NavigationLinks } from "@/components/common/NavigationLinks";
 import { MobileNav } from "@/components/common/MobileNav";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { usePathname } from "next/navigation";
 
 export default function Header() {
   const { userSession } = useAuth();
   const user = userSession?.user;
-  const pathname = usePathname();
-  const isHomePage = pathname === "/";
-  const logoClassName = isHomePage
-    ? "hidden lg:flex items-center gap-2"
-    : "flex items-center gap-2";
 
   return (
     <nav className="sticky top-0 z-[200] bg-background/80">
@@ -30,7 +24,7 @@ export default function Header() {
             </div>
 
             {/* Logo */}
-            <Link href="/" className={logoClassName}>
+            <Link href="/" className="hidden lg:flex items-center gap-2">
               <Logo size={34} />
               <span className="text-sm font-semibold text-foreground hidden sm:inline-block">
                 MCP Assistant

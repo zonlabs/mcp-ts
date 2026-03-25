@@ -14,6 +14,7 @@ import McpServersSection from "@/components/home/McpServersSection";
 import Footer from "@/components/home/Footer";
 import Image from "next/image";
 import { motion, Variants } from 'framer-motion';
+import { NeuralButton } from "@/components/ui/neural-button";
 import {
   Accordion,
   AccordionContent,
@@ -133,7 +134,7 @@ export default function Home() {
             className="relative w-full flex flex-col items-center justify-center px-3 sm:px-6"
           >
             {/* ===== Hero Content ===== */}
-            <div className="relative z-10 w-full max-w-5xl mx-auto text-center px-3 sm:px-6">
+            <div className="relative z-10 w-full max-w-6xl mx-auto text-center px-4 sm:px-6 lg:px-8">
               <motion.div variants={item} className="mb-5 flex flex-col items-center gap-2">
                 <Image
                   src="/logo-mark-red.svg"
@@ -158,7 +159,7 @@ export default function Home() {
 
               <motion.p
                 variants={item}
-                className="mx-auto max-w-2xl text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed mb-6"
+                className="mx-auto max-w-3xl text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed mb-6"
               >
                 MCP Assistant is a{' '}
                 <Link
@@ -183,7 +184,7 @@ export default function Home() {
                 ].map((label) => (
                   <span
                     key={label}
-                    className="inline-flex items-center rounded-full border-[1.5px] border-red-500/75 dark:border-red-400/85 bg-background/50 backdrop-blur-sm px-3 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground"
+                    className="inline-flex items-center rounded-full border border-red-300/80 bg-gradient-to-b from-white/95 to-red-50/90 px-3.5 py-1.5 text-xs font-semibold text-red-700 backdrop-blur-md sm:text-sm dark:border-red-400/35 dark:from-zinc-950/90 dark:to-red-950/40 dark:text-red-100"
                   >
                     {label}
                   </span>
@@ -193,25 +194,34 @@ export default function Home() {
               {/* ===== CTA Buttons ===== */}
               <motion.div
                 variants={item}
-                className="grid w-full max-w-sm grid-cols-2 gap-2.5 sm:gap-3 mb-7 pointer-events-auto mx-auto"
+                className="grid w-full max-w-md grid-cols-2 gap-3 mb-7 pointer-events-auto mx-auto"
               >
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} className="min-w-0">
-                  <Link
-                    href="/mcp"
-                    className="group inline-flex w-full items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base whitespace-nowrap bg-foreground text-background border-[1.5px] border-white/14 dark:border-black/12 hover:opacity-90 transition-all"
+                {/* 🔥 Explore Button (Gradient Border) */}
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  <NeuralButton
+                    asChild
+                    className="h-auto w-full rounded-lg px-5 py-2.5 text-sm font-medium"
                   >
-                    <Server className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span>Explore</span>
-                  </Link>
+                    <Link href="/mcp">
+                      Explore
+                    </Link>
+                  </NeuralButton>
                 </motion.div>
 
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }} className="min-w-0">
+                {/* ✅ Playground Button */}
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                   <Link
                     href="/playground"
-                    className="inline-flex w-full items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base whitespace-nowrap border-[1.5px] border-zinc-300/95 dark:border-zinc-700/95 bg-card/80 text-foreground backdrop-blur-md hover:border-foreground/25 hover:bg-accent/60 transition-all"
+                    className="
+        inline-flex w-full items-center justify-center
+        px-5 py-2.5 rounded-lg text-sm font-medium
+        bg-black text-white
+        hover:bg-black/90
+        dark:bg-white dark:text-black dark:hover:bg-zinc-200
+        transition
+      "
                   >
-                    <Play className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span>Playground</span>
+                    Playground
                   </Link>
                 </motion.div>
               </motion.div>
@@ -231,7 +241,7 @@ export default function Home() {
           whileInView="visible"
           viewport={{ once: true }}
           variants={container}
-          className="rounded-3xl border border-border/50 bg-card/30 p-5 sm:p-7"
+          className="rounded-3xl border border-red-200/75 bg-card/30 p-5 sm:p-7 dark:border-red-400/25"
         >
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
             <div className="space-y-5">
@@ -244,7 +254,7 @@ export default function Home() {
 
               <motion.div variants={fadeInUp} className="space-y-3">
                 <p className="text-sm font-semibold text-foreground">Install Gateway</p>
-                <div className="inline-flex max-w-full items-center rounded-xl border border-border/70 bg-muted/40 px-3 py-2.5">
+                <div className="inline-flex max-w-full items-center rounded-xl border border-red-200/80 bg-muted/40 px-3 py-2.5 dark:border-red-400/30">
                   <code className="font-mono text-sm sm:text-base text-foreground">
                     uvx mcpassistant-gateway
                   </code>
@@ -286,7 +296,7 @@ export default function Home() {
               </motion.div>
             </div>
 
-            <motion.div variants={fadeInUp} className="rounded-2xl border border-border/50 bg-background/60 p-2 sm:p-3">
+            <motion.div variants={fadeInUp} className="rounded-2xl border border-red-200/75 bg-background/60 p-2 sm:p-3 dark:border-red-400/25">
               <VideoPlayer />
             </motion.div>
           </div>
@@ -353,7 +363,7 @@ export default function Home() {
                   key={i}
                   variants={item}
                   whileHover={{ y: -5 }}
-                  className="group flex flex-col gap-4 p-8 rounded-2xl border border-border/50 bg-card/30 hover:bg-card/60 hover:border-primary/30 transition-all duration-300"
+                  className="group flex flex-col gap-4 rounded-2xl border border-red-200/75 bg-card/30 p-8 transition-all duration-300 hover:border-red-400/70 hover:bg-card/60 dark:border-red-400/25 dark:hover:border-red-300/60"
                 >
                   <div className="shrink-0 h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary group-hover:scale-110 transition-transform duration-300">
                     {feature.icon}
@@ -376,7 +386,6 @@ export default function Home() {
 
       {/* FAQ Section */}
       <section className="relative max-w-5xl mx-auto py-16 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
         <div className="px-3 sm:px-6">
           <motion.div
             initial="hidden"
@@ -425,7 +434,7 @@ export default function Home() {
                 <AccordionItem
                   key={i}
                   value={`item-${i}`}
-                  className="border-b border-border/50 px-0 bg-transparent rounded-none shadow-none"
+                  className="rounded-none border-b border-border/50 bg-transparent px-0 shadow-none"
                 >
                   <AccordionTrigger className="text-base font-semibold hover:no-underline py-5 px-1">
                     {faq.q}

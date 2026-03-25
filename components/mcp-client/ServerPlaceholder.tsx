@@ -42,7 +42,7 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
             <div className="relative h-12 w-12 sm:h-16 sm:w-16 mx-auto">
               <Logo size={50} />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 mb-3 tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 my-2 tracking-tight">
               Welcome to MCP Assistant
             </h2>
             <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">

@@ -19,7 +19,7 @@ const GET_RECENT_SERVERS = gql`${RECENT_MCP_SERVERS_QUERY}`;
 
 function ServerItemSkeleton() {
   return (
-    <div className="flex flex-col gap-3 p-3 sm:rounded-xl sm:border sm:border-border/50 sm:bg-card/40 sm:p-4 border-b border-border/40 sm:border-b-0">
+    <div className="flex flex-col gap-3 border-b border-red-200/70 p-3 sm:rounded-xl sm:border sm:border-red-200/80 sm:border-b sm:bg-card/40 sm:p-4 dark:border-red-400/25">
       <Skeleton className="h-10 w-10 rounded-lg" />
       <div className="space-y-2">
         <Skeleton className="h-4 w-24" />
@@ -45,7 +45,7 @@ function ServerCard({ server }: { server: McpServer }) {
   };
 
   return (
-    <div className="group flex h-full flex-col gap-3 p-3 sm:p-2 transition-all duration-300 border-b border-border/40 sm:border-b-0 sm:rounded-xl sm:hover:bg-card/20">
+    <div className="group flex h-full flex-col gap-3 border-b border-red-200/70 p-3 transition-all duration-300 sm:rounded-xl sm:border-b-0 sm:p-2 sm:hover:bg-card/20 dark:border-red-400/25">
       {/* Icon and Transport Badge Row */}
       <div className="flex items-center justify-between">
         <ServerIcon
@@ -128,7 +128,7 @@ export default function McpServersSection() {
     <div className="max-w-5xl mx-auto space-y-10">
       {/* Registry Section */}
       {(registryLoading || registryServers.length > 0) && (
-        <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-border/50 sm:bg-card/25 sm:p-8">
+        <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-red-200/75 sm:bg-card/25 sm:p-8 dark:sm:border-red-400/25">
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Official MCP Registry</h2>
@@ -152,7 +152,7 @@ export default function McpServersSection() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0 sm:gap-4">
               {registryServers.map((server, index) => (
-                <div key={server.id} className="border-b border-border/40 last:border-b-0 md:border-b-0">
+                <div key={server.id} className="border-b border-red-200/70 last:border-b-0 md:border-b-0 dark:border-red-400/25">
                   <RegistryServerCard
                     server={server}
                   />
@@ -165,7 +165,7 @@ export default function McpServersSection() {
 
       {/* Local Section */}
       {!localError && (localLoading || localServers.length > 0) && (
-        <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-border/50 sm:bg-card/25 sm:p-8">
+        <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-red-200/75 sm:bg-card/25 sm:p-8 dark:sm:border-red-400/25">
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
               <h2 className="flex items-center gap-2 text-2xl md:text-3xl font-bold tracking-tight">
