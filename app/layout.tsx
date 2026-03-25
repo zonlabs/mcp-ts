@@ -50,7 +50,7 @@ export default async function RootLayout({
   const userSession = session as any;
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}>
         <AuthProvider userSession={userSession}>
           <ApolloProvider>

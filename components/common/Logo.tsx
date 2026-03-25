@@ -13,6 +13,7 @@ export default function Logo({ size = 40 }: LogoProps) {
       alt="MCP Platform"
       width={size}
       height={size}
+      priority
     />
   );
 }

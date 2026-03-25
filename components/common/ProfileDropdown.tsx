@@ -31,6 +31,8 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
               width={32}
               height={32}
               className="rounded-full"
+              loading="eager"
+              priority
             />
           ) : (
             <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">

@@ -80,7 +80,7 @@ function NeuralButton(props: NeuralButtonProps) {
       className: cn(
         buttonVariants({ variant: 'default', size: size }),
         neuralStyles,
-        'bg-transparent hover:bg-transparent active:bg-transparent dark:bg-transparent dark:hover:bg-transparent dark:active:bg-transparent',
+        'bg-white hover:bg-white active:bg-white dark:bg-zinc-900 dark:hover:bg-zinc-900 dark:active:bg-zinc-900',
         childProps.className
       ),
       ...rest,

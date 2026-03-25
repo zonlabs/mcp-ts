@@ -30,8 +30,6 @@ function McpStoreProviderInner({
   userId: string;
 }) {
   const fetchUserServers = useMcpStore((state: McpStore) => state.fetchUserServers);
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isRefreshingRef = useRef(false);
   const authInFlightStatesRef = useRef<Set<string>>(new Set());
   const authSuccessDispatchedStatesRef = useRef<Set<string>>(new Set());
 
@@ -41,7 +39,8 @@ function McpStoreProviderInner({
     connect,
     disconnect,
     callTool,
-    refresh,
+    finishAuth,
+    resumeAuth,
   } = useMcp({
     url: '/api/mcp/sse',
     identity: userId,
@@ -67,6 +66,14 @@ function McpStoreProviderInner({
             windowName: `mcp-auth-popup-${state}`,
           });
 
+          if (authResult.code && (authResult.state || state)) {
+            const authState = authResult.state || state;
+            await finishAuth(authState, authResult.code);
+            await resumeAuth(authState);
+          } else if (authResult.sessionId) {
+            await resumeAuth(authResult.sessionId);
+          }
+
           // Notify UI components (e.g. playground approval card) that OAuth completed.
           if (!authSuccessDispatchedStatesRef.current.has(state)) {
             authSuccessDispatchedStatesRef.current.add(state);
@@ -80,23 +87,6 @@ function McpStoreProviderInner({
               })
             );
           }
-
-          // Debounced single refresh after callback completion to avoid hammering RPC endpoint.
-          if (refreshTimerRef.current) {
-            clearTimeout(refreshTimerRef.current);
-          }
-          refreshTimerRef.current = setTimeout(async () => {
-            if (isRefreshingRef.current) return;
-            isRefreshingRef.current = true;
-            try {
-              await refresh();
-            } catch (error) {
-              // Non-fatal: SSE events often catch up without explicit refresh.
-              console.warn('[MCP OAuth] Post-auth refresh failed (will rely on SSE sync):', error);
-            } finally {
-              isRefreshingRef.current = false;
-            }
-          }, 1200);
         } catch (error) {
           console.error('[MCP OAuth] Popup flow failed:', error);
         } finally {
@@ -132,11 +122,7 @@ function McpStoreProviderInner({
   }, [fetchUserServers]);
 
   useEffect(() => {
-    return () => {
-      if (refreshTimerRef.current) {
-        clearTimeout(refreshTimerRef.current);
-      }
-    };
+    return () => {};
   }, []);
 
   return <>{children}</>;

@@ -15,6 +15,8 @@ export interface AuthPopupResult {
   serverName?: string;
   serverId?: string;
   serverUrl?: string;
+  code?: string;
+  state?: string;
 }
 
 const pendingAuthPopups = new Map<string, Promise<AuthPopupResult>>();
@@ -63,7 +65,7 @@ export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResul
         return;
       }
 
-      const { type, sessionId, serverName, serverId, serverUrl, error } = event.data;
+      const { type, sessionId, serverName, serverId, serverUrl, error, code, state } = event.data;
 
       if (type === 'mcp-auth-success') {
         settled = true;
@@ -71,6 +73,12 @@ export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResul
         messageReceived = true;
         cleanup(false);
         resolve({ sessionId, serverName, serverId, serverUrl });
+      } else if (type === 'MCP_AUTH_CODE') {
+        settled = true;
+        console.log('[Auth Popup] Received auth code');
+        messageReceived = true;
+        cleanup(false);
+        resolve({ sessionId, serverName, serverId, serverUrl, code, state });
       } else if (type === 'mcp-auth-error') {
         settled = true;
         console.error('[Auth Popup] Authentication error:', error);

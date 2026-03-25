@@ -18,9 +18,24 @@ function CallbackSuccessContent() {
   const serverId = searchParams.get("serverId");
   const serverUrl = searchParams.get("serverUrl");
   const error = searchParams.get("error");
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
 
   useEffect(() => {
     if (hasPostedResultRef.current) return;
+
+    if (code && state && window.opener) {
+      hasPostedResultRef.current = true;
+      window.opener.postMessage(
+        { type: "MCP_AUTH_CODE", code, state },
+        window.location.origin
+      );
+      setStatus("success");
+      setTimeout(() => {
+        window.close();
+      }, 1000);
+      return;
+    }
 
     // Check if we have a step parameter
     if (step === "success" && sessionId) {
@@ -61,7 +76,7 @@ function CallbackSuccessContent() {
         );
       }
     }
-  }, [step, sessionId, serverName, serverId, serverUrl, error]);
+  }, [step, sessionId, serverName, serverId, serverUrl, error, code, state]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
