@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mail, Github, Bug, Shield, Server, Code, BookOpen } from "lucide-react";
+import Logo from "@/components/common/Logo";
 
 export default function Footer() {
   return (
@@ -8,9 +9,15 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div className="space-y-3">
-            <h3 className="text-lg font-bold text-foreground">MCP Assistant</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Simplifying interaction with any remote MCP            </p>
+            <div className="flex items-center gap-3">
+              <Logo size={36} />
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-foreground">MCP Assistant</h3>
+                <p className="text-sm text-muted-foreground">
+                  One place to discover and interact with MCPs.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Quick Links */}

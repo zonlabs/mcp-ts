@@ -1,9 +1,9 @@
 import { checkMcpConnections } from "@/tool/check-mcp-connections";
 import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
 import { searchMcpServers } from "@/tool/search-mcp-servers";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { createDeepSeek } from "@ai-sdk/deepseek";
-import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool, type LanguageModelUsage } from "ai";
+import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool, type LanguageModelUsage, type ToolSet } from "ai";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
 import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
 import { z } from "zod";
@@ -249,8 +249,9 @@ async function getLocalMcpTools(
 export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   let activeManager: MultiSessionClient | null = null;
 
-  const agent = new ToolLoopAgent<McpAgentCallOptions>({
+  const agent = new ToolLoopAgent<McpAgentCallOptions, ToolSet>({
     instructions: INSTRUCTIONS,
+    model: createOpenAI()("gpt-4.1-mini"),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
       llmConfig: z
@@ -278,9 +279,9 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         ? createDeepSeek({
             apiKey: apiKey || "",
           })(requestedModel)
-        : openai(requestedModel, {
+        : createOpenAI({
             apiKey,
-          });
+          })(requestedModel);
 
       const identity = options?.userId?.trim() || "demo-user-123";
       const { manager, tools, baseToolNames, gatewayTools, toolIndex } = await getLocalMcpTools(
@@ -301,7 +302,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
 
       const selectedServers = options?.gatewaySelections?.map((s) => s.mcpServer) || [];
       const gatewayToolNames = selectedServers.flatMap((server) => toolIndex.get(server) || []);
-      const activeTools = selectedServers.length > 0
+      const activeTools: string[] = selectedServers.length > 0
         ? [...baseToolNames, ...gatewayToolNames]
         : [...baseToolNames, ...Object.keys(gatewayTools)];
 

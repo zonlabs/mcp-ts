@@ -179,10 +179,11 @@ export default function PlaygroundPage() {
                       sendMessage({
                         role: 'user',
                         parts: data.parts,
+                      }, {
                         body: { llmConfig: normalizedLlmConfig },
                       });
                     } else if (data.text) {
-                      sendMessage({ text: data.text, body: { llmConfig: normalizedLlmConfig } });
+                      sendMessage({ text: data.text }, { body: { llmConfig: normalizedLlmConfig } });
                     }
                   }}
                   onStop={stop}
@@ -208,10 +209,11 @@ export default function PlaygroundPage() {
                     sendMessage({
                       role: 'user',
                       parts: data.parts,
+                    }, {
                       body: { llmConfig: normalizedLlmConfig },
                     });
                   } else if (data.text) {
-                    sendMessage({ text: data.text, body: { llmConfig: normalizedLlmConfig } });
+                    sendMessage({ text: data.text }, { body: { llmConfig: normalizedLlmConfig } });
                   }
                 }}
                 onStop={stop}
@@ -392,10 +394,11 @@ export default function PlaygroundPage() {
                     sendMessage({
                       role: 'user',
                       parts: data.parts,
+                    }, {
                       body: { llmConfig: normalizedLlmConfig },
                     });
                   } else if (data.text) {
-                    sendMessage({ text: data.text, body: { llmConfig: normalizedLlmConfig } });
+                    sendMessage({ text: data.text }, { body: { llmConfig: normalizedLlmConfig } });
                   }
                 }}
                 onStop={stop}
