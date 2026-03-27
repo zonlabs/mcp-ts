@@ -1,13 +1,19 @@
-import { UIMessage, createAgentUIStreamResponse } from 'ai';
-import { createMcpAgent } from '@/agent/openai-agent';
+import { convertToModelMessages } from 'ai';
+import { createMcpAgent, type McpAgentUIMessage } from '@/agent/openai-agent';
 import { createClient } from '@/lib/supabase/server';
 import type { GatewayServerSelection } from '@/lib/gateway-access';
 import { NextResponse } from 'next/server';
 
 interface ChatRequestBody {
-  messages: UIMessage[];
-  uiMessages?: UIMessage[];
+  messages: McpAgentUIMessage[];
+  uiMessages?: McpAgentUIMessage[];
   gatewaySelections?: GatewayServerSelection[];
+  llmConfig?: {
+    provider?: string;
+    apiKey?: string;
+    model?: string;
+    baseUrl?: string;
+  };
 }
 
 export async function POST(req: Request) {
@@ -18,7 +24,6 @@ export async function POST(req: Request) {
     : Array.isArray(body.uiMessages)
       ? body.uiMessages
       : [];
-
   if (messages.length === 0) {
     return NextResponse.json(
       { error: 'messages parameter must be provided' },
@@ -27,13 +32,25 @@ export async function POST(req: Request) {
   }
   
   const { data: { user } } = await supabase.auth.getUser();
-  const { agent, cleanup } = await createMcpAgent(user?.id, {
-    gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : [],
-  });
+  const { agent, cleanup } = await createMcpAgent();
   req.signal.addEventListener('abort', cleanup, { once: true });
 
-  return createAgentUIStreamResponse({
-    agent,
-    uiMessages: messages,
+  const result = await agent.stream({
+    messages: await convertToModelMessages(messages),
+    abortSignal: req.signal,
+    options: {
+      userId: user?.id,
+      llmConfig: body.llmConfig,
+      gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : [],
+    },
+  });
+
+  return result.toUIMessageStreamResponse<McpAgentUIMessage>({
+    messageMetadata: ({ part }) => {
+      if (part.type === 'finish-step') {
+        return { usage: part.usage };
+      }
+      return undefined;
+    },
   });
 }

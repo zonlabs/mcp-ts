@@ -2,7 +2,8 @@ import { checkMcpConnections } from "@/tool/check-mcp-connections";
 import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
 import { searchMcpServers } from "@/tool/search-mcp-servers";
 import { openai } from "@ai-sdk/openai";
-import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool } from "ai";
+import { createDeepSeek } from "@ai-sdk/deepseek";
+import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool, type LanguageModelUsage } from "ai";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
 import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
 import { z } from "zod";
@@ -50,8 +51,16 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 const MAX_TOOL_NAME_LENGTH = 64;
 
 interface CreateMcpAgentOptions {
-  gatewaySelections?: GatewayServerSelection[];
 }
+type McpAgentCallOptions = {
+  userId?: string;
+  llmConfig?: {
+    provider?: string;
+    apiKey?: string;
+    model?: string;
+  };
+  gatewaySelections?: { agentId: string; mcpServer: string }[];
+};
 
 function normalizeGatewaySelections(selections: GatewayServerSelection[]): GatewayServerSelection[] {
   const unique = new Map<string, GatewayServerSelection>();
@@ -94,27 +103,29 @@ function normalizeToolInfo(raw: GatewayToolInfo, fallbackName: string): GatewayT
   };
 }
 
-async function buildGatewayTools(identity: string, gatewaySelections: GatewayServerSelection[]) {
-  const normalizedSelections = normalizeGatewaySelections(gatewaySelections);
-  if (normalizedSelections.length === 0) {
-    return {};
-  }
+async function getRemoteMcpTools(identity: string, gatewaySelections?: GatewayServerSelection[]) {
+  const normalizedSelections = normalizeGatewaySelections(gatewaySelections || []);
 
   let subject: string;
   try {
     subject = getBridgeSubjectFromUserId(identity);
   } catch {
-    return {};
+    return { tools: {}, toolIndex: new Map<string, string[]>() };
   }
 
   const agents = await getRemoteAgents(subject);
   const availablePairs = collectAgentServerPairs(agents);
-  const allowedSelections = normalizedSelections.filter((selection) =>
-    availablePairs.has(`${selection.agentId}::${selection.mcpServer}`)
-  );
+  const allowedSelections = normalizedSelections.length > 0
+    ? normalizedSelections.filter((selection) =>
+        availablePairs.has(`${selection.agentId}::${selection.mcpServer}`)
+      )
+    : Array.from(availablePairs).map((pair) => {
+        const [agentId, mcpServer] = pair.split("::");
+        return { agentId, mcpServer } as GatewayServerSelection;
+      });
 
   if (allowedSelections.length === 0) {
-    return {};
+    return { tools: {}, toolIndex: new Map<string, string[]>() };
   }
 
   const serverInfos = await Promise.all(
@@ -130,6 +141,7 @@ async function buildGatewayTools(identity: string, gatewaySelections: GatewaySer
   );
 
   const gatewayTools: Record<string, any> = {};
+  const toolIndex = new Map<string, string[]>();
   const usedToolNames = new Set<string>();
 
   for (const entry of serverInfos) {
@@ -183,13 +195,20 @@ async function buildGatewayTools(identity: string, gatewaySelections: GatewaySer
           }
         },
       });
+
+      const list = toolIndex.get(selection.mcpServer) || [];
+      list.push(runtimeName);
+      toolIndex.set(selection.mcpServer, list);
     }
   }
 
-  return gatewayTools;
+  return { tools: gatewayTools, toolIndex };
 }
 
-export async function createMcpAgent(identity = "demo-user-123", options: CreateMcpAgentOptions = {}) {
+async function getLocalMcpTools(
+  identity: string,
+  gatewaySelections?: GatewayServerSelection[]
+) {
   const manager = new MultiSessionClient(identity);
 
   try {
@@ -198,31 +217,116 @@ export async function createMcpAgent(identity = "demo-user-123", options: Create
     console.error("[MCP] Connection failed:", error);
   }
 
-  const mcpTools = await AIAdapter.getTools(manager);
-  const gatewayTools = await buildGatewayTools(identity, options.gatewaySelections ?? []);
-  console.log(`[MCP] Loaded ${Object.keys(mcpTools).length} MCP tools and ${Object.keys(gatewayTools).length} gateway tools for agent.`);
+  let mcpTools: Record<string, any> = {};
+  try {
+    mcpTools = await AIAdapter.getTools(manager);
+  } catch (error) {
+    console.error("[MCP] Failed to load MCP tools:", error);
+  }
 
-  const tools = {
+  const { tools: gatewayTools, toolIndex } = await getRemoteMcpTools(identity, gatewaySelections);
+  console.log(
+    `[MCP] Loaded ${Object.keys(mcpTools).length} MCP tools and ${Object.keys(gatewayTools).length} gateway tools for agent.`
+  );
+
+  const baseTools = {
     MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS: checkMcpConnections,
     MCPASSISTANT_SEARCH_SERVERS: searchMcpServers,
     MCPASSISTANT_INITIATE_CONNECTION: initiateMcpConnection,
+  };
+
+  const tools = {
+    ...baseTools,
     ...mcpTools,
     ...gatewayTools,
   };
 
-  const agent = new ToolLoopAgent({
-    model: openai("gpt-4.1-mini"),
+  const baseToolNames = [...Object.keys(baseTools), ...Object.keys(mcpTools)];
+
+  return { manager, tools, baseToolNames, gatewayTools, toolIndex };
+}
+
+export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
+  let activeManager: MultiSessionClient | null = null;
+
+  const agent = new ToolLoopAgent<McpAgentCallOptions>({
     instructions: INSTRUCTIONS,
-    tools,
+    callOptionsSchema: z.object({
+      userId: z.string().optional(),
+      llmConfig: z
+        .object({
+          provider: z.string().optional(),
+          apiKey: z.string().optional(),
+          model: z.string().optional(),
+        })
+        .optional(),
+      gatewaySelections: z
+        .array(
+          z.object({
+            agentId: z.string(),
+            mcpServer: z.string(),
+          })
+        )
+        .optional(),
+    }),
+    prepareCall: async ({ options, abortSignal, ...settings }) => {
+      const provider = (options?.llmConfig?.provider || "openai").toLowerCase().trim();
+      const apiKey = options?.llmConfig?.apiKey?.trim();
+      const requestedModel = options?.llmConfig?.model?.trim() || "gpt-4.1-mini";
+
+      const model = provider === "deepseek"
+        ? createDeepSeek({
+            apiKey: apiKey || "",
+          })(requestedModel)
+        : openai(requestedModel, {
+            apiKey,
+          });
+
+      const identity = options?.userId?.trim() || "demo-user-123";
+      const { manager, tools, baseToolNames, gatewayTools, toolIndex } = await getLocalMcpTools(
+        identity,
+        options?.gatewaySelections
+      );
+
+      if (activeManager && activeManager !== manager) {
+        activeManager.disconnect();
+      }
+      activeManager = manager;
+
+      if (abortSignal) {
+        abortSignal.addEventListener("abort", () => {
+          manager.disconnect();
+        }, { once: true });
+      }
+
+      const selectedServers = options?.gatewaySelections?.map((s) => s.mcpServer) || [];
+      const gatewayToolNames = selectedServers.flatMap((server) => toolIndex.get(server) || []);
+      const activeTools = selectedServers.length > 0
+        ? [...baseToolNames, ...gatewayToolNames]
+        : [...baseToolNames, ...Object.keys(gatewayTools)];
+
+      return {
+        ...settings,
+        model,
+        tools,
+        activeTools,
+        instructions: INSTRUCTIONS,
+      };
+    },
+    tools: {},
     stopWhen: stepCountIs(10),
     onFinish: () => {
-      manager.disconnect();
+      activeManager?.disconnect();
     },
   });
 
   return {
     agent,
-    cleanup: () => manager.disconnect(),
+    cleanup: () => activeManager?.disconnect(),
   };
 }
-export type McpAgentUIMessage = InferAgentUIMessage<Awaited<ReturnType<typeof createMcpAgent>>["agent"]>;
+type AgentMessageMetadata = { usage?: LanguageModelUsage };
+export type McpAgentUIMessage = InferAgentUIMessage<
+  Awaited<ReturnType<typeof createMcpAgent>>["agent"],
+  AgentMessageMetadata
+>;

@@ -1,9 +1,9 @@
 'use client';
 
-import { User, Copy, Check } from "lucide-react";
+import { Copy, Check, RefreshCw, Gauge, ArrowUpRight, ArrowDownLeft, Sigma } from "lucide-react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -38,11 +38,11 @@ function AssistantAvatar() {
 
 export function UserMessage({ message, parts }: any) {
   const [copied, setCopied] = useState(false);
+  const REGEN_PREFIX = "\u2063__regen__\n";
 
   const getMessageContent = () => {
     if (typeof message === "string") return message;
     if (message?.content) {
-      // Handle assistant-ui message format with content array
       if (Array.isArray(message.content)) {
         return message.content
           .filter((c: any) => c.type === "text")
@@ -51,7 +51,9 @@ export function UserMessage({ message, parts }: any) {
       }
       return message.content;
     }
-    return message?.text || "";
+    const raw = message?.text || "";
+    if (typeof raw === "string" && raw.startsWith(REGEN_PREFIX)) return "";
+    return raw;
   };
 
   const textContent = getMessageContent();
@@ -68,16 +70,15 @@ export function UserMessage({ message, parts }: any) {
   };
 
   return (
-    <div className="flex flex-col items-end gap-2 group">
-      {/* Text Content */}
+    <div className="flex flex-col items-end gap-2">
       {textContent && (
         <div className="flex flex-col items-end gap-1 max-w-[80%]">
           <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-sm">
             {textContent}
           </div>
-          {/* Action Buttons */}
+
           <TooltipProvider>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+            <div className="flex gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -91,16 +92,13 @@ export function UserMessage({ message, parts }: any) {
                     )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Copy</p>
-                </TooltipContent>
+                <TooltipContent side="bottom">Copy</TooltipContent>
               </Tooltip>
             </div>
           </TooltipProvider>
         </div>
       )}
 
-      {/* File Attachments */}
       {parts?.map((part: any, index: number) => {
         if (part.type === 'file' && part.mediaType?.startsWith('image/')) {
           return (
@@ -132,14 +130,15 @@ export function UserMessage({ message, parts }: any) {
   );
 }
 
-
 export function AssistantMessage({
   text,
   parts,
-  showReasoning = false,
+  onRegenerate,
+  usage,
 }: any) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -158,15 +157,14 @@ export function AssistantMessage({
   };
 
   return (
-    <div className="flex flex-col items-start gap-3 group w-full">
-      {/* Text Content with Markdown */}
+    <div className="flex flex-col items-start gap-3 w-full">
       {text && (
         <div className="flex flex-col gap-1 w-full">
           <div className="prose prose-sm dark:prose-invert max-w-full leading-7">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                code({ node, inline, className, children, ...props }: any) {
+                code({ inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || '');
                   const codeStyle = mounted && resolvedTheme === 'dark' ? oneDark : oneLight;
 
@@ -190,32 +188,81 @@ export function AssistantMessage({
               {text}
             </ReactMarkdown>
           </div>
-          {/* Action Buttons */}
-          <TooltipProvider>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleCopy}
-                    className="p-1.5 rounded-md hover:bg-accent transition-colors"
-                  >
-                    {copied ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Copy</p>
-                </TooltipContent>
-              </Tooltip>
+
+<TooltipProvider>
+            <div className="flex flex-col gap-3 mt-2">
+              {/* Action Buttons Row */}
+              <div className="flex gap-1 items-center">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={handleCopy} className="p-1.5 rounded-md hover:bg-accent transition-colors">
+                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Copy</TooltipContent>
+                </Tooltip>
+
+                {onRegenerate && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button onClick={onRegenerate} className="p-1.5 rounded-md hover:bg-accent transition-colors">
+                        <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Regenerate</TooltipContent>
+                  </Tooltip>
+                )}
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setShowUsage(!showUsage)}
+                      className={`p-1.5 rounded-md transition-all ${showUsage
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-accent text-muted-foreground"
+                        }`}
+                    >
+                      <Gauge className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{showUsage ? "Hide metrics" : "Show metrics"}</TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* ✅ Stylish Usage Metrics on a New Line */}
+              {showUsage && usage && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 w-fit animate-in fade-in slide-in-from-top-1 duration-200">
+                  {usage.totalTokens && (
+                    <div className="flex items-center gap-1.5">
+                      <Sigma className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Tokens</span>
+                      <span className="text-[11px] font-bold">{usage.totalTokens}</span>
+                    </div>
+                  )}
+
+                  {usage.inputTokens && (
+                    <div className="flex items-center gap-1.5 border-l pl-4 border-border">
+                      <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Input Tokens</span>
+                      <span className="text-[11px] font-bold">{usage.inputTokens}</span>
+                    </div>
+                  )}
+
+                  {usage.outputTokens && (
+                    <div className="flex items-center gap-1.5 border-l pl-4 border-border">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Output Tokens</span>
+                      <span className="text-[11px] font-bold">{usage.outputTokens}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </TooltipProvider>
         </div>
       )}
 
-      {/* File Attachments */}
       {parts?.map((part: any, index: number) => {
         if (part.type === 'file' && part.mediaType?.startsWith('image/')) {
           return (

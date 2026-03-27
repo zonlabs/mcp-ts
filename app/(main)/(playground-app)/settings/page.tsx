@@ -198,8 +198,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <div className="border-t border-border"></div>
-
         <section>
           <button
             onClick={handleSignOut}

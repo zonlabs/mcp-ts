@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import MCPToolCall from '@/components/playground/MCPToolCall';
 import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
@@ -12,14 +12,38 @@ import { UserMessage, AssistantMessage } from '@/components/playground/ChatMessa
 import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/playground/LoadingSpinner';
 import { RecipeComponent } from '@/components/playground/RecipeComponent';
-import { Button } from '@/components/ui/button';
-import { ArrowUpRight, RefreshCw } from 'lucide-react';
+import { ArrowUpRight, RefreshCw, Hash, ArrowDownLeft, ArrowUpRight as ArrowUpRightIcon } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
+import { DEFAULT_LLM_CONFIG, resolveLlmConfigForRequest, readLlmConfigFromStorage } from '@/components/playground/llmConfig';
+import type { McpAgentUIMessage } from '@/agent/openai-agent';
 
 export default function PlaygroundPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContentWidthClass = "w-full max-w-3xl mx-auto px-1 sm:px-4 lg:px-6";
   const chatInnerContentInsetClass = "px-2 sm:px-2";
+  const [llmConfig, setLlmConfig] = useState(DEFAULT_LLM_CONFIG);
+
+  useEffect(() => {
+    setLlmConfig(readLlmConfigFromStorage());
+  }, []);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "llm_config") {
+        setLlmConfig(readLlmConfigFromStorage());
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const normalizedLlmConfig = useMemo(() => {
+    const normalized = resolveLlmConfigForRequest(llmConfig);
+    return {
+      ...normalized,
+      baseUrl: normalized.baseUrl || undefined,
+    };
+  }, [llmConfig]);
   const mobileStarterPrompts = [
     {
       label: 'Market Analysis',
@@ -43,16 +67,22 @@ export default function PlaygroundPage() {
     },
   ];
 
-  const { error, status, sendMessage, messages, addToolApprovalResponse } = useChat({
+  const { error, status, sendMessage, messages, addToolApprovalResponse, setMessages, regenerate, stop } = useChat<McpAgentUIMessage>({
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      prepareSendMessagesRequest: ({ body, messages }) => ({
-        body: {
-          messages,
-          ...(body ?? {}),
-          gatewaySelections: readGatewaySelectionsFromStorage(),
-        },
-      }),
+      prepareSendMessagesRequest: ({ body, messages }) => {
+        const bodyConfig = (body as any)?.llmConfig;
+        const latestConfig = resolveLlmConfigForRequest(readLlmConfigFromStorage());
+
+        return {
+          body: {
+            messages,
+            ...(body ?? {}),
+            llmConfig: bodyConfig ?? latestConfig,
+            gatewaySelections: readGatewaySelectionsFromStorage(),
+          },
+        };
+      },
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
@@ -61,7 +91,43 @@ export default function PlaygroundPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const hasMessages = messages.length > 0;
+  const visibleMessages = messages;
+  const hasMessages = visibleMessages.length > 0;
+
+  const handleRegenerate = () => {
+    const lastUserIndex = [...messages].reverse().findIndex((m: any) => m?.role === 'user');
+    if (lastUserIndex < 0) return;
+    const userIndex = messages.length - 1 - lastUserIndex;
+    const lastAssistant = messages
+      .slice(userIndex + 1)
+      .reverse()
+      .find((m: any) => m?.role === 'assistant' && m?.id);
+    if (!lastAssistant) {
+      regenerate({ body: { llmConfig: normalizedLlmConfig } });
+      return;
+    }
+
+    const trimmed = [...messages.slice(0, userIndex + 1), lastAssistant];
+    setMessages(trimmed);
+    regenerate({ messageId: lastAssistant.id, body: { llmConfig: normalizedLlmConfig } });
+  };
+
+  const formatErrorMessage = (err: any) => {
+    const raw = err?.message || "An error occurred";
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.error?.message) return parsed.error.message;
+        if (parsed?.message) return parsed.message;
+      } catch {
+        // not JSON
+      }
+      return raw;
+    }
+    if (err?.error?.message) return err.error.message;
+    return "An error occurred";
+  };
+
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
@@ -113,11 +179,13 @@ export default function PlaygroundPage() {
                       sendMessage({
                         role: 'user',
                         parts: data.parts,
+                        body: { llmConfig: normalizedLlmConfig },
                       });
                     } else if (data.text) {
-                      sendMessage({ text: data.text });
+                      sendMessage({ text: data.text, body: { llmConfig: normalizedLlmConfig } });
                     }
                   }}
+                  onStop={stop}
                   status={status}
                   disabled={status === 'submitted' || status === 'streaming'}
                 />
@@ -140,11 +208,13 @@ export default function PlaygroundPage() {
                     sendMessage({
                       role: 'user',
                       parts: data.parts,
+                      body: { llmConfig: normalizedLlmConfig },
                     });
                   } else if (data.text) {
-                    sendMessage({ text: data.text });
+                    sendMessage({ text: data.text, body: { llmConfig: normalizedLlmConfig } });
                   }
                 }}
+                onStop={stop}
                 status={status}
                 disabled={status === 'submitted' || status === 'streaming'}
               />
@@ -164,14 +234,23 @@ export default function PlaygroundPage() {
             <div className={`${chatContentWidthClass} py-4 sm:py-8 space-y-6 sm:space-y-8`}>
               <div className={chatInnerContentInsetClass}>
               {/* Messages */}
-              {messages.map((m, messageIndex) => {
+              {visibleMessages.map((m, messageIndex) => {
+                const usageForMessage = m?.metadata?.usage;
                 return (
                   <div key={m.id} className={cn("group flex flex-col gap-3", m.role === 'user' ? "items-end" : "items-start")}>
                     {m.role === 'user' ? (
+                      (() => {
+                        const text = m.parts
+                          .filter((p: any) => p.type === 'text')
+                          .map((p: any) => p.text)
+                          .join(' ');
+                        return (
                       <UserMessage
-                        message={{ text: m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ') }}
+                        message={{ text }}
                         parts={m.parts.filter((p: any) => p.type === 'file')}
                       />
+                        );
+                      })()
                     ) : (
                       <>
                         {/* Render parts in sequence */}
@@ -183,6 +262,8 @@ export default function PlaygroundPage() {
                                 key={index}
                                 text={part.text}
                                 parts={[]}
+                                onRegenerate={handleRegenerate}
+                                usage={usageForMessage}
                               />
                             );
                           }
@@ -246,11 +327,11 @@ export default function PlaygroundPage() {
 
                               // For other states, show regular tool call display
                               return (
-                                <div key={index} className="w-full">
-                                  <MCPToolCall
-                                    name={toolPart.title || toolName}
-                                    state={toolPart.state}
-                                    input={toolPart.input}
+                            <div key={index} className="w-full">
+                              <MCPToolCall
+                                name={toolPart.title || toolName}
+                                state={toolPart.state}
+                                input={toolPart.input}
                                     output={toolPart.state === 'output-available' ? toolPart.output : undefined}
                                     errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
                                   />
@@ -291,12 +372,11 @@ export default function PlaygroundPage() {
               )}
 
               {error && (
-                <div className="p-4 rounded-xl bg-destructive/5 border border-destructive/20 text-destructive text-sm flex items-center justify-between">
-                  <span>{error.message || 'An error occurred'}</span>
-                  <Button variant="ghost" size="sm" onClick={() => sendMessage({ text: '' })}>
-                    <RefreshCw className="w-3 h-3 mr-2" /> Retry
-                  </Button>
-                </div>
+                <AssistantMessage
+                  text={formatErrorMessage(error)}
+                  parts={[]}
+                  onRegenerate={handleRegenerate}
+                />
               )}
               <div ref={messagesEndRef} className="h-4" />
               </div>
@@ -312,11 +392,13 @@ export default function PlaygroundPage() {
                     sendMessage({
                       role: 'user',
                       parts: data.parts,
+                      body: { llmConfig: normalizedLlmConfig },
                     });
                   } else if (data.text) {
-                    sendMessage({ text: data.text });
+                    sendMessage({ text: data.text, body: { llmConfig: normalizedLlmConfig } });
                   }
                 }}
+                onStop={stop}
                 status={status}
                 disabled={status === 'submitted' || status === 'streaming'}
               />

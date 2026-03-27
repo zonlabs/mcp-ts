@@ -11,6 +11,10 @@ import {
   LayoutGrid,
   Menu,
   X,
+  User,
+  KeyRound,
+  Plug,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -38,6 +42,13 @@ export const PlaygroundSidebar = () => {
   const user = userSession?.user;
   const router = useRouter();
   const pathname = usePathname();
+
+  const settingsLinks = [
+    { label: "Account", href: "/settings", icon: User },
+    { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
+    { label: "Connectors", href: "/settings/connectors", icon: Plug },
+    { label: "Assistants", href: "/settings/assistants", icon: Bot },
+  ];
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';
   const userImage = user?.user_metadata?.avatar_url;
@@ -137,6 +148,26 @@ export const PlaygroundSidebar = () => {
                 <Settings className="w-5 h-5" />
                 <span>Settings</span>
               </button>
+              <div className="pl-4 pr-1 space-y-1">
+                {settingsLinks.map((link) => {
+                  const Icon = link.icon;
+                  return (
+                    <button
+                      key={link.href}
+                      onClick={() => navigateTo(link.href)}
+                      className={cn(
+                        "w-full flex items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors",
+                        pathname === link.href
+                          ? "bg-accent text-foreground"
+                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{link.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="mt-auto border-t border-border/60 p-3">

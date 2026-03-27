@@ -1,16 +1,19 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
   ArrowUp,
   Plus,
-  Loader2,
+  Square,
   X,
   FileIcon,
 } from 'lucide-react';
+import { readLlmConfigFromStorage, resolveLlmConfigForRequest, writeLlmConfigToStorage } from '@/components/playground/llmConfig';
+import { ModelSelector } from '@/components/playground/ModelSelector';
+import { AVAILABLE_MODELS } from '@/components/playground/availableModels';
 
 async function convertFilesToDataURLs(files: FileList) {
   return Promise.all(
@@ -37,19 +40,48 @@ async function convertFilesToDataURLs(files: FileList) {
 
 interface ChatInputProps {
   onSend: (data: { text?: string; parts?: any[] }) => void;
+  onStop?: () => void;
   disabled?: boolean;
   status: 'ready' | 'submitted' | 'streaming' | 'error';
 }
 
-export function ChatInput({ onSend, disabled, status }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [files, setFiles] = useState<FileList | undefined>();
   const [input, setInput] = useState('');
+  const [activeModel, setActiveModel] = useState<string>('');
+  const [activeProvider, setActiveProvider] = useState<string>('');
+  const [modelReady, setModelReady] = useState(false);
 
   const isPending = status === 'submitted' || status === 'streaming';
   const fileArray = files ? Array.from(files) : [];
+
+  useEffect(() => {
+    const load = () => {
+      const cfg = resolveLlmConfigForRequest(readLlmConfigFromStorage());
+      setActiveModel(cfg.model || '');
+      setActiveProvider(cfg.provider || '');
+      setModelReady(true);
+    };
+    load();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'llm_config') load();
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const modelOptions = useMemo(() => {
+    if (activeModel && !AVAILABLE_MODELS.find((m) => m.id === activeModel)) {
+      return [
+        ...AVAILABLE_MODELS,
+        { id: activeModel, name: activeModel, provider: "Other" },
+      ];
+    }
+    return AVAILABLE_MODELS;
+  }, [activeModel]);
 
   const handleSend = async () => {
     const value = input.trim();
@@ -210,6 +242,29 @@ export function ChatInput({ onSend, disabled, status }: ChatInputProps) {
               >
                 <Plus className="w-4 h-4 text-muted-foreground" />
               </Button>
+              {modelReady && modelOptions.length > 0 ? (
+                <ModelSelector
+                  models={modelOptions}
+                  selectedModel={activeModel}
+                  onSelect={(id) => {
+                    const current = readLlmConfigFromStorage();
+                    const selected = modelOptions.find((m) => m.id === id);
+                    const providerMap: Record<string, string> = {
+                      OpenAI: "openai",
+                      DeepSeek: "deepseek",
+                      Google: "google",
+                      Anthropic: "anthropic",
+                    };
+                    const provider = selected?.provider
+                      ? (providerMap[selected.provider] || current.provider)
+                      : current.provider;
+                    const next = { ...current, model: id, provider };
+                    writeLlmConfigToStorage(next);
+                    setActiveModel(id);
+                    setActiveProvider(provider || '');
+                  }}
+                />
+              ) : null}
             </div>
 
             {/* RIGHT */}
@@ -224,24 +279,25 @@ export function ChatInput({ onSend, disabled, status }: ChatInputProps) {
               </Button> */}
 
               <Button
-                onClick={handleSend}
+                onClick={isPending ? onStop : handleSend}
                 disabled={
-                  disabled ||
-                  isPending ||
-                  (!input.trim() && !fileArray.length)
+                  (isPending && !onStop) ||
+                  (!isPending &&
+                    (disabled || (!input.trim() && !fileArray.length)))
                 }
                 className="
                   bg-gray-900 hover:bg-gray-800
-                  dark:bg-white dark:hover:bg-gray-100
-                  dark:text-black text-white
+                  dark:bg-zinc-800 dark:hover:bg-zinc-700
+                  dark:text-white text-white
                   h-7 w-7 sm:h-8 sm:w-8
                   rounded-lg p-1.5
                   shadow-lg
+                  cursor-pointer
                   disabled:opacity-50
                 "
               >
                 {isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Square className="w-3.5 h-3.5 text-white" />
                 ) : (
                   <ArrowUp className="w-4 h-4" />
                 )}

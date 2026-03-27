@@ -3,14 +3,11 @@
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  CheckCircle2, 
   ChevronDown, 
   Copy, 
-  Loader2, 
-  XCircle, 
-  AlertCircle, 
-  Terminal, 
-  Check 
+  Check,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -116,28 +113,6 @@ function CodeBlock({ label, content }: { label: string; content: string }) {
 }
 
 /* ---------------------------------- */
-/* Header Status Icon                 */
-/* ---------------------------------- */
-
-function ToolIcon({ state }: { state: ToolState }) {
-  switch (state) {
-    case 'loading':
-    case 'input-streaming':
-    case 'input-available':
-    case 'approval-responded':
-      return <Loader2 className="w-4 h-4 animate-spin text-gray-500" />;
-    case 'approval-requested':
-      return <AlertCircle className="w-4 h-4 text-amber-500" />;
-    case 'output-available':
-      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-    case 'output-error':
-      return <XCircle className="w-4 h-4 text-red-500" />;
-    default:
-      return <Terminal className="w-4 h-4 text-zinc-400" />;
-  }
-}
-
-/* ---------------------------------- */
 /* Main Component                     */
 /* ---------------------------------- */
 
@@ -157,25 +132,27 @@ export default function MCPToolCall({
   const statusLabel = isRunning ? 'in progress' : state.replace('-', ' ');
 
   return (
-    <div className="group border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 overflow-hidden transition-all shadow-sm">
+    <div className="group overflow-hidden transition-all">
       {/* Header */}
       <div
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 cursor-pointer select-none hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors"
+        className="inline-flex items-center gap-2 px-0 py-2 cursor-pointer select-none transition-colors"
       >
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <ToolIcon state={state} />
-          
-          <div className="flex flex-col min-w-0">
-            <span className="text-[13px] sm:text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
-              <ShimmerText active={isRunning}>
-                {name}
-              </ShimmerText>
-            </span>
-            <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">
-               {statusLabel}
-            </span>
-          </div>
+        {isRunning && (
+          <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />
+        )}
+        {!isRunning && state === 'output-available' && (
+          <CheckCircle2 className="w-4 h-4 text-green-500" />
+        )}
+        <div className="flex flex-col min-w-0">
+          <span className="text-[13px] sm:text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
+            <ShimmerText active={isRunning}>
+              {name}
+            </ShimmerText>
+          </span>
+          <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">
+             {statusLabel}
+          </span>
         </div>
 
         <ChevronDown
@@ -195,7 +172,7 @@ export default function MCPToolCall({
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3 sm:space-y-4 border-t border-zinc-100 dark:border-zinc-900 pt-3 sm:pt-4">
+            <div className="px-0 pb-3 sm:pb-4 space-y-3 sm:space-y-4 pt-2 sm:pt-3">
               {input && (
                 <CodeBlock label="Request Parameters" content={formatContent(input)} />
               )}

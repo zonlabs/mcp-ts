@@ -1,0 +1,152 @@
+'use client';
+
+import { useMemo, useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Eye, EyeOff } from "lucide-react";
+import { ModelSelector } from "@/components/playground/ModelSelector";
+import { AVAILABLE_MODELS } from "@/components/playground/availableModels";
+import { LLM_PROVIDERS, getProviderIconUrl } from "@/components/playground/llmProviders";
+import { DEFAULT_LLM_CONFIG, LlmConfig, normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from "@/components/playground/llmConfig";
+
+export function LlmSettingsPanel() {
+  const [config, setConfig] = useState<LlmConfig>(DEFAULT_LLM_CONFIG);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  useEffect(() => {
+    setConfig(readLlmConfigFromStorage());
+    setHasLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoaded) return;
+    writeLlmConfigToStorage(config);
+  }, [config, hasLoaded]);
+
+  const updateConfig = (patch: Partial<LlmConfig>) => {
+    setConfig((prev) => normalizeLlmConfig({ ...prev, ...patch }));
+  };
+
+  const modelOptions = useMemo(() => {
+    const providerLabelMap: Record<string, string> = {
+      openai: "OpenAI",
+      deepseek: "DeepSeek",
+      google: "Google",
+      anthropic: "Anthropic",
+    };
+
+    const providerLabel = providerLabelMap[config.provider] || "";
+
+    const base = AVAILABLE_MODELS.filter((m) =>
+      providerLabel ? m.provider === providerLabel : false
+    );
+
+    if (!base.find((m) => m.id === config.model)) {
+      return [
+        ...base,
+        {
+          id: config.model,
+          name: config.model || "Custom",
+          description: "Custom model provided by your API",
+          provider: "Custom",
+          tag: "Custom",
+        },
+      ];
+    }
+
+    return base;
+  }, [config.provider, config.model]);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+            Provider
+          </label>
+          <Select
+            value={config.provider}
+            onValueChange={(value) => updateConfig({ provider: value })}
+          >
+          <SelectTrigger className="h-9 rounded-md bg-transparent border-0 shadow-none focus:ring-0 focus:ring-offset-0 px-0 justify-start gap-1 [&>svg]:ml-1">
+            <SelectValue placeholder="Select provider" />
+          </SelectTrigger>
+            <SelectContent>
+              {LLM_PROVIDERS.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  <div className="flex items-center gap-2">
+                    {provider.iconUrl ? (
+                      <img
+                        src={provider.iconUrl}
+                        alt=""
+                        className="h-4 w-4 rounded-sm"
+                      />
+                    ) : null}
+                    <span>{provider.name}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+            Model
+          </label>
+          <ModelSelector
+            models={modelOptions}
+            selectedModel={config.model}
+            onSelect={(id) => {
+              const selected = modelOptions.find((m) => m.id === id);
+              const nextProvider = selected?.provider === "OpenAI"
+                ? config.provider
+                : config.provider;
+              updateConfig({
+                model: id,
+                provider: nextProvider,
+                customModel: id === "custom" ? config.customModel : "",
+              });
+            }}
+          />
+        </div>
+
+        <div className="flex-1 min-w-[260px]">
+          <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+            API Key
+          </label>
+          <div className="relative">
+            <Input
+              type={showApiKey ? "text" : "password"}
+              placeholder="Paste your API key"
+              value={config.apiKey || ""}
+              onChange={(e) => updateConfig({ apiKey: e.target.value })}
+              className="h-9 rounded-none bg-transparent border-0 border-b border-gray-200 dark:border-zinc-800 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 pr-7 font-mono text-xs px-0"
+            />
+            <button
+              type="button"
+              onClick={() => setShowApiKey((v) => !v)}
+              className="absolute inset-y-0 right-1 flex items-center text-muted-foreground hover:text-foreground"
+              aria-label={showApiKey ? "Hide API key" : "Show API key"}
+            >
+              {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {getProviderIconUrl(config.provider) ? (
+          <img
+            src={getProviderIconUrl(config.provider)}
+            alt=""
+            className="h-3.5 w-3.5 rounded-sm"
+          />
+        ) : null}
+        <span>Your key stays in your browser and is sent only with your prompts.</span>
+      </div>
+      <div className="border-t border-border" />
+    </div>
+  );
+}

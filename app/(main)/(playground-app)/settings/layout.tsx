@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Bot, Server, Network } from "lucide-react";
+import { User, Bot, Plug, KeyRound, Network } from "lucide-react";
 
 interface SettingsNavItem {
   label: string;
@@ -12,7 +12,8 @@ interface SettingsNavItem {
 
 const navItems: SettingsNavItem[] = [
   { label: "Account", href: "/settings", icon: User },
-  { label: "Connectors", href: "/settings/connectors", icon: Server },
+  { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
+  { label: "Connectors", href: "/settings/connectors", icon: Plug },
   { label: "Assistants", href: "/settings/assistants", icon: Bot },
   // { label: "A2A Agents", href: "/settings/agents", icon: Network },
 ];
@@ -31,30 +32,6 @@ export default function SettingsLayout({
       <div className="md:w-64 md:pr-6 shrink-0">
         <div className="md:border-r border-border h-full md:pr-6">
           <h2 className="text-lg font-semibold mb-3 md:mb-6">Settings</h2>
-
-          {/* Mobile Nav */}
-          <nav className="md:hidden space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-
-              return (
-                <button
-                  key={item.href}
-                  onClick={() => router.push(item.href)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors cursor-pointer",
-                    isActive
-                      ? "bg-accent text-accent-foreground font-medium"
-                      : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
 
           {/* Desktop Nav */}
           <nav className="hidden md:block space-y-1">
