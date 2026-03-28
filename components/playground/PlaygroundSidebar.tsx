@@ -20,6 +20,7 @@ import {
   Search,
   MoreHorizontal,
   ArrowUpRight,
+  Link,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -533,17 +534,13 @@ export const PlaygroundSidebar = () => {
 
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Chat link</p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-2 py-1.5">
-                <div className="text-xs text-muted-foreground break-all sm:truncate sm:flex-1">
-                  {shareChatId ? `${(typeof window !== "undefined" ? window.location.origin : getAppUrl())}/share/${shareChatId}` : ""}
-                </div>
-                <button
-                  onClick={handleCopyShareLink}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1 text-xs hover:bg-accent/40 transition-colors w-full sm:w-auto shrink-0"
-                >
-                  Copy link
-                </button>
-              </div>
+              <button
+                onClick={handleCopyShareLink}
+                className="w-full inline-flex items-center justify-between rounded-lg border border-border/70 bg-white text-zinc-900 px-3 py-2 text-xs transition-colors hover:bg-zinc-100 cursor-pointer dark:bg-white dark:text-zinc-900"
+              >
+                <span>Copy link</span>
+                <Link className="h-4 w-4" />
+              </button>
             </div>
 
           </div>

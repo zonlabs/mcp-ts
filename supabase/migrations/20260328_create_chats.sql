@@ -96,6 +96,19 @@ with check (
   )
 );
 
+-- Allow inserts into public chats for collaboration
+drop policy if exists "chat_messages_insert_public" on public.chat_messages;
+create policy "chat_messages_insert_public" on public.chat_messages
+for insert
+with check (
+  exists (
+    select 1
+    from public.chats
+    where public.chats.id = chat_messages.chat_id
+      and public.chats.visibility in ('PUBLIC')
+  )
+);
+
 drop policy if exists "chat_messages_update_own" on public.chat_messages;
 create policy "chat_messages_update_own" on public.chat_messages
 for update

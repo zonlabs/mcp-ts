@@ -113,7 +113,6 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
 export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessage[]): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
 
   const { data: existingRows, error: existingError } = await supabase
     .from('chat_messages')
@@ -166,27 +165,29 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
   }
 
   const now = new Date().toISOString();
-  const { error: upsertError } = await supabase
-    .from('chats')
-    .upsert({
-      id: chatId,
-      user_id: user.id,
-      updated_at: now,
-    }, { onConflict: 'id' });
+  if (user) {
+    const { error: upsertError } = await supabase
+      .from('chats')
+      .upsert({
+        id: chatId,
+        user_id: user.id,
+        updated_at: now,
+      }, { onConflict: 'id' });
 
-  if (upsertError) {
-    console.error('[chat-store] saveChat failed to upsert chat:', upsertError);
-    return;
-  }
+    if (upsertError) {
+      console.error('[chat-store] saveChat failed to upsert chat:', upsertError);
+      return;
+    }
 
-  const { error: deleteError } = await supabase
-    .from('chat_messages')
-    .delete()
-    .eq('chat_id', chatId);
+    const { error: deleteError } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('chat_id', chatId);
 
-  if (deleteError) {
-    console.error('[chat-store] saveChat failed to clear messages:', deleteError);
-    return;
+    if (deleteError) {
+      console.error('[chat-store] saveChat failed to clear messages:', deleteError);
+      return;
+    }
   }
 
   if (messages.length === 0) return;
@@ -201,7 +202,9 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
     const inputTokens = usage?.inputTokens ?? usage?.promptTokens ?? null;
     const outputTokens = usage?.outputTokens ?? usage?.completionTokens ?? null;
     const totalTokens = usage?.totalTokens ?? null;
+    const id = (message as any)?.id;
     return {
+      ...(id ? { id } : {}),
       chat_id: chatId,
       role: message.role,
       parts,
@@ -212,6 +215,19 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
       total_tokens: totalTokens,
     };
   });
+
+  if (!user) {
+    const existingIds = new Set(existingMessages.map((m: any) => m?.id).filter(Boolean));
+    const rowsToInsert = rows.filter((row: any) => !row.id || !existingIds.has(row.id));
+    if (rowsToInsert.length === 0) return;
+    const { error: insertError } = await supabase
+      .from('chat_messages')
+      .insert(rowsToInsert);
+    if (insertError) {
+      console.error('[chat-store] saveChat failed to insert messages:', insertError);
+    }
+    return;
+  }
 
   const { error: insertError } = await supabase
     .from('chat_messages')
