@@ -15,6 +15,7 @@ import {
   Lock,
   Globe,
   AlertTriangle,
+  CheckCircle2,
   Plug,
   Bot,
   Search,
@@ -57,6 +58,7 @@ export const PlaygroundSidebar = () => {
   const [shareChatId, setShareChatId] = useState<string | null>(null);
   const [shareVisibility, setShareVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
   const [isSavingShare, setIsSavingShare] = useState(false);
+  const [shareCopyMessage, setShareCopyMessage] = useState<string | null>(null);
   const { userSession } = useAuth();
   const user = userSession?.user;
   const router = useRouter();
@@ -206,16 +208,19 @@ export const PlaygroundSidebar = () => {
   const handleCopyShareLink = async () => {
     if (!shareChatId) return;
     if (shareVisibility !== 'PUBLIC') {
-      toast.error("Set chat to Public to enable sharing");
+      setShareCopyMessage("Set chat to Public to enable sharing.");
+      setTimeout(() => setShareCopyMessage(null), 2000);
       return;
     }
     const baseUrl = typeof window !== "undefined" ? window.location.origin : getAppUrl();
     const shareUrl = `${baseUrl}/share/${shareChatId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Share link copied");
+      setShareCopyMessage("Link copied");
+      setTimeout(() => setShareCopyMessage(null), 2000);
     } catch {
-      toast.error("Failed to copy link");
+      setShareCopyMessage("Failed to copy link");
+      setTimeout(() => setShareCopyMessage(null), 2000);
     }
   };
 
@@ -533,10 +538,17 @@ export const PlaygroundSidebar = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Chat link</p>
+              <div className="flex items-center justify-between min-h-[22px]">
+                <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+                  <CheckCircle2 className={shareCopyMessage ? "h-3.5 w-3.5" : "h-3.5 w-3.5 opacity-0"} />
+                  <span className={shareCopyMessage ? "" : "opacity-0"}>
+                    {shareCopyMessage ?? "Copied"}
+                  </span>
+                </div>
+              </div>
               <button
                 onClick={handleCopyShareLink}
-                className="w-full inline-flex items-center justify-between rounded-lg border border-border/70 bg-white text-zinc-900 px-3 py-2 text-xs transition-colors hover:bg-zinc-100 cursor-pointer dark:bg-white dark:text-zinc-900"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-white text-zinc-900 px-3 py-2 text-xs transition-colors hover:bg-zinc-100 cursor-pointer dark:bg-white dark:text-zinc-900"
               >
                 <span>Copy link</span>
                 <Link className="h-4 w-4" />
