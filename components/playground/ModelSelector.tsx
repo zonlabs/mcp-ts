@@ -68,7 +68,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
           <DialogHeader className="px-4 pt-4 flex-row items-center gap-2 space-y-0">
             <DialogTitle className="text-sm">Select model</DialogTitle>
             <Link
-              href="/playground/settings/api-keys"
+              href="/settings/api-keys"
               className="flex items-center gap-1.5 text-xs text-primary hover:underline"
             >
               <Info className="h-3.5 w-3.5" />
