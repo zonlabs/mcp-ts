@@ -94,7 +94,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
-        id: generateMessageId(),
+        messageId: generateMessageId(),
         parts: data.parts,
       }, {
         body: { llmConfig: currentConfig },
@@ -102,7 +102,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
       return;
     }
     if (data.text) {
-      sendMessage({ id: generateMessageId(), text: data.text }, { body: { llmConfig: currentConfig } });
+      sendMessage({ messageId: generateMessageId(), text: data.text }, { body: { llmConfig: currentConfig } });
     }
   };
 

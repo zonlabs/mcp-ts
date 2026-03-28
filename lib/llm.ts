@@ -23,7 +23,7 @@ export function getModelFromConfig(config?: LlmConfig) {
     return anthropic(requestedModel);
   }
   if (provider === 'google' || provider === 'gemini') {
-    return google(requestedModel, { apiKey: apiKey || '' });
+    return google(requestedModel);
   }
   return createOpenAI({ apiKey })(requestedModel);
 }

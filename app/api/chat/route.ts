@@ -82,7 +82,7 @@ async function generateChatTitle(input: {
     const result = await generateText({
       model,
       prompt: `Create a concise chat title (3-6 words). Avoid quotes and punctuation.\nMessage: ${input.prompt}`,
-      maxTokens: 16,
+      maxOutputTokens: 16,
     });
     const raw = result.text?.trim() || '';
     if (!raw) return null;
