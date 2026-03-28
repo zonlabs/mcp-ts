@@ -240,6 +240,132 @@ export const PlaygroundSidebar = () => {
     }
   };
 
+  const renderSettingsLinks = (onNavigate: (path: string) => void, itemClassName: string) => (
+    <>
+      {settingsLinks.map((link) => {
+        const Icon = link.icon;
+        return (
+          <button
+            key={link.href}
+            onClick={() => onNavigate(link.href)}
+            className={cn(
+              itemClassName,
+              pathname === link.href
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+            )}
+          >
+            <Icon className="w-4 h-4" />
+            <span>{link.label}</span>
+          </button>
+        );
+      })}
+    </>
+  );
+
+  const renderChatItems = (onNavigate: (path: string) => void) => (
+    <>
+      {isLoadingChats && (
+        <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
+      )}
+      {!isLoadingChats && filteredChats.length === 0 && (
+        <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
+      )}
+      {filteredChats.map((chat) => (
+        <div
+          key={chat.id}
+          className={cn(
+            "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+            pathname === `/playground/${chat.id}`
+              ? "bg-accent text-foreground"
+              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          )}
+        >
+          <div className="flex-1 min-w-0">
+            {editingChatId === chat.id ? (
+              <input
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSaveRenameChat(chat.id);
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    handleCancelRenameChat();
+                  }
+                }}
+                onBlur={() => handleSaveRenameChat(chat.id)}
+                autoFocus
+                className="w-full bg-transparent border border-border/60 rounded-md px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            ) : (
+              <button
+                onClick={() => onNavigate(`/playground/${chat.id}`)}
+                className="w-full text-left"
+              >
+                <span className="block truncate">{formatChatTitle(chat.title)}</span>
+              </button>
+            )}
+          </div>
+          <DropdownMenu onOpenChange={(open) => setActiveChatMenuId(open ? chat.id : null)}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
+                  activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}
+                aria-label="Chat actions"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+              <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                <SquarePen className="h-4 w-4" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                <ArrowUpRight className="h-4 w-4" />
+                Share
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem
+                onClick={() => handleDeleteChat(chat.id)}
+                className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
+              >
+                <X className="h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ))}
+    </>
+  );
+
+  const renderChatSearch = (
+    wrapperClassName: string,
+    labelClassName: string,
+    labelText: string
+  ) => (
+    <div className={wrapperClassName}>
+      <div className={cn("flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80", labelClassName)}>
+        <span>{labelText}</span>
+      </div>
+      <div className="mt-2 relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+        <input
+          value={chatQuery}
+          onChange={(e) => setChatQuery(e.target.value)}
+          placeholder="Search chats"
+          className="w-full rounded-md border border-border/60 bg-background/60 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <>
       {/* Mobile Top Bar */}
@@ -337,118 +463,14 @@ export const PlaygroundSidebar = () => {
               </button>
               {isSettingsOpen && (
                 <div className="pl-4 pr-1 space-y-1">
-                  {settingsLinks.map((link) => {
-                    const Icon = link.icon;
-                    return (
-                      <button
-                        key={link.href}
-                        onClick={() => navigateTo(link.href)}
-                        className={cn(
-                          "w-full flex items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors",
-                          pathname === link.href
-                            ? "bg-accent text-foreground"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                        )}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{link.label}</span>
-                      </button>
-                    );
-                  })}
+                  {renderSettingsLinks(navigateTo, "w-full flex items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors")}
                 </div>
               )}
 
               <div className="pt-3">
-                <div className="flex items-center gap-2 px-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
-                  <span>Your Chats</span>
-                </div>
-                <div className="mt-2 relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
-                  <input
-                    value={chatQuery}
-                    onChange={(e) => setChatQuery(e.target.value)}
-                    placeholder="Search chats"
-                    className="w-full rounded-md border border-border/60 bg-background/60 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
+                {renderChatSearch("mt-2", "px-3", "Your Chats")}
                 <div className="mt-2 space-y-1 max-h-[45vh] overflow-y-auto pr-1">
-                  {isLoadingChats && (
-                    <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
-                  )}
-                  {!isLoadingChats && filteredChats.length === 0 && (
-                    <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
-                  )}
-                  {filteredChats.map((chat) => (
-                    <div
-                      key={chat.id}
-                      className={cn(
-                        "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                        pathname === `/playground/${chat.id}`
-                          ? "bg-accent text-foreground"
-                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                      )}
-                    >
-                      <div className="flex-1 min-w-0">
-                        {editingChatId === chat.id ? (
-                          <input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleSaveRenameChat(chat.id);
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                handleCancelRenameChat();
-                              }
-                            }}
-                            onBlur={() => handleSaveRenameChat(chat.id)}
-                            autoFocus
-                            className="w-full bg-transparent border border-border/60 rounded-md px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          />
-                        ) : (
-                          <button
-                            onClick={() => navigateTo(`/playground/${chat.id}`)}
-                            className="w-full text-left"
-                          >
-                            <span className="block truncate">{formatChatTitle(chat.title)}</span>
-                          </button>
-                        )}
-                      </div>
-                      <DropdownMenu onOpenChange={(open) => setActiveChatMenuId(open ? chat.id : null)}>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className={cn(
-                              "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
-                              activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                            )}
-                            aria-label="Chat actions"
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
-                        <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
-                          <SquarePen className="h-4 w-4" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
-                          <ArrowUpRight className="h-4 w-4" />
-                          Share
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="my-1" />
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteChat(chat.id)}
-                          className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  ))}
+                  {renderChatItems(navigateTo)}
                 </div>
               </div>
             </div>
@@ -705,41 +727,12 @@ export const PlaygroundSidebar = () => {
         <div className="flex-1 min-h-0 flex flex-col">
           {isOpen && isSettingsOpen && (
             <div className="px-2 pb-2 space-y-1">
-              {settingsLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <button
-                    key={link.href}
-                    onClick={() => router.push(link.href)}
-                    className={cn(
-                      "w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                      pathname === link.href
-                        ? "bg-accent text-foreground"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{link.label}</span>
-                  </button>
-                );
-              })}
+              {renderSettingsLinks(router.push, "w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors")}
             </div>
           )}
           {isOpen && (
             <div className="px-3 pb-3">
-              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
-                <Search className="w-3 h-3" />
-                <span>Chats</span>
-              </div>
-              <div className="mt-2 relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
-                <input
-                  value={chatQuery}
-                  onChange={(e) => setChatQuery(e.target.value)}
-                  placeholder="Search chats"
-                  className="w-full rounded-md border border-border/60 bg-background/60 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
+              {renderChatSearch("", "", "Your Chats")}
             </div>
           )}
           {isOpen && (
