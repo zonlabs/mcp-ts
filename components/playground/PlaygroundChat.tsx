@@ -12,7 +12,7 @@ import { UserMessage, AssistantMessage } from '@/components/playground/ChatMessa
 import { cn } from '@/lib/utils';
 import { LoadingSpinner } from '@/components/playground/LoadingSpinner';
 import { RecipeComponent } from '@/components/playground/RecipeComponent';
-import { ArrowUpRight, RefreshCw, Hash, ArrowDownLeft, ArrowUpRight as ArrowUpRightIcon } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/playground/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/openai-agent';
@@ -26,6 +26,7 @@ interface PlaygroundChatProps {
 export function PlaygroundChat({ chatId, initialMessages, initialDraft }: PlaygroundChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
+  const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
   const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
   const chatInnerContentInsetClass = "px-2 sm:px-2";
@@ -36,12 +37,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
       ...normalized,
       baseUrl: normalized.baseUrl || undefined,
     };
-  };
-  const generateMessageId = () => {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return `usr_${crypto.randomUUID()}`;
-    }
-    return `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   };
   const mobileStarterPrompts = [
     {
@@ -90,11 +85,11 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
   });
 
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
+    if (status !== 'ready') return;
     const currentConfig = getLatestLlmConfig();
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
-        messageId: generateMessageId(),
         parts: data.parts,
       }, {
         body: { llmConfig: currentConfig },
@@ -102,7 +97,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
       return;
     }
     if (data.text) {
-      sendMessage({ messageId: generateMessageId(), text: data.text }, { body: { llmConfig: currentConfig } });
+      sendMessage({ text: data.text }, { body: { llmConfig: currentConfig } });
     }
   };
 
@@ -132,13 +127,11 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
       try {
         const parsed = JSON.parse(stored);
         if (parsed?.parts?.length) {
-          hasSentInitialDraft.current = true;
-          sendChatInput({ parts: parsed.parts });
+          pendingDraftRef.current = { parts: parsed.parts };
           return;
         }
         if (typeof parsed?.text === 'string' && parsed.text.trim()) {
-          hasSentInitialDraft.current = true;
-          sendChatInput({ text: parsed.text });
+          pendingDraftRef.current = { text: parsed.text };
           return;
         }
       } catch {
@@ -146,13 +139,21 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
       }
     }
     if (initialDraft && initialDraft.trim()) {
-      hasSentInitialDraft.current = true;
-      sendChatInput({ text: initialDraft });
+      pendingDraftRef.current = { text: initialDraft };
     }
   }, [initialDraft]);
 
-  const visibleMessages = messages;
-  const hasMessages = visibleMessages.length > 0;
+  useEffect(() => {
+    if (hasSentInitialDraft.current) return;
+    if (status !== 'ready') return;
+    if (!pendingDraftRef.current) return;
+    hasSentInitialDraft.current = true;
+    const payload = pendingDraftRef.current;
+    pendingDraftRef.current = null;
+    sendChatInput(payload);
+  }, [status]);
+
+  const hasMessages = messages.length > 0;
 
   const handleRegenerate = () => {
     const lastUserIndex = [...messages].reverse().findIndex((m: any) => m?.role === 'user');
@@ -220,7 +221,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
                 {mobileStarterPrompts.map((item) => (
                   <button
                     key={item.label}
-                    onClick={() => sendMessage({ text: item.prompt })}
+                    onClick={() => sendChatInput({ text: item.prompt })}
                     className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-foreground/90 hover:bg-accent/30 transition-colors"
                   >
                     <div className="flex items-center gap-2">
@@ -268,7 +269,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
 
               <div className="px-4">
                 <RecipeComponent
-                  onAction={(prompt) => sendMessage({ text: prompt })}
+                  onAction={(prompt) => sendChatInput({ text: prompt })}
                 />
               </div>
             </div>
@@ -281,7 +282,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
             <div className={`${chatContentWidthClass} py-4 sm:py-8 space-y-6 sm:space-y-8`}>
               <div className={chatInnerContentInsetClass}>
               {/* Messages */}
-              {visibleMessages.map((m, messageIndex) => {
+              {messages.map((m) => {
                 const usageForMessage = m?.metadata?.usage;
                 return (
                   <div key={m.id} className={cn("group flex flex-col gap-3", m.role === 'user' ? "items-end" : "items-start")}>
