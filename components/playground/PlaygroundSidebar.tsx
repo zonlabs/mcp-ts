@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
   Settings,
@@ -9,12 +9,17 @@ import {
   PanelLeftOpen,
   PanelLeftClose,
   LayoutGrid,
-  Menu,
   X,
   User,
   KeyRound,
+  Lock,
+  Globe,
+  AlertTriangle,
   Plug,
   Bot,
+  Search,
+  MoreHorizontal,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -34,10 +39,23 @@ import {
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { toast } from "react-hot-toast";
+import { getAppUrl } from "@/lib/url";
 
 export const PlaygroundSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [chats, setChats] = useState<{ id: string; title: string | null; updated_at: string | null; created_at: string | null; visibility?: string | null }[]>([]);
+  const [isLoadingChats, setIsLoadingChats] = useState(false);
+  const [chatQuery, setChatQuery] = useState("");
+  const [activeChatMenuId, setActiveChatMenuId] = useState<string | null>(null);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareChatId, setShareChatId] = useState<string | null>(null);
+  const [shareVisibility, setShareVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
+  const [isSavingShare, setIsSavingShare] = useState(false);
   const { userSession } = useAuth();
   const user = userSession?.user;
   const router = useRouter();
@@ -64,6 +82,142 @@ export const PlaygroundSidebar = () => {
     setIsMobileMenuOpen(false);
   };
 
+  useEffect(() => {
+    if (!user?.id) {
+      setChats([]);
+      return;
+    }
+    let isActive = true;
+    setIsLoadingChats(true);
+    const supabase = createClient();
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("chats")
+          .select("id, title, updated_at, created_at, visibility")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false });
+        if (!isActive) return;
+        if (error) {
+          console.error("[PlaygroundSidebar] failed to load chats:", error);
+          setChats([]);
+          return;
+        }
+        setChats(Array.isArray(data) ? data : []);
+      } finally {
+        if (isActive) setIsLoadingChats(false);
+      }
+    })();
+    return () => {
+      isActive = false;
+    };
+  }, [user?.id, pathname]);
+
+  const filteredChats = useMemo(() => {
+    const query = chatQuery.trim().toLowerCase();
+    if (!query) return chats;
+    return chats.filter((chat) => (chat.title || "").toLowerCase().includes(query));
+  }, [chats, chatQuery]);
+
+  const formatChatTitle = (title: string | null) => {
+    const normalized = (title || "").trim();
+    if (!normalized) return "New Chat";
+    if (normalized.toLowerCase() === "anonymous chat") return "New Chat";
+    if (normalized.toLowerCase() === "new chat") return "New Chat";
+    return normalized;
+  };
+
+  const handleRenameChat = (chatId: string) => {
+    const current = chats.find((c) => c.id === chatId);
+    const title = formatChatTitle(current?.title ?? null);
+    setEditingChatId(chatId);
+    setEditingTitle(title);
+  };
+
+  const handleSaveRenameChat = async (chatId: string) => {
+    const trimmed = editingTitle.trim();
+    setEditingChatId(null);
+    if (!trimmed) return;
+
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, title: trimmed } : c)));
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("chats")
+      .update({ title: trimmed, updated_at: new Date().toISOString() })
+      .eq("id", chatId);
+    if (error) {
+      console.error("[PlaygroundSidebar] failed to rename chat:", error);
+    }
+  };
+
+  const handleCancelRenameChat = () => {
+    setEditingChatId(null);
+    setEditingTitle("");
+  };
+
+  const handleDeleteChat = async (chatId: string) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("chats")
+      .delete()
+      .eq("id", chatId);
+    if (error) {
+      console.error("[PlaygroundSidebar] failed to delete chat:", error);
+      return;
+    }
+
+    setChats((prev) => prev.filter((c) => c.id !== chatId));
+    if (pathname === `/playground/${chatId}`) {
+      router.push("/playground");
+    }
+    toast.success("Chat deleted successfully");
+  };
+
+  const handleOpenShare = (chatId: string) => {
+    const chat = chats.find((c) => c.id === chatId);
+    const nextVisibility = (chat?.visibility || 'PRIVATE') as 'PRIVATE' | 'PUBLIC';
+    setShareChatId(chatId);
+    setShareVisibility(nextVisibility);
+    setIsShareOpen(true);
+  };
+
+  const handleSaveShare = async (nextVisibility?: 'PRIVATE' | 'PUBLIC') => {
+    if (!shareChatId) return;
+    setIsSavingShare(true);
+    const targetVisibility = nextVisibility ?? shareVisibility;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("chats")
+      .update({ visibility: targetVisibility, updated_at: new Date().toISOString() })
+      .eq("id", shareChatId);
+    if (error) {
+      console.error("[PlaygroundSidebar] failed to update share settings:", error);
+      toast.error("Failed to update sharing");
+      setIsSavingShare(false);
+      return;
+    }
+    setShareVisibility(targetVisibility);
+    setChats((prev) => prev.map((c) => (c.id === shareChatId ? { ...c, visibility: targetVisibility } : c)));
+    setIsSavingShare(false);
+    toast.success("Share settings updated");
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!shareChatId) return;
+    if (shareVisibility !== 'PUBLIC') {
+      toast.error("Set chat to Public to enable sharing");
+      return;
+    }
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : getAppUrl();
+    const shareUrl = `${baseUrl}/share/${shareChatId}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Share link copied");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
+
   return (
     <>
       {/* Mobile Top Bar */}
@@ -73,13 +227,13 @@ export const PlaygroundSidebar = () => {
           className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
           aria-label="Open navigation menu"
         >
-          <Menu className="w-5 h-5 text-foreground" />
+          <PanelLeftOpen className="w-5 h-5 text-foreground" />
         </button>
         <button
           onClick={() => router.push("/playground")}
           className="text-sm font-medium text-foreground"
         >
-          Anonymous Chat
+          New Chat
         </button>
         <button
           onClick={() => router.push("/")}
@@ -87,7 +241,7 @@ export const PlaygroundSidebar = () => {
           aria-label="Go to home page"
         >
           <Image
-            src="/logo.svg"
+            src="/logo-mark-red.svg"
             alt="Home"
             width={20}
             height={20}
@@ -101,7 +255,16 @@ export const PlaygroundSidebar = () => {
         <DialogContent className="md:hidden p-0 rounded-none max-w-full w-full h-full left-0 top-0 translate-x-0 translate-y-0 border-0" showCloseButton={false}>
           <div className="h-full flex flex-col bg-background">
             <div className="h-14 border-b border-border/60 px-3 flex items-center justify-between">
-              <span className="text-sm font-medium">Menu</span>
+              <div className="flex items-center gap-2">
+                <Image
+                  src="/logo-mark-red.svg"
+                  alt="MCP Assistant"
+                  width={20}
+                  height={20}
+                  className="opacity-90"
+                />
+                <span className="text-sm font-medium">MCP Assistant</span>
+              </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
@@ -134,39 +297,137 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <SquarePen className="w-5 h-5" />
-                <span>Anonymous Chat</span>
+                  <span>New Chat</span>
               </button>
               <button
-                onClick={() => navigateTo('/settings')}
+                onClick={() => setIsSettingsOpen((prev) => !prev)}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                   pathname.startsWith("/settings")
                     ? "bg-accent text-foreground"
                     : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 )}
+                aria-expanded={isSettingsOpen}
               >
                 <Settings className="w-5 h-5" />
-                <span>Settings</span>
+                <span className="flex-1 text-left">Settings</span>
+                <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
               </button>
-              <div className="pl-4 pr-1 space-y-1">
-                {settingsLinks.map((link) => {
-                  const Icon = link.icon;
-                  return (
-                    <button
-                      key={link.href}
-                      onClick={() => navigateTo(link.href)}
+              {isSettingsOpen && (
+                <div className="pl-4 pr-1 space-y-1">
+                  {settingsLinks.map((link) => {
+                    const Icon = link.icon;
+                    return (
+                      <button
+                        key={link.href}
+                        onClick={() => navigateTo(link.href)}
+                        className={cn(
+                          "w-full flex items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors",
+                          pathname === link.href
+                            ? "bg-accent text-foreground"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{link.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="pt-3">
+                <div className="flex items-center gap-2 px-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                  <span>Your Chats</span>
+                </div>
+                <div className="mt-2 relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+                  <input
+                    value={chatQuery}
+                    onChange={(e) => setChatQuery(e.target.value)}
+                    placeholder="Search chats"
+                    className="w-full rounded-md border border-border/60 bg-background/60 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+                <div className="mt-2 space-y-1 max-h-[45vh] overflow-y-auto pr-1">
+                  {isLoadingChats && (
+                    <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
+                  )}
+                  {!isLoadingChats && filteredChats.length === 0 && (
+                    <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
+                  )}
+                  {filteredChats.map((chat) => (
+                    <div
+                      key={chat.id}
                       className={cn(
-                        "w-full flex items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors",
-                        pathname === link.href
+                        "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        pathname === `/playground/${chat.id}`
                           ? "bg-accent text-foreground"
                           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                       )}
                     >
-                      <Icon className="w-4 h-4" />
-                      <span>{link.label}</span>
-                    </button>
-                  );
-                })}
+                      <div className="flex-1 min-w-0">
+                        {editingChatId === chat.id ? (
+                          <input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleSaveRenameChat(chat.id);
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                handleCancelRenameChat();
+                              }
+                            }}
+                            onBlur={() => handleSaveRenameChat(chat.id)}
+                            autoFocus
+                            className="w-full bg-transparent border border-border/60 rounded-md px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => navigateTo(`/playground/${chat.id}`)}
+                            className="w-full text-left"
+                          >
+                            <span className="block truncate">{formatChatTitle(chat.title)}</span>
+                          </button>
+                        )}
+                      </div>
+                      <DropdownMenu onOpenChange={(open) => setActiveChatMenuId(open ? chat.id : null)}>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className={cn(
+                              "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
+                              activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                            )}
+                            aria-label="Chat actions"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+                        <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                          <SquarePen className="h-4 w-4" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                          <ArrowUpRight className="h-4 w-4" />
+                          Share
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="my-1" />
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteChat(chat.id)}
+                          className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -202,6 +463,89 @@ export const PlaygroundSidebar = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[85vh] overflow-y-auto bg-background text-foreground p-4 sm:p-5">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-base font-semibold">Share this conversation</h3>
+            </div>
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-1.5">
+              <AlertTriangle className="h-4 w-4 mt-0.5" />
+              <p className="text-xs">
+                This may contain personal information. Please review before sharing.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {([
+                { value: 'PRIVATE', label: 'Private', description: 'Only you have access' },
+                { value: 'PUBLIC', label: 'Public access', description: 'Anyone with the link can view' },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={async () => {
+                    setShareVisibility(option.value);
+                    await handleSaveShare(option.value);
+                  }}
+                  className={cn(
+                    "w-full text-left rounded-lg px-2 py-1.5 transition-colors border",
+                    shareVisibility === option.value
+                      ? "border-primary/50 bg-primary/10"
+                      : "border-border/70 hover:bg-accent/40"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "h-8 w-8 rounded-md flex items-center justify-center",
+                      shareVisibility === option.value
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted/40 text-muted-foreground"
+                    )}>
+                      {option.value === 'PRIVATE' ? (
+                        <Lock className="h-5 w-5" />
+                      ) : (
+                        <Globe className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold">{option.label}</span>
+                        {shareVisibility === option.value ? (
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-emerald-500/70 bg-emerald-500/10 text-emerald-500 text-xs">
+                            ✓
+                          </span>
+                        ) : (
+                          <span className="inline-flex h-5 w-5 rounded-full border border-muted-foreground/30" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Chat link</p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-2 py-1.5">
+                <div className="text-xs text-muted-foreground break-all sm:truncate sm:flex-1">
+                  {shareChatId ? `${(typeof window !== "undefined" ? window.location.origin : getAppUrl())}/share/${shareChatId}` : ""}
+                </div>
+                <button
+                  onClick={handleCopyShareLink}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1 text-xs hover:bg-accent/40 transition-colors w-full sm:w-auto shrink-0"
+                >
+                  Copy link
+                </button>
+              </div>
+            </div>
+
           </div>
         </DialogContent>
       </Dialog>
@@ -273,7 +617,7 @@ export const PlaygroundSidebar = () => {
             )}
           </Tooltip>
 
-          {/* Anonymous Chat Button */}
+          {/* New Chat Button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -287,12 +631,12 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <SquarePen className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate">Anonymous Chat</span>}
+                {isOpen && <span className="truncate">New Chat</span>}
               </button>
             </TooltipTrigger>
             {!isOpen && (
               <TooltipContent side="right" sideOffset={8}>
-                Anonymous Chat
+                New Chat
               </TooltipContent>
             )}
           </Tooltip>
@@ -301,7 +645,12 @@ export const PlaygroundSidebar = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => router.push('/settings')}
+                onClick={() => {
+                  setIsSettingsOpen((prev) => !prev);
+                  if (!isOpen) {
+                    setIsOpen(true);
+                  }
+                }}
                 className={cn(
                   "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
                   isOpen ? "gap-3 px-3" : "justify-center px-0",
@@ -311,7 +660,12 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <Settings className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate">Settings</span>}
+                {isOpen && (
+                  <>
+                    <span className="truncate flex-1 text-left">Settings</span>
+                    <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
+                  </>
+                )}
               </button>
             </TooltipTrigger>
             {!isOpen && (
@@ -322,8 +676,129 @@ export const PlaygroundSidebar = () => {
           </Tooltip>
         </div>
 
-        {/* Spacer to push profile to bottom */}
-        <div className="flex-1"></div>
+        {/* Chats List */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {isOpen && isSettingsOpen && (
+            <div className="px-2 pb-2 space-y-1">
+              {settingsLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <button
+                    key={link.href}
+                    onClick={() => router.push(link.href)}
+                    className={cn(
+                      "w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                      pathname === link.href
+                        ? "bg-accent text-foreground"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{link.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {isOpen && (
+            <div className="px-3 pb-3">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                <Search className="w-3 h-3" />
+                <span>Chats</span>
+              </div>
+              <div className="mt-2 relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+                <input
+                  value={chatQuery}
+                  onChange={(e) => setChatQuery(e.target.value)}
+                  placeholder="Search chats"
+                  className="w-full rounded-md border border-border/60 bg-background/60 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+          )}
+          {isOpen && (
+            <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
+              {isLoadingChats && (
+                <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
+              )}
+              {!isLoadingChats && filteredChats.length === 0 && (
+                <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
+              )}
+              {filteredChats.map((chat) => (
+                <div
+                  key={chat.id}
+                  className={cn(
+                    "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                    pathname === `/playground/${chat.id}`
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    {editingChatId === chat.id ? (
+                      <input
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSaveRenameChat(chat.id);
+                          }
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            handleCancelRenameChat();
+                          }
+                        }}
+                        onBlur={() => handleSaveRenameChat(chat.id)}
+                        autoFocus
+                        className="w-full bg-transparent border border-border/60 rounded-md px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => router.push(`/playground/${chat.id}`)}
+                        className="w-full text-left"
+                      >
+                        <span className="block truncate">{formatChatTitle(chat.title)}</span>
+                      </button>
+                    )}
+                  </div>
+                  <DropdownMenu onOpenChange={(open) => setActiveChatMenuId(open ? chat.id : null)}>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className={cn(
+                          "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
+                          activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        )}
+                        aria-label="Chat actions"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+                      <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                        <SquarePen className="h-4 w-4" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                        <ArrowUpRight className="h-4 w-4" />
+                        Share
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="my-1" />
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteChat(chat.id)}
+                        className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
 
         {/* Profile Dropdown at Bottom */}

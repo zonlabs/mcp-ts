@@ -1,13 +1,15 @@
-import { convertToModelMessages } from 'ai';
+import { convertToModelMessages, createIdGenerator } from 'ai';
 import { createMcpAgent, type McpAgentUIMessage } from '@/agent/openai-agent';
 import { createClient } from '@/lib/supabase/server';
 import type { GatewayServerSelection } from '@/lib/gateway-access';
 import { NextResponse } from 'next/server';
+import { saveChat } from '@/lib/chat-store';
 
 interface ChatRequestBody {
   messages: McpAgentUIMessage[];
   uiMessages?: McpAgentUIMessage[];
   gatewaySelections?: GatewayServerSelection[];
+  chatId?: string;
   llmConfig?: {
     provider?: string;
     apiKey?: string;
@@ -24,6 +26,7 @@ export async function POST(req: Request) {
     : Array.isArray(body.uiMessages)
       ? body.uiMessages
       : [];
+  const chatId = typeof body.chatId === 'string' ? body.chatId : undefined;
   if (messages.length === 0) {
     return NextResponse.json(
       { error: 'messages parameter must be provided' },
@@ -45,12 +48,23 @@ export async function POST(req: Request) {
     },
   });
 
+  result.consumeStream();
+
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({
+    generateMessageId: createIdGenerator({
+      prefix: 'msg',
+      size: 16,
+    }),
     messageMetadata: ({ part }) => {
       if (part.type === 'finish-step') {
         return { usage: part.usage };
       }
       return undefined;
+    },
+    onFinish: async ({ messages: finalMessages }) => {
+      if (chatId) {
+        await saveChat(chatId, finalMessages);
+      }
     },
   });
 }
