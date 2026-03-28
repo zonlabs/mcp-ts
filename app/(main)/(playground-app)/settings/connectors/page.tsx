@@ -149,7 +149,7 @@ export default function ConnectorsPage() {
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <Info className="h-3 w-3" />
                   Install gateway:
-                  <code className="font-mono text-foreground">uv add mcpassistant-gateway</code>
+                  <code className="font-mono text-foreground">uvx mcpassistant-gateway</code>
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
