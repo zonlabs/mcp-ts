@@ -146,6 +146,18 @@ export const PlaygroundSidebar = () => {
     return normalized;
   };
 
+  const activeChatId = useMemo(() => {
+    if (!pathname?.startsWith("/playground/")) return null;
+    const segments = pathname.split("/");
+    return segments[2] || null;
+  }, [pathname]);
+
+  const activeChatTitle = useMemo(() => {
+    if (!activeChatId) return "New Chat";
+    const activeChat = chats.find((chat) => chat.id === activeChatId);
+    return formatChatTitle(activeChat?.title ?? null);
+  }, [activeChatId, chats]);
+
   const handleRenameChat = (chatId: string) => {
     const current = chats.find((c) => c.id === chatId);
     const title = formatChatTitle(current?.title ?? null);
@@ -381,7 +393,7 @@ export const PlaygroundSidebar = () => {
           onClick={() => router.push("/playground")}
           className="text-sm font-medium text-foreground"
         >
-          New Chat
+          {activeChatTitle}
         </button>
         <button
           onClick={() => router.push("/")}
@@ -463,7 +475,7 @@ export const PlaygroundSidebar = () => {
               </button>
               {isSettingsOpen && (
                 <div className="pl-4 pr-1 space-y-1">
-                  {renderSettingsLinks(navigateTo, "w-full flex items-center gap-2 rounded-md px-1.5 py-2 text-sm transition-colors")}
+                  {renderSettingsLinks(navigateTo, "w-full flex items-center gap-2 rounded-md pl-4 pr-2 py-2 text-sm transition-colors")}
                 </div>
               )}
 
@@ -727,7 +739,7 @@ export const PlaygroundSidebar = () => {
         <div className="flex-1 min-h-0 flex flex-col">
           {isOpen && isSettingsOpen && (
             <div className="px-2 pb-2 space-y-1">
-              {renderSettingsLinks(router.push, "w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors")}
+              {renderSettingsLinks(router.push, "w-full flex items-center gap-2 rounded-md pl-5 pr-2 py-2 text-sm transition-colors")}
             </div>
           )}
           {isOpen && (

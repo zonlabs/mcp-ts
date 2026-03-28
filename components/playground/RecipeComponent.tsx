@@ -22,8 +22,8 @@ const RECIPE_DATA = [
     icons: ["https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIB8EFu3xpWgE33JuAX-U-1geBFJnk8PAJSA&s"],
   },
   {
-    id: "supabase-project-database-helper",
-    title: "Supabase Project & Database Helper",
+    id: "supabase-project",
+    title: "Supabase Project",
     description: "You help users manage Supabase projects and databases. Assist with projects, tables, migrations, SQL, and troubleshooting while following Supabase best practices. Use documentation and project context to provide accurate, safe, and actionable guidance.",
     icons: ["https://github.com/supabase.png"],
   },
