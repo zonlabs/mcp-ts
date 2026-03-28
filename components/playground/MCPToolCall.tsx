@@ -136,7 +136,7 @@ export default function MCPToolCall({
       {/* Header */}
       <div
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 px-0 py-2 cursor-pointer select-none transition-colors"
+        className="flex w-full items-center gap-2 px-0 py-2 cursor-pointer select-none transition-colors"
       >
         {isRunning && (
           <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />
@@ -144,20 +144,20 @@ export default function MCPToolCall({
         {!isRunning && state === 'output-available' && (
           <CheckCircle2 className="w-4 h-4 text-green-500" />
         )}
-        <div className="flex flex-col min-w-0">
+        <div className="flex-1 min-w-0 flex items-center gap-2">
           <span className="text-[13px] sm:text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
             <ShimmerText active={isRunning}>
               {name}
             </ShimmerText>
           </span>
-          <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500">
-             {statusLabel}
+          <span className="hidden sm:inline-flex text-[9px] sm:text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+            {statusLabel}
           </span>
         </div>
 
         <ChevronDown
           className={cn(
-            "w-4 h-4 text-zinc-400 transition-transform duration-300 ease-in-out",
+            "w-4 h-4 text-zinc-400 transition-transform duration-300 ease-in-out ml-auto",
             open ? 'rotate-180' : ''
           )}
         />

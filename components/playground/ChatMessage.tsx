@@ -135,6 +135,7 @@ export function AssistantMessage({
   parts,
   onRegenerate,
   usage,
+  showActions = true,
 }: any) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -189,46 +190,48 @@ export function AssistantMessage({
             </ReactMarkdown>
           </div>
 
-<TooltipProvider>
+          <TooltipProvider>
             <div className="flex flex-col gap-3 mt-2">
               {/* Action Buttons Row */}
-              <div className="flex gap-1 items-center">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button onClick={handleCopy} className="p-1.5 rounded-md hover:bg-accent transition-colors">
-                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Copy</TooltipContent>
-                </Tooltip>
-
-                {onRegenerate && (
+              {showActions && (
+                <div className="flex gap-1 items-center">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button onClick={onRegenerate} className="p-1.5 rounded-md hover:bg-accent transition-colors">
-                        <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                      <button onClick={handleCopy} className="p-1.5 rounded-md hover:bg-accent transition-colors">
+                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Regenerate</TooltipContent>
+                    <TooltipContent>Copy</TooltipContent>
                   </Tooltip>
-                )}
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => setShowUsage(!showUsage)}
-                      className={`p-1.5 rounded-md transition-all ${showUsage
-                          ? "bg-primary/10 text-primary"
-                          : "hover:bg-accent text-muted-foreground"
-                        }`}
-                    >
-                      <Gauge className="w-4 h-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{showUsage ? "Hide metrics" : "Show metrics"}</TooltipContent>
-                </Tooltip>
-              </div>
+                  {onRegenerate && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button onClick={onRegenerate} className="p-1.5 rounded-md hover:bg-accent transition-colors">
+                          <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Regenerate</TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setShowUsage(!showUsage)}
+                        className={`p-1.5 rounded-md transition-all ${showUsage
+                            ? "bg-primary/10 text-primary"
+                            : "hover:bg-accent text-muted-foreground"
+                          }`}
+                      >
+                        <Gauge className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{showUsage ? "Hide metrics" : "Show metrics"}</TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
 
               {/* ✅ Stylish Usage Metrics on a New Line */}
               {showUsage && usage && (
