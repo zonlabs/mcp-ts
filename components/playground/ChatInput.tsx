@@ -11,7 +11,7 @@ import {
   X,
   FileIcon,
 } from 'lucide-react';
-import { readLlmConfigFromStorage, resolveLlmConfigForRequest, writeLlmConfigToStorage } from '@/components/playground/llmConfig';
+import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/playground/llmConfig';
 import { ModelSelector } from '@/components/playground/ModelSelector';
 import { AVAILABLE_MODELS } from '@/components/playground/availableModels';
 
@@ -60,9 +60,9 @@ export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) 
 
   useEffect(() => {
     const load = () => {
-      const cfg = resolveLlmConfigForRequest(readLlmConfigFromStorage());
-      setActiveModel(cfg.model || '');
-      setActiveProvider(cfg.provider || '');
+      const normalizedConfig = normalizeLlmConfig(readLlmConfigFromStorage());
+      setActiveModel(normalizedConfig.model || '');
+      setActiveProvider(normalizedConfig.provider || '');
       setModelReady(true);
     };
     load();

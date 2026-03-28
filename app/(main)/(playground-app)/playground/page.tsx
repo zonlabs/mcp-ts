@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect } from 'react';
 import Image from 'next/image';
 import MCPToolCall from '@/components/playground/MCPToolCall';
 import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
@@ -14,36 +14,20 @@ import { LoadingSpinner } from '@/components/playground/LoadingSpinner';
 import { RecipeComponent } from '@/components/playground/RecipeComponent';
 import { ArrowUpRight, RefreshCw, Hash, ArrowDownLeft, ArrowUpRight as ArrowUpRightIcon } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
-import { DEFAULT_LLM_CONFIG, resolveLlmConfigForRequest, readLlmConfigFromStorage } from '@/components/playground/llmConfig';
+import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/playground/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/openai-agent';
 
 export default function PlaygroundPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContentWidthClass = "w-full max-w-3xl mx-auto px-1 sm:px-4 lg:px-6";
   const chatInnerContentInsetClass = "px-2 sm:px-2";
-  const [llmConfig, setLlmConfig] = useState(DEFAULT_LLM_CONFIG);
-
-  useEffect(() => {
-    setLlmConfig(readLlmConfigFromStorage());
-  }, []);
-
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "llm_config") {
-        setLlmConfig(readLlmConfigFromStorage());
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  const normalizedLlmConfig = useMemo(() => {
-    const normalized = resolveLlmConfigForRequest(llmConfig);
+  const getLatestLlmConfig = () => {
+    const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
     return {
       ...normalized,
       baseUrl: normalized.baseUrl || undefined,
     };
-  }, [llmConfig]);
+  };
   const mobileStarterPrompts = [
     {
       label: 'Market Analysis',
@@ -72,7 +56,7 @@ export default function PlaygroundPage() {
       api: '/api/chat',
       prepareSendMessagesRequest: ({ body, messages }) => {
         const bodyConfig = (body as any)?.llmConfig;
-        const latestConfig = resolveLlmConfigForRequest(readLlmConfigFromStorage());
+        const latestConfig = getLatestLlmConfig();
 
         return {
           body: {
@@ -86,6 +70,22 @@ export default function PlaygroundPage() {
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
+
+  const sendChatInput = (data: { text?: string; parts?: any[] }) => {
+    const currentConfig = getLatestLlmConfig();
+    if (data.parts && data.parts.length > 0) {
+      sendMessage({
+        role: 'user',
+        parts: data.parts,
+      }, {
+        body: { llmConfig: currentConfig },
+      });
+      return;
+    }
+    if (data.text) {
+      sendMessage({ text: data.text }, { body: { llmConfig: currentConfig } });
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -102,14 +102,15 @@ export default function PlaygroundPage() {
       .slice(userIndex + 1)
       .reverse()
       .find((m: any) => m?.role === 'assistant' && m?.id);
+    const currentConfig = getLatestLlmConfig();
     if (!lastAssistant) {
-      regenerate({ body: { llmConfig: normalizedLlmConfig } });
+      regenerate({ body: { llmConfig: currentConfig } });
       return;
     }
 
     const trimmed = [...messages.slice(0, userIndex + 1), lastAssistant];
     setMessages(trimmed);
-    regenerate({ messageId: lastAssistant.id, body: { llmConfig: normalizedLlmConfig } });
+    regenerate({ messageId: lastAssistant.id, body: { llmConfig: currentConfig } });
   };
 
   const formatErrorMessage = (err: any) => {
@@ -174,18 +175,7 @@ export default function PlaygroundPage() {
             <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
               <div className="px-1">
                 <ChatInput
-                  onSend={(data) => {
-                    if (data.parts && data.parts.length > 0) {
-                      sendMessage({
-                        role: 'user',
-                        parts: data.parts,
-                      }, {
-                        body: { llmConfig: normalizedLlmConfig },
-                      });
-                    } else if (data.text) {
-                      sendMessage({ text: data.text }, { body: { llmConfig: normalizedLlmConfig } });
-                    }
-                  }}
+                  onSend={sendChatInput}
                   onStop={stop}
                   status={status}
                   disabled={status === 'submitted' || status === 'streaming'}
@@ -204,18 +194,7 @@ export default function PlaygroundPage() {
               </div>
 
               <ChatInput
-                onSend={(data) => {
-                  if (data.parts && data.parts.length > 0) {
-                    sendMessage({
-                      role: 'user',
-                      parts: data.parts,
-                    }, {
-                      body: { llmConfig: normalizedLlmConfig },
-                    });
-                  } else if (data.text) {
-                    sendMessage({ text: data.text }, { body: { llmConfig: normalizedLlmConfig } });
-                  }
-                }}
+                onSend={sendChatInput}
                 onStop={stop}
                 status={status}
                 disabled={status === 'submitted' || status === 'streaming'}
@@ -387,20 +366,9 @@ export default function PlaygroundPage() {
 
           {/* Sticky Input Area */}
           <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
-            <div className={chatContentWidthClass}>
-              <ChatInput
-                onSend={(data) => {
-                  if (data.parts && data.parts.length > 0) {
-                    sendMessage({
-                      role: 'user',
-                      parts: data.parts,
-                    }, {
-                      body: { llmConfig: normalizedLlmConfig },
-                    });
-                  } else if (data.text) {
-                    sendMessage({ text: data.text }, { body: { llmConfig: normalizedLlmConfig } });
-                  }
-                }}
+          <div className={chatContentWidthClass}>
+            <ChatInput
+              onSend={sendChatInput}
                 onStop={stop}
                 status={status}
                 disabled={status === 'submitted' || status === 'streaming'}

@@ -9,6 +9,20 @@ import { AVAILABLE_MODELS } from "@/components/playground/availableModels";
 import { LLM_PROVIDERS, getProviderIconUrl } from "@/components/playground/llmProviders";
 import { DEFAULT_LLM_CONFIG, LlmConfig, normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from "@/components/playground/llmConfig";
 
+const MODEL_PROVIDER_NAME_TO_ID: Record<string, string> = {
+  OpenAI: "openai",
+  DeepSeek: "deepseek",
+  Gemini: "gemini",
+  Anthropic: "anthropic",
+};
+
+const PROVIDER_ID_TO_NAME: Record<string, string> = {
+  openai: "OpenAI",
+  deepseek: "DeepSeek",
+  gemini: "Gemini",
+  anthropic: "Anthropic",
+};
+
 export function LlmSettingsPanel() {
   const [config, setConfig] = useState<LlmConfig>(DEFAULT_LLM_CONFIG);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -29,14 +43,7 @@ export function LlmSettingsPanel() {
   };
 
   const modelOptions = useMemo(() => {
-    const providerLabelMap: Record<string, string> = {
-      openai: "OpenAI",
-      deepseek: "DeepSeek",
-      gemini: "Gemini",
-      anthropic: "Anthropic",
-    };
-
-    const providerLabel = providerLabelMap[config.provider] || "";
+    const providerLabel = PROVIDER_ID_TO_NAME[config.provider] || "";
 
     const base = AVAILABLE_MODELS.filter((m) =>
       providerLabel ? m.provider === providerLabel : false
@@ -102,13 +109,13 @@ export function LlmSettingsPanel() {
             selectedModel={config.model}
             onSelect={(id) => {
               const selected = modelOptions.find((m) => m.id === id);
-              const nextProvider = selected?.provider === "OpenAI"
-                ? config.provider
-                : config.provider;
+              const nextProvider =
+                selected?.provider && MODEL_PROVIDER_NAME_TO_ID[selected.provider]
+                  ? MODEL_PROVIDER_NAME_TO_ID[selected.provider]
+                  : config.provider;
               updateConfig({
                 model: id,
                 provider: nextProvider,
-                customModel: id === "custom" ? config.customModel : "",
               });
             }}
           />
