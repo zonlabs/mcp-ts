@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { ApolloProvider } from "@/components/providers/ApolloProvider";
@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   verification: {
     google: "Not4GrBnowoe9oFiAJ1p11C-olKqFaDIuPV-19X8tBo",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 import { createClient } from "@/lib/supabase/server";
