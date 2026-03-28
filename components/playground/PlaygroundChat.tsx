@@ -26,6 +26,7 @@ interface PlaygroundChatProps {
 export function PlaygroundChat({ chatId, initialMessages, initialDraft }: PlaygroundChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
+  const lastTitleRef = useRef<string | null>(null);
   const chatContentWidthClass = "w-full max-w-3xl mx-auto px-1 sm:px-4 lg:px-6";
   const chatInnerContentInsetClass = "px-2 sm:px-2";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
@@ -35,6 +36,12 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
       ...normalized,
       baseUrl: normalized.baseUrl || undefined,
     };
+  };
+  const generateMessageId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `usr_${crypto.randomUUID()}`;
+    }
+    return `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
   };
   const mobileStarterPrompts = [
     {
@@ -87,6 +94,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
+        id: generateMessageId(),
         parts: data.parts,
       }, {
         body: { llmConfig: currentConfig },
@@ -94,13 +102,27 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
       return;
     }
     if (data.text) {
-      sendMessage({ text: data.text }, { body: { llmConfig: currentConfig } });
+      sendMessage({ id: generateMessageId(), text: data.text }, { body: { llmConfig: currentConfig } });
     }
   };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    for (const message of messages) {
+      const meta = (message as any)?.metadata;
+      const title = meta?.chatTitle;
+      if (!meta?.isNewChat || !title) continue;
+      if (lastTitleRef.current === title) return;
+      lastTitleRef.current = title;
+      window.dispatchEvent(new CustomEvent('chat:title', {
+        detail: { chatId, title },
+      }));
+      return;
+    }
+  }, [messages, chatId]);
 
   useEffect(() => {
     if (hasSentInitialDraft.current) return;
@@ -148,7 +170,13 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
 
     const trimmed = [...messages.slice(0, userIndex + 1), lastAssistant];
     setMessages(trimmed);
-    regenerate({ messageId: lastAssistant.id, body: { llmConfig: currentConfig } });
+    regenerate({
+      messageId: lastAssistant.id,
+      body: {
+        llmConfig: currentConfig,
+        action: 'regenerate-message',
+      },
+    });
   };
 
   const formatErrorMessage = (err: any) => {

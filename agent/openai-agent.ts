@@ -2,12 +2,12 @@ import { checkMcpConnections } from "@/tool/check-mcp-connections";
 import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
 import { searchMcpServers } from "@/tool/search-mcp-servers";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createDeepSeek } from "@ai-sdk/deepseek";
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool, type LanguageModelUsage, type ToolSet } from "ai";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
 import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
 import { z } from "zod";
 import type { GatewayServerSelection, GatewayToolInfo } from "@/lib/gateway-access";
+import { getModelFromConfig } from "@/lib/llm";
 import {
   collectAgentServerPairs,
   getBridgeSubjectFromUserId,
@@ -271,17 +271,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         .optional(),
     }),
     prepareCall: async ({ options, abortSignal, ...settings }) => {
-      const provider = (options?.llmConfig?.provider || "openai").toLowerCase().trim();
-      const apiKey = options?.llmConfig?.apiKey?.trim();
-      const requestedModel = options?.llmConfig?.model?.trim() || "gpt-4.1-mini";
-
-      const model = provider === "deepseek"
-        ? createDeepSeek({
-            apiKey: apiKey || "",
-          })(requestedModel)
-        : createOpenAI({
-            apiKey,
-          })(requestedModel);
+      const model = getModelFromConfig(options?.llmConfig);
 
       const identity = options?.userId?.trim() || "demo-user-123";
       const { manager, tools, baseToolNames, gatewayTools, toolIndex } = await getLocalMcpTools(
@@ -326,7 +316,11 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
     cleanup: () => activeManager?.disconnect(),
   };
 }
-type AgentMessageMetadata = { usage?: LanguageModelUsage };
+type AgentMessageMetadata = {
+  usage?: LanguageModelUsage;
+  isNewChat?: boolean;
+  chatTitle?: string;
+};
 export type McpAgentUIMessage = InferAgentUIMessage<
   Awaited<ReturnType<typeof createMcpAgent>>["agent"],
   AgentMessageMetadata

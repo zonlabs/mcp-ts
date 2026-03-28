@@ -116,6 +116,22 @@ export const PlaygroundSidebar = () => {
     };
   }, [user?.id, pathname]);
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ chatId: string; title: string }>).detail;
+      if (!detail?.chatId || !detail?.title) return;
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === detail.chatId
+            ? { ...chat, title: detail.title }
+            : chat
+        )
+      );
+    };
+    window.addEventListener('chat:title', handler as EventListener);
+    return () => window.removeEventListener('chat:title', handler as EventListener);
+  }, []);
+
   const filteredChats = useMemo(() => {
     const query = chatQuery.trim().toLowerCase();
     if (!query) return chats;

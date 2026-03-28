@@ -21,6 +21,7 @@ create index if not exists chats_updated_at_idx on public.chats(updated_at);
 
 create table if not exists public.chat_messages (
   id uuid primary key default gen_random_uuid(),
+  external_id text not null,
   chat_id uuid not null references public.chats(id) on delete cascade,
   role text not null,
   parts jsonb not null default '[]'::jsonb,
@@ -33,6 +34,7 @@ create table if not exists public.chat_messages (
 
 create index if not exists chat_messages_chat_id_idx on public.chat_messages(chat_id);
 create index if not exists chat_messages_created_at_idx on public.chat_messages(created_at);
+create unique index if not exists chat_messages_external_id_idx on public.chat_messages(chat_id, external_id);
 
 create or replace function public.set_updated_at()
 returns trigger as $$
@@ -101,6 +103,40 @@ drop policy if exists "chat_messages_insert_public" on public.chat_messages;
 create policy "chat_messages_insert_public" on public.chat_messages
 for insert
 with check (
+  exists (
+    select 1
+    from public.chats
+    where public.chats.id = chat_messages.chat_id
+      and public.chats.visibility in ('PUBLIC')
+  )
+);
+
+-- Allow public chats to be updated for collaboration
+drop policy if exists "chat_messages_update_public" on public.chat_messages;
+create policy "chat_messages_update_public" on public.chat_messages
+for update
+using (
+  exists (
+    select 1
+    from public.chats
+    where public.chats.id = chat_messages.chat_id
+      and public.chats.visibility in ('PUBLIC')
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.chats
+    where public.chats.id = chat_messages.chat_id
+      and public.chats.visibility in ('PUBLIC')
+  )
+);
+
+-- Allow public chats to be deleted for collaboration
+drop policy if exists "chat_messages_delete_public" on public.chat_messages;
+create policy "chat_messages_delete_public" on public.chat_messages
+for delete
+using (
   exists (
     select 1
     from public.chats

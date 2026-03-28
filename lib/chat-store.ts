@@ -27,7 +27,7 @@ export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, role, parts, attachments, created_at, prompt_tokens, completion_tokens, total_tokens')
+    .select('id, external_id, role, parts, attachments, created_at, prompt_tokens, completion_tokens, total_tokens')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true });
 
@@ -49,7 +49,7 @@ export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
         }
       : undefined;
     return {
-      id: row.id,
+      id: row.external_id ?? row.id,
       role: row.role,
       parts: Array.isArray(row.parts) ? row.parts : [],
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
@@ -78,7 +78,7 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, role, parts, attachments, created_at, prompt_tokens, completion_tokens, total_tokens')
+    .select('id, external_id, role, parts, attachments, created_at, prompt_tokens, completion_tokens, total_tokens')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true });
 
@@ -100,7 +100,7 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
         }
       : undefined;
     return {
-      id: row.id,
+      id: row.external_id ?? row.id,
       role: row.role,
       parts: Array.isArray(row.parts) ? row.parts : [],
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
@@ -113,57 +113,7 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
 export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessage[]): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-
-  const { data: existingRows, error: existingError } = await supabase
-    .from('chat_messages')
-    .select('id, role, parts, attachments, created_at, prompt_tokens, completion_tokens, total_tokens')
-    .eq('chat_id', chatId)
-    .order('created_at', { ascending: true });
-
-  if (existingError) {
-    console.error('[chat-store] saveChat failed to load existing messages:', existingError);
-  }
-
-  const existingMessages = Array.isArray(existingRows)
-    ? existingRows.map((row) => {
-        const hasUsage = row.prompt_tokens != null || row.completion_tokens != null || row.total_tokens != null;
-        const usage = hasUsage
-          ? {
-              inputTokens: row.prompt_tokens ?? undefined,
-              outputTokens: row.completion_tokens ?? undefined,
-              totalTokens: row.total_tokens ?? undefined,
-            }
-          : undefined;
-        return {
-          id: row.id,
-          role: row.role,
-          parts: Array.isArray(row.parts) ? row.parts : [],
-          attachments: Array.isArray(row.attachments) ? row.attachments : [],
-          createdAt: row.created_at,
-          ...(usage ? { metadata: { usage } } : {}),
-        } as McpAgentUIMessage;
-      })
-    : [];
-
   const incoming = Array.isArray(incomingMessages) ? incomingMessages : [];
-  const seen = new Set<string>();
-  const messages: McpAgentUIMessage[] = [];
-
-  for (const msg of existingMessages) {
-    if (msg?.id && !seen.has(msg.id)) {
-      seen.add(msg.id);
-    }
-    messages.push(msg);
-  }
-
-  for (const msg of incoming) {
-    if (msg?.id) {
-      if (seen.has(msg.id)) continue;
-      seen.add(msg.id);
-    }
-    messages.push(msg);
-  }
-
   const now = new Date().toISOString();
   if (user) {
     const { error: upsertError } = await supabase
@@ -178,21 +128,11 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
       console.error('[chat-store] saveChat failed to upsert chat:', upsertError);
       return;
     }
-
-    const { error: deleteError } = await supabase
-      .from('chat_messages')
-      .delete()
-      .eq('chat_id', chatId);
-
-    if (deleteError) {
-      console.error('[chat-store] saveChat failed to clear messages:', deleteError);
-      return;
-    }
   }
 
-  if (messages.length === 0) return;
+  if (incoming.length === 0) return;
 
-  const rows = messages.map((message) => {
+  const rows = incoming.map((message, index) => {
     const parts = Array.isArray(message.parts)
       ? message.parts
       : typeof (message as any)?.text === 'string'
@@ -202,36 +142,40 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
     const inputTokens = usage?.inputTokens ?? usage?.promptTokens ?? null;
     const outputTokens = usage?.outputTokens ?? usage?.completionTokens ?? null;
     const totalTokens = usage?.totalTokens ?? null;
-    const id = (message as any)?.id;
+    const externalId = (message as any)?.id;
+    const createdAt = (message as any)?.createdAt || now;
     return {
-      ...(id ? { id } : {}),
+      ...(externalId ? { external_id: externalId } : {}),
       chat_id: chatId,
       role: message.role,
       parts,
       attachments: Array.isArray((message as any)?.attachments) ? (message as any).attachments : [],
-      created_at: (message as any)?.createdAt || now,
+      created_at: createdAt,
       prompt_tokens: inputTokens,
       completion_tokens: outputTokens,
       total_tokens: totalTokens,
     };
   });
 
-  if (!user) {
-    const existingIds = new Set(existingMessages.map((m: any) => m?.id).filter(Boolean));
-    const rowsToInsert = rows.filter((row: any) => !row.id || !existingIds.has(row.id));
-    if (rowsToInsert.length === 0) return;
-    const { error: insertError } = await supabase
+  const hasAnyMessage = rows.some((row) => row.external_id || row.role || row.created_at);
+  if (!hasAnyMessage) return;
+  const rowsWithExternalId = rows.filter((row) => row.external_id);
+  const rowsWithoutExternalId = rows.filter((row) => !row.external_id);
+
+  if (rowsWithExternalId.length > 0) {
+    const { error: upsertError } = await supabase
       .from('chat_messages')
-      .insert(rowsToInsert);
-    if (insertError) {
-      console.error('[chat-store] saveChat failed to insert messages:', insertError);
+      .upsert(rowsWithExternalId, { onConflict: 'chat_id,external_id', ignoreDuplicates: true });
+    if (upsertError) {
+      console.error('[chat-store] saveChat failed to upsert messages:', upsertError);
     }
-    return;
   }
+
+  if (rowsWithoutExternalId.length === 0) return;
 
   const { error: insertError } = await supabase
     .from('chat_messages')
-    .insert(rows);
+    .insert(rowsWithoutExternalId);
 
   if (insertError) {
     console.error('[chat-store] saveChat failed to insert messages:', insertError);
