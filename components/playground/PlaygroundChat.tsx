@@ -27,7 +27,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
   const lastTitleRef = useRef<string | null>(null);
-  const chatContentWidthClass = "w-full max-w-3xl mx-auto px-1 sm:px-4 lg:px-6";
+  const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
   const chatInnerContentInsetClass = "px-2 sm:px-2";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
   const getLatestLlmConfig = () => {

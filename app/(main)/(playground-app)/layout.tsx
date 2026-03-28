@@ -22,7 +22,7 @@ export default function PlaygroundAppLayout({ children }: PropsWithChildren) {
             },
           }}
         />
-        <div className="flex h-screen flex-col md:flex-row bg-background text-foreground">
+        <div className="flex h-[100dvh] min-h-[100dvh] flex-col md:flex-row bg-background text-foreground">
           <PlaygroundSidebar />
           <main className="flex-1 min-h-0 flex flex-col relative overflow-hidden">
             {children}

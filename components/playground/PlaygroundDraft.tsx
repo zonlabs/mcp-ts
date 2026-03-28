@@ -36,6 +36,7 @@ export function PlaygroundDraft() {
   const [status, setStatus] = useState<'ready' | 'submitted' | 'streaming' | 'error'>('ready');
 
   const sendDraft = async (data: { text?: string; parts?: any[] }) => {
+    if (status !== 'ready') return;
     if (!data?.text && (!data?.parts || data.parts.length === 0)) return;
     setStatus('submitted');
     try {
@@ -64,11 +65,7 @@ export function PlaygroundDraft() {
         : { text: data.text };
       sessionStorage.setItem('pending_chat_message', JSON.stringify(payload));
 
-      const draftText = typeof data.text === 'string' && data.text.trim() ? data.text.trim() : '';
-      const url = draftText
-        ? `/playground/${chatRow.id}?draft=${encodeURIComponent(draftText)}`
-        : `/playground/${chatRow.id}`;
-      router.push(url);
+      router.push(`/playground/${chatRow.id}`);
     } finally {
       setStatus('ready');
     }
