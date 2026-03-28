@@ -1,7 +1,7 @@
 export type LlmProviderId =
   | "openai"
   | "anthropic"
-  | "google"
+  | "gemini"
   | "deepseek"
   | "custom";
 
@@ -26,10 +26,10 @@ export const LLM_PROVIDERS: LlmProviderOption[] = [
     description: "Claude models (OpenAI-compatible only if proxied)",
   },
   {
-    id: "google",
-    name: "Google",
-    iconUrl: "https://api.iconify.design/logos:google-icon.svg",
-    description: "Gemini models (OpenAI-compatible only if proxied)",
+    id: "gemini",
+    name: "Gemini",
+    iconUrl: "https://api.iconify.design/logos:google-gemini.svg",
+    description: "Gemini models",
   },
   {
     id: "deepseek",
@@ -48,7 +48,7 @@ export const LLM_PROVIDERS: LlmProviderOption[] = [
 const PROVIDER_ICON_ALIASES: Record<string, string> = {
   openai: "https://api.iconify.design/logos:openai-icon.svg",
   anthropic: "https://api.iconify.design/logos:anthropic-icon.svg",
-  google: "https://api.iconify.design/logos:google-icon.svg",
+  gemini: "https://api.iconify.design/logos:google-gemini.svg",
   deepseek: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/deepseek.svg",
   meta: "https://api.iconify.design/logos:meta-icon.svg",
   microsoft: "https://api.iconify.design/logos:microsoft-icon.svg",

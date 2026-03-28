@@ -32,7 +32,7 @@ export function LlmSettingsPanel() {
     const providerLabelMap: Record<string, string> = {
       openai: "OpenAI",
       deepseek: "DeepSeek",
-      google: "Google",
+      gemini: "Gemini",
       anthropic: "Anthropic",
     };
 
@@ -77,11 +77,13 @@ export function LlmSettingsPanel() {
                 <SelectItem key={provider.id} value={provider.id}>
                   <div className="flex items-center gap-2">
                     {provider.iconUrl ? (
-                      <img
-                        src={provider.iconUrl}
-                        alt=""
-                        className="h-4 w-4 rounded-sm"
-                      />
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-xs">
+                        <img
+                          src={provider.iconUrl}
+                          alt=""
+                          className="h-4 w-4"
+                        />
+                      </span>
                     ) : null}
                     <span>{provider.name}</span>
                   </div>
@@ -138,11 +140,13 @@ export function LlmSettingsPanel() {
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         {getProviderIconUrl(config.provider) ? (
-          <img
-            src={getProviderIconUrl(config.provider)}
-            alt=""
-            className="h-3.5 w-3.5 rounded-sm"
-          />
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-xs">
+            <img
+              src={getProviderIconUrl(config.provider)}
+              alt=""
+              className="h-3.5 w-3.5"
+            />
+          </span>
         ) : null}
         <span>Your key stays in your browser and is sent only with your prompts.</span>
       </div>

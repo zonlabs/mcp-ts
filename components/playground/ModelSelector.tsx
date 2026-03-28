@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Search, Info } from "lucide-react";
 import { getProviderIconUrl } from "@/components/playground/llmProviders";
 
 export interface ModelSelectorModel {
@@ -53,7 +54,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
           <img
             src={getProviderIconUrl(selected.provider)}
             alt=""
-            className="h-3.5 w-3.5"
+            className="h-3.5 w-3.5 rounded-full"
           />
         ) : null}
         <span className="text-foreground/80">
@@ -64,10 +65,18 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden">
-          <DialogHeader className="px-4 pt-4">
+          <DialogHeader className="px-4 pt-4 flex-row items-center gap-2 space-y-0">
             <DialogTitle className="text-sm">Select model</DialogTitle>
+            <Link
+              href="/playground/settings/api-keys"
+              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <Info className="h-3.5 w-3.5" />
+              <span>Click here to add an API key</span>
+            </Link>
           </DialogHeader>
-          <div className="px-4 pb-4">
+          
+          <div className="px-4 pb-4 pt-4">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -78,6 +87,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
               />
             </div>
           </div>
+
           <div className="max-h-[60vh] overflow-y-auto px-2 pb-4">
             {grouped.length === 0 ? (
               <div className="px-4 py-6 text-sm text-muted-foreground">
@@ -99,12 +109,12 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted/60 transition-colors"
                       >
-                        <div className="h-6 w-6 flex items-center justify-center overflow-hidden">
+                        <div className="h-6 w-6 flex items-center justify-center overflow-hidden rounded-full bg-white shadow-xs">
                           {getProviderIconUrl(model.provider) ? (
                             <img
                               src={getProviderIconUrl(model.provider)}
                               alt=""
-                              className="h-4 w-4"
+                              className="h-4 w-4 rounded-full"
                             />
                           ) : (
                             <span className="text-[10px] text-muted-foreground">

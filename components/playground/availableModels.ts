@@ -1,51 +1,114 @@
 export const AVAILABLE_MODELS = [
+  // --- OpenAI (2024 - 2026) ---
   {
-    id: "gpt-4.1-mini",
-    name: "GPT-4.1 Mini",
-    description: "Fast, efficient model for general tasks",
-    provider: "OpenAI",
-    tag: "Balanced"
-  },
-  {
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    description: "Fast and affordable for everyday tasks",
-    provider: "OpenAI",
-    tag: "Balanced"
-  },
-  {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    description: "Most capable, best for complex reasoning",
+    id: "gpt-5.4",
+    name: "GPT-5.4",
+    description: "2026 flagship; current SOTA for professional agentic and multimodal workflows",
     provider: "OpenAI",
     tag: "Premium"
   },
   {
-    id: "gpt-3.5-turbo",
-    name: "GPT-3.5 Turbo",
-    description: "Quick responses, good for simple queries",
+    id: "gpt-5",
+    name: "GPT-5",
+    description: "Aug 2025 flagship; first native multimodal GPT with reasoning-router",
+    provider: "OpenAI",
+    tag: "Premium"
+  },
+  {
+    id: "gpt-4.1-mini",
+    name: "GPT-4.1 Mini",
+    description: "April 2025 release; significant leap in small model logic and 1M context support",
+    provider: "OpenAI",
+    tag: "Balanced"
+  },
+  {
+    id: "gpt-4.5",
+    name: "GPT-4.5",
+    description: "Feb 2025 release; renowned for creative writing and high emotional intelligence",
+    provider: "OpenAI",
+    tag: "Creative"
+  },
+  {
+    id: "gpt-4o-mini",
+    name: "GPT-4o Mini",
+    description: "July 2024 release; the original cost-efficient 'omni' model for fast tasks",
     provider: "OpenAI",
     tag: "Fast"
   },
+
+  // --- Anthropic Claude 4.5 Series (Late 2025) ---
   {
-    id: "deepseek-chat",
-    name: "DeepSeek-V3",
-    description: "Excellent at coding and technical tasks",
+    id: "claude-opus-4-5",
+    name: "Claude 4.5 Opus",
+    description: "Nov 2025 release; top-tier reasoning and coding with 1M token window",
+    provider: "Anthropic",
+    tag: "Premium"
+  },
+  {
+    id: "claude-sonnet-4-5",
+    name: "Claude 4.5 Sonnet",
+    description: "Sep 2025 release; first major 'Agentic' model designed for autonomous computer use",
+    provider: "Anthropic",
+    tag: "Balanced"
+  },
+  {
+    id: "claude-haiku-4-5",
+    name: "Claude 4.5 Haiku",
+    description: "Oct 2025 release; low-latency model featuring native internal thinking",
+    provider: "Anthropic",
+    tag: "Fast"
+  },
+
+  // --- Gemini (2025 - 2026) ---
+  {
+    id: "gemini-3.1-pro",
+    name: "Gemini 3.1 Pro",
+    description: "2026 flagship; leads in ARC-AGI-2 logic and specialized 'vibe coding'",
+    provider: "Gemini",
+    tag: "Premium"
+  },
+  {
+    id: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    description: "Mid-2025 'Thinking' model; introduced native multimodal audio output",
+    provider: "Gemini",
+    tag: "Premium"
+  },
+  {
+    id: "gemini-2.0-flash",
+    name: "Gemini 2.0 Flash",
+    description: "Jan 2025 release; first to offer real-time multimodal interaction at scale",
+    provider: "Gemini",
+    tag: "Fast"
+  },
+
+  // --- DeepSeek (2025 - 2026) ---
+  {
+    id: "deepseek-v4-lite",
+    name: "DeepSeek-V4 Lite",
+    description: "2026 next-gen MoE with Engram memory for high-accuracy retrieval",
     provider: "DeepSeek",
     tag: "Coding"
   },
   {
+    id: "deepseek-chat",
+    name: "DeepSeek-V3.2",
+    description: "Dec 2025 upgrade; general-purpose model optimized for agentic tool-use",
+    provider: "DeepSeek",
+    tag: "Balanced"
+  },
+  {
     id: "deepseek-reasoner",
     name: "DeepSeek Reasoner",
-    description: "Reasoning-optimized DeepSeek model",
+    description: "Thinking-mode model based on R1 architecture; full chain-of-thought visibility",
     provider: "DeepSeek",
     tag: "Reasoning"
   },
-  // {
-  //   id: "custom",
-  //   name: "Other Model",
-  //   description: "Use any model name with your selected provider",
-  //   provider: "Custom",
-  //   tag: "Advanced"
-  // }
+  {
+    id: "deepseek-r1",
+    name: "DeepSeek-R1",
+    description: "Jan 2025 breakthrough; the model that first rivaled GPT-4 reasoning via RL",
+    provider: "DeepSeek",
+    tag: "Reasoning"
+  }
 ];

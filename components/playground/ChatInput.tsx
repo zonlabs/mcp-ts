@@ -252,7 +252,7 @@ export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) 
                     const providerMap: Record<string, string> = {
                       OpenAI: "openai",
                       DeepSeek: "deepseek",
-                      Google: "google",
+                      Gemini: "gemini",
                       Anthropic: "anthropic",
                     };
                     const provider = selected?.provider
