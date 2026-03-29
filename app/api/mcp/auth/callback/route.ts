@@ -48,16 +48,17 @@ async function handleCallback(request: NextRequest) {
   try {
     // Get authenticated user
     const supabase = await createClient();
-    const { data: { session: userSession } } = await supabase.auth.getSession();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!userSession?.user) {
+    if (authError || !user) {
       const errorUrl = new URL(sourceUrl, getAppUrl());
       errorUrl.searchParams.set('step', 'error');
       errorUrl.searchParams.set('error', 'Unauthorized - Please log in');
       return NextResponse.redirect(errorUrl);
     }
 
-    const userId = userSession.user.id;
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = user.id;
 
     // Create MCP client - it will load serverId from session
     const client = new MCPClient({

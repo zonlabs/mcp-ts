@@ -8,12 +8,15 @@ import { createClient } from '@/lib/supabase/server';
 export default async function Page(props: { params: Promise<{ chatId: string }> }) {
   const { chatId } = await props.params;
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const { data: { session } } = await supabase.auth.getSession();
   const messages = await loadPublicChat(chatId);
 
+  const userSession = (user && session) ? session as any : null;
+
   return (
     <div className="fixed inset-0 z-50 bg-background">
-      <AuthProvider userSession={session}>
+      <AuthProvider userSession={userSession}>
         <PlaygroundProvider>
           <div className="flex h-screen flex-col md:flex-row bg-background text-foreground">
             <PlaygroundSidebar />

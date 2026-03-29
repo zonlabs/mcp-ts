@@ -137,18 +137,19 @@ export async function POST(req: Request) {
     : Array.isArray(body.uiMessages)
       ? body.uiMessages
       : [];
+  // --- Chat Metadata & Title Management ---
   const chatId = typeof body.chatId === 'string' ? body.chatId : undefined;
   if (messages.length === 0) {
-    return NextResponse.json(
-      { error: 'messages parameter must be provided' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'messages parameter must be provided' }, { status: 400 });
   }
+
   const { data: { user } } = await supabase.auth.getUser();
   const shouldRegenerate = body.action === 'regenerate-message';
-  const regenTarget = shouldRegenerate ? getLastAssistantMessage(messages)?.id : null;
+  
   let newChatTitle: string | null = null;
   let isNewChat = false;
+
+  // Auto-generate a title for new or untitled chats
   if (chatId && user?.id) {
     const { data: chatRow, error: chatError } = await supabase
       .from('chats')
@@ -156,6 +157,7 @@ export async function POST(req: Request) {
       .eq('id', chatId)
       .eq('user_id', user.id)
       .single();
+
     if (!chatError && (!chatRow?.title || chatRow.title === 'New Chat')) {
       const userText = extractUserText(messages);
       if (userText) {
@@ -172,22 +174,29 @@ export async function POST(req: Request) {
     }
   }
 
+  // Persist the latest user message before starting the AI stream
   if (chatId) {
     const lastUserMessage = getLastUserMessage(messages);
     if (lastUserMessage) {
       await saveChat(chatId, [lastUserMessage]);
     }
   }
+
   const { agent, cleanup } = await createMcpAgent({
     userId: user?.id,
     gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : undefined
   });
   req.signal.addEventListener('abort', cleanup, { once: true });
 
-  // Next.js AI SDK strips assistant messages if tool invocations aren't exactly 'result'
-  // We must normalize custom UI approval states so the LLM retains chat history.
+  /**
+   * AI SDK / Model History Normalization
+   * We map custom MCP tool states (e.g. approval-responded) to standard 'result' states
+   * to ensure the full conversation history is preserved across page reloads and resumes.
+   */
   const normalizedMessages = messages.map(msg => {
     const newMsg = { ...msg };
+    
+    // Normalize Tool Invocations for SDK compatibility
     if (Array.isArray((newMsg as any).toolInvocations)) {
       (newMsg as any).toolInvocations = (newMsg as any).toolInvocations.map((ti: any) => {
         if (ti.state !== 'result' && ti.state !== 'output-available' && ti.toolName.startsWith('MCPASSISTANT_')) {
@@ -200,10 +209,11 @@ export async function POST(req: Request) {
         return ti;
       });
     }
-    // DeepSeek/OpenAI strict validation mapping for the incoming parts array
+
+    // Normalize Message Parts for strict model validation
     if (Array.isArray(newMsg.parts)) {
       newMsg.parts = newMsg.parts.map((p: any) => {
-        // Standard shape mapping
+        // Direct tool invocation mapping
         if (p.type === 'tool-invocation' && p.toolInvocation) {
           if (p.toolInvocation.state !== 'result' && p.toolInvocation.toolName === 'MCPASSISTANT_INITIATE_CONNECTION') {
             return {
@@ -216,7 +226,8 @@ export async function POST(req: Request) {
             };
           }
         }
-        // Custom UI shape mapping
+        
+        // Custom UI state mapping (for approval flow)
         if (typeof p.type === 'string' && p.type.startsWith('tool-') && (p.state === 'approval-responded' || p.state === 'output-available' || p.state === 'ready')) {
           if (p.type.startsWith('tool-MCPASSISTANT_')) {
             return {
@@ -233,14 +244,10 @@ export async function POST(req: Request) {
   });
 
   const lastMessage = normalizedMessages[normalizedMessages.length - 1];
-  const isResuming = lastMessage?.role === 'assistant';
-  const initialResumeId = isResuming ? (lastMessage as any)?.id : undefined;
+  const initialResumeId = lastMessage?.role === 'assistant' ? (lastMessage as any)?.id : undefined;
   let resumeId = initialResumeId;
 
-  const generateId = createIdGenerator({
-    prefix: 'msg',
-    size: 16,
-  });
+  const generateId = createIdGenerator({ prefix: 'msg', size: 16 });
 
   const result = await agent.stream({
     messages: await convertToModelMessages(normalizedMessages),
@@ -252,21 +259,18 @@ export async function POST(req: Request) {
     },
   });
 
-  // result.consumeStream();
-
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({
     generateMessageId: () => {
       if (resumeId) {
         const id = resumeId;
-        resumeId = undefined; // Only reuse once per stream
+        resumeId = undefined; // Reuse existing message ID once per stream
         return id;
       }
       return generateId();
     },
     messageMetadata: ({ part }) => {
-      const base = isNewChat && newChatTitle
-        ? { isNewChat: true, chatTitle: newChatTitle }
-        : undefined;
+      const base = isNewChat && newChatTitle ? { isNewChat: true, chatTitle: newChatTitle } : undefined;
+      // Attach usage stats on the final step
       if (part.type === 'finish-step') {
         return base ? { ...base, usage: part.usage } : { usage: part.usage };
       }
@@ -274,8 +278,9 @@ export async function POST(req: Request) {
     },
     onFinish: async ({ messages: finalMessages }) => {
       if (chatId) {
+        // Clean up previous assistant message if regenerating
         if (shouldRegenerate) {
-          const { data: latestAssistant, error: latestError } = await supabase
+          const { data: latestAssistant } = await supabase
             .from('chat_messages')
             .select('external_id')
             .eq('chat_id', chatId)
@@ -284,21 +289,17 @@ export async function POST(req: Request) {
             .limit(1)
             .maybeSingle();
 
-          if (latestError) {
-            console.error('[chat] failed to load assistant message for regenerate:', latestError);
-          } else if (latestAssistant?.external_id) {
-            const { error: deleteError } = await supabase
+          if (latestAssistant?.external_id) {
+            await supabase
               .from('chat_messages')
               .delete()
               .eq('chat_id', chatId)
               .eq('external_id', latestAssistant.external_id);
-            if (deleteError) {
-              console.error('[chat] failed to delete regenerated assistant message:', deleteError);
-            }
           }
         }
-        const assistantMessages = getNewAssistantMessages(finalMessages, normalizedMessages, initialResumeId);
 
+        // Merge newly generated parts with history to prevent data loss
+        const assistantMessages = getNewAssistantMessages(finalMessages, normalizedMessages, initialResumeId);
         if (assistantMessages.length > 0) {
           await saveChat(chatId, assistantMessages);
         }

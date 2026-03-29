@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import type { McpAgentUIMessage } from '@/agent/openai-agent';
 
+/**
+ * Creates a new chat session for the current user.
+ * @returns The ID of the newly created chat, or null on failure.
+ */
 export async function createChat(): Promise<string | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,6 +24,10 @@ export async function createChat(): Promise<string | null> {
   return data.id as string;
 }
 
+/**
+ * Loads the complete message history for a specific chat ID.
+ * Returns empty array if user is not authorized or chat is private.
+ */
 export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -59,6 +67,10 @@ export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
   });
 }
 
+/**
+ * Loads a shared chat that has PUBLIC visibility.
+ * Does not require an authenticated user.
+ */
 export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[]> {
   const supabase = await createClient();
 
@@ -110,12 +122,18 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
   });
 }
 
+/**
+ * Persists chat messages to the database.
+ * Handles both own chats (upsert metadata) and shared chats (update timestamp only).
+ */
 export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessage[]): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const incoming = Array.isArray(incomingMessages) ? incomingMessages : [];
   const now = new Date().toISOString();
+
   if (user) {
+    // Determine chat ownership before updating metadata
     const { data: existingChat } = await supabase
       .from('chats')
       .select('user_id')
@@ -123,12 +141,12 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
       .maybeSingle();
       
     if (!existingChat || existingChat.user_id === user.id) {
-      // Create or update full record if owner
+      // Create or update full record if we are the owner
       await supabase
         .from('chats')
         .upsert({ id: chatId, user_id: user.id, updated_at: now }, { onConflict: 'id' });
     } else {
-      // Shared chat: only update the timestamp
+      // If shared chat, only refresh the timestamp to keep it active in sidebar
       await supabase
         .from('chats')
         .update({ updated_at: now })
@@ -138,53 +156,55 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
 
   if (incoming.length === 0) return;
 
-  const rows = incoming.map((message, index) => {
+  const rows = incoming.map((message) => {
     const parts = Array.isArray(message.parts)
       ? message.parts
       : typeof (message as any)?.text === 'string'
         ? [{ type: 'text', text: (message as any).text }]
         : [];
+        
     const usage = message?.metadata?.usage as any;
-    const inputTokens = usage?.inputTokens ?? usage?.promptTokens ?? null;
-    const outputTokens = usage?.outputTokens ?? usage?.completionTokens ?? null;
-    const totalTokens = usage?.totalTokens ?? null;
     const externalId = (message as any)?.id;
-    const createdAt = (message as any)?.createdAt || now;
+    
     return {
       ...(externalId ? { external_id: externalId } : {}),
       chat_id: chatId,
+      user_id: user?.id ?? null,
       role: message.role,
       parts,
       attachments: Array.isArray((message as any)?.attachments) ? (message as any).attachments : [],
-      created_at: createdAt,
-      prompt_tokens: inputTokens,
-      completion_tokens: outputTokens,
-      total_tokens: totalTokens,
+      created_at: (message as any)?.createdAt || now,
+      prompt_tokens: usage?.inputTokens ?? usage?.promptTokens ?? null,
+      completion_tokens: usage?.outputTokens ?? usage?.completionTokens ?? null,
+      total_tokens: usage?.totalTokens ?? null,
     };
   });
 
   const hasAnyMessage = rows.some((row) => row.external_id || row.role || row.created_at);
   if (!hasAnyMessage) return;
+
   const rowsWithExternalId = rows.filter((row) => row.external_id);
   const rowsWithoutExternalId = rows.filter((row) => !row.external_id);
 
+  // Sync existing messages by external ID
   if (rowsWithExternalId.length > 0) {
     const { error: upsertError } = await supabase
       .from('chat_messages')
       .upsert(rowsWithExternalId, { onConflict: 'chat_id,external_id' });
     
     if (upsertError) {
-      console.error('[chat-store] saveChat failed to upsert messages:', upsertError);
+      console.error('[chat-store] failed to upsert messages:', upsertError);
     }
   }
 
-  if (rowsWithoutExternalId.length === 0) return;
+  // Insert any messages that don't have a specific ID assigned yet
+  if (rowsWithoutExternalId.length > 0) {
+    const { error: insertError } = await supabase
+      .from('chat_messages')
+      .insert(rowsWithoutExternalId);
 
-  const { error: insertError } = await supabase
-    .from('chat_messages')
-    .insert(rowsWithoutExternalId);
-
-  if (insertError) {
-    console.error('[chat-store] saveChat failed to insert messages:', insertError);
+    if (insertError) {
+      console.error('[chat-store] failed to insert messages:', insertError);
+    }
   }
 }

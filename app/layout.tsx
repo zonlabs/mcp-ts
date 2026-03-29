@@ -24,12 +24,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  // Cast session to any to satisfy UserSession type which extends Session
-  const userSession = session as any;
+  // Use the verified user's session if available
+  const userSession = (user && session) ? session as any : null;
 
   return (
     <html lang="en" suppressHydrationWarning>

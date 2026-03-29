@@ -9,13 +9,14 @@ export default async function MainLayout({
 }>) {
 
     const supabase = await createClient();
+    const { data: { user }} = await supabase.auth.getUser();
     const { data: { session }} = await supabase.auth.getSession();
 
-    let userSession = null;
-    if (session) {
-        const data = await supabase.from('user_roles').select('role').eq('user_id', session.user.id).single();
+    let userSession = (user && session) ? session as any : null;
+    if (userSession) {
+        const data = await supabase.from('user_roles').select('role').eq('user_id', userSession.user.id).single();
         userSession = {
-            ...session,
+            ...userSession,
             role: data.data?.role || 'user',
         };
     }

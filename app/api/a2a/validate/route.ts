@@ -15,11 +15,20 @@ export async function POST(req: NextRequest) {
   try {
     // Get user session
     const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized - Please sign in" },
+        { status: 401 }
+      );
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session?.access_token) {
       return NextResponse.json(
-        { error: "Unauthorized - Please sign in" },
+        { error: "Authentication failed - No access token" },
         { status: 401 }
       );
     }

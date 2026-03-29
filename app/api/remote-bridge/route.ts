@@ -31,14 +31,13 @@ function jsonHeaders(): Record<string, string> {
 
 async function getSubjectFromSession(): Promise<string> {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const uid = session?.user?.id;
-  if (!uid) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!user || !session?.access_token) {
     throw new Error("Unauthorized");
   }
-  return getBridgeSubjectFromUserId(uid);
+  return getBridgeSubjectFromUserId(user.id);
 }
 
 export async function POST(request: Request) {

@@ -281,6 +281,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className={`${chatContentWidthClass} py-4 sm:py-8 space-y-6 sm:space-y-8`}>
               <div className={chatInnerContentInsetClass}>
+              
               {/* Messages */}
               {messages.map((m) => {
                 const usageForMessage = m?.metadata?.usage;

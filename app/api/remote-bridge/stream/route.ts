@@ -8,10 +8,8 @@ const REMOTE_PROXY_BASE_URL = (process.env.REMOTE_PROXY_BASE_URL || "https://hub
 
 async function getSubjectFromSession(): Promise<string> {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const uid = session?.user?.id || "";
+  const { data: { user } } = await supabase.auth.getUser();
+  const uid = user?.id || "";
   if (!uid) {
     throw new Error("Unauthorized");
   }

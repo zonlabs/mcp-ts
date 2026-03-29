@@ -18,6 +18,12 @@ import { MCP_SERVERS_QUERY } from "@/lib/graphql";
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 

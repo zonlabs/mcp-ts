@@ -13,9 +13,13 @@ const GRAPHQL_ENDPOINT = (process.env.BACKEND_URL || "http://127.0.0.1:8000") + 
 
 async function getAuthenticatedSession() {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return null;
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
   return session;
 }
 

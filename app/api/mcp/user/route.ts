@@ -4,13 +4,14 @@ import { USER_MCP_SERVERS_QUERY } from "@/lib/graphql";
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  // This route requires authentication
-  if (!token) {
+  if (authError || !user) {
     return NextResponse.json({ errors: [{ message: "Unauthorized" }] }, { status: 401 });
   }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
 
   const origin = (process.env.DJANGO_API_URL || process.env.BACKEND_URL)?.replace(/\/$/, "");
   if (!origin) {

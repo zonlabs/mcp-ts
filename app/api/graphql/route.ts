@@ -9,8 +9,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { query, variables } = body;
 
-    // Get session for authentication
+    // Get user for authentication verification
     const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+        return new Response(JSON.stringify({ errors: [{ message: "Unauthorized" }] }), { status: 401 });
+    }
+
+    // Get session for tokens
     const { data: { session } } = await supabase.auth.getSession();
 
     // Prepare headers
