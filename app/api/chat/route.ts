@@ -303,25 +303,6 @@ export async function POST(req: Request) {
           await saveChat(chatId, assistantMessages);
         }
       }
-      if (!chatId || !user?.id) return;
-      const userText = extractUserText(messages);
-      if (!userText) return;
-
-      const { data: chatRow, error: chatError } = await supabase
-        .from('chats')
-        .select('title')
-        .eq('id', chatId)
-        .eq('user_id', user.id)
-        .single();
-      if (chatError || (chatRow?.title && chatRow.title !== 'New Chat')) return;
-
-      const title = await generateChatTitle({ prompt: userText, llmConfig: body.llmConfig });
-      if (!title) return;
-      await supabase
-        .from('chats')
-        .update({ title })
-        .eq('id', chatId)
-        .eq('user_id', user.id);
     },
   });
 }

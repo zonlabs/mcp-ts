@@ -116,17 +116,23 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
   const incoming = Array.isArray(incomingMessages) ? incomingMessages : [];
   const now = new Date().toISOString();
   if (user) {
-    const { error: upsertError } = await supabase
+    const { data: existingChat } = await supabase
       .from('chats')
-      .upsert({
-        id: chatId,
-        user_id: user.id,
-        updated_at: now,
-      }, { onConflict: 'id' });
-
-    if (upsertError) {
-      console.error('[chat-store] saveChat failed to upsert chat:', upsertError);
-      return;
+      .select('user_id')
+      .eq('id', chatId)
+      .maybeSingle();
+      
+    if (!existingChat || existingChat.user_id === user.id) {
+      // Create or update full record if owner
+      await supabase
+        .from('chats')
+        .upsert({ id: chatId, user_id: user.id, updated_at: now }, { onConflict: 'id' });
+    } else {
+      // Shared chat: only update the timestamp
+      await supabase
+        .from('chats')
+        .update({ updated_at: now })
+        .eq('id', chatId);
     }
   }
 

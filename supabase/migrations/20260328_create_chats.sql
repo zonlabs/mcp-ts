@@ -194,3 +194,14 @@ using (
       and public.chats.visibility in ('PUBLIC')
   )
 );
+-- Allow anyone to "touch" a public chat (to update its timestamp)
+drop policy if exists "chats_update_public" on public.chats;
+create policy "chats_update_public" on public.chats
+for update
+using (visibility = 'PUBLIC')
+with check (
+  id = id 
+  and user_id = user_id 
+  and visibility = visibility
+  and title = title 
+);

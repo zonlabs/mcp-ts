@@ -35,7 +35,8 @@ User Request → Extract Capability
       let embeddingResults: any[] = [];
       let allTextResults: any[] = [];
 
-      // 1. Semantic search using embeddings (if query provided)
+      // 1. Semantic search using embeddings (if query provided) - COMMENTED OUT due to API key issues
+      /*
       if (searchQuery) {
         try {
           const embeddings = await findRelevantContent(
@@ -58,6 +59,7 @@ User Request → Extract Capability
           console.error('[Search] Embedding search failed:', embError);
         }
       }
+      */
 
       // 2. Text-based GraphQL search across name OR description
       // Uses custom 'search' parameter that searches both fields with OR logic
@@ -86,7 +88,8 @@ User Request → Extract Capability
       if (response.ok && data.data?.mcpServers) {
         const pageInfo = data.data.mcpServers.pageInfo;
 
-        // 3. Semantic results have full server metadata from embeddings
+        // 3. Semantic results have full server metadata from embeddings - COMMENTED OUT
+        /*
         const uniqueSemanticServers = embeddingResults.reduce((acc: any[], curr: any) => {
           const existing = acc.find(s => s.id === curr.id);
           if (!existing || curr.similarity > existing.similarity) {
@@ -99,6 +102,8 @@ User Request → Extract Capability
           }
           return acc;
         }, []).sort((a: any, b: any) => b.similarity - a.similarity);
+        */
+        const uniqueSemanticServers: any[] = [];
 
         const textOnlyServers = allTextResults
           .map((server: any) => ({
@@ -115,7 +120,7 @@ User Request → Extract Capability
           semanticCount: uniqueSemanticServers.length,
           hasNextPage: pageInfo.hasNextPage,
           endCursor: pageInfo.endCursor,
-          message: `Found ${textOnlyServers.length} server${textOnlyServers.length !== 1 ? 's' : ''}${searchQuery ? ` matching "${searchQuery}"` : ''} (${uniqueSemanticServers.length} semantic, ${textOnlyServers.length} text)`,
+          message: `Found ${textOnlyServers.length} server${textOnlyServers.length !== 1 ? 's' : ''}${searchQuery ? ` matching "${searchQuery}"` : ''}`,
         };
       } else if (data.errors) {
         yield {

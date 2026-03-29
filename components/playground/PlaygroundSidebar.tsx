@@ -511,11 +511,11 @@ export const PlaygroundSidebar = () => {
                   )}
                 </div>
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => navigateTo('/settings')}
                   className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Log Out</span>
+                  <User className="w-3.5 h-3.5" />
+                  <span>Account</span>
                 </button>
               </div>
             </div>
@@ -831,80 +831,62 @@ export const PlaygroundSidebar = () => {
         </div>
 
 
-        {/* Profile Dropdown at Bottom */}
+        {/* Profile Action at Bottom */}
         <div className={cn("p-3 flex-shrink-0")}>
           {!isOpen ? (
             <Tooltip>
-              <DropdownMenu>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="w-full flex items-center justify-center p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
-                    >
-                      {userImage ? (
-                        <Image
-                          src={userImage}
-                          alt={userName}
-                          width={32}
-                          height={32}
-                          className="rounded-full flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
-                          {userName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  Profile
-                </TooltipContent>
-                <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-fit min-w-[120px] mb-2">
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log Out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </Tooltip>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <TooltipTrigger asChild>
                 <button
-                  className="w-full flex items-center gap-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
+                  onClick={() => router.push('/settings')}
+                  className="w-full flex items-center justify-center p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
                 >
                   {userImage ? (
                     <Image
                       src={userImage}
                       alt={userName}
-                      width={40}
-                      height={40}
+                      width={32}
+                      height={32}
                       className="rounded-full flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold">
+                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
                       {userName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div className="flex flex-col items-start overflow-hidden flex-1">
-                    <span className="text-sm font-medium truncate w-full">{userName}</span>
-                    {user?.email && (
-                      <span className="text-xs text-muted-foreground truncate w-full">
-                        {user.email}
-                      </span>
-                    )}
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-fit min-w-[120px] mb-2">
-                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log Out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                Account Settings
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <button
+              onClick={() => router.push('/settings')}
+              className="w-full flex items-center gap-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
+            >
+              {userImage ? (
+                <Image
+                  src={userImage}
+                  alt={userName}
+                  width={40}
+                  height={40}
+                  className="rounded-full flex-shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold">
+                  {userName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex flex-col items-start overflow-hidden flex-1">
+                <span className="text-sm font-medium truncate w-full">{userName}</span>
+                {user?.email && (
+                  <span className="text-xs text-muted-foreground truncate w-full">
+                    {user.email}
+                  </span>
+                )}
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            </button>
           )}
         </div>
       </div>
