@@ -169,7 +169,6 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
     return {
       ...(externalId ? { external_id: externalId } : {}),
       chat_id: chatId,
-      user_id: user?.id ?? null,
       role: message.role,
       parts,
       attachments: Array.isArray((message as any)?.attachments) ? (message as any).attachments : [],
