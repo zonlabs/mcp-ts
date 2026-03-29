@@ -340,7 +340,9 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
                             // console.log(`toolPart ---> : ${JSON.stringify(toolPart)}`)
 
                             // Handle MCP connection tool - all states
-                            if (toolName === 'MCPASSISTANT_INITIATE_CONNECTION') {
+                            const isInitiateConn = toolName === 'MCPASSISTANT_INITIATE_CONNECTION' || toolName?.includes('INITIATE_CONNECTION');
+
+                            if (isInitiateConn) {
                               const input = toolPart.input as any;
 
                               // Only show approval UI for approval-requested state
@@ -355,10 +357,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
                                       approvalId={approvalId || ''}
                                       onApprove={(data) => {
                                         if (approvalId && addToolApprovalResponse) {
-                                          console.log('[Playground] Sending MCP tool approval response', {
-                                            approvalId,
-                                            data,
-                                          });
                                           addToolApprovalResponse({
                                             id: approvalId,
                                             approved: true,
@@ -378,18 +376,27 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
                                 );
                               }
 
-                              // For other states, show regular tool call display
-                              return (
-                            <div key={index} className="w-full">
-                              <MCPToolCall
-                                name={toolPart.title || toolName}
-                                state={toolPart.state}
-                                input={toolPart.input}
-                                    output={toolPart.state === 'output-available' ? toolPart.output : undefined}
-                                    errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
-                                  />
-                                </div>
-                              );
+                              // For initiate-mcp-connection, we hide the successful state to reduce noise
+                              // as the assistant typically follows up with "I'm connected" text.
+                              // We show the approval card during request, and the tool call box ONLY if there's an error.
+                              if (toolPart.state === 'output-available') {
+                                return null; 
+                              }
+
+                              if (toolPart.state === 'output-error') {
+                                return (
+                                  <div key={index} className="w-full">
+                                    <MCPToolCall
+                                      name={toolPart.title || toolName}
+                                      state={toolPart.state}
+                                      input={toolPart.input}
+                                      errorText={toolPart.errorText}
+                                    />
+                                  </div>
+                                );
+                              }
+
+                              return null; // Hide loading/responded/other intermediate states
                             }
 
                             // Regular tool call display for other tools

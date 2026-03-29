@@ -51,6 +51,8 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 const MAX_TOOL_NAME_LENGTH = 64;
 
 interface CreateMcpAgentOptions {
+  userId?: string;
+  gatewaySelections?: GatewayServerSelection[];
 }
 type McpAgentCallOptions = {
   userId?: string;
@@ -103,7 +105,7 @@ function normalizeToolInfo(raw: GatewayToolInfo, fallbackName: string): GatewayT
   };
 }
 
-async function getRemoteMcpTools(identity: string, gatewaySelections?: GatewayServerSelection[]) {
+async function getLocalMcpTools(identity: string, gatewaySelections?: GatewayServerSelection[]) {
   const normalizedSelections = normalizeGatewaySelections(gatewaySelections || []);
 
   let subject: string;
@@ -175,20 +177,20 @@ async function getRemoteMcpTools(identity: string, gatewaySelections?: GatewaySe
             const result = (await invokeRemoteServer(selection.agentId, selection.mcpServer, payload)) as Record<string, unknown>;
             if (result?.error) {
               yield {
-                state: "ready" as const,
+                state: "output-error" as const,
                 success: false,
                 error: result.error,
               };
               return;
             }
             yield {
-              state: "ready" as const,
+              state: "output-available" as const,
               success: true,
               data: result?.result ?? result,
             };
           } catch (error) {
             yield {
-              state: "ready" as const,
+              state: "output-error" as const,
               success: false,
               error: error instanceof Error ? error.message : "Gateway tool execution failed",
             };
@@ -205,29 +207,16 @@ async function getRemoteMcpTools(identity: string, gatewaySelections?: GatewaySe
   return { tools: gatewayTools, toolIndex };
 }
 
-async function getLocalMcpTools(
-  identity: string,
-  gatewaySelections?: GatewayServerSelection[]
-) {
-  const manager = new MultiSessionClient(identity);
+async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) {
+  const manager = client || new MultiSessionClient(identity);
 
-  try {
-    await manager.connect();
-  } catch (error) {
-    console.error("[MCP] Connection failed:", error);
+  if (!client) {
+    try {
+      await manager.connect();
+    } catch (error) {
+      console.error("[MCP] Connection failed:", error);
+    }
   }
-
-  let mcpTools: Record<string, any> = {};
-  try {
-    mcpTools = await AIAdapter.getTools(manager);
-  } catch (error) {
-    console.error("[MCP] Failed to load MCP tools:", error);
-  }
-
-  const { tools: gatewayTools, toolIndex } = await getRemoteMcpTools(identity, gatewaySelections);
-  console.log(
-    `[MCP] Loaded ${Object.keys(mcpTools).length} MCP tools and ${Object.keys(gatewayTools).length} gateway tools for agent.`
-  );
 
   const baseTools = {
     MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS: checkMcpConnections,
@@ -235,23 +224,42 @@ async function getLocalMcpTools(
     MCPASSISTANT_INITIATE_CONNECTION: initiateMcpConnection,
   };
 
-  const tools = {
-    ...baseTools,
-    ...mcpTools,
-    ...gatewayTools,
-  };
+  let mcpTools: Record<string, any> = { ...baseTools };
 
-  const baseToolNames = [...Object.keys(baseTools), ...Object.keys(mcpTools)];
+  try {
+    const discoveredTools = await AIAdapter.getTools(manager);
+    mcpTools = { ...mcpTools, ...discoveredTools };
+  } catch (error) {
+    console.error("[MCP] Failed to load MCP tools:", error);
+  }
 
-  return { manager, tools, baseToolNames, gatewayTools, toolIndex };
+  return { manager, tools: mcpTools };
 }
 
 export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
-  let activeManager: MultiSessionClient | null = null;
+  const identity = options.userId?.trim() || "demo-user-123";
+
+  // Local tools = Gateway/Bridge + Built-ins
+  const { tools: localTools, toolIndex: localIndex } = await getLocalMcpTools(
+    identity,
+    options.gatewaySelections
+  );
+
+  // Remote tools = SSE/MultiSession (Direct connections)
+  const { manager, tools: remoteTools } = await getRemoteMcpTools(identity);
+
+  console.log(
+    `[MCP] Loaded ${Object.keys(localTools).length} local tools (including built-ins) and ${Object.keys(remoteTools).length} remote tools.`
+  );
+
+  const combinedTools = {
+    ...localTools,
+    ...remoteTools,
+  };
 
   const agent = new ToolLoopAgent<McpAgentCallOptions, ToolSet>({
     instructions: INSTRUCTIONS,
-    model: createOpenAI()("gpt-4.1-mini"),
+    model: createOpenAI()("gpt-4o-mini"),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
       llmConfig: z
@@ -270,19 +278,8 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         )
         .optional(),
     }),
-    prepareCall: async ({ options, abortSignal, ...settings }) => {
-      const model = getModelFromConfig(options?.llmConfig);
-
-      const identity = options?.userId?.trim() || "demo-user-123";
-      const { manager, tools, baseToolNames, gatewayTools, toolIndex } = await getLocalMcpTools(
-        identity,
-        options?.gatewaySelections
-      );
-
-      if (activeManager && activeManager !== manager) {
-        activeManager.disconnect();
-      }
-      activeManager = manager;
+    prepareCall: async ({ options: callOptions, abortSignal, ...settings }) => {
+      const model = getModelFromConfig(callOptions?.llmConfig);
 
       if (abortSignal) {
         abortSignal.addEventListener("abort", () => {
@@ -290,32 +287,37 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         }, { once: true });
       }
 
-      const selectedServers = options?.gatewaySelections?.map((s) => s.mcpServer) || [];
-      const gatewayToolNames = selectedServers.flatMap((server) => toolIndex.get(server) || []);
+      // Filter tools based on selections if provided
+      const selectedServers = callOptions?.gatewaySelections?.map((s) => s.mcpServer) || options.gatewaySelections?.map((s) => s.mcpServer) || [];
+      const gatewayToolNames = selectedServers.flatMap((server) => localIndex.get(server) || []);
+      
       const activeTools: string[] = selectedServers.length > 0
-        ? [...baseToolNames, ...gatewayToolNames]
-        : [...baseToolNames, ...Object.keys(gatewayTools)];
+        ? [...Object.keys(combinedTools).filter(k => k.startsWith('MCPASSISTANT_')), ...gatewayToolNames]
+        : Object.keys(combinedTools);
 
       return {
         ...settings,
         model,
-        tools,
+        tools: combinedTools,
         activeTools,
         instructions: INSTRUCTIONS,
       };
     },
     tools: {},
-    stopWhen: stepCountIs(10),
+    stopWhen: stepCountIs(30),
     onFinish: () => {
-      activeManager?.disconnect();
+      manager.disconnect();
     },
   });
 
   return {
     agent,
-    cleanup: () => activeManager?.disconnect(),
+    cleanup: () => {
+      manager.disconnect();
+    },
   };
 }
+
 type AgentMessageMetadata = {
   usage?: LanguageModelUsage;
   isNewChat?: boolean;

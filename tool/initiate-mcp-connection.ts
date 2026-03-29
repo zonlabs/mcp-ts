@@ -23,7 +23,7 @@ export const initiateMcpConnection = tool({
 
       if (!user?.id) {
         yield {
-          state: 'ready' as const,
+          state: 'output-error' as const,
           success: false,
           error: 'Unauthorized',
           message: 'Please sign in to connect MCP servers.',
@@ -37,7 +37,7 @@ export const initiateMcpConnection = tool({
       if (connection && connection.active) {
         console.log('[initiateMcpConnection] Connection verified');
         yield {
-          state: 'ready' as const,
+          state: 'output-available' as const,
           success: true,
           sessionId: connection.sessionId,
           message: `Successfully connected to ${serverName}`,
@@ -45,7 +45,7 @@ export const initiateMcpConnection = tool({
       } else {
         console.warn('[initiateMcpConnection] Connection not found or inactive');
         yield {
-          state: 'ready' as const,
+          state: 'output-error' as const,
           success: false,
           error: 'Connection not found',
           message: `Connection to ${serverName} was not established. Please try again.`,
@@ -58,7 +58,7 @@ export const initiateMcpConnection = tool({
         stack: error instanceof Error ? error.stack : undefined,
       });
       yield {
-        state: 'ready' as const,
+        state: 'output-error' as const,
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         message: `Error connecting to ${serverName}: ${error instanceof Error ? error.message : 'Unknown error'}`,

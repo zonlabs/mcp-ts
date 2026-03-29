@@ -29,7 +29,8 @@ function getLastUserMessage(messages: McpAgentUIMessage[]): McpAgentUIMessage | 
 
 function getNewAssistantMessages(
   streamed: McpAgentUIMessage[],
-  requestMessages: McpAgentUIMessage[]
+  requestMessages: McpAgentUIMessage[],
+  resumeId?: string
 ): McpAgentUIMessage[] {
   const existingIds = new Set(
     requestMessages
@@ -39,7 +40,42 @@ function getNewAssistantMessages(
   return (Array.isArray(streamed) ? streamed : []).filter((msg: any) => {
     if (msg?.role === 'user') return false;
     const id = msg?.id;
+    if (resumeId && id === resumeId) return true;
     return !id || !existingIds.has(id);
+  }).map((msg: any) => {
+    const id = msg?.id;
+    if (resumeId && id === resumeId) {
+      const originalMsg = requestMessages.find((m: any) => m?.id === id);
+      if (originalMsg && Array.isArray(originalMsg.parts)) {
+        // Merge parts: keep all previous parts, and append/update with new parts from the stream
+        const oldParts = originalMsg.parts;
+        const newParts = Array.isArray(msg.parts) ? msg.parts : [];
+        
+        // Simple merge: append new parts that aren't already represented by a toolCallId in oldParts,
+        // or replace parts with same toolCallId.
+        const mergedParts = [...oldParts];
+        for (const newPart of newParts) {
+          const newToolCallId = (newPart as any).toolCallId || (newPart as any).toolInvocation?.toolCallId;
+          const existingIndex = newToolCallId 
+            ? mergedParts.findIndex(p => ((p as any).toolCallId === newToolCallId) || ((p as any).toolInvocation?.toolCallId === newToolCallId))
+            : -1;
+            
+          if (existingIndex >= 0) {
+            // Replace old part with new part while preserving any important properties
+            mergedParts[existingIndex] = {
+              ...mergedParts[existingIndex],
+              ...newPart,
+            };
+          } else {
+            // Append new part if it's not a duplicate text/file
+            if (newPart.type === 'text' && mergedParts.some(p => p.type === 'text' && p.text === newPart.text)) continue;
+            mergedParts.push(newPart);
+          }
+        }
+        return { ...msg, parts: mergedParts };
+      }
+    }
+    return msg;
   });
 }
 
@@ -108,7 +144,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  
   const { data: { user } } = await supabase.auth.getUser();
   const shouldRegenerate = body.action === 'regenerate-message';
   const regenTarget = shouldRegenerate ? getLastAssistantMessage(messages)?.id : null;
@@ -143,11 +178,72 @@ export async function POST(req: Request) {
       await saveChat(chatId, [lastUserMessage]);
     }
   }
-  const { agent, cleanup } = await createMcpAgent();
+  const { agent, cleanup } = await createMcpAgent({
+    userId: user?.id,
+    gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : undefined
+  });
   req.signal.addEventListener('abort', cleanup, { once: true });
 
+  // Next.js AI SDK strips assistant messages if tool invocations aren't exactly 'result'
+  // We must normalize custom UI approval states so the LLM retains chat history.
+  const normalizedMessages = messages.map(msg => {
+    const newMsg = { ...msg };
+    if (Array.isArray((newMsg as any).toolInvocations)) {
+      (newMsg as any).toolInvocations = (newMsg as any).toolInvocations.map((ti: any) => {
+        if (ti.state !== 'result' && ti.state !== 'output-available' && ti.toolName.startsWith('MCPASSISTANT_')) {
+          return {
+            ...ti,
+            state: 'result',
+            result: ti.output || { success: true, message: "Action verified by user." }
+          };
+        }
+        return ti;
+      });
+    }
+    // DeepSeek/OpenAI strict validation mapping for the incoming parts array
+    if (Array.isArray(newMsg.parts)) {
+      newMsg.parts = newMsg.parts.map((p: any) => {
+        // Standard shape mapping
+        if (p.type === 'tool-invocation' && p.toolInvocation) {
+          if (p.toolInvocation.state !== 'result' && p.toolInvocation.toolName === 'MCPASSISTANT_INITIATE_CONNECTION') {
+            return {
+              ...p,
+              toolInvocation: {
+                ...p.toolInvocation,
+                state: 'result',
+                result: { success: true, message: "Connection verified actively by user." }
+              }
+            };
+          }
+        }
+        // Custom UI shape mapping
+        if (typeof p.type === 'string' && p.type.startsWith('tool-') && (p.state === 'approval-responded' || p.state === 'output-available' || p.state === 'ready')) {
+          if (p.type.startsWith('tool-MCPASSISTANT_')) {
+            return {
+              ...p,
+              state: 'output-available',
+              output: p.output || { success: true, message: "Action verified by user." }
+            };
+          }
+        }
+        return p;
+      });
+    }
+    return newMsg;
+  });
+
+  const lastMessage = normalizedMessages[normalizedMessages.length - 1];
+  const isResuming = lastMessage?.role === 'assistant';
+  const initialResumeId = isResuming ? (lastMessage as any)?.id : undefined;
+  let resumeId = initialResumeId;
+
+  const generateId = createIdGenerator({
+    prefix: 'msg',
+    size: 16,
+  });
+
   const result = await agent.stream({
-    messages: await convertToModelMessages(messages),
+    messages: await convertToModelMessages(normalizedMessages),
     abortSignal: req.signal,
     options: {
       userId: user?.id,
@@ -156,13 +252,17 @@ export async function POST(req: Request) {
     },
   });
 
-  result.consumeStream();
+  // result.consumeStream();
 
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({
-    generateMessageId: createIdGenerator({
-      prefix: 'msg',
-      size: 16,
-    }),
+    generateMessageId: () => {
+      if (resumeId) {
+        const id = resumeId;
+        resumeId = undefined; // Only reuse once per stream
+        return id;
+      }
+      return generateId();
+    },
     messageMetadata: ({ part }) => {
       const base = isNewChat && newChatTitle
         ? { isNewChat: true, chatTitle: newChatTitle }
@@ -197,7 +297,8 @@ export async function POST(req: Request) {
             }
           }
         }
-        const assistantMessages = getNewAssistantMessages(finalMessages, messages);
+        const assistantMessages = getNewAssistantMessages(finalMessages, normalizedMessages, initialResumeId);
+
         if (assistantMessages.length > 0) {
           await saveChat(chatId, assistantMessages);
         }

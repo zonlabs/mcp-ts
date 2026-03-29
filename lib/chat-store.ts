@@ -165,7 +165,8 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
   if (rowsWithExternalId.length > 0) {
     const { error: upsertError } = await supabase
       .from('chat_messages')
-      .upsert(rowsWithExternalId, { onConflict: 'chat_id,external_id', ignoreDuplicates: true });
+      .upsert(rowsWithExternalId, { onConflict: 'chat_id,external_id' });
+    
     if (upsertError) {
       console.error('[chat-store] saveChat failed to upsert messages:', upsertError);
     }

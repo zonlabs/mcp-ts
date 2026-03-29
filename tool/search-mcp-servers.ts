@@ -107,7 +107,7 @@ User Request → Extract Capability
           }));
 
         yield {
-          state: 'ready' as const,
+          state: 'output-available' as const,
           success: true,
           servers: textOnlyServers, 
           semanticResults: uniqueSemanticServers,
@@ -119,14 +119,14 @@ User Request → Extract Capability
         };
       } else if (data.errors) {
         yield {
-          state: 'ready' as const,
+          state: 'output-error' as const,
           success: false,
           error: data.errors[0]?.message || 'GraphQL error',
           message: `Error: ${data.errors[0]?.message || 'GraphQL error'}`,
         };
       } else {
         yield {
-          state: 'ready' as const,
+          state: 'output-error' as const,
           success: false,
           error: 'Failed to search servers',
           message: 'Failed to search servers',
@@ -134,7 +134,7 @@ User Request → Extract Capability
       }
     } catch (error) {
       yield {
-        state: 'ready' as const,
+        state: 'output-error' as const,
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         message: `Error searching servers: ${error instanceof Error ? error.message : 'Unknown error'}`,

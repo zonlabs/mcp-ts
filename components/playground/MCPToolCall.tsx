@@ -127,9 +127,12 @@ export default function MCPToolCall({
   const isRunning =
     state === 'loading' ||
     state === 'input-streaming' ||
-    state === 'input-available' ||
-    state === 'approval-responded';
-  const statusLabel = isRunning ? 'in progress' : state.replace('-', ' ');
+    state === 'input-available';
+  const statusLabel = isRunning 
+    ? 'in progress' 
+    : state === 'approval-responded' 
+      ? 'approved' 
+      : state.replace('-', ' ');
 
   return (
     <div className="group overflow-hidden transition-all">

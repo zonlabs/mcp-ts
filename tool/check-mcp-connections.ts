@@ -15,7 +15,7 @@ export const checkMcpConnections = tool({
 
       if (!user?.id) {
         yield {
-          state: 'ready' as const,
+          state: 'output-error' as const,
           success: false,
           error: 'Unauthorized',
           message: 'Please sign in to check MCP connections.',
@@ -25,7 +25,7 @@ export const checkMcpConnections = tool({
 
       const connections = await getActiveMcpConnections(user.id);
       yield {
-        state: 'ready' as const,
+        state: 'output-available' as const,
         success: true,
         connections,
         count: connections.length,
@@ -38,7 +38,7 @@ export const checkMcpConnections = tool({
         stack: error instanceof Error ? error.stack : undefined,
       });
       yield {
-        state: 'ready' as const,
+        state: 'output-error' as const,
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         message: `Error checking connections: ${error instanceof Error ? error.message : 'Unknown error'}`,
