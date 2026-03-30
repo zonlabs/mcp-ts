@@ -59,6 +59,63 @@ function getLastUserMessage(messages: McpAgentUIMessage[]): McpAgentUIMessage | 
 }
 
 /**
+ * Verifies that the requesting user is allowed to read/write `chatId`.
+ *
+ * Rules:
+ *  • If the chat doesn't exist yet → only authenticated users may create it.
+ *  • If the chat exists and is PRIVATE → only its owner may modify it.
+ *  • If the chat exists and is PUBLIC → any authenticated user may participate.
+ *  • Unauthenticated users may never write to any chat.
+ *
+ * @returns A `NextResponse` error response when access is denied, or `null` when permitted.
+ */
+async function assertChatPermission(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  chatId: string,
+  userId: string | undefined
+): Promise<NextResponse | null> {
+  const { data: chat, error } = await supabase
+    .from('chats')
+    .select('user_id, visibility')
+    .eq('id', chatId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[chat] Failed to fetch chat ownership:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+
+  if (!chat) {
+    // Chat doesn't exist yet – only authenticated users may create it
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You must be logged in to create chats.' },
+        { status: 401 }
+      );
+    }
+    return null; // allowed – will be created on first save
+  }
+
+  // Chat exists – unauthenticated users can never participate
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'Unauthorized: You must be logged in to participate in chats.' },
+      { status: 401 }
+    );
+  }
+
+  // Authenticated but not the owner of a private chat
+  if (chat.user_id !== userId && chat.visibility !== 'PUBLIC') {
+    return NextResponse.json(
+      { error: 'Forbidden: You do not have permission to modify this private chat.' },
+      { status: 403 }
+    );
+  }
+
+  return null; // allowed
+}
+
+/**
  * Extracts the first meaningful text string from a list of user messages.
  * Used for auto-generating a chat title.
  */
@@ -197,11 +254,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'messages parameter must be provided' }, { status: 400 });
   }
 
-  // ── Authentication ──────────────────────────────────────────────────────────
+  // ── Authentication & Authorization ──────────────────────────────────────────
   // We use getSession() here (not getUser()) because this runs inside a
   // long-lived streaming context where an extra auth round-trip would add latency.
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
+
+  if (chatId) {
+    const denied = await assertChatPermission(supabase, chatId, user?.id);
+    if (denied) return denied;
+  }
 
   // ── Action Flags ────────────────────────────────────────────────────────────
   const shouldRegenerate  = body.action === 'regenerate-message';

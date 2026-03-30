@@ -21,9 +21,10 @@ interface PlaygroundChatProps {
   chatId: string;
   initialMessages: McpAgentUIMessage[];
   initialDraft?: string;
+  isReadOnly?: boolean;
 }
 
-export function PlaygroundChat({ chatId, initialMessages, initialDraft }: PlaygroundChatProps) {
+export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOnly = false }: PlaygroundChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
@@ -156,6 +157,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
   const hasMessages = messages.length > 0;
 
   const handleRegenerate = () => {
+    if (isReadOnly) return;
     const lastUserIndex = [...messages].reverse().findIndex((m: any) => m?.role === 'user');
     if (lastUserIndex < 0) return;
     const userIndex = messages.length - 1 - lastUserIndex;
@@ -181,6 +183,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
   };
 
   const handleEditMessage = (messageId: string, newText: string) => {
+    if (isReadOnly) return;
     const mIndex = messages.findIndex(m => m.id === messageId);
     if (mIndex === -1) return;
 
@@ -268,12 +271,18 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
 
             <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
               <div className="px-1">
-                <ChatInput
-                  onSend={sendChatInput}
-                  onStop={stop}
-                  status={status}
-                  disabled={status === 'submitted' || status === 'streaming'}
-                />
+                {isReadOnly ? (
+                  <div className="w-full text-center p-3 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
+                    This is a read-only shared chat
+                  </div>
+                ) : (
+                  <ChatInput
+                    onSend={sendChatInput}
+                    onStop={stop}
+                    status={status}
+                    disabled={status === 'submitted' || status === 'streaming'}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -287,12 +296,18 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
                 </h1>
               </div>
 
-              <ChatInput
-                onSend={sendChatInput}
-                onStop={stop}
-                status={status}
-                disabled={status === 'submitted' || status === 'streaming'}
-              />
+              {isReadOnly ? (
+                <div className="w-full text-center p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
+                  This is a read-only shared chat
+                </div>
+              ) : (
+                <ChatInput
+                  onSend={sendChatInput}
+                  onStop={stop}
+                  status={status}
+                  disabled={status === 'submitted' || status === 'streaming'}
+                />
+              )}
 
               <div className="px-4">
                 <RecipeComponent
@@ -474,13 +489,19 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
 
           {/* Sticky Input Area */}
           <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
-          <div className={chatContentWidthClass}>
-            <ChatInput
-              onSend={sendChatInput}
-                onStop={stop}
-                status={status}
-                disabled={status === 'submitted' || status === 'streaming'}
-              />
+            <div className={chatContentWidthClass}>
+              {isReadOnly ? (
+                <div className="w-full text-center p-3 sm:p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm shadow-sm max-w-2xl mx-auto">
+                  This is a read-only shared chat
+                </div>
+              ) : (
+                <ChatInput
+                  onSend={sendChatInput}
+                  onStop={stop}
+                  status={status}
+                  disabled={status === 'submitted' || status === 'streaming'}
+                />
+              )}
             </div>
           </div>
         </>

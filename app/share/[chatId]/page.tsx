@@ -14,6 +14,18 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
 
   const userSession = (user && session) ? session as any : null;
 
+  // Determine if the current user owns this chat
+  const { data: chatData } = await supabase
+    .from('chats')
+    .select('user_id, visibility')
+    .eq('id', chatId)
+    .single();
+    
+  // It's read-only if no user is logged in (unauthenticated users cannot collaborate)
+  // or if for some reason the chat is PRIVATE and they are not the owner.
+  const isReadOnly = !user || (chatData?.visibility !== 'PUBLIC' && chatData?.user_id !== user.id);
+
+
   return (
     <div className="fixed inset-0 z-50 bg-background">
       <AuthProvider userSession={userSession}>
@@ -24,6 +36,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
               <PlaygroundChat
                 chatId={chatId}
                 initialMessages={messages}
+                isReadOnly={isReadOnly}
               />
             </main>
           </div>
