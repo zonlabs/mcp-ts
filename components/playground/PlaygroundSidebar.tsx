@@ -10,7 +10,6 @@ import {
   PanelLeftClose,
   LayoutGrid,
   X,
-  User,
   KeyRound,
   Lock,
   Globe,
@@ -22,6 +21,7 @@ import {
   MoreHorizontal,
   ArrowUpRight,
   Link,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -114,7 +114,7 @@ export const PlaygroundSidebar = () => {
     return () => {
       isActive = false;
     };
-  }, [user?.id, pathname]);
+  }, [user?.id]);
 
   useEffect(() => {
     const handler = (event: Event) => {
