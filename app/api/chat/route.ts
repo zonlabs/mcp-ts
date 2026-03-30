@@ -3,7 +3,7 @@ import { createMcpAgent, type McpAgentUIMessage } from '@/agent/openai-agent';
 import { createClient } from '@/lib/supabase/server';
 import type { GatewayServerSelection } from '@/lib/gateway-access';
 import { NextResponse } from 'next/server';
-import { saveChat } from '@/lib/chat-store';
+import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
 import { getModelFromConfig } from '@/lib/llm';
 
 interface ChatRequestBody {
@@ -145,6 +145,13 @@ export async function POST(req: Request) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const shouldRegenerate = body.action === 'regenerate-message';
+  const shouldEditReplace = body.action === 'edit-message';
+
+  // When editing a message, wipe the DB and re-persist the truncated history
+  if (shouldEditReplace && chatId) {
+    await deleteAllChatMessages(chatId);
+    await saveChat(chatId, messages);
+  }
   
   let newChatTitle: string | null = null;
   let isNewChat = false;

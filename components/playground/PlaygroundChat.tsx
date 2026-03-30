@@ -180,6 +180,33 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
     });
   };
 
+  const handleEditMessage = (messageId: string, newText: string) => {
+    const mIndex = messages.findIndex(m => m.id === messageId);
+    if (mIndex === -1) return;
+
+    // Truncate to the edited message and update its text
+    const updatedMessages = messages.slice(0, mIndex + 1).map((m, idx) => {
+      if (idx === mIndex) {
+        return {
+          ...m,
+          parts: [{ type: 'text', text: newText }]
+        };
+      }
+      return m;
+    });
+
+    setMessages(updatedMessages as McpAgentUIMessage[]);
+
+    // Trigger regeneration
+    const currentConfig = getLatestLlmConfig();
+    regenerate({
+      body: { 
+        llmConfig: currentConfig,
+        action: 'edit-message'
+      }
+    });
+  };
+
   const formatErrorMessage = (err: any) => {
     const raw = err?.message || "An error occurred";
     if (typeof raw === "string") {
@@ -297,6 +324,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft }: Playgr
                       <UserMessage
                         message={{ text }}
                         parts={m.parts.filter((p: any) => p.type === 'file')}
+                        onEdit={(newText) => handleEditMessage(m.id, newText)}
                       />
                         );
                       })()
