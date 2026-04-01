@@ -387,6 +387,16 @@ export async function POST(req: Request) {
 
         return p;
       });
+
+      // Deduplicate tool parts with the same toolCallId (keep first occurrence)
+      const seenToolCallIds = new Set<string>();
+      newMsg.parts = newMsg.parts.filter((p: any) => {
+        const toolCallId = p.toolCallId || p.toolInvocation?.toolCallId;
+        if (!toolCallId) return true;
+        if (seenToolCallIds.has(toolCallId)) return false;
+        seenToolCallIds.add(toolCallId);
+        return true;
+      });
     }
 
     return newMsg;

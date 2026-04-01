@@ -5,7 +5,6 @@ import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
 import { useRef, useEffect } from 'react';
 import Image from 'next/image';
-import MCPToolCall from '@/components/playground/MCPToolCall';
 import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
 import { ChatInput } from '@/components/playground/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/playground/ChatMessage';
@@ -16,6 +15,23 @@ import { ArrowUpRight } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/playground/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/openai-agent';
+
+import {
+  Conversation,
+  ConversationContent,
+} from '@/components/ai-elements/conversation';
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from '@/components/ai-elements/reasoning';
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from '@/components/ai-elements/tool';
 
 interface PlaygroundChatProps {
   chatId: string;
@@ -30,7 +46,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
   const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
-  const chatInnerContentInsetClass = "px-2 sm:px-2";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
   const getLatestLlmConfig = () => {
     const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
@@ -43,7 +58,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
     {
       label: 'Market Analysis',
       prompt: 'Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.',
-      icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
+      icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
     },
     {
       label: 'Semantic Search',
@@ -103,10 +118,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  useEffect(() => {
     for (const message of messages) {
       const meta = (message as any)?.metadata;
       const title = meta?.chatTitle;
@@ -136,7 +147,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
           return;
         }
       } catch {
-        // ignore invalid payload
       }
     }
     if (initialDraft && initialDraft.trim()) {
@@ -187,7 +197,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
     const mIndex = messages.findIndex(m => m.id === messageId);
     if (mIndex === -1) return;
 
-    // Truncate to the edited message and update its text
     const updatedMessages = messages.slice(0, mIndex + 1).map((m, idx) => {
       if (idx === mIndex) {
         return {
@@ -200,7 +209,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
 
     setMessages(updatedMessages as McpAgentUIMessage[]);
 
-    // Trigger regeneration
     const currentConfig = getLatestLlmConfig();
     regenerate({
       body: { 
@@ -218,7 +226,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
         if (parsed?.error?.message) return parsed.error.message;
         if (parsed?.message) return parsed.message;
       } catch {
-        // not JSON
       }
       return raw;
     }
@@ -226,12 +233,141 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
     return "An error occurred";
   };
 
+  const renderMessageParts = (m: McpAgentUIMessage, isLastMessage: boolean) => {
+    const reasoningParts = m.parts.filter((part: any) => part.type === "reasoning");
+    const reasoningText = reasoningParts.map((part: any) => part.text).join("\n\n");
+    const hasReasoning = reasoningParts.length > 0;
+    const lastPart = m.parts.at(-1);
+    const isReasoningStreaming = isLastMessage && status === 'streaming' && lastPart?.type === "reasoning";
+
+    const lastTextIndex = m.parts
+      .map((p: any, idx: number) => (p?.type === 'text' && p.text ? idx : -1))
+      .filter((idx: number) => idx !== -1)
+      .pop();
+
+    return (
+      <>
+        {hasReasoning && (
+          <Reasoning className="w-full" isStreaming={isReasoningStreaming}>
+            <ReasoningTrigger />
+            <ReasoningContent>{reasoningText}</ReasoningContent>
+          </Reasoning>
+        )}
+        {m.parts.map((part: any, index: number) => {
+          if (part.type === 'text' && part.text) {
+            return (
+              <AssistantMessage
+                key={`text-${index}`}
+                text={part.text}
+                parts={[]}
+                onRegenerate={handleRegenerate}
+                usage={m?.metadata?.usage}
+                showActions={index === lastTextIndex}
+              />
+            );
+          }
+
+          if (part.type === 'file') {
+            return (
+              <AssistantMessage
+                key={`file-${index}`}
+                text=""
+                parts={[part]}
+              />
+            );
+          }
+
+          if (isToolUIPart(part)) {
+            const toolPart = part as ToolUIPart<any> | DynamicToolUIPart;
+            const toolName = getToolName(toolPart);
+            const approvalId = 'approval' in toolPart ? toolPart.approval?.id : undefined;
+
+            const isInitiateConn = toolName === 'MCPASSISTANT_INITIATE_CONNECTION' || toolName?.includes('INITIATE_CONNECTION');
+
+            if (isInitiateConn) {
+              const input = toolPart.input as any;
+
+              if (toolPart.state === 'approval-requested') {
+                return (
+                  <div key={`tool-${index}`} className="w-full">
+                    <MCPConnectionApproval
+                      serverName={input.serverName || ''}
+                      serverUrl={input.serverUrl || ''}
+                      serverId={input.serverId || ''}
+                      transportType={input.transportType || 'sse'}
+                      approvalId={approvalId || ''}
+                      onApprove={(data) => {
+                        if (approvalId && addToolApprovalResponse) {
+                          addToolApprovalResponse({
+                            id: approvalId,
+                            approved: true,
+                            ...(data ? { data } : {}),
+                          });
+                        }
+                      }}
+                      onDeny={() => {
+                        approvalId &&
+                          addToolApprovalResponse?.({
+                            id: approvalId,
+                            approved: false,
+                          });
+                      }}
+                    />
+                  </div>
+                );
+              }
+
+              if (toolPart.state === 'output-available') {
+                return null;
+              }
+
+              if (toolPart.state === 'output-error') {
+                const toolTitle = part.type.replace(/^tool-/, '');
+                const headerProps = part.type === 'dynamic-tool' 
+                  ? { type: part.type as 'dynamic-tool', state: toolPart.state, toolName: toolName }
+                  : { type: part.type as 'tool-', state: toolPart.state, title: toolTitle };
+                return (
+                  <Tool key={`tool-${index}`} defaultOpen={false}>
+                    <ToolHeader {...headerProps} />
+                    <ToolContent>
+                      <ToolInput input={toolPart.input} />
+                      <ToolOutput errorText={toolPart.errorText} />
+                    </ToolContent>
+                  </Tool>
+                );
+              }
+
+              return null;
+            }
+
+            const toolTitle = part.type.replace(/^tool-/, '');
+            const headerProps = part.type === 'dynamic-tool'
+              ? { type: 'dynamic-tool' as const, state: toolPart.state, toolName: toolName }
+              : { type: 'tool-' as const, state: toolPart.state, title: toolTitle };
+            return (
+              <Tool key={`tool-${index}`} defaultOpen={false}>
+                <ToolHeader {...headerProps} />
+                <ToolContent>
+                  <ToolInput input={toolPart.input} />
+                  <ToolOutput 
+                    output={toolPart.state === 'output-available' ? <pre className="text-sm">{JSON.stringify(toolPart.output, null, 2)}</pre> : undefined}
+                    errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
+                  />
+                </ToolContent>
+              </Tool>
+            );
+          }
+
+          return null;
+        })}
+      </>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-background">
       {!hasMessages ? (
         <>
-          {/* Mobile Empty State */}
           <div className="sm:hidden flex-1 min-h-0 flex flex-col">
             <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
               <div className="mb-7">
@@ -287,7 +423,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
             </div>
           </div>
 
-          {/* Desktop Empty State */}
           <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center px-6">
             <div className="w-full max-w-3xl space-y-8">
               <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
@@ -319,175 +454,55 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
         </>
       ) : (
         <>
-          {/* Scrollable Messages Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className={`${chatContentWidthClass} py-4 sm:py-8 space-y-6 sm:space-y-8`}>
-              <div className={chatInnerContentInsetClass}>
-              
-              {/* Messages */}
-              {messages.map((m) => {
-                const usageForMessage = m?.metadata?.usage;
-                return (
-                  <div key={m.id} className={cn("group flex flex-col gap-3", m.role === 'user' ? "items-end" : "items-start")}>
-                    {m.role === 'user' ? (
-                      (() => {
-                        const text = m.parts
-                          .filter((p: any) => p.type === 'text')
-                          .map((p: any) => p.text)
-                          .join(' ');
-                        return (
-                      <UserMessage
-                        message={{ text }}
-                        parts={m.parts.filter((p: any) => p.type === 'file')}
-                        onEdit={(newText) => handleEditMessage(m.id, newText)}
-                      />
-                        );
-                      })()
-                    ) : (
-                      <>
-                        {/* Render parts in sequence */}
-                        {m.parts.map((part: any, index: number) => {
-                          const lastTextIndex = m.parts
-                            .map((p: any, idx: number) => (p?.type === 'text' && p.text ? idx : -1))
-                            .filter((idx: number) => idx !== -1)
-                            .pop();
-                          // Handle text parts
-                          if (part.type === 'text' && part.text) {
-                            return (
-                              <AssistantMessage
-                                key={index}
-                                text={part.text}
-                                parts={[]}
-                                onRegenerate={handleRegenerate}
-                                usage={usageForMessage}
-                                showActions={index === lastTextIndex}
-                              />
-                            );
-                          }
+          <Conversation className="flex-1 min-h-0">
+            <ConversationContent>
+              <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
+                {messages.map((m, index) => {
+                  const isLastMessage = index === messages.length - 1;
+                  return (
+                    <div key={m.id} className={cn("group flex flex-col gap-3", m.role === 'user' ? "items-end" : "items-start")}>
+                      {m.role === 'user' ? (
+                        (() => {
+                          const text = m.parts
+                            .filter((p: any) => p.type === 'text')
+                            .map((p: any) => p.text)
+                            .join(' ');
+                          return (
+                            <UserMessage
+                              message={{ text }}
+                              parts={m.parts.filter((p: any) => p.type === 'file')}
+                              onEdit={(newText) => handleEditMessage(m.id, newText)}
+                            />
+                          );
+                        })()
+                      ) : (
+                        renderMessageParts(m, isLastMessage)
+                      )}
+                    </div>
+                  );
+                })}
 
-                          // Handle file parts
-                          if (part.type === 'file') {
-                            return (
-                              <AssistantMessage
-                                key={index}
-                                text=""
-                                parts={[part]}
-                              />
-                            );
-                          }
-
-                          // Handle tool calls
-                          if (isToolUIPart(part)) {
-                            const toolPart = part as ToolUIPart<any> | DynamicToolUIPart;
-                            const toolName = getToolName(toolPart);
-                            const approvalId = 'approval' in toolPart ? toolPart.approval?.id : undefined;
-                            // console.log(`toolPart ---> : ${JSON.stringify(toolPart)}`)
-
-                            // Handle MCP connection tool - all states
-                            const isInitiateConn = toolName === 'MCPASSISTANT_INITIATE_CONNECTION' || toolName?.includes('INITIATE_CONNECTION');
-
-                            if (isInitiateConn) {
-                              const input = toolPart.input as any;
-
-                              // Only show approval UI for approval-requested state
-                              if (toolPart.state === 'approval-requested') {
-                                return (
-                                  <div key={index} className="w-full">
-                                    <MCPConnectionApproval
-                                      serverName={input.serverName || ''}
-                                      serverUrl={input.serverUrl || ''}
-                                      serverId={input.serverId || ''}
-                                      transportType={input.transportType || 'sse'}
-                                      approvalId={approvalId || ''}
-                                      onApprove={(data) => {
-                                        if (approvalId && addToolApprovalResponse) {
-                                          addToolApprovalResponse({
-                                            id: approvalId,
-                                            approved: true,
-                                            ...(data ? { data } : {}),
-                                          });
-                                        }
-                                      }}
-                                      onDeny={() => {
-                                        approvalId &&
-                                          addToolApprovalResponse?.({
-                                            id: approvalId,
-                                            approved: false,
-                                          });
-                                      }}
-                                    />
-                                  </div>
-                                );
-                              }
-
-                              // For initiate-mcp-connection, we hide the successful state to reduce noise
-                              // as the assistant typically follows up with "I'm connected" text.
-                              // We show the approval card during request, and the tool call box ONLY if there's an error.
-                              if (toolPart.state === 'output-available') {
-                                return null; 
-                              }
-
-                              if (toolPart.state === 'output-error') {
-                                return (
-                                  <div key={index} className="w-full">
-                                    <MCPToolCall
-                                      name={toolPart.title || toolName}
-                                      state={toolPart.state}
-                                      input={toolPart.input}
-                                      errorText={toolPart.errorText}
-                                    />
-                                  </div>
-                                );
-                              }
-
-                              return null; // Hide loading/responded/other intermediate states
-                            }
-
-                            // Regular tool call display for other tools
-                            return (
-                              <div key={index} className="w-full">
-                                <MCPToolCall
-                                  name={toolPart.title || toolName}
-                                  state={toolPart.state}
-                                  input={toolPart.input}
-                                  output={toolPart.state === 'output-available' ? toolPart.output : undefined}
-                                  errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
-                                />
-                              </div>
-                            );
-                          }
-
-                          return null;
-                        })}
-                      </>
-                    )}
+                {(status === 'streaming' || status === 'submitted') && (
+                  <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="p-1"><LoadingSpinner /></div>
+                    <div className="prose prose-sm dark:prose-invert italic text-muted-foreground flex items-center h-8">
+                      Thinking...
+                    </div>
                   </div>
-                );
-              })}
+                )}
 
-              {/* Thinking State */}
-              {(status === 'streaming' || status === 'submitted') && (
-                <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="p-1"><LoadingSpinner /></div>
-                  <div className="prose prose-sm dark:prose-invert italic text-muted-foreground flex items-center h-8">
-                    Thinking...
-                  </div>
-                </div>
-              )}
-
-              {error && (
-                <AssistantMessage
-                  text={formatErrorMessage(error)}
-                  parts={[]}
-                  onRegenerate={handleRegenerate}
-                />
-              )}
-              <div ref={messagesEndRef} className="h-4" />
+                {error && (
+                  <AssistantMessage
+                    text={formatErrorMessage(error)}
+                    parts={[]}
+                    onRegenerate={handleRegenerate}
+                  />
+                )}
+                <div ref={messagesEndRef} className="h-4" />
               </div>
-            </div>
-          </div>
+            </ConversationContent>
+          </Conversation>
 
-          {/* Sticky Input Area */}
           <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
             <div className={chatContentWidthClass}>
               {isReadOnly ? (

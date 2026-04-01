@@ -65,6 +65,7 @@ export function PlaygroundDraft() {
         : { text: data.text };
       sessionStorage.setItem('pending_chat_message', JSON.stringify(payload));
 
+      window.dispatchEvent(new CustomEvent('chat:created', { detail: { chatId: chatRow.id } }));
       router.push(`/playground/${chatRow.id}`);
     } finally {
       setStatus('ready');

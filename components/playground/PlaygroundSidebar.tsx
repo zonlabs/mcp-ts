@@ -45,7 +45,7 @@ import { toast } from "react-hot-toast";
 import { getAppUrl } from "@/lib/url";
 
 export const PlaygroundSidebar = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [chats, setChats] = useState<{ id: string; title: string | null; updated_at: string | null; created_at: string | null; visibility?: string | null }[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
@@ -74,11 +74,6 @@ export const PlaygroundSidebar = () => {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';
   const userImage = user?.user_metadata?.avatar_url;
 
-  const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/');
-  };
 
   const navigateTo = (path: string) => {
     router.push(path);
@@ -130,6 +125,19 @@ export const PlaygroundSidebar = () => {
     };
     window.addEventListener('chat:title', handler as EventListener);
     return () => window.removeEventListener('chat:title', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ chatId: string }>).detail;
+      if (!detail?.chatId) return;
+      setChats((prev) => [
+        { id: detail.chatId, title: 'New Chat', updated_at: new Date().toISOString(), created_at: new Date().toISOString() },
+        ...prev,
+      ]);
+    };
+    window.addEventListener('chat:created', handler as EventListener);
+    return () => window.removeEventListener('chat:created', handler as EventListener);
   }, []);
 
   const filteredChats = useMemo(() => {
