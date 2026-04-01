@@ -37,6 +37,7 @@ import {
 import { ToolkitBadge } from "./ToolkitBadge";
 import { RunDialog } from "./RunDialog";
 import { ScheduleDialog } from "./ScheduleDialog";
+import { RunOnceDialog } from "./RunOnceDialog";
 import { HistoryList } from "./HistoryList";
 import { StepEditor } from "./StepEditor";
 import type { WorkflowDetail as WFDetail, ExecutionLog, Schedule, Workflow, WorkflowStep } from "@/types/workflow";
@@ -82,6 +83,7 @@ export function WorkflowDetail({ workflowId }: WorkflowDetailProps) {
 
   // Dialog state
   const [runOpen, setRunOpen] = useState(false);
+  const [runOnceOpen, setRunOnceOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [editSchedule, setEditSchedule] = useState<Schedule | undefined>(undefined);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -308,6 +310,16 @@ export function WorkflowDetail({ workflowId }: WorkflowDetailProps) {
               >
                 <Play className="w-3.5 h-3.5" />
                 Run
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setRunOnceOpen(true)}
+                disabled={!workflow.is_active}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Run Once At
               </Button>
               <Button
                 variant="outline"
@@ -543,6 +555,15 @@ export function WorkflowDetail({ workflowId }: WorkflowDetailProps) {
         open={runOpen}
         onClose={() => setRunOpen(false)}
         onSuccess={() => { setHistory([]); fetchHistory(); }}
+      />
+
+      <RunOnceDialog
+        workflow={workflowForDialog}
+        open={runOnceOpen}
+        onClose={() => setRunOnceOpen(false)}
+        onSuccess={(sched) => {
+          setWorkflow({ ...workflow, scheduled_workflows: [...workflow.scheduled_workflows, sched] });
+        }}
       />
 
       <ScheduleDialog

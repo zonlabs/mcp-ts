@@ -1,6 +1,8 @@
 import { checkMcpConnections } from "@/tool/check-mcp-connections";
 import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
 import { searchMcpServers } from "@/tool/search-mcp-servers";
+import { workflowList, workflowRun } from "@/tool/workflow-tools";
+import { createWorkflowDelegateDesignTool } from "@/agent/workflow-subagent";
 import { createOpenAI } from "@ai-sdk/openai";
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool, type LanguageModelUsage, type ToolSet } from "ai";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
@@ -17,12 +19,12 @@ import {
 } from "@/lib/remote-bridge";
 
 const INSTRUCTIONS = `
-You are MCP Assistant, an AI agent that helps users complete tasks by discovering and connecting to Model Context Protocol (MCP) servers.
+You are MCP Assistant, an AI agent that helps users complete tasks by discovering and connecting to Model Context Protocol (MCP) servers. You can also create, list, and run automated workflows.
 
-## Workflow
+## Direct Task Execution
 
 1. **Check Available Tools**
-   - Either check the existing tools you have or Call "MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS" to see connected servers
+   - Either check the existing tools you have or call "MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS" to see connected servers
    - If you have the right tools already, use them immediately
 
 2. **Search for MCP Servers** (if needed)
@@ -38,6 +40,16 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
    - If tools prefixed with "LOCAL_MCP__" are available, they are approved local gateway tools. Use them directly for matching tasks.
    - Be transparent about what you're doing
 
+## Workflow Automation
+
+When the user asks to "create a workflow", "automate", "schedule a task", or build a recurring automation:
+
+1. **Collect MCP context** — list relevant tool names from your available tools (mcp_*, LOCAL_MCP__*). For LOCAL_MCP__ tools, the description includes the original MCP tool name — include both in mcp_tools_summary when delegating.
+2. **Delegate creation** — call "WORKFLOW_DELEGATE_DESIGN" with a clear goal and mcp_tools_summary. A specialist **subagent** (isolated context) will call WORKFLOW_CREATE and persist the workflow; you stay focused on orchestration and MCP setup.
+3. **After delegation** — relay the subagent summary and workflow link to the user.
+
+For listing workflows use "WORKFLOW_LIST". For running an existing workflow by id use "WORKFLOW_RUN". Do not try to call WORKFLOW_CREATE yourself — it is only available inside the subagent.
+
 ## Key Rules
 
 - Be proactive: automatically search and connect when a task needs a specific capability
@@ -46,6 +58,7 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 - Present multiple options if several servers match, let the user choose
 - Handle errors gracefully: explain issues clearly and suggest solutions
 - Keep responses concise and actionable
+- When delegating workflows, pass accurate mcp_tools_summary so the subagent uses real tool names — never guess or make up tool names
 `;
 
 const MAX_TOOL_NAME_LENGTH = 64;
@@ -103,6 +116,69 @@ function normalizeToolInfo(raw: GatewayToolInfo, fallbackName: string): GatewayT
     name,
     description: String(raw?.description || "").trim(),
   };
+}
+
+/** OpenAI (and several providers) cap tool/function names at 64 chars; @mcp-ts AIAdapter uses `tool_${serverId}_${name}` which often exceeds that. */
+const PROVIDER_MAX_TOOL_NAME_LEN = 64;
+const OPENAI_TOOL_NAME_RE = /^[a-zA-Z0-9_-]+$/;
+
+function hashToolKeyForShortName(key: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36).padStart(7, "0");
+}
+
+function needsToolKeyRewrite(key: string): boolean {
+  return (
+    key.length > PROVIDER_MAX_TOOL_NAME_LEN ||
+    !OPENAI_TOOL_NAME_RE.test(key) ||
+    !/^[a-zA-Z_]/.test(key)
+  );
+}
+
+/**
+ * Rewrites tool object keys so provider API limits are satisfied. Original key is appended to description for transparency.
+ */
+function shortenToolKeysForProvider(tools: Record<string, any>): Record<string, any> {
+  const used = new Set<string>();
+  const out: Record<string, any> = {};
+
+  for (const [key, spec] of Object.entries(tools)) {
+    if (!needsToolKeyRewrite(key) && !used.has(key)) {
+      used.add(key);
+      out[key] = spec;
+      continue;
+    }
+    /* Long / invalid name, or original key already used by another aliased tool */
+
+    const h = hashToolKeyForShortName(key);
+    let newKey: string;
+    let n = 0;
+    do {
+      const suffix = n === 0 ? "" : `x${n}`;
+      newKey = `mcp_${h}${suffix}`.slice(0, PROVIDER_MAX_TOOL_NAME_LEN);
+      n += 1;
+    } while (used.has(newKey));
+
+    used.add(newKey);
+    const prevDesc =
+      spec && typeof spec === "object" && typeof spec.description === "string"
+        ? spec.description
+        : "";
+    const registryNote = `[MCP tool registry key: ${key}]`;
+    out[newKey] =
+      spec && typeof spec === "object"
+        ? {
+            ...spec,
+            description: prevDesc ? `${prevDesc}\n\n${registryNote}` : registryNote,
+          }
+        : spec;
+  }
+
+  return out;
 }
 
 async function getLocalMcpTools(identity: string, gatewaySelections?: GatewayServerSelection[]) {
@@ -222,6 +298,8 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
     MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS: checkMcpConnections,
     MCPASSISTANT_SEARCH_SERVERS: searchMcpServers,
     MCPASSISTANT_INITIATE_CONNECTION: initiateMcpConnection,
+    WORKFLOW_LIST: workflowList,
+    WORKFLOW_RUN: workflowRun,
   };
 
   let mcpTools: Record<string, any> = { ...baseTools };
@@ -232,6 +310,8 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
   } catch (error) {
     console.error("[MCP] Failed to load MCP tools:", error);
   }
+
+  mcpTools = shortenToolKeysForProvider(mcpTools);
 
   return { manager, tools: mcpTools };
 }
@@ -291,14 +371,27 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
       const selectedServers = callOptions?.gatewaySelections?.map((s) => s.mcpServer) || options.gatewaySelections?.map((s) => s.mcpServer) || [];
       const gatewayToolNames = selectedServers.flatMap((server) => localIndex.get(server) || []);
       
+      const workflowDelegateDesign = createWorkflowDelegateDesignTool(model);
+
+      const toolsForCall = {
+        ...combinedTools,
+        WORKFLOW_DELEGATE_DESIGN: workflowDelegateDesign,
+      };
+
       const activeTools: string[] = selectedServers.length > 0
-        ? [...Object.keys(combinedTools).filter(k => k.startsWith('MCPASSISTANT_')), ...gatewayToolNames]
-        : Object.keys(combinedTools);
+        ? [
+            ...Object.keys(combinedTools).filter(
+              (k) => k.startsWith("MCPASSISTANT_") || k.startsWith("WORKFLOW_")
+            ),
+            "WORKFLOW_DELEGATE_DESIGN",
+            ...gatewayToolNames,
+          ]
+        : Object.keys(toolsForCall);
 
       return {
         ...settings,
         model,
-        tools: combinedTools,
+        tools: toolsForCall,
         activeTools,
         instructions: INSTRUCTIONS,
       };

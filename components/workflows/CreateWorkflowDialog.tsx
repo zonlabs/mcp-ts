@@ -33,6 +33,7 @@ interface GeneratedPreview {
   }>;
   schedule?: { name: string; cron_expression: string } | null;
   default_params?: Record<string, unknown>;
+  discovered_tools_count?: number;
 }
 
 const EXAMPLES = [
@@ -121,6 +122,9 @@ export function CreateWorkflowDialog({ open, onClose, onSuccess }: CreateWorkflo
                 <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
                   Created with {preview.steps.length} step{preview.steps.length !== 1 ? "s" : ""}
                   {preview.schedule ? ` • Scheduled: ${preview.schedule.cron_expression}` : ""}
+                  {preview.discovered_tools_count
+                    ? ` • ${preview.discovered_tools_count} MCP tool${preview.discovered_tools_count !== 1 ? "s" : ""} detected`
+                    : ""}
                 </p>
               </div>
             </div>

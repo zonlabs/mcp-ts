@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { MCPClient, storage } from "@mcp-ts/sdk/server";
 import { generateText, Output } from "ai";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { z } from "zod";
@@ -7,12 +8,12 @@ import { z } from "zod";
 const StepSchema = z.object({
   name: z.string().describe("Human-readable step name"),
   toolkit: z
-    .enum(["ai", "github", "email", "slack", "http", "webhook", "database", "file", "custom"])
-    .describe("Which toolkit this step uses. Use 'ai' for any reasoning, analysis, or summarization task."),
+    .enum(["ai", "github", "email", "slack", "http", "webhook", "database", "file", "mcp", "custom"])
+    .describe("Which toolkit this step uses. Use 'ai' for reasoning/analysis/summarization. Use 'mcp' or a specific name like 'github' for MCP tool calls."),
   tool_slug: z
     .string()
     .describe(
-      "For toolkit=ai: the AI model slug like 'openai/gpt-4o' or 'deepseek/deepseek-chat'. For MCP tools: the exact tool name."
+      "For toolkit=ai: the AI model slug like 'openai/gpt-4o' or 'deepseek/deepseek-chat'. For MCP tools: the exact tool name from the available tools list."
     ),
   tool_arguments_json: z
     .string()
@@ -67,6 +68,103 @@ function safeParseJson(str: string | undefined | null): Record<string, unknown> 
   }
 }
 
+interface DiscoveredTool {
+  name: string;
+  description: string;
+  args: Array<{ name: string; type: string; required: boolean; description?: string }>;
+  serverName?: string;
+}
+
+async function discoverMcpTools(userId: string): Promise<DiscoveredTool[]> {
+  let sessions: Awaited<ReturnType<typeof storage.getIdentitySessionsData>>;
+  try {
+    sessions = await storage.getIdentitySessionsData(userId);
+  } catch {
+    return [];
+  }
+  if (!sessions.length) return [];
+
+  const allTools: DiscoveredTool[] = [];
+
+  await Promise.all(
+    sessions.map(async (session) => {
+      const client = new MCPClient({
+        identity: userId,
+        sessionId: session.sessionId,
+      });
+      try {
+        await client.connect();
+        const result = await client.listTools();
+        const tools = Array.isArray(result?.tools) ? result.tools : [];
+        for (const tool of tools) {
+          if (!tool?.name) continue;
+          const props = (tool.inputSchema as Record<string, unknown>)?.properties as
+            | Record<string, Record<string, unknown>>
+            | undefined;
+          const requiredFields = new Set(
+            Array.isArray((tool.inputSchema as Record<string, unknown>)?.required)
+              ? ((tool.inputSchema as Record<string, unknown>).required as string[])
+              : []
+          );
+
+          const args: DiscoveredTool["args"] = [];
+          if (props) {
+            for (const [argName, schema] of Object.entries(props)) {
+              args.push({
+                name: argName,
+                type: (schema.type as string) ?? "string",
+                required: requiredFields.has(argName),
+                description: schema.description as string | undefined,
+              });
+            }
+          }
+
+          allTools.push({
+            name: tool.name,
+            description: (tool.description as string) ?? "",
+            args,
+            serverName: session.serverName ?? undefined,
+          });
+        }
+      } catch {
+        // Skip sessions that fail to connect or list tools
+      } finally {
+        try { client.disconnect("tool-discovery"); } catch {}
+        try { client.dispose(); } catch {}
+      }
+    })
+  );
+
+  return allTools;
+}
+
+function formatToolCatalog(tools: DiscoveredTool[]): string {
+  if (tools.length === 0) return "";
+
+  const lines: string[] = [
+    `\n\n## Available MCP Tools (${tools.length} tools discovered from connected servers)\n`,
+    "IMPORTANT: For MCP tool steps, you MUST use tool_slug values from this list. Use the exact argument names shown.\n",
+  ];
+
+  for (const tool of tools) {
+    const argParts = tool.args.map((a) => {
+      const req = a.required ? "required" : "optional";
+      const desc = a.description ? ` - ${a.description}` : "";
+      return `    - ${a.name} (${a.type}, ${req})${desc}`;
+    });
+
+    lines.push(`### ${tool.name}${tool.serverName ? ` [${tool.serverName}]` : ""}`);
+    if (tool.description) lines.push(`  ${tool.description}`);
+    if (argParts.length > 0) {
+      lines.push("  Arguments:");
+      lines.push(...argParts);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -90,6 +188,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
   }
 
+  const discoveredTools = await discoverMcpTools(user.id);
+  const toolCatalog = formatToolCatalog(discoveredTools);
+
+  const toolkitGuidance = discoveredTools.length > 0
+    ? `- When the user's task involves an MCP tool from the available tools list, use the matching toolkit (e.g. "github" for GitHub tools, "mcp" for others) and set tool_slug to the EXACT tool name from the list.
+- You have access to ${discoveredTools.length} MCP tools. Prefer using these real tools over generic placeholders.`
+    : `- For MCP tool calls (e.g. GitHub API), use the appropriate toolkit like "github" and set tool_slug to the MCP tool name.`;
+
   let generated: z.infer<typeof WorkflowSchema>;
   try {
     const result = await generateText({
@@ -102,14 +208,14 @@ Rules:
 - AI steps MUST have "system_prompt" and "user_prompt" keys in tool_arguments_json. Write detailed, specific prompts.
 - Use {{params.xyz}} template syntax to reference user inputs (e.g. {{params.repo_owner}}, {{params.repo_name}}).
 - Use {{steps.N.output.content}} to reference output from a previous step N.
-- For MCP tool calls (e.g. GitHub API), use the appropriate toolkit like "github" and set tool_slug to the MCP tool name.
+${toolkitGuidance}
 - If the user mentions a schedule (e.g. "every 5 minutes", "daily at 9am", "every Monday"), include schedule_name and schedule_cron.
 - Infer sensible default_params_json from the description.
 - Design input_properties for any values the user should be able to customize.
 - Keep workflows focused — prefer fewer, well-designed steps over many fragmented ones.
 - If a workflow involves fetching data AND then analyzing it, the AI agent can do both in a single AI step (it has access to MCP tools at runtime).
 - tool_arguments_json and default_params_json must be valid JSON object strings.
-- timeout_seconds should default to 120, retry_on_failure to true, max_retries to 1.`,
+- timeout_seconds should default to 120, retry_on_failure to true, max_retries to 1.${toolCatalog}`,
       prompt: `Design a workflow for: ${prompt}`,
     });
 
@@ -213,6 +319,7 @@ Rules:
       })),
       schedule,
       default_params: defaultParams,
+      discovered_tools_count: discoveredTools.length,
     },
     { status: 201 }
   );
