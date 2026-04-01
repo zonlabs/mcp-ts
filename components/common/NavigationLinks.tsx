@@ -1,5 +1,5 @@
 "use client";
-import { Home, Server, Code, Package, BookOpen } from "lucide-react";
+import { Home, Server, Code, Package, BookOpen, GitFork } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -25,6 +25,14 @@ export function NavigationLinks() {
       <Link href="/registry" className={navLinkClass(pathname === "/registry")}>
         <Package className="h-4 w-4" />
         Registry
+        <span className={underlineClass} />
+      </Link>
+      <Link
+        href="/workflows"
+        className={navLinkClass(pathname === "/workflows" || pathname.startsWith("/workflows/"))}
+      >
+        <GitFork className="h-4 w-4" />
+        Workflows
         <span className={underlineClass} />
       </Link>
       <Link href="/playground" className={navLinkClass(pathname === "/playground")}>
