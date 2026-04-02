@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Check, ChevronDown, Search, Info } from "lucide-react";
-import { getProviderIconUrl } from "@/components/playground/llmProviders";
+import { getProviderIconUrl } from "@/components/chat/llmProviders";
 
 export interface ModelSelectorModel {
   id: string;

@@ -23,9 +23,9 @@ import {
   X,
   FileIcon,
 } from 'lucide-react';
-import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/playground/llmConfig';
-import { ModelSelector } from '@/components/playground/ModelSelector';
-import { AVAILABLE_MODELS } from '@/components/playground/availableModels';
+import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/chat/llmConfig';
+import { ModelSelector } from '@/components/chat/ModelSelector';
+import { AVAILABLE_MODELS } from '@/components/chat/availableModels';
 
 async function convertFilesToDataURLs(files: FileList) {
   return Promise.all(

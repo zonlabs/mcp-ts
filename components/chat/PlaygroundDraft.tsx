@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ArrowUpRight } from 'lucide-react';
-import { ChatInput } from '@/components/playground/ChatInput';
-import { RecipeComponent } from '@/components/playground/RecipeComponent';
+import { ChatInput } from '@/components/chat/ChatInput';
+import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import { createClient } from '@/lib/supabase/client';
 
 const MOBILE_STARTER_PROMPTS = [

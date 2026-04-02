@@ -4,10 +4,10 @@ import { useMemo, useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, EyeOff } from "lucide-react";
-import { ModelSelector } from "@/components/playground/ModelSelector";
-import { AVAILABLE_MODELS } from "@/components/playground/availableModels";
-import { LLM_PROVIDERS, getProviderIconUrl } from "@/components/playground/llmProviders";
-import { DEFAULT_LLM_CONFIG, LlmConfig, normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from "@/components/playground/llmConfig";
+import { ModelSelector } from "@/components/chat/ModelSelector";
+import { AVAILABLE_MODELS } from "@/components/chat/availableModels";
+import { LLM_PROVIDERS, getProviderIconUrl } from "@/components/chat/llmProviders";
+import { DEFAULT_LLM_CONFIG, LlmConfig, normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from "@/components/chat/llmConfig";
 
 const MODEL_PROVIDER_NAME_TO_ID: Record<string, string> = {
   OpenAI: "openai",

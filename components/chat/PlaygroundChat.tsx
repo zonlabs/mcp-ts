@@ -5,15 +5,15 @@ import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
 import { useRef, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
-import { ChatInput } from '@/components/playground/ChatInput';
-import { UserMessage, AssistantMessage } from '@/components/playground/ChatMessage';
+import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
+import { ChatInput } from '@/components/chat/ChatInput';
+import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { cn } from '@/lib/utils';
-import { LoadingSpinner } from '@/components/playground/LoadingSpinner';
-import { RecipeComponent } from '@/components/playground/RecipeComponent';
+import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
+import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import { ArrowUpRight } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
-import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/playground/llmConfig';
+import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/openai-agent';
 
 import {
