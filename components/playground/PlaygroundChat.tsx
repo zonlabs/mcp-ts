@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
 import { ChatInput } from '@/components/playground/ChatInput';
@@ -40,32 +40,28 @@ interface PlaygroundChatProps {
   isReadOnly?: boolean;
 }
 
-export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOnly = false }: PlaygroundChatProps) {
+export function PlaygroundChat({ 
+  chatId, 
+  initialMessages, 
+  initialDraft,
+  isReadOnly = false 
+}: PlaygroundChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
-  const [streamingUsage, setStreamingUsage] = useState<{
-    totalTokens?: number;
-    inputTokens?: number;
-    outputTokens?: number;
-  } | undefined>(undefined);
-  const [totalSessionTokens, setTotalSessionTokens] = useState<number>(0);
-  const [compactionState, setCompactionState] = useState<{
-    summary: string | null;
-    compactedUpToIndex: number;
-  }>({ summary: null, compactedUpToIndex: 0 });
 
-  const TOKEN_LIMIT = 25000;
   const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
-  const getLatestLlmConfig = () => {
+  
+  const latestLlmConfig = useMemo(() => {
     const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
     return {
       ...normalized,
       baseUrl: normalized.baseUrl || undefined,
     };
-  };
+  }, []);
+  
   const mobileStarterPrompts = [
     {
       label: 'Market Analysis',
@@ -94,20 +90,16 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
     messages: safeInitialMessages,
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      prepareSendMessagesRequest: ({ body, messages }) => {
+      prepareSendMessagesRequest: ({ body, messages: chatMessages }) => {
         const bodyConfig = (body as any)?.llmConfig;
-        const latestConfig = getLatestLlmConfig();
 
         return {
           body: {
-            messages,
+            messages: chatMessages,
             ...(body ?? {}),
-            llmConfig: bodyConfig ?? latestConfig,
+            llmConfig: bodyConfig ?? latestLlmConfig,
             chatId,
             gatewaySelections: readGatewaySelectionsFromStorage(),
-            conversationSummary: compactionState.summary,
-            compactedUpToIndex: compactionState.compactedUpToIndex,
-            totalSessionTokens,
           },
         };
       },
@@ -117,7 +109,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
 
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
-    const currentConfig = getLatestLlmConfig();
+    const currentConfig = latestLlmConfig;
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
@@ -181,27 +173,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
 
   const hasMessages = messages.length > 0;
 
-  // Track streaming token usage from messages metadata
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.role === 'assistant' && lastMessage?.metadata?.usage) {
-      setStreamingUsage(lastMessage.metadata.usage);
-    }
-  }, [messages]);
-
-  // Calculate total session tokens and auto-trigger compaction
-  useEffect(() => {
-    const total = messages
-      .filter((m: any) => m?.role === 'assistant' && m?.metadata?.usage?.totalTokens)
-      .reduce((sum: number, m: any) => sum + (m.metadata.usage.totalTokens || 0), 0);
-    setTotalSessionTokens(total);
-
-    // Auto-trigger compaction when tokens >= TOKEN_LIMIT
-    if (total >= TOKEN_LIMIT && compactionState.summary === null) {
-      console.log(`[Compaction] Token threshold reached: ${total}/${TOKEN_LIMIT}`);
-    }
-  }, [messages]);
-
   const handleRegenerate = () => {
     if (isReadOnly) return;
     const lastUserIndex = [...messages].reverse().findIndex((m: any) => m?.role === 'user');
@@ -211,7 +182,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
       .slice(userIndex + 1)
       .reverse()
       .find((m: any) => m?.role === 'assistant' && m?.id);
-    const currentConfig = getLatestLlmConfig();
+    const currentConfig = latestLlmConfig;
     if (!lastAssistant) {
       regenerate({ body: { llmConfig: currentConfig } });
       return;
@@ -245,7 +216,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
 
     setMessages(updatedMessages as McpAgentUIMessage[]);
 
-    const currentConfig = getLatestLlmConfig();
+    const currentConfig = latestLlmConfig;
     regenerate({
       body: { 
         llmConfig: currentConfig,
@@ -448,15 +419,14 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
                   <div className="w-full text-center p-3 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
                     This is a read-only shared chat
                   </div>
-                ) : (
+                  ) : (
                 <ChatInput
                   onSend={sendChatInput}
                   onStop={stop}
                   status={status}
                   disabled={status === 'submitted' || status === 'streaming'}
-                  streamingUsage={status === 'streaming' ? streamingUsage : undefined}
                 />
-                )}
+              )}
               </div>
             </div>
           </div>
@@ -479,9 +449,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
                   onStop={stop}
                   status={status}
                   disabled={status === 'submitted' || status === 'streaming'}
-                  streamingUsage={status === 'streaming' ? streamingUsage : undefined}
-                  totalTokens={totalSessionTokens}
-                  tokenLimit={TOKEN_LIMIT}
                 />
               )}
 
@@ -556,9 +523,6 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
                     onStop={stop}
                     status={status}
                     disabled={status === 'submitted' || status === 'streaming'}
-                    streamingUsage={status === 'streaming' ? streamingUsage : undefined}
-                    totalTokens={totalSessionTokens}
-                    tokenLimit={TOKEN_LIMIT}
                   />
               )}
             </div>

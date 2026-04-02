@@ -10,7 +10,7 @@
 //   • Regenerate-message: deleting the last assistant reply and regenerating
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { convertToModelMessages, createIdGenerator, generateText } from 'ai';
+import { convertToModelMessages, createIdGenerator, generateText, createUIMessageStreamResponse } from 'ai';
 import { createMcpAgent, type McpAgentUIMessage } from '@/agent/openai-agent';
 import { createClient } from '@/lib/supabase/server';
 import type { GatewayServerSelection } from '@/lib/gateway-access';
@@ -44,11 +44,6 @@ interface ChatRequestBody {
     model?: string;
     baseUrl?: string;
   };
-  /** Compaction state for conversation summarization */
-  conversationSummary?: string | null;
-  compactedUpToIndex?: number;
-  /** Total session tokens for auto-compaction trigger */
-  totalSessionTokens?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -260,13 +255,15 @@ export async function POST(req: Request) {
   }
 
   // ── Authentication & Authorization ──────────────────────────────────────────
-  // We use getSession() here (not getUser()) because this runs inside a
-  // long-lived streaming context where an extra auth round-trip would add latency.
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    console.error('[chat] Auth error:', authError);
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
+  }
+  const userId = user?.id;
 
   if (chatId) {
-    const denied = await assertChatPermission(supabase, chatId, user?.id);
+    const denied = await assertChatPermission(supabase, chatId, userId);
     if (denied) return denied;
   }
 
@@ -289,7 +286,7 @@ export async function POST(req: Request) {
   let newChatTitle: string | null = null;
   let isNewChat = false;
 
-  if (chatId && user?.id) {
+  if (chatId && userId) {
     const { data: chatRow, error: chatError } = await supabase
       .from('chats')
       .select('title')
@@ -326,11 +323,8 @@ export async function POST(req: Request) {
 
   // ── MCP Agent Setup ─────────────────────────────────────────────────────────
   const { agent, cleanup } = await createMcpAgent({
-    userId: user?.id,
+    userId: userId,
     gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : undefined,
-    conversationSummary: body.conversationSummary,
-    compactedUpToIndex: body.compactedUpToIndex,
-    totalSessionTokens: body.totalSessionTokens,
   });
   // Ensure tool connections are properly cleaned up if the client disconnects
   req.signal.addEventListener('abort', cleanup, { once: true });
@@ -423,13 +417,16 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(normalizedMessages),
     abortSignal: req.signal,
     options: {
-      userId: user?.id,
+      userId: userId,
       llmConfig: body.llmConfig,
       gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : [],
     },
   });
 
   // ── Response Stream ─────────────────────────────────────────────────────────
+  
+
+  // Response Stream
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({
     // Reuse the existing ID for resumed streams; generate a fresh one otherwise
     generateMessageId: () => {
@@ -450,7 +447,7 @@ export async function POST(req: Request) {
       return base;
     },
 
-    // ── onFinish: Post-Stream Persistence ──────────────────────────────────────
+    // onFinish: Post-Stream Persistence
     onFinish: async ({ messages: finalMessages }) => {
       if (!chatId) return;
 

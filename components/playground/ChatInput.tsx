@@ -10,17 +10,7 @@ import {
   Square,
   X,
   FileIcon,
-  Gauge,
-  ArrowDownLeft,
-  ArrowUpRight,
-  Sigma,
 } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
 import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/playground/llmConfig';
 import { ModelSelector } from '@/components/playground/ModelSelector';
 import { AVAILABLE_MODELS } from '@/components/playground/availableModels';
@@ -53,16 +43,9 @@ interface ChatInputProps {
   onStop?: () => void;
   disabled?: boolean;
   status: 'ready' | 'submitted' | 'streaming' | 'error';
-  streamingUsage?: {
-    totalTokens?: number;
-    inputTokens?: number;
-    outputTokens?: number;
-  };
-  totalTokens?: number;
-  tokenLimit?: number;
 }
 
-export function ChatInput({ onSend, onStop, disabled, status, streamingUsage, totalTokens = 0, tokenLimit = 25000 }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -286,49 +269,7 @@ export function ChatInput({ onSend, onStop, disabled, status, streamingUsage, to
 
             {/* RIGHT */}
             <div className="flex items-center gap-1.5">
-              {/* Token Progress Circle - Always visible when has tokens */}
-              {totalTokens > 0 && (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1.5 mr-1 px-2 py-1 rounded-md bg-muted/60 dark:bg-muted/40 border border-border/40 cursor-default">
-                        <div className="relative w-5 h-5">
-                          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 20 20">
-                            <circle
-                              cx="10"
-                              cy="10"
-                              r="8"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              className="text-muted-foreground/30"
-                            />
-                            <circle
-                              cx="10"
-                              cy="10"
-                              r="8"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              className="text-blue-500 transition-all duration-300"
-                              strokeDasharray={`${2 * Math.PI * 8}`}
-                              strokeDashoffset={`${2 * Math.PI * 8 * (1 - Math.min(totalTokens / tokenLimit, 1))}`}
-                            />
-                          </svg>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">
-                          {totalTokens >= 1000 ? `${Math.round(totalTokens / 1000)}k` : totalTokens}/{tokenLimit >= 1000 ? `${tokenLimit / 1000}k` : tokenLimit}
-                        </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      <p>Session tokens: {totalTokens.toLocaleString()} / {tokenLimit.toLocaleString()}</p>
-                      <p className="text-muted-foreground text-[10px] mt-1">Compaction triggers at limit</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {/* Token Progress Circle - removed */}
 
               {/* <Button
                 variant="ghost"

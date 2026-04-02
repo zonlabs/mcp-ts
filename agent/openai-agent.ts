@@ -16,29 +16,9 @@ import {
   invokeRemoteServer,
 } from "@/lib/remote-bridge";
 
-const COMPACTION_THRESHOLD = 150;
-const TOKEN_COMPACTION_THRESHOLD = 25000;
-const KEEP_RECENT_MESSAGES = 20;
-
-async function generateSummary(messages: any[]): Promise<string> {
-  const model = createOpenAI()("gpt-4o-mini");
-  const { generateText } = await import('ai');
-  
-  const conversationText = messages.map(m => {
-    const role = m.role || 'unknown';
-    const content = Array.isArray(m.parts) 
-      ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')
-      : m.content || '';
-    return `${role}: ${content}`;
-  }).join('\n\n');
-
-  const result = await generateText({
-    model,
-    prompt: `Summarize this conversation concisely, capturing key topics, decisions, and context. Keep it brief (2-4 sentences):\n\n${conversationText}`,
-    maxOutputTokens: 200,
-  });
-
-  return result.text?.trim() || '';
+interface CreateMcpAgentOptions {
+  userId?: string;
+  gatewaySelections?: GatewayServerSelection[];
 }
 
 const INSTRUCTIONS = `
@@ -80,13 +60,6 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 
 const MAX_TOOL_NAME_LENGTH = 64;
 
-interface CreateMcpAgentOptions {
-  userId?: string;
-  gatewaySelections?: GatewayServerSelection[];
-  conversationSummary?: string | null;
-  compactedUpToIndex?: number;
-  totalSessionTokens?: number;
-}
 type McpAgentCallOptions = {
   userId?: string;
   llmConfig?: {
@@ -272,18 +245,11 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
 export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   const identity = options.userId?.trim() || "demo-user-123";
 
-  // Store compaction options in closure for use in prepareCall
-  const conversationSummary = options.conversationSummary;
-  const compactedUpToIndex = options.compactedUpToIndex;
-  const totalSessionTokens = options.totalSessionTokens;
-
-  // Local tools = Gateway/Bridge + Built-ins
   const { tools: localTools, toolIndex: localIndex } = await getLocalMcpTools(
     identity,
     options.gatewaySelections
   );
 
-  // Remote tools = SSE/MultiSession (Direct connections)
   const { manager, tools: remoteTools } = await getRemoteMcpTools(identity);
 
   console.log(
@@ -325,39 +291,9 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         }, { once: true });
       }
 
-      // Handle conversation compaction
-      let instructions = INSTRUCTIONS;
-      let messagesToUse = messages || [];
+      const instructions = INSTRUCTIONS;
+      const messagesToUse = messages || [];
 
-      const { conversationSummary, compactedUpToIndex } = options;
-
-      // If we already have a summary, prepend it to instructions and trim messages
-      if (conversationSummary && compactedUpToIndex && compactedUpToIndex > 0) {
-        instructions = `${INSTRUCTIONS}\n\n[SUMMARY OF PREVIOUS CONVERSATION]\n${conversationSummary}`;
-        messagesToUse = messagesToUse.slice(compactedUpToIndex);
-      }
-      // Check if we need to compact (token-based: 50k tokens threshold)
-      else if (totalSessionTokens && totalSessionTokens >= TOKEN_COMPACTION_THRESHOLD) {
-        const toSummarize = messagesToUse.slice(0, -KEEP_RECENT_MESSAGES);
-        const summary = await generateSummary(toSummarize);
-        
-        instructions = `${INSTRUCTIONS}\n\n[SUMMARY OF PREVIOUS CONVERSATION]\n${summary}`;
-        messagesToUse = messagesToUse.slice(-KEEP_RECENT_MESSAGES);
-        
-        console.log(`[Compaction] Token threshold reached (${totalSessionTokens}), summarized ${toSummarize.length} messages, keeping last ${KEEP_RECENT_MESSAGES}`);
-      }
-      // Fallback to message count threshold for backward compatibility
-      else if (messagesToUse.length >= COMPACTION_THRESHOLD) {
-        const toSummarize = messagesToUse.slice(0, -KEEP_RECENT_MESSAGES);
-        const summary = await generateSummary(toSummarize);
-        
-        instructions = `${INSTRUCTIONS}\n\n[SUMMARY OF PREVIOUS CONVERSATION]\n${summary}`;
-        messagesToUse = messagesToUse.slice(-KEEP_RECENT_MESSAGES);
-        
-        console.log(`[Compaction] Message count threshold reached (${messagesToUse.length}), summarized ${toSummarize.length} messages, keeping last ${KEEP_RECENT_MESSAGES}`);
-      }
-
-      // Filter tools based on selections if provided
       const selectedServers = callOptions?.gatewaySelections?.map((s) => s.mcpServer) || options.gatewaySelections?.map((s) => s.mcpServer) || [];
       const gatewayToolNames = selectedServers.flatMap((server) => localIndex.get(server) || []);
       

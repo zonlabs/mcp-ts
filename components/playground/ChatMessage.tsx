@@ -93,7 +93,7 @@ export function UserMessage({ message, parts, onEdit }: {
   return (
     <div className="flex flex-col items-end gap-2 w-full">
       {textContent && (
-        <div className="flex flex-col items-end gap-1 w-full max-w-[80%] sm:max-w-full">
+        <div className="flex flex-col items-end gap-1 w-full max-w-[75%] sm:max-w-[640px]">
           {isEditing ? (
             <div className="flex flex-col gap-3 w-full bg-secondary/30 p-4 rounded-2xl border border-border/50 animate-in fade-in zoom-in-95 duration-200">
                <Textarea
@@ -130,7 +130,7 @@ export function UserMessage({ message, parts, onEdit }: {
             </div>
           ) : (
             <>
-              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-sm whitespace-pre-wrap">
+              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-sm whitespace-pre-wrap break-words w-fit max-w-full">
                 {textContent}
               </div>
 
