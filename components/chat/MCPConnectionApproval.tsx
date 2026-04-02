@@ -31,6 +31,7 @@ export function MCPConnectionApproval({
 }: MCPConnectionApprovalProps) {
   const [connectRequested, setConnectRequested] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
+  const [denied, setDenied] = useState(false);
 
   // Use the global store for actions and live connection state
   const connectServer = useMcpStore(state => state.connect);
@@ -68,7 +69,7 @@ export function MCPConnectionApproval({
     existingConnection?.connectionStatus === 'READY' ||
     existingConnection?.connectionStatus === 'FAILED' ||
     existingConnection?.connectionStatus === 'DISCONNECTED';
-  const isConnecting = isStatusConnecting || (connectRequested && !isTerminalState);
+  const isConnecting = !denied && (isStatusConnecting || (connectRequested && !isTerminalState));
 
   // Watch for successful connection
   const [hasTriggeredApprove, setHasTriggeredApprove] = useState(false);
@@ -119,6 +120,23 @@ export function MCPConnectionApproval({
       window.removeEventListener('mcp-oauth-success', handleOAuthSuccess);
     };
   }, [hasTriggeredApprove, onApprove, serverName, serverUrl]);
+
+  useEffect(() => {
+    const handleOAuthCancelled = (event: Event) => {
+      const customEvent = event as CustomEvent<{ state?: string; serverUrl?: string; reason?: string }>;
+      const matchedByUrl =
+        !!customEvent.detail?.serverUrl && customEvent.detail.serverUrl === serverUrl;
+
+      if (!matchedByUrl && customEvent.detail?.serverUrl) return;
+      setConnectRequested(false);
+      setDenied(true);
+    };
+
+    window.addEventListener('mcp-oauth-cancelled', handleOAuthCancelled);
+    return () => {
+      window.removeEventListener('mcp-oauth-cancelled', handleOAuthCancelled);
+    };
+  }, [serverUrl]);
 
   const handleConnect = async () => {
     console.log('[MCPConnectionApproval] Connect button clicked', {
@@ -173,7 +191,10 @@ export function MCPConnectionApproval({
         <div className="flex gap-1.5 shrink-0">
           <Button
             size="sm"
-            onClick={onDeny}
+            onClick={() => {
+              setDenied(true);
+              onDeny();
+            }}
             variant="outline"
             disabled={isConnecting}
             className="h-8 px-3 text-xs sm:text-sm"
@@ -215,6 +236,11 @@ export function MCPConnectionApproval({
       <p className="text-xs text-muted-foreground font-semibold">
         Please connect to continue.
       </p>
+      {denied && (
+        <p className="text-xs text-muted-foreground">
+          Connection request cancelled.
+        </p>
+      )}
 
       {showUrl && (
         <p className="pl-[42px] sm:pl-[46px] text-[10px] sm:text-xs text-muted-foreground break-all" title={serverUrl}>

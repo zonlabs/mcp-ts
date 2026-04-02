@@ -364,12 +364,20 @@ export async function POST(req: Request) {
           p.toolInvocation.state !== 'result' &&
           p.toolInvocation.toolName === 'MCPASSISTANT_INITIATE_CONNECTION'
         ) {
+          const denied = p.toolInvocation?.approval?.approved === false;
           return {
             ...p,
             toolInvocation: {
               ...p.toolInvocation,
               state: 'result',
-              result: { success: true, message: 'Connection verified actively by user.' },
+              result: denied
+                ? {
+                    success: false,
+                    message:
+                      p.toolInvocation?.approval?.reason ||
+                      'Connection request denied by user.',
+                  }
+                : { success: true, message: 'Connection verified actively by user.' },
             },
           };
         }
@@ -380,10 +388,16 @@ export async function POST(req: Request) {
           p.type.startsWith('tool-MCPASSISTANT_') &&
           (p.state === 'approval-responded' || p.state === 'output-available' || p.state === 'ready')
         ) {
+          const denied = p.approval?.approved === false;
           return {
             ...p,
             state: 'output-available',
-            output: p.output || { success: true, message: 'Action verified by user.' },
+            output: p.output || (denied
+              ? {
+                  success: false,
+                  message: p.approval?.reason || 'Connection request denied by user.',
+                }
+              : { success: true, message: 'Action verified by user.' }),
           };
         }
 

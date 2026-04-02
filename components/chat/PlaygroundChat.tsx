@@ -316,7 +316,6 @@ export function PlaygroundChat({
                           addToolApprovalResponse({
                             id: approvalId,
                             approved: true,
-                            ...(data ? { data } : {}),
                           });
                         }
                       }}
@@ -325,9 +324,35 @@ export function PlaygroundChat({
                           addToolApprovalResponse?.({
                             id: approvalId,
                             approved: false,
+                            reason: "User denied the connection request.",
                           });
                       }}
                     />
+                  </div>
+                );
+              }
+
+              if (toolPart.state === 'approval-responded' && toolPart.approval?.approved === false) {
+                return (
+                  <div
+                    key={`tool-${index}`}
+                    className="w-full inline-flex items-center gap-2 text-xs text-red-600 dark:text-red-400"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <circle cx="12" cy="16" r="1" />
+                    </svg>
+                    <span className="font-medium">Connection request cancelled.</span>
                   </div>
                 );
               }
