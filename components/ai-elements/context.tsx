@@ -192,7 +192,7 @@ export const Context = memo(
   }
 );
 
-export type ContextTriggerProps = ComponentProps<typeof Button>;
+export type ContextTriggerProps = ComponentProps<"button">;
 
 export const ContextTrigger = memo(
   ({ className, children, ...props }: ContextTriggerProps) => {
@@ -204,7 +204,8 @@ export const ContextTrigger = memo(
 
     return (
       <HoverCardTrigger asChild>
-        <div
+        <button
+          type="button"
           className={cn(
             "inline-flex items-center gap-1.5 h-7 sm:h-8 rounded-full px-1.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer",
             className
@@ -243,7 +244,7 @@ export const ContextTrigger = memo(
               </span>
             </>
           )}
-        </div>
+        </button>
       </HoverCardTrigger>
     );
   }
