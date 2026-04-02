@@ -9,10 +9,10 @@ import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import { createClient } from '@/lib/supabase/client';
 
 const MOBILE_STARTER_PROMPTS = [
-  {
-    label: 'Market Analysis',
-    prompt: 'Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.',
-    icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
+   {
+    label: 'Draft Follow-Up Email',
+    prompt: 'Using Zapier MCP, draft a clear, professional follow-up email with access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
+    icon: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/zapier-icon.png',
   },
   {
     label: 'Semantic Search',
@@ -20,14 +20,14 @@ const MOBILE_STARTER_PROMPTS = [
     icon: 'https://awsmp-logos.s3.amazonaws.com/seller-7s5a3z2w3unay/b6519f9126c0432087c79827b95283c6.png',
   },
   {
-    label: 'Draft Follow-Up Email',
-    prompt: 'Draft a clear, professional follow-up email using Rube with access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
-    icon: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIB8EFu3xpWgE33JuAX-U-1geBFJnk8PAJSA&s',
-  },
-  {
     label: 'Notion Meeting Prep',
     prompt: 'Generate a briefing document by synthesizing project notes and recent updates directly from Notion.',
     icon: 'https://api.iconify.design/logos:notion-icon.svg',
+  },
+  {
+    label: 'Market Analysis',
+    prompt: 'Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.',
+    icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
   },
 ];
 
@@ -103,7 +103,7 @@ export function PlaygroundDraft() {
                     <img
                       src={item.icon}
                       alt=""
-                      className="w-3.5 h-3.5 rounded-sm object-cover shrink-0 opacity-90"
+                      className="w-4 h-4 rounded-sm object-cover shrink-0 opacity-90"
                     />
                     <span className="line-clamp-1">{item.label}</span>
                     <ArrowUpRight className="w-3.5 h-3.5 ml-auto text-muted-foreground" />

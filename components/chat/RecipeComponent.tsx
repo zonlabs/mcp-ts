@@ -2,12 +2,10 @@ import React from "react";
 
 const RECIPE_DATA = [
   {
-    id: "stock-research",
-    title: "Market Analysis",
-    description: "Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.",
-    icons: [
-      "https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q",
-    ],
+    id: "zapier-email-summary",
+    title: "Email Summary",
+    description: "Using Zapier MCP check my unread emails from today and summarize the important ones",
+    icons: ["https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/zapier-icon.png"],
   },
   {
     id: "web-search",
@@ -17,8 +15,8 @@ const RECIPE_DATA = [
   },
   {
     id: "draft-follow-up-email",
-    title: "Draft Follow-Up Email",
-    description: "Draft a clear, professional follow-up email using Rube with access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review",
+    title: "Draft Blog Post",
+    description: "Draft a blog post about AI productivity tips and save it to Google Docs",
     icons: ["https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIB8EFu3xpWgE33JuAX-U-1geBFJnk8PAJSA&s"],
   },
   {
@@ -36,10 +34,12 @@ const RECIPE_DATA = [
     ],
   },
   {
-    id: "create-bookmark",
-    title: "Save Bookmark",
-    description: "Create a new bookmark titled 'Study Tips' in my Bookmark Manager with a description about learning strategies.",
-    icons: ["https://smlvqzf0a1b66cku.public.blob.vercel-storage.com/images/Vercel%20Logo-IMoeV2W33gFclXzAfZxmAHqtjBuTzP.png"],
+    id: "stock-research",
+    title: "Market Analysis",
+    description: "Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.",
+    icons: [
+      "https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q",
+    ],
   },
 ];
 interface Props {
@@ -71,7 +71,7 @@ export const RecipeComponent: React.FC<Props> = ({ onAction }) => {
               <img
                 key={i}
                 src={icon}
-                className="w-4 h-4 opacity-70 group-hover:opacity-100"
+                className="w-6 h-6 opacity-70 group-hover:opacity-100"
                 alt=""
               />
             ))}

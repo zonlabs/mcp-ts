@@ -306,30 +306,30 @@ export function AssistantMessage({
                 </div>
               )}
 
-              {/* ✅ Stylish Usage Metrics on a New Line */}
+              {/* ✅ Usage Metrics */}
               {showUsage && usage && (
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 w-fit animate-in fade-in slide-in-from-top-1 duration-200">
-                  {usage.totalTokens && (
+                <div className="flex flex-col gap-2 w-fit animate-in fade-in slide-in-from-top-1 duration-200">
+                  {usage.inputTokens !== undefined && (
                     <div className="flex items-center gap-1.5">
-                      <Sigma className="w-3.5 h-3.5 text-blue-500" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Tokens</span>
-                      <span className="text-[11px] font-bold">{usage.totalTokens}</span>
-                    </div>
-                  )}
-
-                  {usage.inputTokens && (
-                    <div className="flex items-center gap-1.5 border-l pl-4 border-border">
                       <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
                       <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Input Tokens</span>
                       <span className="text-[11px] font-bold">{usage.inputTokens}</span>
                     </div>
                   )}
 
-                  {usage.outputTokens && (
-                    <div className="flex items-center gap-1.5 border-l pl-4 border-border">
+                  {usage.outputTokens !== undefined && (
+                    <div className="flex items-center gap-1.5">
                       <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
                       <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Output Tokens</span>
                       <span className="text-[11px] font-bold">{usage.outputTokens}</span>
+                    </div>
+                  )}
+
+                  {usage.totalTokens !== undefined && (
+                    <div className="flex items-center gap-1.5">
+                      <Sigma className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Tokens</span>
+                      <span className="text-[11px] font-bold">{usage.totalTokens}</span>
                     </div>
                   )}
                 </div>

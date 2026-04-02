@@ -40,6 +40,7 @@ export function usePublicServers() {
         ...server,
         connectionStatus: connection?.connectionStatus || 'DISCONNECTED',
         sessionId: connection?.sessionId,
+        transport: connection?.transport || server.transport,
         tools: connection?.tools || server.tools || [],
       };
     });
@@ -96,6 +97,7 @@ export function useUserServers() {
         ...server,
         connectionStatus: connection?.connectionStatus || 'DISCONNECTED',
         sessionId: connection?.sessionId,
+        transport: connection?.transport || server.transport,
         tools: connection?.tools || server.tools || [],
       };
     });
@@ -144,6 +146,7 @@ export function useFilteredServers() {
         ...server,
         connectionStatus: connection?.connectionStatus || 'DISCONNECTED',
         sessionId: connection?.sessionId,
+        transport: connection?.transport || server.transport,
         tools: connection?.tools || server.tools || [],
       };
     });

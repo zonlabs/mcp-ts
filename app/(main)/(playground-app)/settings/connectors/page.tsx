@@ -156,16 +156,6 @@ export default function ConnectorsPage() {
                 Enable local MCP servers to let the agent execute their MCP tools.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void fetchGatewayServers()}
-              disabled={loadingGatewayServers}
-              className="h-8 gap-2 self-start"
-            >
-              {loadingGatewayServers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Refresh
-            </Button>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -176,6 +166,16 @@ export default function ConnectorsPage() {
             <Badge variant={enabledDetectedCount > 0 ? "default" : "outline"}>
               {enabledDetectedCount} enabled
             </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void fetchGatewayServers()}
+              disabled={loadingGatewayServers}
+              className="h-7 px-2 gap-1.5"
+            >
+              {loadingGatewayServers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Refresh
+            </Button>
           </div>
 
           {gatewayLoadError ? (

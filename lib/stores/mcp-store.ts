@@ -58,6 +58,16 @@ function normalizeConnectionStatus(
   }
 }
 
+function normalizeTransport(value?: string | null): "sse" | "streamable_http" {
+  if (!value) return "sse";
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "sse") return "sse";
+  if (normalized === "streamable-http" || normalized === "streamable_http" || normalized === "streamablehttp") {
+    return "streamable_http";
+  }
+  return "sse";
+}
+
 function normalizeServerUrl(url?: string | null): string | null {
   if (!url) return null;
   try {
@@ -553,7 +563,7 @@ export const useMcpStore = create<McpStore>()(
                 serverId: val.serverId || val.identity, // Fallback if needed
                 serverName: val.serverName,
                 url: val.serverUrl,
-                transport: 'sse', // Default or extract
+                transport: normalizeTransport(val.transportType || val.transport || 'sse'),
                 connectionStatus: normalizedStatus,
                 tools: val.tools || [],
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available

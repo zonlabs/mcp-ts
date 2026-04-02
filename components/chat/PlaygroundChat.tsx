@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -55,13 +55,13 @@ export function PlaygroundChat({
   const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
   
-  const latestLlmConfig = useMemo(() => {
+  const getCurrentLlmConfig = () => {
     const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
     return {
       ...normalized,
       baseUrl: normalized.baseUrl || undefined,
     };
-  }, []);
+  };
   
   const mobileStarterPrompts = [
     {
@@ -93,12 +93,13 @@ export function PlaygroundChat({
       api: '/api/chat',
       prepareSendMessagesRequest: ({ body, messages: chatMessages }) => {
         const bodyConfig = (body as any)?.llmConfig;
+        const currentConfig = bodyConfig ?? getCurrentLlmConfig();
 
         return {
           body: {
             messages: chatMessages,
             ...(body ?? {}),
-            llmConfig: bodyConfig ?? latestLlmConfig,
+            llmConfig: currentConfig,
             chatId,
             gatewaySelections: readGatewaySelectionsFromStorage(),
           },
@@ -110,7 +111,7 @@ export function PlaygroundChat({
 
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
-    const currentConfig = latestLlmConfig;
+    const currentConfig = getCurrentLlmConfig();
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
@@ -188,7 +189,7 @@ export function PlaygroundChat({
       .slice(userIndex + 1)
       .reverse()
       .find((m: any) => m?.role === 'assistant' && m?.id);
-    const currentConfig = latestLlmConfig;
+    const currentConfig = getCurrentLlmConfig();
     if (!lastAssistant) {
       regenerate({ body: { llmConfig: currentConfig } });
       return;
@@ -222,7 +223,7 @@ export function PlaygroundChat({
 
     setMessages(updatedMessages as McpAgentUIMessage[]);
 
-    const currentConfig = latestLlmConfig;
+    const currentConfig = getCurrentLlmConfig();
     regenerate({
       body: { 
         llmConfig: currentConfig,
