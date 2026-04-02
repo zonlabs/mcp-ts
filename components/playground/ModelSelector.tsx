@@ -48,7 +48,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 px-2 py-1.5 rounded-full bg-muted/60 text-xs text-muted-foreground hover:bg-muted/80 transition-colors"
+        className="inline-flex items-center gap-2 px-2 py-1.5 rounded-full bg-muted/60 text-xs text-muted-foreground hover:bg-muted/80 transition-colors max-w-[150px] sm:max-w-[200px] md:max-w-none min-w-0"
       >
         {selected?.provider && getProviderIconUrl(selected.provider) ? (
           <img
@@ -57,7 +57,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
             className="h-3.5 w-3.5 rounded-full"
           />
         ) : null}
-        <span className="text-foreground/80">
+        <span className="text-foreground/80 truncate">
           {selected?.name || "Select model"}
         </span>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />

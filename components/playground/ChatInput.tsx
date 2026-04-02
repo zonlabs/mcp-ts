@@ -79,9 +79,11 @@ export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: Ch
 
   const isPending = status === 'submitted' || status === 'streaming';
   const fileArray = files ? Array.from(files) : [];
-  const modelId = activeProvider && activeModel ? `${activeProvider}:${activeModel}` : undefined;
+  const tokenlensProvider =
+    activeProvider === "gemini" ? "google" : activeProvider;
+  const modelId =
+    tokenlensProvider && activeModel ? `${tokenlensProvider}:${activeModel}` : undefined;
   const hasUsage = Boolean(contextUsage && (contextUsage.totalTokens || contextUsage.total_tokens));
-  const DEFAULT_MAX_TOKENS = 128_000;
 
   useEffect(() => {
     const load = () => {
@@ -244,9 +246,9 @@ export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: Ch
           </div>
 
           {/* ACTION ROW */}
-          <div className="flex items-center justify-between px-2 pb-2">
+          <div className="flex items-center justify-between gap-2 flex-nowrap px-2 pb-2">
             {/* LEFT */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -293,10 +295,9 @@ export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: Ch
             </div>
 
             {/* RIGHT */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               {hasUsage && (
                 <Context
-                  maxTokens={DEFAULT_MAX_TOKENS}
                   modelId={modelId}
                   usage={contextUsage}
                   usedTokens={contextUsage?.totalTokens ?? contextUsage?.total_tokens}

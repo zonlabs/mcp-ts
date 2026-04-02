@@ -2,9 +2,10 @@
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
-import { costFromUsage, normalizeUsage } from "tokenlens";
+import { getModels } from "@tokenlens/models";
+import { getContext, getTokenCosts } from "@tokenlens/helpers/context";
 
 type UsageLike = {
   inputTokens?: number;
@@ -12,9 +13,20 @@ type UsageLike = {
   totalTokens?: number;
   reasoningTokens?: number;
   cachedInputTokens?: number;
+  input_tokens?: number;
+  output_tokens?: number;
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  reasoning_tokens?: number;
+  prompt_tokens_details?: {
+    cached_tokens?: number;
+  };
+  promptTokensDetails?: {
+    cachedTokens?: number;
+  };
+  cache_read_input_tokens?: number;
+  cache_read_tokens?: number;
 };
 
 type ContextData = {
@@ -33,6 +45,8 @@ type ContextData = {
 
 const ContextDataContext = createContext<ContextData | null>(null);
 
+const MODEL_CATALOG = getModels();
+
 const useContextData = () => {
   const ctx = useContext(ContextDataContext);
   if (!ctx) {
@@ -42,12 +56,12 @@ const useContextData = () => {
 };
 
 const formatTokens = (value?: number) => {
-  if (!value && value !== 0) return "—";
+  if (!value && value !== 0) return "--";
   return new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 };
 
 const formatUsd = (value?: number) => {
-  if (!value && value !== 0) return "—";
+  if (!value && value !== 0) return "--";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -55,6 +69,12 @@ const formatUsd = (value?: number) => {
   }).format(value);
 };
 
+const pickNumber = (...values: Array<number | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "number") return value;
+  }
+  return undefined;
+};
 export type ContextProps = ComponentProps<typeof HoverCard> & {
   maxTokens?: number;
   usedTokens?: number;
@@ -64,31 +84,94 @@ export type ContextProps = ComponentProps<typeof HoverCard> & {
 
 export const Context = memo(
   ({ maxTokens, usedTokens, usage, modelId, children, ...props }: ContextProps) => {
-    const normalized = useMemo(() => (usage ? normalizeUsage(usage as any) : undefined), [usage]);
+    const inputTokens = useMemo(
+      () =>
+        usage
+          ? pickNumber(
+              usage.inputTokens,
+              usage.input_tokens,
+              usage.prompt_tokens,
+              (usage as any).promptTokens
+            )
+          : undefined,
+      [usage]
+    );
 
-    const inputTokens = normalized?.inputTokens ?? 0;
-    const outputTokens = normalized?.outputTokens ?? 0;
-    const reasoningTokens = normalized?.reasoningTokens ?? 0;
-    const cachedInputTokens = normalized?.cachedInputTokens ?? 0;
-    const totalTokens =
-      normalized?.totalTokens ??
-      usedTokens ??
-      inputTokens + outputTokens + reasoningTokens;
+    const outputTokens = useMemo(
+      () =>
+        usage
+          ? pickNumber(
+              usage.outputTokens,
+              usage.output_tokens,
+              usage.completion_tokens,
+              (usage as any).completionTokens
+            )
+          : undefined,
+      [usage]
+    );
+
+    const reasoningTokens = useMemo(
+      () => (usage ? pickNumber(usage.reasoningTokens, usage.reasoning_tokens) : undefined),
+      [usage]
+    );
+
+    const cachedInputTokens = useMemo(
+      () =>
+        usage
+          ? pickNumber(
+              usage.cachedInputTokens,
+              usage.cache_read_input_tokens,
+              usage.cache_read_tokens,
+              usage.prompt_tokens_details?.cached_tokens,
+              usage.promptTokensDetails?.cachedTokens
+            )
+          : undefined,
+      [usage]
+    );
+
+    const totalTokens = useMemo(() => {
+      if (!usage) return usedTokens ?? undefined;
+      const providedTotal = pickNumber(usage.totalTokens, usage.total_tokens, (usage as any).totalTokens);
+      if (typeof providedTotal === "number") return providedTotal;
+      if (inputTokens != null || outputTokens != null || reasoningTokens != null) {
+        return (inputTokens ?? 0) + (outputTokens ?? 0) + (reasoningTokens ?? 0);
+      }
+      return usedTokens ?? undefined;
+    }, [usage, usedTokens, inputTokens, outputTokens, reasoningTokens]);
+
+    const derivedMax = useMemo(() => {
+      if (maxTokens) return maxTokens;
+      if (!modelId) return undefined;
+      try {
+        const caps = getContext({ modelId, providers: MODEL_CATALOG });
+        return (
+          caps.maxTotal ??
+          caps.totalMax ??
+          caps.combinedMax ??
+          caps.maxInput ??
+          caps.inputMax
+        );
+      } catch {
+        return undefined;
+      }
+    }, [maxTokens, modelId]);
+
     const used = usedTokens ?? totalTokens ?? 0;
     const percentUsed =
-      maxTokens && maxTokens > 0 ? Math.min(100, Math.round((used / maxTokens) * 100)) : undefined;
+      derivedMax && derivedMax > 0 ? Math.min(100, Math.round((used / derivedMax) * 100)) : undefined;
 
     const costUsd = useMemo(() => {
       if (!modelId || !usage) return undefined;
       try {
-        return costFromUsage({ id: modelId as any, usage });
+        const costs = getTokenCosts({ modelId, usage, providers: MODEL_CATALOG });
+        return costs?.totalUSD;
       } catch {
         return undefined;
       }
     }, [modelId, usage]);
 
     const value: ContextData = {
-      maxTokens,
+      maxTokens: derivedMax,
       usedTokens: used,
       modelId,
       usage,
@@ -156,7 +239,7 @@ export const ContextTrigger = memo(
                 </svg>
               </div>
               <span className="text-[11px] font-medium tabular-nums">
-                {percentUsed != null ? `${percentUsed}%` : "—"}
+                {percentUsed != null ? `${percentUsed}%` : "--"}
               </span>
             </>
           )}
@@ -188,7 +271,7 @@ export const ContextContentHeader = memo(
         </div>
         <div className="text-right">
           <div className="text-xs font-semibold text-foreground">
-            {percentUsed != null ? `${percentUsed}%` : "—"}
+            {percentUsed != null ? `${percentUsed}%` : "--"}
           </div>
           <div className="text-[11px] text-muted-foreground">
             {formatTokens(usedTokens)} / {formatTokens(maxTokens)}
@@ -213,6 +296,7 @@ export type ContextContentFooterProps = ComponentProps<"div">;
 export const ContextContentFooter = memo(
   ({ className, children, ...props }: ContextContentFooterProps) => {
     const { costUsd } = useContextData();
+    if (costUsd == null) return null;
     return (
       <div
         className={cn(

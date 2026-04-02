@@ -84,13 +84,6 @@ export const AVAILABLE_MODELS = [
 
   // --- DeepSeek (2025 - 2026) ---
   {
-    id: "deepseek-v4-lite",
-    name: "DeepSeek-V4 Lite",
-    description: "2026 next-gen MoE with Engram memory for high-accuracy retrieval",
-    provider: "DeepSeek",
-    tag: "Coding"
-  },
-  {
     id: "deepseek-chat",
     name: "DeepSeek-V3.2",
     description: "Dec 2025 upgrade; general-purpose model optimized for agentic tool-use",
