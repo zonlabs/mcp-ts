@@ -208,6 +208,7 @@ export function AssistantMessage({
   onRegenerate,
   usage,
   showActions = true,
+  isStreaming = false,
 }: any) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -265,7 +266,7 @@ export function AssistantMessage({
           <TooltipProvider>
             <div className="flex flex-col gap-3 mt-2">
               {/* Action Buttons Row */}
-              {showActions && (
+              {showActions && !isStreaming && (
                 <div className="flex gap-1 items-center">
                   <Tooltip>
                     <TooltipTrigger asChild>

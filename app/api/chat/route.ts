@@ -44,6 +44,11 @@ interface ChatRequestBody {
     model?: string;
     baseUrl?: string;
   };
+  /** Compaction state for conversation summarization */
+  conversationSummary?: string | null;
+  compactedUpToIndex?: number;
+  /** Total session tokens for auto-compaction trigger */
+  totalSessionTokens?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -323,6 +328,9 @@ export async function POST(req: Request) {
   const { agent, cleanup } = await createMcpAgent({
     userId: user?.id,
     gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : undefined,
+    conversationSummary: body.conversationSummary,
+    compactedUpToIndex: body.compactedUpToIndex,
+    totalSessionTokens: body.totalSessionTokens,
   });
   // Ensure tool connections are properly cleaned up if the client disconnects
   req.signal.addEventListener('abort', cleanup, { once: true });

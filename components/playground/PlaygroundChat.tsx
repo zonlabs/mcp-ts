@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
 import { ChatInput } from '@/components/playground/ChatInput';
@@ -45,6 +45,18 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
+  const [streamingUsage, setStreamingUsage] = useState<{
+    totalTokens?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+  } | undefined>(undefined);
+  const [totalSessionTokens, setTotalSessionTokens] = useState<number>(0);
+  const [compactionState, setCompactionState] = useState<{
+    summary: string | null;
+    compactedUpToIndex: number;
+  }>({ summary: null, compactedUpToIndex: 0 });
+
+  const TOKEN_LIMIT = 25000;
   const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
   const getLatestLlmConfig = () => {
@@ -93,6 +105,9 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
             llmConfig: bodyConfig ?? latestConfig,
             chatId,
             gatewaySelections: readGatewaySelectionsFromStorage(),
+            conversationSummary: compactionState.summary,
+            compactedUpToIndex: compactionState.compactedUpToIndex,
+            totalSessionTokens,
           },
         };
       },
@@ -165,6 +180,27 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
   }, [status]);
 
   const hasMessages = messages.length > 0;
+
+  // Track streaming token usage from messages metadata
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === 'assistant' && lastMessage?.metadata?.usage) {
+      setStreamingUsage(lastMessage.metadata.usage);
+    }
+  }, [messages]);
+
+  // Calculate total session tokens and auto-trigger compaction
+  useEffect(() => {
+    const total = messages
+      .filter((m: any) => m?.role === 'assistant' && m?.metadata?.usage?.totalTokens)
+      .reduce((sum: number, m: any) => sum + (m.metadata.usage.totalTokens || 0), 0);
+    setTotalSessionTokens(total);
+
+    // Auto-trigger compaction when tokens >= TOKEN_LIMIT
+    if (total >= TOKEN_LIMIT && compactionState.summary === null) {
+      console.log(`[Compaction] Token threshold reached: ${total}/${TOKEN_LIMIT}`);
+    }
+  }, [messages]);
 
   const handleRegenerate = () => {
     if (isReadOnly) return;
@@ -263,6 +299,7 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
                 onRegenerate={handleRegenerate}
                 usage={m?.metadata?.usage}
                 showActions={index === lastTextIndex}
+                isStreaming={status === 'streaming'}
               />
             );
           }
@@ -412,12 +449,13 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
                     This is a read-only shared chat
                   </div>
                 ) : (
-                  <ChatInput
-                    onSend={sendChatInput}
-                    onStop={stop}
-                    status={status}
-                    disabled={status === 'submitted' || status === 'streaming'}
-                  />
+                <ChatInput
+                  onSend={sendChatInput}
+                  onStop={stop}
+                  status={status}
+                  disabled={status === 'submitted' || status === 'streaming'}
+                  streamingUsage={status === 'streaming' ? streamingUsage : undefined}
+                />
                 )}
               </div>
             </div>
@@ -441,6 +479,9 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
                   onStop={stop}
                   status={status}
                   disabled={status === 'submitted' || status === 'streaming'}
+                  streamingUsage={status === 'streaming' ? streamingUsage : undefined}
+                  totalTokens={totalSessionTokens}
+                  tokenLimit={TOKEN_LIMIT}
                 />
               )}
 
@@ -510,12 +551,15 @@ export function PlaygroundChat({ chatId, initialMessages, initialDraft, isReadOn
                   This is a read-only shared chat
                 </div>
               ) : (
-                <ChatInput
-                  onSend={sendChatInput}
-                  onStop={stop}
-                  status={status}
-                  disabled={status === 'submitted' || status === 'streaming'}
-                />
+                  <ChatInput
+                    onSend={sendChatInput}
+                    onStop={stop}
+                    status={status}
+                    disabled={status === 'submitted' || status === 'streaming'}
+                    streamingUsage={status === 'streaming' ? streamingUsage : undefined}
+                    totalTokens={totalSessionTokens}
+                    tokenLimit={TOKEN_LIMIT}
+                  />
               )}
             </div>
           </div>
