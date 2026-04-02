@@ -14,7 +14,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
     .single();
 
   if (chatError || !chatRow?.id) {
-    redirect('/playground');
+    redirect('/chat');
   }
   const initialMessages = await loadChat(chatId);
   const draft = typeof searchParams?.draft === 'string' ? searchParams.draft : undefined;

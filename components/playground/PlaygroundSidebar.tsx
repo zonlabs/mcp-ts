@@ -39,7 +39,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { getAppUrl } from "@/lib/url";
 
@@ -153,7 +153,7 @@ export const PlaygroundSidebar = () => {
   };
 
   const activeChatId = useMemo(() => {
-    if (!pathname?.startsWith("/playground/")) return null;
+    if (!pathname?.startsWith("/chat/")) return null;
     const segments = pathname.split("/");
     return segments[2] || null;
   }, [pathname]);
@@ -204,8 +204,8 @@ export const PlaygroundSidebar = () => {
     }
 
     setChats((prev) => prev.filter((c) => c.id !== chatId));
-    if (pathname === `/playground/${chatId}`) {
-      router.push("/playground");
+    if (pathname === `/chat/${chatId}`) {
+      router.push("/chat");
     }
     toast.success("Chat deleted successfully");
   };
@@ -294,7 +294,7 @@ export const PlaygroundSidebar = () => {
           key={chat.id}
           className={cn(
             "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-            pathname === `/playground/${chat.id}`
+            pathname === `/chat/${chat.id}`
               ? "bg-accent text-foreground"
               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           )}
@@ -320,7 +320,7 @@ export const PlaygroundSidebar = () => {
               />
             ) : (
               <button
-                onClick={() => onNavigate(`/playground/${chat.id}`)}
+                onClick={() => onNavigate(`/chat/${chat.id}`)}
                 className="w-full text-left"
               >
                 <span className="block truncate">{formatChatTitle(chat.title)}</span>
@@ -396,7 +396,7 @@ export const PlaygroundSidebar = () => {
           <PanelLeftOpen className="w-5 h-5 text-foreground" />
         </button>
         <button
-          onClick={() => router.push("/playground")}
+          onClick={() => router.push("/chat")}
           className="text-sm font-medium text-foreground"
         >
           {activeChatTitle}
@@ -454,10 +454,10 @@ export const PlaygroundSidebar = () => {
                 <span>Apps</span>
               </button>
               <button
-                onClick={() => navigateTo('/playground')}
+                onClick={() => navigateTo('/chat')}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  pathname === "/playground"
+                  pathname === "/chat"
                     ? "bg-accent text-foreground"
                     : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 )}
@@ -531,14 +531,16 @@ export const PlaygroundSidebar = () => {
 
       {/* Share Dialog */}
       <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[85vh] overflow-y-auto bg-background text-foreground p-4 sm:p-5">
+        <DialogContent className="w-[calc(100vw-2.5rem)] max-w-sm md:max-w-xs max-h-[85vh] overflow-y-auto bg-background text-foreground p-4 sm:p-5">
           <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-semibold">Share this conversation</h3>
-            </div>
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-1.5">
-              <AlertTriangle className="h-4 w-4 mt-0.5" />
-              <p className="text-xs">
+            <DialogHeader className="space-y-0">
+              <DialogTitle className="text-base font-semibold">Share this conversation</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300 px-3 py-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md">
+                <AlertTriangle className="h-4.5 w-4.5" />
+              </div>
+              <p className="text-xs leading-relaxed">
                 This may contain personal information. Please review before sharing.
               </p>
             </div>
@@ -686,11 +688,11 @@ export const PlaygroundSidebar = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => router.push('/playground')}
+                onClick={() => router.push('/chat')}
                 className={cn(
                   "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
                   isOpen ? "gap-3 px-3" : "justify-center px-0",
-                  pathname === "/playground"
+                  pathname === "/chat"
                     ? "text-primary hover:text-primary/80"
                     : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
                 )}
@@ -766,7 +768,7 @@ export const PlaygroundSidebar = () => {
                   key={chat.id}
                   className={cn(
                     "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                    pathname === `/playground/${chat.id}`
+                    pathname === `/chat/${chat.id}`
                       ? "bg-accent text-foreground"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   )}
@@ -792,7 +794,7 @@ export const PlaygroundSidebar = () => {
                       />
                     ) : (
                       <button
-                        onClick={() => router.push(`/playground/${chat.id}`)}
+                        onClick={() => router.push(`/chat/${chat.id}`)}
                         className="w-full text-left"
                       >
                         <span className="block truncate">{formatChatTitle(chat.title)}</span>

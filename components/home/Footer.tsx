@@ -9,7 +9,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:text-left text-center">
               <Logo size={36} />
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-foreground">MCP Assistant</h3>
@@ -28,9 +28,9 @@ export default function Footer() {
                 <Server className="h-4 w-4 flex-shrink-0" />
                 MCP Servers
               </Link>
-              <Link href="/playground" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link href="/chat" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Code className="h-4 w-4 flex-shrink-0" />
-                Playground
+                Chat
               </Link>
               <a
                 href="https://github.com/zonlabs/mcp-assistant"

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 export default function MainHeader() {
   const pathname = usePathname();
 
-  if (pathname.startsWith("/playground") || pathname.startsWith("/settings")) {
+  if (pathname.startsWith("/chat") || pathname.startsWith("/settings")) {
     return null;
   }
 

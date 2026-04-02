@@ -208,10 +208,10 @@ export default function Home() {
                   </NeuralButton>
                 </motion.div>
 
-                {/* ✅ Playground Button */}
+                {/* ✅ Chat Button */}
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                   <Link
-                    href="/playground"
+                    href="/chat"
                     className="
         inline-flex w-full items-center justify-center
         px-5 py-2.5 rounded-lg text-sm font-medium

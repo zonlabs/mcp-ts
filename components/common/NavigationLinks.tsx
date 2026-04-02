@@ -1,5 +1,5 @@
 "use client";
-import { Home, Server, Code, Package, BookOpen } from "lucide-react";
+import { Home, Server, MessageSquare, Package, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -27,9 +27,9 @@ export function NavigationLinks() {
         Registry
         <span className={underlineClass} />
       </Link>
-      <Link href="/playground" className={navLinkClass(pathname === "/playground")}>
-        <Code className="h-4 w-4" />
-        Playground
+      <Link href="/chat" className={navLinkClass(pathname === "/chat")}>
+        <MessageSquare className="h-4 w-4" />
+        Chat
         <span className={underlineClass} />
       </Link>
       <Link
