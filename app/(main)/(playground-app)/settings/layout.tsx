@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Bot, Plug, KeyRound, Network } from "lucide-react";
+import { User, Plug, KeyRound, Network } from "lucide-react";
 
 interface SettingsNavItem {
   label: string;
@@ -14,7 +14,6 @@ const navItems: SettingsNavItem[] = [
   { label: "Account", href: "/settings", icon: User },
   { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
   { label: "Connectors", href: "/settings/connectors", icon: Plug },
-  { label: "Assistants", href: "/settings/assistants", icon: Bot },
   // { label: "A2A Agents", href: "/settings/agents", icon: Network },
 ];
 
