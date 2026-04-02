@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Plug,
-  Bot,
   Search,
   MoreHorizontal,
   ArrowUpRight,
@@ -68,7 +67,6 @@ export const PlaygroundSidebar = () => {
     { label: "Account", href: "/settings", icon: User },
     { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
     { label: "Connectors", href: "/settings/connectors", icon: Plug },
-    { label: "Assistants", href: "/settings/assistants", icon: Bot },
   ];
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';

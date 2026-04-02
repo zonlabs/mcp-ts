@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/playground/MCPConnectionApproval';
 import { ChatInput } from '@/components/playground/ChatInput';
@@ -50,6 +50,7 @@ export function PlaygroundChat({
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
+  const [contextUsage, setContextUsage] = useState<any | undefined>(undefined);
 
   const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
@@ -137,6 +138,11 @@ export function PlaygroundChat({
       return;
     }
   }, [messages, chatId]);
+
+  useEffect(() => {
+    const latest = [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage);
+    setContextUsage(latest?.metadata?.usage);
+  }, [messages]);
 
   useEffect(() => {
     if (hasSentInitialDraft.current) return;
@@ -425,6 +431,7 @@ export function PlaygroundChat({
                   onStop={stop}
                   status={status}
                   disabled={status === 'submitted' || status === 'streaming'}
+                  contextUsage={contextUsage}
                 />
               )}
               </div>
@@ -449,6 +456,7 @@ export function PlaygroundChat({
                   onStop={stop}
                   status={status}
                   disabled={status === 'submitted' || status === 'streaming'}
+                  contextUsage={contextUsage}
                 />
               )}
 
@@ -523,6 +531,7 @@ export function PlaygroundChat({
                     onStop={stop}
                     status={status}
                     disabled={status === 'submitted' || status === 'streaming'}
+                    contextUsage={contextUsage}
                   />
               )}
             </div>

@@ -5,6 +5,18 @@ import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
+  Context,
+  ContextCacheUsage,
+  ContextContent,
+  ContextContentBody,
+  ContextContentFooter,
+  ContextContentHeader,
+  ContextInputUsage,
+  ContextOutputUsage,
+  ContextReasoningUsage,
+  ContextTrigger,
+} from "@/components/ai-elements/context";
+import {
   ArrowUp,
   Plus,
   Square,
@@ -43,9 +55,19 @@ interface ChatInputProps {
   onStop?: () => void;
   disabled?: boolean;
   status: 'ready' | 'submitted' | 'streaming' | 'error';
+  contextUsage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    reasoningTokens?: number;
+    cachedInputTokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
-export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +79,9 @@ export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) 
 
   const isPending = status === 'submitted' || status === 'streaming';
   const fileArray = files ? Array.from(files) : [];
+  const modelId = activeProvider && activeModel ? `${activeProvider}:${activeModel}` : undefined;
+  const hasUsage = Boolean(contextUsage && (contextUsage.totalTokens || contextUsage.total_tokens));
+  const DEFAULT_MAX_TOKENS = 128_000;
 
   useEffect(() => {
     const load = () => {
@@ -269,7 +294,26 @@ export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) 
 
             {/* RIGHT */}
             <div className="flex items-center gap-1.5">
-              {/* Token Progress Circle - removed */}
+              {hasUsage && (
+                <Context
+                  maxTokens={DEFAULT_MAX_TOKENS}
+                  modelId={modelId}
+                  usage={contextUsage}
+                  usedTokens={contextUsage?.totalTokens ?? contextUsage?.total_tokens}
+                >
+                  <ContextTrigger />
+                  <ContextContent>
+                    <ContextContentHeader />
+                    <ContextContentBody>
+                      <ContextInputUsage />
+                      <ContextOutputUsage />
+                      <ContextReasoningUsage />
+                      <ContextCacheUsage />
+                    </ContextContentBody>
+                    <ContextContentFooter />
+                  </ContextContent>
+                </Context>
+              )}
 
               {/* <Button
                 variant="ghost"
