@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { PlaygroundChat } from '@/components/playground/PlaygroundChat';
+import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
 import { createClient } from '@/lib/supabase/server';
 import { loadChat } from '@/lib/chat-store';
 

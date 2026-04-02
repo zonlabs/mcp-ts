@@ -1,4 +1,4 @@
-import { PlaygroundDraft } from '@/components/playground/PlaygroundDraft';
+import { PlaygroundDraft } from '@/components/chat/PlaygroundDraft';
 
 export default function Page() {
   return <PlaygroundDraft />;

@@ -1,6 +1,6 @@
 import { loadPublicChat } from '@/lib/chat-store';
-import { PlaygroundChat } from '@/components/playground/PlaygroundChat';
-import { PlaygroundSidebar } from '@/components/playground/PlaygroundSidebar';
+import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
+import { PlaygroundSidebar } from '@/components/chat/PlaygroundSidebar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import { createClient } from '@/lib/supabase/server';
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { PlaygroundSidebar } from "@/components/playground/PlaygroundSidebar";
+import { PlaygroundSidebar } from "@/components/chat/PlaygroundSidebar";
 import type { PropsWithChildren } from "react";
 import { Toaster } from "react-hot-toast";
 
