@@ -56,15 +56,22 @@ function getModel() {
   return createDeepSeek({ apiKey })("deepseek-chat");
 }
 
-function safeParseJson(str: string | undefined | null): Record<string, unknown> {
-  if (!str) return {};
+function parseJsonObject(
+  label: string,
+  str: string | undefined | null
+): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
+  if (!str) return { ok: true, value: {} };
   try {
     const parsed = JSON.parse(str);
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, error: `${label} must be a JSON object string` };
+    }
+    return { ok: true, value: parsed as Record<string, unknown> };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `${label} is not valid JSON (${err instanceof Error ? err.message : "parse error"})`,
+    };
   }
 }
 
@@ -237,7 +244,17 @@ ${toolkitGuidance}
     inputSchema.properties[prop.key] = { type: prop.type, description: prop.description };
   }
 
-  const defaultParams = safeParseJson(generated.default_params_json);
+  const defaultParamsResult = parseJsonObject(
+    "default_params_json",
+    generated.default_params_json
+  );
+  if (!defaultParamsResult.ok) {
+    return NextResponse.json(
+      { error: `Invalid workflow defaults: ${defaultParamsResult.error}` },
+      { status: 500 }
+    );
+  }
+  const defaultParams = defaultParamsResult.value;
 
   // Persist the workflow
   const { data: workflow, error: wfError } = await supabase
@@ -261,10 +278,25 @@ ${toolkitGuidance}
   const workflowId = workflow.id as string;
 
   // Parse and insert steps
-  const parsedSteps = generated.steps.map((step) => ({
-    ...step,
-    tool_arguments: safeParseJson(step.tool_arguments_json),
-  }));
+  let parsedSteps: Array<z.infer<typeof StepSchema> & { tool_arguments: Record<string, unknown> }>;
+  try {
+    parsedSteps = generated.steps.map((step) => {
+      const parsedArgs = parseJsonObject(
+        `tool_arguments_json for step "${step.name}"`,
+        step.tool_arguments_json
+      );
+      if (!parsedArgs.ok) {
+        throw new Error(parsedArgs.error);
+      }
+      return { ...step, tool_arguments: parsedArgs.value };
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Invalid tool_arguments_json";
+    return NextResponse.json(
+      { error: `Failed to parse workflow steps: ${msg}` },
+      { status: 500 }
+    );
+  }
 
   const stepRows = parsedSteps.map((step, idx) => ({
     workflow_id: workflowId,

@@ -77,6 +77,23 @@ export function StepFormDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function parseJsonObject(
+    input: string
+  ): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
+    try {
+      const parsed = JSON.parse(input);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        return { ok: false, error: "Must be a JSON object {}" };
+      }
+      return { ok: true, value: parsed as Record<string, unknown> };
+    } catch {
+      return {
+        ok: false,
+        error: "Invalid JSON. If using {{params.x}} templates, wrap them in quotes.",
+      };
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
     if (step) {
@@ -119,31 +136,24 @@ export function StepFormDialog({
         setError("User prompt is required for AI steps");
         return null;
       }
-      let extra: Record<string, unknown> = {};
-      try {
-        extra = JSON.parse(argsJson);
-      } catch {
-        setArgsError("Invalid JSON");
+      const parsed = parseJsonObject(argsJson);
+      if (!parsed.ok) {
+        setArgsError(parsed.error);
         return null;
       }
       return {
         system_prompt: systemPrompt.trim() || "You are a helpful AI assistant.",
         user_prompt: userPrompt.trim(),
-        ...extra,
+        ...parsed.value,
       };
     }
 
-    try {
-      const parsed = JSON.parse(argsJson);
-      if (typeof parsed !== "object" || Array.isArray(parsed) || parsed === null) {
-        setArgsError("Must be a JSON object {}");
-        return null;
-      }
-      return parsed as Record<string, unknown>;
-    } catch {
-      setArgsError("Invalid JSON");
+    const parsed = parseJsonObject(argsJson);
+    if (!parsed.ok) {
+      setArgsError(parsed.error);
       return null;
     }
+    return parsed.value;
   }
 
   async function handleSave() {
@@ -374,7 +384,7 @@ export function StepFormDialog({
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Saving…
+                Saving...
               </>
             ) : isEditing ? (
               <>

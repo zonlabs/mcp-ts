@@ -2,15 +2,22 @@ import { tool } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
-function safeParseJson(str: string | undefined | null): Record<string, unknown> {
-  if (!str) return {};
+function parseJsonObject(
+  label: string,
+  str: string | undefined | null
+): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
+  if (!str) return { ok: true, value: {} };
   try {
     const parsed = JSON.parse(str);
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, error: `${label} must be a JSON object string` };
+    }
+    return { ok: true, value: parsed as Record<string, unknown> };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `${label} is not valid JSON (${err instanceof Error ? err.message : "parse error"})`,
+    };
   }
 }
 
@@ -105,7 +112,19 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
         };
       }
 
-      const defaultParams = safeParseJson(default_params_json);
+      const defaultParamsResult = parseJsonObject(
+        "default_params_json",
+        default_params_json
+      );
+      if (!defaultParamsResult.ok) {
+        yield {
+          state: "output-error" as const,
+          success: false,
+          error: `Invalid defaults: ${defaultParamsResult.error}`,
+        };
+        return;
+      }
+      const defaultParams = defaultParamsResult.value;
 
       const { data: workflow, error: wfError } = await supabase
         .from("workflows")
@@ -132,17 +151,36 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
 
       const workflowId = workflow.id as string;
 
-      const stepRows = steps.map((step, idx) => ({
-        workflow_id: workflowId,
-        step_number: idx + 1,
-        name: step.name,
-        toolkit: step.toolkit,
-        tool_slug: step.tool_slug,
-        tool_arguments: safeParseJson(step.tool_arguments_json),
-        timeout_seconds: step.timeout_seconds ?? 120,
-        retry_on_failure: step.retry_on_failure ?? true,
-        max_retries: step.max_retries ?? 1,
-      }));
+      let stepRows: Array<Record<string, unknown>>;
+      try {
+        stepRows = steps.map((step, idx) => {
+          const parsedArgs = parseJsonObject(
+            `tool_arguments_json for step "${step.name}"`,
+            step.tool_arguments_json
+          );
+          if (!parsedArgs.ok) {
+            throw new Error(parsedArgs.error);
+          }
+          return {
+            workflow_id: workflowId,
+            step_number: idx + 1,
+            name: step.name,
+            toolkit: step.toolkit,
+            tool_slug: step.tool_slug,
+            tool_arguments: parsedArgs.value,
+            timeout_seconds: step.timeout_seconds ?? 120,
+            retry_on_failure: step.retry_on_failure ?? true,
+            max_retries: step.max_retries ?? 1,
+          };
+        });
+      } catch (err) {
+        yield {
+          state: "output-error" as const,
+          success: false,
+          error: `Invalid step arguments: ${err instanceof Error ? err.message : "unknown error"}`,
+        };
+        return;
+      }
 
       const { error: stepsError } = await supabase
         .from("workflow_steps")
