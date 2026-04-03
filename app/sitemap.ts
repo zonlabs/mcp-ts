@@ -8,7 +8,6 @@ const PUBLIC_ROUTES = [
   "/gateway",
   "/publish",
   "/faq",
-  "/changelog",
   "/privacy",
 ] as const;
 

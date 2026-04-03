@@ -140,7 +140,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   const tools = serverId ? getServerTools(serverId) : [];
 
   // Merge with server list
-  const mergeWithStoredState = useCallback(<T extends { id: string, connectionStatus?: string | null | undefined, tools?: ToolInfo[] }>(serverList: T[]): T[] => {
+  const mergeWithStoredState = useCallback(<T extends { id: string, connectionStatus?: string | null | undefined, tools?: ToolInfo[], transport?: string | null }>(serverList: T[]): T[] => {
     return serverList.map((server) => {
       const stored = findConnectionForServer(connections, server);
       if (stored) {
