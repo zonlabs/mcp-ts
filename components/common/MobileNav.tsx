@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Home, Server, Code, Package, BookOpen, GitFork } from "lucide-react";
+import { Menu, X, Home, Server, MessageSquare, Package, BookOpen, GitFork } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -18,7 +18,7 @@ export function MobileNav() {
     { href: "/mcp", label: "MCP", icon: Server },
     { href: "/registry", label: "Registry", icon: Package },
     { href: "/workflows", label: "Workflows", icon: GitFork },
-    { href: "/playground", label: "Playground", icon: Code },
+    { href: "/chat", label: "Chat", icon: MessageSquare },
     { href: "https://zonlabs.github.io/mcp-ts/", label: "Docs", icon: BookOpen, external: true },
   ];
 

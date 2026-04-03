@@ -9,23 +9,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { query, variables } = body;
 
-    // Get user for authentication verification
+    // We use getSession() here (not getUser()) to avoid an extra auth round-trip
+    // for public queries. user is derived from the session, matching the chat route pattern.
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-        return new Response(JSON.stringify({ errors: [{ message: "Unauthorized" }] }), { status: 401 });
-    }
-
-    // Get session for tokens
     const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
 
-    // Prepare headers
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    // Add authorization header if session exists and query requires auth
+    // Determine which queries require authentication
     const requiresAuth = query.includes('getUserMcpServers') ||
       query.includes('myAssistants') ||
       query.includes('myAssistant') ||
@@ -33,8 +23,7 @@ export async function POST(request: NextRequest) {
       query.includes('updateAssistant') ||
       query.includes('deleteAssistant');
 
-    if (requiresAuth && !session?.access_token) {
-      // Return authentication error for queries that require auth
+    if (requiresAuth && !user) {
       return NextResponse.json(
         {
           errors: [{
@@ -45,6 +34,12 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Prepare headers, attaching the token if available
+    // (even for public queries, in case the backend uses it optionally)
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
 
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`;

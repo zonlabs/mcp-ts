@@ -123,7 +123,7 @@ The system supports two MCP transport types:
 
 ### AI Assistant System
 
-**Assistant UI Integration** (`app/(main)/(playground-app)/playground/`):
+**Assistant UI Integration** (`app/(main)/(playground-app)/chat/`):
 - Uses `@assistant-ui/react` for chat interface
 - LangGraph runtime via `@assistant-ui/react-langgraph`
 - Thread-based conversation management

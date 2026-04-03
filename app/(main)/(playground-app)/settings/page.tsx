@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
-import { ThemeSelector } from "@/components/playground/ThemeSelector";
+import { ThemeSelector } from "@/components/chat/ThemeSelector";
 import { useRouter } from "next/navigation";
 import { Github, Mail } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";

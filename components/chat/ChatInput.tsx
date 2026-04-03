@@ -5,15 +5,27 @@ import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
+  Context,
+  ContextCacheUsage,
+  ContextContent,
+  ContextContentBody,
+  ContextContentFooter,
+  ContextContentHeader,
+  ContextInputUsage,
+  ContextOutputUsage,
+  ContextReasoningUsage,
+  ContextTrigger,
+} from "@/components/ai-elements/context";
+import {
   ArrowUp,
   Plus,
   Square,
   X,
   FileIcon,
 } from 'lucide-react';
-import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/playground/llmConfig';
-import { ModelSelector } from '@/components/playground/ModelSelector';
-import { AVAILABLE_MODELS } from '@/components/playground/availableModels';
+import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/chat/llmConfig';
+import { ModelSelector } from '@/components/chat/ModelSelector';
+import { AVAILABLE_MODELS } from '@/components/chat/availableModels';
 
 async function convertFilesToDataURLs(files: FileList) {
   return Promise.all(
@@ -43,9 +55,19 @@ interface ChatInputProps {
   onStop?: () => void;
   disabled?: boolean;
   status: 'ready' | 'submitted' | 'streaming' | 'error';
+  contextUsage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    reasoningTokens?: number;
+    cachedInputTokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
-export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +79,11 @@ export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) 
 
   const isPending = status === 'submitted' || status === 'streaming';
   const fileArray = files ? Array.from(files) : [];
+  const tokenlensProvider =
+    activeProvider === "gemini" ? "google" : activeProvider;
+  const modelId =
+    tokenlensProvider && activeModel ? `${tokenlensProvider}:${activeModel}` : undefined;
+  const hasUsage = Boolean(contextUsage && (contextUsage.totalTokens || contextUsage.total_tokens));
 
   useEffect(() => {
     const load = () => {
@@ -219,9 +246,9 @@ export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) 
           </div>
 
           {/* ACTION ROW */}
-          <div className="flex items-center justify-between px-2 pb-2">
+          <div className="flex items-center justify-between gap-2 flex-nowrap px-2 pb-2">
             {/* LEFT */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -268,7 +295,27 @@ export function ChatInput({ onSend, onStop, disabled, status }: ChatInputProps) 
             </div>
 
             {/* RIGHT */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
+              {hasUsage && (
+                <Context
+                  modelId={modelId}
+                  usage={contextUsage}
+                  usedTokens={contextUsage?.totalTokens ?? contextUsage?.total_tokens}
+                >
+                  <ContextTrigger />
+                  <ContextContent>
+                    <ContextContentHeader />
+                    <ContextContentBody>
+                      <ContextInputUsage />
+                      <ContextOutputUsage />
+                      <ContextReasoningUsage />
+                      <ContextCacheUsage />
+                    </ContextContentBody>
+                    <ContextContentFooter />
+                  </ContextContent>
+                </Context>
+              )}
+
               {/* <Button
                 variant="ghost"
                 size="icon"
