@@ -1,14 +1,12 @@
 "use client";
 
-import { PlaygroundProvider } from "@/components/providers/PlaygroundProvider";
-import { PlaygroundSidebar } from "@/components/playground/PlaygroundSidebar";
+import { PlaygroundSidebar } from "@/components/chat/PlaygroundSidebar";
 import type { PropsWithChildren } from "react";
 import { Toaster } from "react-hot-toast";
 
 export default function PlaygroundAppLayout({ children }: PropsWithChildren) {
   return (
     <div className="fixed inset-0 z-50 bg-background">
-      <PlaygroundProvider>
         <Toaster
           position="top-right"
           toastOptions={{
@@ -28,7 +26,6 @@ export default function PlaygroundAppLayout({ children }: PropsWithChildren) {
             {children}
           </main>
         </div>
-      </PlaygroundProvider>
     </div>
   );
 }

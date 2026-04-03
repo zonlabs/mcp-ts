@@ -56,21 +56,6 @@ export type ServerHealthInfo = {
   tools: ToolInfo[];
 };
 
-// Assistant Types
-export type AssistantType = 'orchestrator' | 'specialist' | 'custom';
-
-export type Assistant = {
-  id: string;
-  assistantType: AssistantType;
-  name: string;
-  description?: string | null;
-  instructions: string;
-  isActive: boolean;
-  config: any;
-  createdAt: string;
-  updatedAt: string;
-};
-
 // A2A Agent Config (stored in Assistant.config for specialist/tool_agent types)
 export type A2AAgentConfig = {
   a2a_url: string;
@@ -97,20 +82,6 @@ export type McpServerConfig = {
     serverLabel?: string;
     headers?: Record<string, string>;
   };
-};
-
-// CopilotKit Agent Types
-export type AgentState = {
-  model: string;
-  status?: string;
-  sessionId: string;
-  assistant?: Assistant | null;
-  selectedTools?: string[]; // Selected tool names to filter
-  mcpSessions?: string[]; // Array of MCP server sessionIds
-  llm_provider?: string; // LLM provider (openai, deepseek, etc.)
-  llm_api_key?: string; // User's API key for the provider
-  current_tool_call?: {name: string, args: any, result: any} | null;
-  plan_mode?: boolean; // Enable deepagents autonomous planning
 };
 
 export interface Tool {

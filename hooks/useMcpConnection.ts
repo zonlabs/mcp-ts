@@ -42,8 +42,36 @@ function extractServerUrl(server: ConnectableServer): string | null {
   return server.remoteUrl || server.url || null;
 }
 
-function extractTransport(server: ConnectableServer): string | null {
-  return server.transportType || server.transport || null;
+function extractTransport(server: ConnectableServer): "sse" | "streamable_http" {
+  const raw = server.transportType || server.transport || null;
+  const normalized = normalizeTransport(raw);
+  const inferred = inferTransportFromUrl(extractServerUrl(server));
+
+  if (inferred === "sse") return "sse";
+  if (inferred === "streamable_http") return "streamable_http";
+  return normalized ?? "streamable_http";
+}
+
+function inferTransportFromUrl(url?: string | null): "sse" | "streamable_http" | null {
+  if (!url) return null;
+  const urlLower = url.toLowerCase();
+  if (urlLower.includes("/sse") || urlLower.includes("transport=sse")) {
+    return "sse";
+  }
+  if (urlLower.includes("tools=") || urlLower.includes("/mcp")) {
+    return "streamable_http";
+  }
+  return null;
+}
+
+function normalizeTransport(value?: string | null): "sse" | "streamable_http" | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "sse") return "sse";
+  if (normalized === "streamable_http" || normalized === "streamable-http" || normalized === "streamablehttp") {
+    return "streamable_http";
+  }
+  return null;
 }
 
 function showMcpErrorToast(scope: 'connect' | 'disconnect', message: string) {
@@ -112,13 +140,14 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   const tools = serverId ? getServerTools(serverId) : [];
 
   // Merge with server list
-  const mergeWithStoredState = useCallback(<T extends { id: string, connectionStatus?: string | null | undefined, tools?: ToolInfo[] }>(serverList: T[]): T[] => {
+  const mergeWithStoredState = useCallback(<T extends { id: string, connectionStatus?: string | null | undefined, tools?: ToolInfo[], transport?: string | null }>(serverList: T[]): T[] => {
     return serverList.map((server) => {
       const stored = findConnectionForServer(connections, server);
       if (stored) {
         return {
           ...server,
           connectionStatus: stored.connectionStatus,
+          transport: stored.transport ?? server.transport,
           tools: stored.tools || [],
         };
       }

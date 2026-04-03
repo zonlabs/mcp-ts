@@ -1,6 +1,6 @@
 "use client";
 
-import { LlmSettingsPanel } from "@/components/playground/LlmSettingsPanel";
+import { LlmSettingsPanel } from "@/components/chat/LlmSettingsPanel";
 
 export default function ApiKeysPage() {
   return (

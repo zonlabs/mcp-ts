@@ -103,7 +103,7 @@ drop policy if exists "chat_messages_insert_public" on public.chat_messages;
 create policy "chat_messages_insert_public" on public.chat_messages
 for insert
 with check (
-  exists (
+  auth.uid() is not null and exists (
     select 1
     from public.chats
     where public.chats.id = chat_messages.chat_id
@@ -111,12 +111,12 @@ with check (
   )
 );
 
--- Allow public chats to be updated for collaboration
+-- Allow public chats to be updated for collaboration (authenticated users only)
 drop policy if exists "chat_messages_update_public" on public.chat_messages;
 create policy "chat_messages_update_public" on public.chat_messages
 for update
 using (
-  exists (
+  auth.uid() is not null and exists (
     select 1
     from public.chats
     where public.chats.id = chat_messages.chat_id
@@ -124,7 +124,7 @@ using (
   )
 )
 with check (
-  exists (
+  auth.uid() is not null and exists (
     select 1
     from public.chats
     where public.chats.id = chat_messages.chat_id
@@ -132,12 +132,12 @@ with check (
   )
 );
 
--- Allow public chats to be deleted for collaboration
+-- Allow public chats to be deleted for collaboration (authenticated users only)
 drop policy if exists "chat_messages_delete_public" on public.chat_messages;
 create policy "chat_messages_delete_public" on public.chat_messages
 for delete
 using (
-  exists (
+  auth.uid() is not null and exists (
     select 1
     from public.chats
     where public.chats.id = chat_messages.chat_id
@@ -194,11 +194,11 @@ using (
       and public.chats.visibility in ('PUBLIC')
   )
 );
--- Allow anyone to "touch" a public chat (to update its timestamp)
+-- Allow authenticated users to "touch" a public chat (to update its timestamp)
 drop policy if exists "chats_update_public" on public.chats;
 create policy "chats_update_public" on public.chats
 for update
-using (visibility = 'PUBLIC')
+using (auth.uid() is not null and visibility = 'PUBLIC')
 with check (
   id = id 
   and user_id = user_id 

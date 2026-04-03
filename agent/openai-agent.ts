@@ -16,8 +16,18 @@ import {
   invokeRemoteServer,
 } from "@/lib/remote-bridge";
 
+interface CreateMcpAgentOptions {
+  userId?: string;
+  gatewaySelections?: GatewayServerSelection[];
+}
+
 const INSTRUCTIONS = `
 You are MCP Assistant, an AI agent that helps users complete tasks by discovering and connecting to Model Context Protocol (MCP) servers.
+
+## Current Date & Time
+- Today's date: ${new Date().toISOString().split('T')[0]}
+- Current time: ${new Date().toLocaleTimeString('en-US', { hour12: false })}
+- Use this for time-sensitive queries like "today's match", "current prices", etc.
 
 ## Workflow
 
@@ -50,10 +60,6 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 
 const MAX_TOOL_NAME_LENGTH = 64;
 
-interface CreateMcpAgentOptions {
-  userId?: string;
-  gatewaySelections?: GatewayServerSelection[];
-}
 type McpAgentCallOptions = {
   userId?: string;
   llmConfig?: {
@@ -239,13 +245,11 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
 export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   const identity = options.userId?.trim() || "demo-user-123";
 
-  // Local tools = Gateway/Bridge + Built-ins
   const { tools: localTools, toolIndex: localIndex } = await getLocalMcpTools(
     identity,
     options.gatewaySelections
   );
 
-  // Remote tools = SSE/MultiSession (Direct connections)
   const { manager, tools: remoteTools } = await getRemoteMcpTools(identity);
 
   console.log(
@@ -278,7 +282,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         )
         .optional(),
     }),
-    prepareCall: async ({ options: callOptions, abortSignal, ...settings }) => {
+    prepareCall: async ({ options: callOptions, abortSignal, messages, ...settings }) => {
       const model = getModelFromConfig(callOptions?.llmConfig);
 
       if (abortSignal) {
@@ -287,7 +291,9 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         }, { once: true });
       }
 
-      // Filter tools based on selections if provided
+      const instructions = INSTRUCTIONS;
+      const messagesToUse = messages || [];
+
       const selectedServers = callOptions?.gatewaySelections?.map((s) => s.mcpServer) || options.gatewaySelections?.map((s) => s.mcpServer) || [];
       const gatewayToolNames = selectedServers.flatMap((server) => localIndex.get(server) || []);
       
@@ -300,7 +306,8 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         model,
         tools: combinedTools,
         activeTools,
-        instructions: INSTRUCTIONS,
+        messages: messagesToUse,
+        instructions,
       };
     },
     tools: {},

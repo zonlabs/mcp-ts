@@ -33,6 +33,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
   const [loading, setLoading] = useState<string | null>(null);
   const status = server.connectionStatus?.toUpperCase();
   const isReady = status === "READY";
+  const isAuthenticating = status === "AUTHENTICATING";
   const isInProgress = !!status && [
     "INITIALIZING",
     "VALIDATING",
@@ -42,6 +43,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
     "CONNECTED",
     "DISCOVERING",
   ].includes(status);
+  const canCancel = !isReady && isInProgress;
 
   const handleAction = async (action: 'activate' | 'deactivate') => {
     setLoading(action);
@@ -104,7 +106,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
       case 'activate':
         return isReady || isInProgress;
       case 'deactivate':
-        return !isReady || isInProgress;
+        return !isReady && !isInProgress;
       default:
         return false;
     }
@@ -155,6 +157,21 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
               <Pause className="h-4 w-4" />
             )}
             Deactivate
+          </Button>
+        ) : canCancel ? (
+          <Button
+            onClick={() => handleAction('deactivate')}
+            disabled={loading === 'deactivate'}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            {loading === 'deactivate' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            {isAuthenticating ? "Cancel auth" : "Disconnect"}
           </Button>
         ) : (
           <Button

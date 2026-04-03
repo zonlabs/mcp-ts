@@ -15,18 +15,18 @@ export const AVAILABLE_MODELS = [
     tag: "Premium"
   },
   {
-    id: "gpt-4.1-mini",
-    name: "GPT-4.1 Mini",
-    description: "April 2025 release; significant leap in small model logic and 1M context support",
-    provider: "OpenAI",
-    tag: "Balanced"
-  },
-  {
     id: "gpt-4.5",
     name: "GPT-4.5",
     description: "Feb 2025 release; renowned for creative writing and high emotional intelligence",
     provider: "OpenAI",
     tag: "Creative"
+  },
+  {
+    id: "gpt-4.1-mini",
+    name: "GPT-4.1 Mini",
+    description: "April 2025 release; significant leap in small model logic and 1M context support",
+    provider: "OpenAI",
+    tag: "Balanced"
   },
   {
     id: "gpt-4o-mini",
@@ -84,13 +84,6 @@ export const AVAILABLE_MODELS = [
 
   // --- DeepSeek (2025 - 2026) ---
   {
-    id: "deepseek-v4-lite",
-    name: "DeepSeek-V4 Lite",
-    description: "2026 next-gen MoE with Engram memory for high-accuracy retrieval",
-    provider: "DeepSeek",
-    tag: "Coding"
-  },
-  {
     id: "deepseek-chat",
     name: "DeepSeek-V3.2",
     description: "Dec 2025 upgrade; general-purpose model optimized for agentic tool-use",
@@ -101,13 +94,6 @@ export const AVAILABLE_MODELS = [
     id: "deepseek-reasoner",
     name: "DeepSeek Reasoner",
     description: "Thinking-mode model based on R1 architecture; full chain-of-thought visibility",
-    provider: "DeepSeek",
-    tag: "Reasoning"
-  },
-  {
-    id: "deepseek-r1",
-    name: "DeepSeek-R1",
-    description: "Jan 2025 breakthrough; the model that first rivaled GPT-4 reasoning via RL",
     provider: "DeepSeek",
     tag: "Reasoning"
   }

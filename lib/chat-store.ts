@@ -123,6 +123,23 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
 }
 
 /**
+ * Deletes ALL messages for a given chatId.
+ * Used when a user edits a message, so the entire history can be
+ * replaced with the truncated version from the client.
+ */
+export async function deleteAllChatMessages(chatId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('chat_messages')
+    .delete()
+    .eq('chat_id', chatId);
+
+  if (error) {
+    console.error('[chat-store] deleteAllChatMessages failed:', error);
+  }
+}
+
+/**
  * Persists chat messages to the database.
  * Handles both own chats (upsert metadata) and shared chats (update timestamp only).
  */
