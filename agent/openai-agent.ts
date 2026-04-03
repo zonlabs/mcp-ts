@@ -1,8 +1,6 @@
 import { checkMcpConnections } from "@/tool/check-mcp-connections";
 import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
 import { searchMcpServers } from "@/tool/search-mcp-servers";
-import { workflowList, workflowRun } from "@/tool/workflow-tools";
-import { createWorkflowDelegateDesignTool } from "@/agent/workflow-subagent";
 import { createOpenAI } from "@ai-sdk/openai";
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool, type LanguageModelUsage, type ToolSet } from "ai";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
@@ -24,7 +22,7 @@ interface CreateMcpAgentOptions {
 }
 
 const INSTRUCTIONS = `
-You are MCP Assistant, an AI agent that helps users complete tasks by discovering and connecting to Model Context Protocol (MCP) servers. You can also create, list, and run automated workflows.
+You are MCP Assistant, an AI agent that helps users complete tasks by discovering and connecting to Model Context Protocol (MCP) servers.
 
 ## Current Date & Time
 - Today's date: ${new Date().toISOString().split('T')[0]}
@@ -50,16 +48,6 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
    - If tools prefixed with "LOCAL_MCP__" are available, they are approved local gateway tools. Use them directly for matching tasks.
    - Be transparent about what you're doing
 
-## Workflow Automation
-
-When the user asks to "create a workflow", "automate", "schedule a task", or build a recurring automation:
-
-1. **Collect MCP context** — list relevant tool names from your available tools (mcp_*, LOCAL_MCP__*). For LOCAL_MCP__ tools, the description includes the original MCP tool name — include both in mcp_tools_summary when delegating.
-2. **Delegate creation** — call "WORKFLOW_DELEGATE_DESIGN" with a clear goal and mcp_tools_summary. A specialist **subagent** (isolated context) will call WORKFLOW_CREATE and persist the workflow; you stay focused on orchestration and MCP setup.
-3. **After delegation** — relay the subagent summary and workflow link to the user.
-
-For listing workflows use "WORKFLOW_LIST". For running an existing workflow by id use "WORKFLOW_RUN". Do not try to call WORKFLOW_CREATE yourself — it is only available inside the subagent.
-
 ## Key Rules
 
 - Be proactive: automatically search and connect when a task needs a specific capability
@@ -68,7 +56,6 @@ For listing workflows use "WORKFLOW_LIST". For running an existing workflow by i
 - Present multiple options if several servers match, let the user choose
 - Handle errors gracefully: explain issues clearly and suggest solutions
 - Keep responses concise and actionable
-- When delegating workflows, pass accurate mcp_tools_summary so the subagent uses real tool names — never guess or make up tool names
 `;
 
 const MAX_TOOL_NAME_LENGTH = 64;
@@ -304,8 +291,6 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
     MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS: checkMcpConnections,
     MCPASSISTANT_SEARCH_SERVERS: searchMcpServers,
     MCPASSISTANT_INITIATE_CONNECTION: initiateMcpConnection,
-    WORKFLOW_LIST: workflowList,
-    WORKFLOW_RUN: workflowRun,
   };
 
   let mcpTools: Record<string, any> = { ...baseTools };
@@ -377,19 +362,15 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
       const selectedServers = callOptions?.gatewaySelections?.map((s) => s.mcpServer) || options.gatewaySelections?.map((s) => s.mcpServer) || [];
       const gatewayToolNames = selectedServers.flatMap((server) => localIndex.get(server) || []);
       
-      const workflowDelegateDesign = createWorkflowDelegateDesignTool(model);
-
       const toolsForCall = {
         ...combinedTools,
-        WORKFLOW_DELEGATE_DESIGN: workflowDelegateDesign,
       };
 
       const activeTools: string[] = selectedServers.length > 0
         ? [
             ...Object.keys(combinedTools).filter(
-              (k) => k.startsWith("MCPASSISTANT_") || k.startsWith("WORKFLOW_")
+              (k) => k.startsWith("MCPASSISTANT_")
             ),
-            "WORKFLOW_DELEGATE_DESIGN",
             ...gatewayToolNames,
           ]
         : Object.keys(toolsForCall);

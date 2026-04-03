@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Plug, KeyRound, Network } from "lucide-react";
+import { User, Plug, KeyRound } from "lucide-react";
 
 interface SettingsNavItem {
   label: string;

@@ -1,6 +1,8 @@
 "use client";
 
 import { LlmSettingsPanel } from "@/components/chat/LlmSettingsPanel";
+import { WorkflowEngineTokenSection } from "@/components/settings/WorkflowEngineTokenSection";
+import { Separator } from "@/components/ui/separator";
 
 export default function ApiKeysPage() {
   return (
@@ -8,7 +10,7 @@ export default function ApiKeysPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1">API Keys</h1>
         <p className="text-sm text-muted-foreground">
-          Manage your LLM provider, model, and credentials
+          LLM provider credentials and Workflow Automation Engine access
         </p>
       </div>
 
@@ -17,6 +19,10 @@ export default function ApiKeysPage() {
           <h3 className="text-sm font-medium text-muted-foreground">LLM Settings</h3>
           <LlmSettingsPanel />
         </section>
+
+        <Separator />
+
+        <WorkflowEngineTokenSection />
       </div>
     </div>
   );
