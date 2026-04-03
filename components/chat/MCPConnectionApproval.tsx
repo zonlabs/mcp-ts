@@ -35,6 +35,7 @@ export function MCPConnectionApproval({
 
   // Use the global store for actions and live connection state
   const connectServer = useMcpStore(state => state.connect);
+  const disconnectServer = useMcpStore(state => state.disconnect);
   const connections = useMcpStore(state => state.connections);
 
   const normalizeServerUrl = (url?: string | null): string | null => {
@@ -69,7 +70,8 @@ export function MCPConnectionApproval({
     existingConnection?.connectionStatus === 'READY' ||
     existingConnection?.connectionStatus === 'FAILED' ||
     existingConnection?.connectionStatus === 'DISCONNECTED';
-  const isConnecting = !denied && (isStatusConnecting || (connectRequested && !isTerminalState));
+  const isStaleConnecting = isStatusConnecting && !connectRequested;
+  const isConnecting = !denied && !isStaleConnecting && (isStatusConnecting || (connectRequested && !isTerminalState));
 
   // Watch for successful connection
   const [hasTriggeredApprove, setHasTriggeredApprove] = useState(false);
@@ -145,6 +147,7 @@ export function MCPConnectionApproval({
       serverId,
       transportType,
     });
+    setDenied(false);
     setConnectRequested(true);
     try {
       await connectServer({
@@ -193,10 +196,14 @@ export function MCPConnectionApproval({
             size="sm"
             onClick={() => {
               setDenied(true);
+              setConnectRequested(false);
+              if (existingConnection?.sessionId) {
+                void disconnectServer(existingConnection.sessionId);
+              }
               onDeny();
             }}
             variant="outline"
-            disabled={isConnecting}
+            disabled={false}
             className="h-8 px-3 text-xs sm:text-sm"
           >
             Deny
@@ -237,7 +244,7 @@ export function MCPConnectionApproval({
         Please connect to continue.
       </p>
       {denied && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-red-600 dark:text-red-400 font-medium">
           Connection request cancelled.
         </p>
       )}

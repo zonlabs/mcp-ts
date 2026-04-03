@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { CheckCircle, XCircle, Clock, Trash2, Calendar, CheckCircle2, Globe, HardDrive, Loader2, RefreshCw, Server, Info } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
-import { toast } from "react-hot-toast";
 import { useMcpStore } from "@/lib/stores/mcp-store";
 import { useGatewaySelections } from "@/hooks/useGatewaySelections";
 import {
@@ -73,11 +72,9 @@ export default function ConnectorsPage() {
     setDisconnecting(sessionId);
     try {
       await disconnect(sessionId);
-      toast.success("Connection disconnected successfully");
       await loadConnections();
     } catch (error) {
       console.error("Failed to disconnect:", error);
-      toast.error("Failed to disconnect connection");
     } finally {
       setDisconnecting(null);
     }
