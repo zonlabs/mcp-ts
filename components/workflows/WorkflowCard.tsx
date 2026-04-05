@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ToolkitGroup } from "./ToolkitBadge";
-import type { Workflow } from "@/types/workflow";
+import type { Workflow } from "@/types/workflows";
 import { cn } from "@/lib/utils";
 
 interface WorkflowCardProps {

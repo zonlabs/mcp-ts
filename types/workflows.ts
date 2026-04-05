@@ -12,6 +12,8 @@ export interface Workflow {
   schedule_count: number;
   /** Saved defaults for `{{params.*}}` placeholders (DB: defaults_for_required_parameters) */
   default_params?: Record<string, unknown>;
+  /** Optional when fetched from detail endpoint */
+  scheduled_workflows?: Schedule[];
 }
 
 export interface WorkflowStep {

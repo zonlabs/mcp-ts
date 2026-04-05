@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { McpConnectionRecord } from "@/lib/mcp-connections";
-import type { Workflow, McpSession } from "@/types/workflow";
+import type { Workflow, McpSession } from "@/types/workflows";
 import { defaultParamsToJson } from "@/lib/utils";
 
 interface RunDialogProps {

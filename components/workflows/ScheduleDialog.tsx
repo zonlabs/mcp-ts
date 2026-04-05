@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Clock, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -15,8 +15,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import type { Workflow, Schedule } from "@/types/workflow";
+import type { Workflow, Schedule } from "@/types/workflows";
 import { defaultParamsToJson } from "@/lib/utils";
+import {
+  createSchedule as apiCreateSchedule,
+  fetchSchedules as apiFetchSchedules,
+  updateSchedule as apiUpdateSchedule,
+} from "@/lib/workflows.api";
 
 interface ScheduleDialogProps {
   workflow: Workflow;
@@ -42,11 +47,20 @@ export function ScheduleDialog({
   onClose,
   onSuccess,
 }: ScheduleDialogProps) {
+  const [fetchedSchedule, setFetchedSchedule] = useState<Schedule | undefined>(undefined);
+  const inferredSchedule =
+    schedule ??
+    fetchedSchedule ??
+    (workflow.scheduled_workflows?.length ? workflow.scheduled_workflows[0] : undefined);
   const defaultsKey = useMemo(
-    () => JSON.stringify(workflow.default_params ?? {}),
-    [workflow.default_params]
+    () =>
+      JSON.stringify({
+        defaults: workflow.default_params ?? {},
+        schedule: inferredSchedule?.id ?? null,
+      }),
+    [workflow.default_params, inferredSchedule?.id]
   );
-  const isEditing = !!schedule;
+  const isEditing = !!inferredSchedule;
   const [name, setName] = useState("");
   const [cronExpr, setCronExpr] = useState("0 9 * * *");
   const [paramsJson, setParamsJson] = useState("{}");
@@ -54,14 +68,15 @@ export function ScheduleDialog({
   const [paramsError, setParamsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const lastFetchKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    if (schedule) {
-      setName(schedule.name);
-      setCronExpr(schedule.cron_expression);
-      setParamsJson(JSON.stringify(schedule.params ?? {}, null, 2));
-      setIsEnabled(schedule.is_enabled);
+    if (inferredSchedule) {
+      setName(inferredSchedule.name);
+      setCronExpr(inferredSchedule.cron_expression);
+      setParamsJson(JSON.stringify(inferredSchedule.params ?? {}, null, 2));
+      setIsEnabled(inferredSchedule.is_enabled);
     } else {
       setName(`${workflow.name} Schedule`);
       setCronExpr("0 9 * * *");
@@ -70,7 +85,43 @@ export function ScheduleDialog({
     }
     setError(null);
     setParamsError(null);
-  }, [open, schedule, workflow.name, workflow.id, defaultsKey]);
+  }, [open, inferredSchedule, workflow.name, workflow.id, defaultsKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (schedule || inferredSchedule) return;
+    if (workflow.scheduled_workflows?.length) return;
+    if (workflow.schedule_count <= 0) return;
+
+    const fetchKey = `${workflow.id}:${workflow.schedule_count}`;
+    if (lastFetchKeyRef.current === fetchKey) return;
+    lastFetchKeyRef.current = fetchKey;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetchSchedules(workflow.id);
+        if (!res.ok) return;
+        const first = res.data?.[0];
+        if (!cancelled && first) {
+          setFetchedSchedule(first);
+        }
+      } catch {
+        // ignore; fallback to defaults
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    schedule,
+    inferredSchedule,
+    workflow.id,
+    workflow.schedule_count,
+    workflow.scheduled_workflows?.length,
+  ]);
 
   function validateParams(): Record<string, unknown> | null {
     try {
@@ -102,24 +153,26 @@ export function ScheduleDialog({
     setLoading(true);
     setError(null);
     try {
-      const url = isEditing
-        ? `/api/workflows/${workflow.id}/schedules/${schedule!.id}`
-        : `/api/workflows/${workflow.id}/schedules`;
-
-      const res = await fetch(url, {
-        method: isEditing ? "PUT" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), cron_expression: cronExpr.trim(), params, is_enabled: isEnabled }),
-      });
-
-      const body = (await res.json()) as { schedule?: Schedule; error?: string };
+      const res = isEditing
+        ? await apiUpdateSchedule(workflow.id, inferredSchedule!.id, {
+            name: name.trim(),
+            cron_expression: cronExpr.trim(),
+            params,
+            is_enabled: isEnabled,
+          })
+        : await apiCreateSchedule(workflow.id, {
+            name: name.trim(),
+            cron_expression: cronExpr.trim(),
+            params,
+            is_enabled: isEnabled,
+          });
 
       if (!res.ok) {
-        setError(body.error ?? "Failed to save schedule");
+        setError(res.error ?? "Failed to save schedule");
         return;
       }
 
-      onSuccess?.(body.schedule!);
+      onSuccess?.(res.data);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
@@ -184,7 +237,7 @@ export function ScheduleDialog({
           {/* Params */}
           <div className="space-y-1.5">
             <Label htmlFor="sched-params">
-              Default Params{" "}
+              {isEditing ? "Schedule Params" : "Default Params"}{" "}
               <span className="font-normal text-xs text-muted-foreground">(JSON object)</span>
             </Label>
             <Textarea
@@ -227,7 +280,7 @@ export function ScheduleDialog({
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Saving…
+                Saving...
               </>
             ) : isEditing ? (
               "Save Changes"

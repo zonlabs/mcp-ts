@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ToolkitBadge } from "./ToolkitBadge";
 import { StepFormDialog } from "./StepFormDialog";
-import type { WorkflowStep } from "@/types/workflow";
+import type { WorkflowStep } from "@/types/workflows";
 import { cn } from "@/lib/utils";
 
 interface StepEditorProps {

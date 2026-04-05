@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,11 +12,9 @@ import {
   Check,
   X,
   Loader2,
-  ToggleLeft,
-  ToggleRight,
   Trash2,
   Plus,
-  User,
+  Pause,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,9 +39,16 @@ import { ScheduleDialog } from "./ScheduleDialog";
 import { RunOnceDialog } from "./RunOnceDialog";
 import { HistoryList } from "./HistoryList";
 import { StepEditor } from "./StepEditor";
-import type { WorkflowDetail as WFDetail, ExecutionLog, Schedule, Workflow, WorkflowStep } from "@/types/workflow";
+import type { WorkflowDetail as WFDetail, Schedule, Workflow } from "@/types/workflows";
 import { cn, defaultParamsToJson } from "@/lib/utils";
 import { toast } from "react-hot-toast";
+import { useWorkflowsStore } from "@/stores/workflows";
+import {
+  deleteSchedule as apiDeleteSchedule,
+  deleteWorkflow as apiDeleteWorkflow,
+  updateSchedule as apiUpdateSchedule,
+  updateWorkflow as apiUpdateWorkflow,
+} from "@/lib/workflows.api";
 
 interface WorkflowDetailProps {
   workflowId: string;
@@ -150,32 +155,32 @@ function parseJsonDefaults(
   }
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function formatDuration(ms: number | null): string {
-  if (!ms) return "";
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
+function describeCron(cron: string | undefined): string {
+  if (!cron) return "No schedule";
+  const map: Record<string, string> = {
+    "0 9 * * *": "Runs at 09:00 AM, every day",
+    "0 8 * * *": "Runs at 08:00 AM, every day",
+    "0 9 * * 1": "Runs at 09:00 AM, every Monday",
+    "0 * * * *": "Runs every hour",
+    "*/5 * * * *": "Runs every 5 minutes",
+  };
+  return map[cron] ?? `Cron: ${cron}`;
 }
 
 export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) {
   const router = useRouter();
-  const [workflow, setWorkflow] = useState<WFDetail | null>(null);
-  const [history, setHistory] = useState<ExecutionLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const workflow = useWorkflowsStore((s) => s.workflowDetails[workflowId] ?? null);
+  const loading = useWorkflowsStore((s) => s.workflowDetailsLoading[workflowId] ?? false);
+  const error = useWorkflowsStore((s) => s.workflowDetailsError[workflowId] ?? null);
+  const history = useWorkflowsStore((s) => s.workflowHistory[workflowId]);
+  const historyLoading = useWorkflowsStore((s) => s.workflowHistoryLoading[workflowId] ?? false);
+  const fetchWorkflowDetail = useWorkflowsStore((s) => s.fetchWorkflowDetail);
+  const fetchWorkflowHistory = useWorkflowsStore((s) => s.fetchWorkflowHistory);
+  const updateWorkflowDetail = useWorkflowsStore((s) => s.updateWorkflowDetail);
+  const updateWorkflowInList = useWorkflowsStore((s) => s.updateWorkflowInList);
+  const removeWorkflow = useWorkflowsStore((s) => s.removeWorkflow);
+  const upsertScheduleInDetail = useWorkflowsStore((s) => s.upsertScheduleInDetail);
+  const removeScheduleFromDetail = useWorkflowsStore((s) => s.removeScheduleFromDetail);
 
   // Edit state
   const [editingName, setEditingName] = useState(false);
@@ -199,26 +204,18 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
   const [defaultsSaving, setDefaultsSaving] = useState(false);
   const [defaultsError, setDefaultsError] = useState<string | null>(null);
 
-  // ── Data fetching ─────────────────────────────────────────────────────────
+  // Data fetching
   const fetchWorkflow = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/workflows/${workflowId}`);
-      if (!res.ok) {
-        setError("Workflow not found");
-        return;
-      }
-      const data = (await res.json()) as { workflow: WFDetail };
-      setWorkflow(data.workflow);
-    } finally {
-      setLoading(false);
-    }
-  }, [workflowId]);
+    await fetchWorkflowDetail(workflowId);
+  }, [fetchWorkflowDetail, workflowId]);
 
+  const lastFetchedRef = useRef<string | null>(null);
   useEffect(() => {
+    if (workflow || loading) return;
+    if (lastFetchedRef.current === workflowId) return;
+    lastFetchedRef.current = workflowId;
     fetchWorkflow();
-  }, [fetchWorkflow]);
+  }, [fetchWorkflow, loading, workflow, workflowId]);
 
   useEffect(() => {
     setMainTab(normalizeMainTab(initialTab));
@@ -237,41 +234,31 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     setDefaultsError(null);
   }, [workflow]);
 
+  const historyList = history ?? [];
+
   function onMainTabChange(tab: string) {
     setMainTab(tab);
     const path = `/workflows/${workflowId}`;
     const q = tab === "overview" ? "" : `?tab=${encodeURIComponent(tab)}`;
     router.replace(`${path}${q}`, { scroll: false });
-    if (tab === "history" && history.length === 0) {
+    if (tab === "history" && historyList.length === 0) {
       fetchHistory();
     }
   }
 
   async function fetchHistory() {
-    setHistoryLoading(true);
-    try {
-      const res = await fetch(`/api/workflows/history?workflowId=${workflowId}&limit=20`);
-      if (res.ok) {
-        const data = (await res.json()) as { logs: ExecutionLog[] };
-        setHistory(data.logs ?? []);
-      }
-    } finally {
-      setHistoryLoading(false);
-    }
+    await fetchWorkflowHistory(workflowId, 20);
   }
 
-  // ── Inline editing ────────────────────────────────────────────────────────
+  // Inline editing
   async function saveName() {
     if (!nameInput.trim() || !workflow) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/workflows/${workflowId}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: nameInput.trim() }),
-      });
+      const res = await apiUpdateWorkflow(workflowId, { name: nameInput.trim() });
       if (res.ok) {
-        setWorkflow({ ...workflow, name: nameInput.trim() });
+        updateWorkflowDetail(workflowId, { name: nameInput.trim() });
+        updateWorkflowInList(workflowId, { name: nameInput.trim() });
         setEditingName(false);
       }
     } finally {
@@ -283,13 +270,10 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     if (!workflow) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/workflows/${workflowId}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ description: descInput.trim() || null }),
-      });
+      const res = await apiUpdateWorkflow(workflowId, { description: descInput.trim() || null });
       if (res.ok) {
-        setWorkflow({ ...workflow, description: descInput.trim() || null });
+        updateWorkflowDetail(workflowId, { description: descInput.trim() || null });
+        updateWorkflowInList(workflowId, { description: descInput.trim() || null });
         setEditingDesc(false);
       }
     } finally {
@@ -300,28 +284,28 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
   async function toggleActive() {
     if (!workflow) return;
     const newVal = !workflow.is_active;
-    const res = await fetch(`/api/workflows/${workflowId}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ is_active: newVal }),
-    });
-    if (res.ok) setWorkflow({ ...workflow, is_active: newVal });
+    const res = await apiUpdateWorkflow(workflowId, { is_active: newVal });
+    if (res.ok) {
+      updateWorkflowDetail(workflowId, { is_active: newVal });
+      updateWorkflowInList(workflowId, { is_active: newVal });
+    }
   }
 
   async function deleteWorkflow() {
-    const res = await fetch(`/api/workflows/${workflowId}`, { method: "DELETE" });
-    if (res.ok) router.push("/workflows");
+    const res = await apiDeleteWorkflow(workflowId);
+    if (res.ok) {
+      removeWorkflow(workflowId);
+      router.push("/workflows");
+    }
   }
 
   async function deleteSchedule(scheduleId: string) {
     if (!workflow) return;
-    const res = await fetch(`/api/workflows/${workflowId}/schedules/${scheduleId}`, {
-      method: "DELETE",
-    });
+    const res = await apiDeleteSchedule(workflowId, scheduleId);
     if (res.ok) {
-      setWorkflow({
-        ...workflow,
-        scheduled_workflows: workflow.scheduled_workflows.filter((s) => s.id !== scheduleId),
+      removeScheduleFromDetail(workflowId, scheduleId);
+      updateWorkflowInList(workflowId, {
+        schedule_count: Math.max(0, workflow.scheduled_workflows.length - 1),
       });
     }
     setDeleteSchedId(null);
@@ -329,18 +313,11 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
 
   async function toggleSchedule(schedule: Schedule) {
     if (!workflow) return;
-    const res = await fetch(`/api/workflows/${workflowId}/schedules/${schedule.id}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ is_enabled: !schedule.is_enabled }),
+    const res = await apiUpdateSchedule(workflowId, schedule.id, {
+      is_enabled: !schedule.is_enabled,
     });
     if (res.ok) {
-      setWorkflow({
-        ...workflow,
-        scheduled_workflows: workflow.scheduled_workflows.map((s) =>
-          s.id === schedule.id ? { ...s, is_enabled: !s.is_enabled } : s
-        ),
-      });
+      upsertScheduleInDetail(workflowId, { ...schedule, is_enabled: !schedule.is_enabled });
     }
   }
 
@@ -378,19 +355,15 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     setDefaultsSaving(true);
     setDefaultsError(null);
     try {
-      const res = await fetch(`/api/workflows/${workflowId}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ default_params: value }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      const res = await apiUpdateWorkflow(workflowId, { default_params: value });
       if (!res.ok) {
-        const msg = body.error ?? "Save failed";
+        const msg = res.error ?? "Save failed";
         setDefaultsError(msg);
         toast.error(msg);
         return;
       }
-      setWorkflow({ ...workflow, default_params: value });
+      updateWorkflowDetail(workflowId, { default_params: value });
+      updateWorkflowInList(workflowId, { default_params: value });
       toast.success("Default inputs saved");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
@@ -406,7 +379,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     return (
       <div className="flex items-center justify-center min-h-[60vh] gap-2 text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin" />
-        <span className="text-sm">Loading workflow…</span>
+        <span className="text-sm">Loading workflow...</span>
       </div>
     );
   }
@@ -426,6 +399,9 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
   // Toolkit list from steps
   const toolkits = [...new Set(workflow.workflow_steps.map((s) => s.toolkit))];
 
+  const primarySchedule = workflow.scheduled_workflows[0];
+  const isScheduleActive = workflow.scheduled_workflows.some((s) => s.is_enabled);
+
   // Cast for RunDialog
   const workflowForDialog: Workflow = {
     id: workflow.id,
@@ -437,47 +413,53 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     toolkits,
     step_count: workflow.workflow_steps.length,
     schedule_count: workflow.scheduled_workflows.length,
+    scheduled_workflows: workflow.scheduled_workflows,
   };
 
   return (
     <>
       <div className="px-3 sm:px-4 lg:px-6 py-6 md:py-10">
         {/* Back */}
-        <button
-          onClick={() => router.push("/workflows")}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Workflows
-        </button>
+        <div className="mb-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/workflows")}
+            className="rounded-full border border-border"
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </div>
 
-        {/* Header card — matches image 1 layout */}
-        <div className="rounded-xl border border-border bg-card px-6 py-5 mb-6">
+        {/* Header */}
+        <div className="mb-6">
           <div className="flex items-start justify-between gap-4">
-            {/* Title & status */}
             <div className="flex-1 min-w-0">
               {editingName ? (
                 <div className="flex items-center gap-2">
                   <Input
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
-                    className="text-xl font-bold h-9"
+                    className="text-2xl font-semibold h-10"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") saveName();
                       if (e.key === "Escape") setEditingName(false);
                     }}
                     autoFocus
                   />
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={saveName} disabled={saving}>
+                  <Button size="icon" variant="ghost" className="h-9 w-9" onClick={saveName} disabled={saving}>
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 text-green-600" />}
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingName(false)}>
+                  <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => setEditingName(false)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <h1 className="text-xl font-bold text-foreground leading-tight">{workflow.name}</h1>
+                  <h1 className="text-2xl font-semibold text-foreground leading-tight font-serif">
+                    {workflow.name}
+                  </h1>
                   <button
                     onClick={() => { setNameInput(workflow.name); setEditingName(true); }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-accent"
@@ -487,9 +469,49 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
                   </button>
                 </div>
               )}
+
+              <div className="mt-5 grid gap-3 text-sm text-muted-foreground">
+                {/*
+                <div className="flex items-center gap-4">
+                  <span className="w-20 text-xs uppercase tracking-wide text-muted-foreground/70">Apps</span>
+                  <div className="flex items-center gap-2">
+                    {toolkits.length > 0 ? (
+                      toolkits.map((tk) => <ToolkitBadge key={tk} toolkit={tk} size="sm" showLabel />)
+                    ) : (
+                      <span className="text-xs">None</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <span className="w-20 text-xs uppercase tracking-wide text-muted-foreground/70">Creator</span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs text-foreground">
+                      {workflow.name.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="text-sm text-foreground">You</span>
+                  </div>
+                </div>
+                */}
+
+                <div className="flex items-center gap-4">
+                  <span className="w-20 text-xs uppercase tracking-wide text-muted-foreground/70">Schedule</span>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={isScheduleActive ? "default" : "secondary"}
+                      className="gap-1"
+                    >
+                      {isScheduleActive ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                      {isScheduleActive ? "Active" : "Inactive"}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {describeCron(primarySchedule?.cron_expression)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
               <Button
                 onClick={() => setRunOpen(true)}
@@ -504,25 +526,27 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
                 variant="outline"
                 size="sm"
                 className="gap-2"
-                onClick={() => setRunOnceOpen(true)}
-                disabled={!workflow.is_active}
+                onClick={() => toggleActive()}
               >
-                <Clock className="w-3.5 h-3.5" />
-                Run Once At
+                {workflow.is_active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                {workflow.is_active ? "Pause" : "Resume"}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
-                onClick={() => { setEditSchedule(undefined); setScheduleOpen(true); }}
+                onClick={() => {
+                  setEditSchedule(primarySchedule);
+                  setScheduleOpen(true);
+                }}
               >
                 <Clock className="w-3.5 h-3.5" />
-                Add Schedule
+                Edit Schedule
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive"
                 onClick={() => setDeleteOpen(true)}
                 title="Delete workflow"
               >
@@ -530,54 +554,26 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
               </Button>
             </div>
           </div>
-
-          {/* Meta row */}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-sm text-muted-foreground">
-            {toolkits.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/70">Apps</span>
-                {toolkits.map((tk) => (
-                  <ToolkitBadge key={tk} toolkit={tk} size="sm" showLabel />
-                ))}
-              </span>
-            )}
-            <span className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5" />
-              <span className="text-xs">Created {formatDate(workflow.created_at)}</span>
-            </span>
-            <span className="flex items-center gap-2">
-              <Switch
-                checked={workflow.is_active}
-                onCheckedChange={toggleActive}
-                className="scale-75"
-              />
-              <span className="text-xs">{workflow.is_active ? "Active" : "Inactive"}</span>
-            </span>
-          </div>
         </div>
 
         {/* Tabs */}
         <Tabs value={mainTab} onValueChange={onMainTabChange}>
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="default-inputs">Default inputs</TabsTrigger>
-            <TabsTrigger value="steps">
+          <TabsList className="bg-transparent p-0 border-b border-border rounded-none w-full justify-start">
+            <TabsTrigger value="overview" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="default-inputs" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
+              Default Inputs
+            </TabsTrigger>
+            <TabsTrigger value="steps" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
               Steps
-              {workflow.workflow_steps.length > 0 && (
-                <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5 py-0.5">
-                  {workflow.workflow_steps.length}
-                </span>
-              )}
             </TabsTrigger>
-            <TabsTrigger value="schedules">
+            <TabsTrigger value="schedules" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
               Schedules
-              {workflow.scheduled_workflows.length > 0 && (
-                <span className="ml-1.5 text-xs bg-muted rounded-full px-1.5 py-0.5">
-                  {workflow.scheduled_workflows.length}
-                </span>
-              )}
             </TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="history" className="rounded-none px-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
+              History
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview tab */}
@@ -585,7 +581,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
             {/* Description */}
             <section>
               <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                💡 What It Does
+                What It Does
               </h2>
               {editingDesc ? (
                 <div className="space-y-2">
@@ -623,7 +619,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
               Object.keys((workflow.input_schema as { properties?: object }).properties ?? {}).length > 0 && (
               <section>
                 <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                  📋 What You Provide
+                  What You Provide
                 </h2>
                 <div className="rounded-lg border border-border overflow-hidden">
                   <table className="w-full text-sm">
@@ -644,7 +640,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
                         <tr key={key} className={cn("border-b border-border last:border-0", i % 2 === 1 && "bg-muted/20")}>
                           <td className="px-4 py-3 font-mono text-xs text-foreground">{key}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">
-                            {val.description ?? val.type ?? "—"}
+                            {val.description ?? val.type ?? "-"}
                           </td>
                         </tr>
                       ))}
@@ -655,7 +651,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
             )}
           </TabsContent>
 
-          {/* Default inputs — saved defaults for {{params.*}} */}
+          {/* Default inputs - saved defaults for {{params.*}} */}
           <TabsContent value="default-inputs" className="mt-5">
             <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
               These values are stored on the workflow and pre-fill Run, Schedule, and Run once. They
@@ -756,7 +752,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
                 {defaultsSaving ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Saving…
+                    Saving...
                   </>
                 ) : (
                   "Save"
@@ -770,9 +766,14 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
             <StepEditor
               workflowId={workflowId}
               steps={workflow.workflow_steps}
-              onStepsChanged={(newSteps) =>
-                setWorkflow({ ...workflow, workflow_steps: newSteps })
-              }
+              onStepsChanged={(newSteps) => {
+                updateWorkflowDetail(workflowId, { workflow_steps: newSteps });
+                const nextToolkits = [...new Set(newSteps.map((s) => s.toolkit))];
+                updateWorkflowInList(workflowId, {
+                  step_count: newSteps.length,
+                  toolkits: nextToolkits,
+                });
+              }}
             />
           </TabsContent>
 
@@ -844,17 +845,17 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
 
           {/* History tab */}
           <TabsContent value="history" className="mt-5">
-            <HistoryList logs={history} loading={historyLoading} />
+            <HistoryList logs={historyList} loading={historyLoading} />
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* ── Dialogs ── */}
+      {/* Dialogs */}
       <RunDialog
         workflow={workflowForDialog}
         open={runOpen}
         onClose={() => setRunOpen(false)}
-        onSuccess={() => { setHistory([]); fetchHistory(); }}
+        onSuccess={() => { fetchHistory(); }}
       />
 
       <RunOnceDialog
@@ -862,7 +863,10 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
         open={runOnceOpen}
         onClose={() => setRunOnceOpen(false)}
         onSuccess={(sched) => {
-          setWorkflow({ ...workflow, scheduled_workflows: [...workflow.scheduled_workflows, sched] });
+          upsertScheduleInDetail(workflowId, sched);
+          updateWorkflowInList(workflowId, {
+            schedule_count: workflow.scheduled_workflows.length + 1,
+          });
         }}
       />
 
@@ -873,14 +877,12 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
         onClose={() => { setScheduleOpen(false); setEditSchedule(undefined); }}
         onSuccess={(sched) => {
           if (editSchedule) {
-            setWorkflow({
-              ...workflow,
-              scheduled_workflows: workflow.scheduled_workflows.map((s) =>
-                s.id === sched.id ? sched : s
-              ),
-            });
+            upsertScheduleInDetail(workflowId, sched);
           } else {
-            setWorkflow({ ...workflow, scheduled_workflows: [...workflow.scheduled_workflows, sched] });
+            upsertScheduleInDetail(workflowId, sched);
+            updateWorkflowInList(workflowId, {
+              schedule_count: workflow.scheduled_workflows.length + 1,
+            });
           }
         }}
       />

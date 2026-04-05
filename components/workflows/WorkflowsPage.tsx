@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Zap, GitFork, Sparkles, Info } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -12,86 +12,72 @@ import { HistoryList } from "./HistoryList";
 import { RunDialog } from "./RunDialog";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
-import type { Workflow, ExecutionLog } from "@/types/workflow";
+import type { Workflow } from "@/types/workflows";
+import { useWorkflowsStore } from "@/stores/workflows";
+import { deleteWorkflow as apiDeleteWorkflow, updateWorkflow as apiUpdateWorkflow } from "@/lib/workflows.api";
 
 export function WorkflowsPage() {
   const router = useRouter();
 
-  // Data
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [history, setHistory] = useState<ExecutionLog[]>([]);
-  const [wfLoading, setWfLoading] = useState(true);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyFetched, setHistoryFetched] = useState(false);
+  // Store state
+  const workflows = useWorkflowsStore((s) => s.workflows);
+  const wfLoading = useWorkflowsStore((s) => s.workflowsLoading);
+  const history = useWorkflowsStore((s) => s.history);
+  const historyLoading = useWorkflowsStore((s) => s.historyLoading);
+  const fetchWorkflows = useWorkflowsStore((s) => s.fetchWorkflows);
+  const fetchHistory = useWorkflowsStore((s) => s.fetchHistoryList);
+  const updateWorkflowInList = useWorkflowsStore((s) => s.updateWorkflowInList);
+  const prependWorkflow = useWorkflowsStore((s) => s.prependWorkflow);
+  const removeWorkflow = useWorkflowsStore((s) => s.removeWorkflow);
+  const openRunDialog = useWorkflowsStore((s) => s.openRunDialog);
+  const closeRunDialog = useWorkflowsStore((s) => s.closeRunDialog);
+  const runDialog = useWorkflowsStore((s) => s.runDialog);
+  const openScheduleDialog = useWorkflowsStore((s) => s.openScheduleDialog);
+  const closeScheduleDialog = useWorkflowsStore((s) => s.closeScheduleDialog);
+  const scheduleDialog = useWorkflowsStore((s) => s.scheduleDialog);
+  const workflowDetails = useWorkflowsStore((s) => s.workflowDetails);
+  const invalidateHistoryCache = useWorkflowsStore((s) => s.invalidateHistoryCache);
 
   // UI state
   const [activeTab, setActiveTab] = useState<"workflows" | "history">("workflows");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [runWorkflow, setRunWorkflow] = useState<Workflow | null>(null);
-  const [scheduleWorkflow, setScheduleWorkflow] = useState<Workflow | null>(null);
-
-  // ── Fetch workflows ───────────────────────────────────────────────────────
-  const fetchWorkflows = useCallback(async () => {
-    setWfLoading(true);
-    try {
-      const res = await fetch("/api/workflows");
-      if (res.ok) {
-        const data = (await res.json()) as { workflows: Workflow[] };
-        setWorkflows(data.workflows ?? []);
-      }
-    } finally {
-      setWfLoading(false);
-    }
-  }, []);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
 
   useEffect(() => {
     fetchWorkflows();
   }, [fetchWorkflows]);
-
-  // ── Fetch history (lazy – only on first tab switch) ───────────────────────
-  const fetchHistory = useCallback(async () => {
-    if (historyFetched) return;
-    setHistoryLoading(true);
-    setHistoryFetched(true);
-    try {
-      const res = await fetch("/api/workflows/history?limit=50");
-      if (res.ok) {
-        const data = (await res.json()) as { logs: ExecutionLog[] };
-        setHistory(data.logs ?? []);
-      }
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [historyFetched]);
 
   function handleTabChange(tab: string) {
     setActiveTab(tab as "workflows" | "history");
     if (tab === "history") fetchHistory();
   }
 
-  // ── Workflow actions ──────────────────────────────────────────────────────
+  // Workflow actions
   async function handleDelete(id: string) {
-    const res = await fetch(`/api/workflows/${id}`, { method: "DELETE" });
+    const res = await apiDeleteWorkflow(id);
     if (res.ok) {
-      setWorkflows((prev) => prev.filter((w) => w.id !== id));
+      removeWorkflow(id);
     }
   }
 
   async function handleToggleActive(id: string, isActive: boolean) {
-    const res = await fetch(`/api/workflows/${id}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ is_active: isActive }),
-    });
+    const res = await apiUpdateWorkflow(id, { is_active: isActive });
     if (res.ok) {
-      setWorkflows((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, is_active: isActive } : w))
-      );
+      updateWorkflowInList(id, { is_active: isActive });
     }
   }
 
-  // ── Filtered list ─────────────────────────────────────────────────────────
+  async function handleOpenSchedule(workflow: Workflow) {
+    setScheduleLoading(true);
+    try {
+      await openScheduleDialog(workflow.id);
+    } finally {
+      setScheduleLoading(false);
+    }
+  }
+
+  // Filtered list
   const filteredWorkflows = workflows.filter(
     (w) =>
       !search ||
@@ -105,13 +91,33 @@ export function WorkflowsPage() {
       log.workflow?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const scheduleWorkflow = useMemo(() => {
+    if (!scheduleDialog.workflowId) return null;
+    return (
+      (workflowDetails[scheduleDialog.workflowId] as Workflow | undefined) ??
+      workflows.find((w) => w.id === scheduleDialog.workflowId) ??
+      null
+    );
+  }, [scheduleDialog.workflowId, workflowDetails, workflows]);
+
+  const runWorkflow = useMemo(() => {
+    if (!runDialog.workflowId) return null;
+    return (
+      (workflowDetails[runDialog.workflowId] as Workflow | undefined) ??
+      workflows.find((w) => w.id === runDialog.workflowId) ??
+      null
+    );
+  }, [runDialog.workflowId, workflowDetails, workflows]);
+
   return (
     <div className="px-3 sm:px-4 lg:px-6 py-6 md:py-10">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Workflows</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight font-serif">
+            Workflows
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
             Automate tasks with AI-powered multi-step workflows
           </p>
         </div>
@@ -126,11 +132,11 @@ export function WorkflowsPage() {
         </Button>
       </div>
 
-      <Alert role="note" className="mb-6 border-border bg-muted/40">
+      <Alert role="note" className="mb-6 border-border bg-muted/30 rounded-xl">
         <Info className="h-4 w-4 text-primary" aria-hidden />
         <AlertTitle>Experimental feature</AlertTitle>
         <AlertDescription className="text-muted-foreground">
-          Workflows are in early access—scheduling, execution, and AI-generated steps may change or
+          Workflows are in early access - scheduling, execution, and AI-generated steps may change or
           break. Treat them as best-effort, not something you should expect to always work.
         </AlertDescription>
       </Alert>
@@ -138,8 +144,8 @@ export function WorkflowsPage() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-          <TabsList className="w-fit">
-            <TabsTrigger value="workflows" className="gap-2">
+          <TabsList className="bg-transparent p-0 border-b border-border rounded-none w-full justify-start">
+            <TabsTrigger value="workflows" className="gap-2 rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
               <GitFork className="w-3.5 h-3.5" />
               Workflows
               {workflows.length > 0 && (
@@ -148,30 +154,30 @@ export function WorkflowsPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="history" className="gap-2">
+            <TabsTrigger value="history" className="gap-2 rounded-none px-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
               <Zap className="w-3.5 h-3.5" />
               History
             </TabsTrigger>
           </TabsList>
 
           {/* Search */}
-          <div className="relative w-full sm:w-56">
+          <div className="relative w-full sm:w-60">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
-              className="pl-8 h-9 text-sm"
+              placeholder="Search..."
+              className="pl-8 h-9 text-sm bg-background"
             />
           </div>
         </div>
 
-        {/* ── Workflows tab ── */}
+        {/* Workflows tab */}
         <TabsContent value="workflows" className="mt-0">
           {wfLoading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Loading workflows…</span>
+              <span className="text-sm">Loading workflows...</span>
             </div>
           ) : filteredWorkflows.length === 0 ? (
             <EmptyWorkflows
@@ -185,8 +191,8 @@ export function WorkflowsPage() {
                 <WorkflowCard
                   key={wf.id}
                   workflow={wf}
-                  onRun={() => setRunWorkflow(wf)}
-                  onSchedule={() => setScheduleWorkflow(wf)}
+                  onRun={() => openRunDialog(wf.id)}
+                  onSchedule={() => handleOpenSchedule(wf)}
                   onDelete={handleDelete}
                   onToggleActive={handleToggleActive}
                   onView={(id) => router.push(`/workflows/${id}`)}
@@ -196,7 +202,7 @@ export function WorkflowsPage() {
           )}
         </TabsContent>
 
-        {/* ── History tab ── */}
+        {/* History tab */}
         <TabsContent value="history" className="mt-0">
           <HistoryList
             logs={filteredHistory}
@@ -206,12 +212,12 @@ export function WorkflowsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* ── Dialogs ── */}
+      {/* Dialogs */}
       <CreateWorkflowDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onSuccess={(wf) => {
-          setWorkflows((prev) => [wf, ...prev]);
+          prependWorkflow(wf);
           router.push(`/workflows/${wf.id}`);
         }}
       />
@@ -219,12 +225,11 @@ export function WorkflowsPage() {
       {runWorkflow && (
         <RunDialog
           workflow={runWorkflow}
-          open={!!runWorkflow}
-          onClose={() => setRunWorkflow(null)}
+          open={runDialog.open}
+          onClose={closeRunDialog}
           onSuccess={() => {
-            setHistoryFetched(false);
+            invalidateHistoryCache();
             if (activeTab === "history") {
-              setHistory([]);
               fetchHistory();
             }
           }}
@@ -234,10 +239,12 @@ export function WorkflowsPage() {
       {scheduleWorkflow && (
         <ScheduleDialog
           workflow={scheduleWorkflow}
-          open={!!scheduleWorkflow}
-          onClose={() => setScheduleWorkflow(null)}
+          open={scheduleDialog.open}
+          onClose={() => {
+            if (!scheduleLoading) closeScheduleDialog();
+          }}
           onSuccess={() => {
-            setScheduleWorkflow(null);
+            closeScheduleDialog();
             fetchWorkflows();
           }}
         />

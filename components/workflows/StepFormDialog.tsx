@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { WorkflowStep } from "@/types/workflow";
+import type { WorkflowStep } from "@/types/workflows";
 
 interface StepFormDialogProps {
   workflowId: string;

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToolkitBadge } from "./ToolkitBadge";
-import type { ExecutionLog } from "@/types/workflow";
+import type { ExecutionLog } from "@/types/workflows";
 import { cn } from "@/lib/utils";
 
 type ExecutionLogDetail = {

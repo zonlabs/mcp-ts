@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ToolkitBadge } from "./ToolkitBadge";
-import type { Workflow } from "@/types/workflow";
+import type { Workflow } from "@/types/workflows";
 import { cn } from "@/lib/utils";
 
 interface CreateWorkflowDialogProps {
