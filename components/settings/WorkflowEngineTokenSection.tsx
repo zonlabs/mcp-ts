@@ -34,13 +34,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -62,6 +55,11 @@ function maskToken(token: string): string {
   if (token.length <= 24) return "•".repeat(Math.min(token.length, 24));
   return `${token.slice(0, 12)}${"•".repeat(24)}${token.slice(-12)}`;
 }
+
+/** Hosted workflow engine landing (connection docs, etc.). */
+const WORKFLOW_ENGINE_SITE_URL = "https://run.mcp-assistant.in";
+/** MCP endpoint URL for client configuration (streamable HTTP). */
+const WORKFLOW_MCP_HTTP_URL = `${WORKFLOW_ENGINE_SITE_URL}/api/mcp`;
 
 export function WorkflowEngineTokenSection() {
   const oauthIssuer =
@@ -215,30 +213,34 @@ export function WorkflowEngineTokenSection() {
       : null;
 
   return (
-    <section>
-      <Card className="overflow-hidden shadow-sm">
-        <CardHeader className="border-b border-border/80 bg-muted/20 pb-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background shadow-xs">
-              <KeyRound className="h-5 w-5 text-muted-foreground" aria-hidden />
-            </div>
-            <div className="min-w-0 space-y-1.5">
-              <CardTitle className="text-lg tracking-tight">Workflow Automation Engine</CardTitle>
-              <CardDescription className="text-pretty leading-relaxed">
-                Revocable API keys for MCP clients and automation. Use as{" "}
-                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.7rem]">
-                  Authorization: Bearer
-                </code>{" "}
-                on the engine and when authorizing OAuth.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+    <section className="space-y-6">
+      <div className="flex items-start gap-3">
+        <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+        <div className="min-w-0 space-y-1.5">
+          <h2 className="text-lg font-semibold tracking-tight">Workflow Automation Engine</h2>
+          <p className="text-pretty text-sm leading-relaxed text-muted-foreground">
+            Revocable API keys for MCP clients and automation. Use as{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.7rem]">
+              Authorization: Bearer
+            </code>{" "}
+            on the engine and when authorizing OAuth.{" "}
+            <a
+              href={WORKFLOW_ENGINE_SITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground underline decoration-muted-foreground underline-offset-4 transition-colors hover:decoration-foreground"
+            >
+              run.mcp-assistant.in
+            </a>
+            .
+          </p>
+        </div>
+      </div>
 
-        <CardContent className="space-y-8 pt-6">
-          <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3.5 dark:bg-primary/10">
+      <div className="space-y-6">
+          <div className="flex gap-2.5">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">Recommended</span>
                 <Badge variant="secondary" className="text-[0.65rem] font-normal">
@@ -334,12 +336,12 @@ export function WorkflowEngineTokenSection() {
               keeps the access token it receives and uses it to talk to the engine—no need to copy it
               again.
             </p>
-            {!oauthIssuer && (
-              <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-950 dark:text-amber-100/90">
-                Set <code className="font-mono">NEXT_PUBLIC_WORKFLOW_OAUTH_ISSUER</code> to your engine
-                base URL to show full endpoints and links.
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">MCP server URL</span>
+            </p>
+            <code className="block break-all rounded-md bg-muted px-2 py-1.5 font-mono text-[0.7rem] text-foreground">
+              {WORKFLOW_MCP_HTTP_URL}
+            </code>
             {oauthIssuer ? (
               <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
                 <a
@@ -363,12 +365,12 @@ export function WorkflowEngineTokenSection() {
             ) : null}
           </div>
 
-          <Collapsible className="rounded-xl border border-border bg-muted/10">
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left text-sm font-medium hover:bg-muted/40 rounded-xl [&[data-state=open]>svg]:rotate-180 transition-colors">
+          <Collapsible>
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 py-2 text-left text-sm font-medium text-foreground hover:text-foreground/80 [&[data-state=open]>svg]:rotate-180 transition-colors">
               <span>Advanced · Session JWT (short-lived)</span>
               <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
             </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 border-t border-border px-4 pb-4 pt-3">
+            <CollapsibleContent className="space-y-3 pt-1 pb-1">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Same access token as your signed-in browser session. Prefer workflow API keys when
                 possible.
@@ -466,8 +468,7 @@ export function WorkflowEngineTokenSection() {
               ) : null}
             </CollapsibleContent>
           </Collapsible>
-        </CardContent>
-      </Card>
+      </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
