@@ -1,9 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Clock, Trash2, ChevronRight, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import { Play, Clock, Trash2, GitFork, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,138 +47,139 @@ export function WorkflowCard({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
 
-  async function handleToggle() {
+  async function handleActiveChange(checked: boolean) {
+    if (checked === workflow.is_active) return;
     setToggling(true);
     try {
-      await onToggleActive(workflow.id, !workflow.is_active);
+      await onToggleActive(workflow.id, checked);
     } finally {
       setToggling(false);
     }
   }
 
   return (
-    <>
+    <div className="group/row">
       <div
         className={cn(
-          "group relative flex items-start gap-4 rounded-xl border border-border bg-card px-5 py-4 transition-all",
-          "hover:border-border/80 hover:shadow-sm",
-          !workflow.is_active && "opacity-60"
+          "flex flex-col gap-4 rounded-lg px-3 py-5 transition-colors sm:flex-row sm:items-center sm:gap-6 sm:px-4 lg:gap-8",
+          "hover:bg-muted/40",
+          !workflow.is_active && "opacity-[0.92]"
         )}
       >
-        {/* Toolkit icons */}
-        <div className="pt-0.5">
-          {workflow.toolkits.length > 0 ? (
-            <ToolkitGroup toolkits={workflow.toolkits} max={2} size="md" />
-          ) : (
-            <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
-              <span className="text-muted-foreground text-xs">—</span>
-            </div>
+        {/* Primary: open detail */}
+        <button
+          type="button"
+          onClick={() => onView(workflow.id)}
+          className={cn(
+            "flex min-w-0 flex-1 gap-4 rounded-md text-left transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           )}
-        </div>
+          aria-label={`Open workflow: ${workflow.name}`}
+        >
+          <div className="shrink-0 pt-0.5">
+            {workflow.toolkits.length > 0 ? (
+              <ToolkitGroup toolkits={workflow.toolkits} max={2} size="md" />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50">
+                <GitFork className="h-4 w-4 text-muted-foreground" aria-hidden />
+              </div>
+            )}
+          </div>
 
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="font-semibold text-sm text-foreground truncate leading-snug">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 gap-y-1">
+              <h3 className="text-sm font-semibold leading-snug text-foreground group-hover/row:text-primary">
                 {workflow.name}
               </h3>
-              {workflow.description && (
-                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
-                  {workflow.description}
-                </p>
-              )}
+              <Badge
+                variant={workflow.is_active ? "default" : "secondary"}
+                className={cn(
+                  "shrink-0 text-[0.65rem] font-medium uppercase tracking-wide",
+                  workflow.is_active &&
+                    "border border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/35 dark:text-green-400"
+                )}
+              >
+                {workflow.is_active ? "Active" : "Inactive"}
+              </Badge>
             </div>
-            <Badge
-              variant={workflow.is_active ? "default" : "secondary"}
+            {workflow.description ? (
+              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                {workflow.description}
+              </p>
+            ) : null}
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                {workflow.step_count} step{workflow.step_count !== 1 ? "s" : ""}
+              </span>
+              {workflow.schedule_count > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                  {workflow.schedule_count} schedule{workflow.schedule_count !== 1 ? "s" : ""}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </button>
+
+        {/* Active checkbox + overflow menu */}
+        <div className="flex shrink-0 items-center gap-3 self-end sm:self-center">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={`workflow-active-${workflow.id}`}
+              checked={workflow.is_active}
+              disabled={toggling}
+              onCheckedChange={(value) => {
+                if (value === "indeterminate") return;
+                void handleActiveChange(value);
+              }}
+              aria-label={workflow.is_active ? "Deactivate workflow" : "Activate workflow"}
+            />
+            <Label
+              htmlFor={`workflow-active-${workflow.id}`}
               className={cn(
-                "shrink-0 text-xs",
-                workflow.is_active
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
-                  : ""
+                "cursor-pointer text-xs font-normal text-muted-foreground",
+                toggling && "pointer-events-none opacity-60"
               )}
             >
-              {workflow.is_active ? "Active" : "Inactive"}
-            </Badge>
+              {toggling ? "Updating…" : workflow.is_active ? "Active" : "Inactive"}
+            </Label>
           </div>
-
-          <div className="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
-            <span>{workflow.step_count} step{workflow.step_count !== 1 ? "s" : ""}</span>
-            {workflow.schedule_count > 0 && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {workflow.schedule_count} schedule{workflow.schedule_count !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Run */}
-          <Button
-            size="sm"
-            variant="default"
-            className="h-8 px-3 text-xs gap-1.5"
-            onClick={() => onRun(workflow)}
-            disabled={!workflow.is_active}
-            title="Run workflow now"
-          >
-            <Play className="w-3.5 h-3.5" />
-            Run
-          </Button>
-
-          {/* Schedule */}
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 px-3 text-xs gap-1.5"
-            onClick={() => onSchedule(workflow)}
-            title="Add or manage schedules"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            Schedule
-          </Button>
-
-          {/* View */}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0"
-            onClick={() => onView(workflow.id)}
-            title="View details"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-
-          {/* Toggle active */}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0"
-            onClick={handleToggle}
-            disabled={toggling}
-            title={workflow.is_active ? "Deactivate" : "Activate"}
-          >
-            {toggling ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : workflow.is_active ? (
-              <ToggleRight className="w-4 h-4 text-green-600 dark:text-green-400" />
-            ) : (
-              <ToggleLeft className="w-4 h-4 text-muted-foreground" />
-            )}
-          </Button>
-
-          {/* Delete */}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-            title="Delete workflow"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label={`More actions for ${workflow.name}`}
+              >
+                <MoreVertical className="h-4 w-4" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52" sideOffset={6}>
+              <DropdownMenuItem
+                className="gap-2"
+                disabled={!workflow.is_active}
+                onSelect={() => onRun(workflow)}
+              >
+                <Play className="h-4 w-4" aria-hidden />
+                Run now
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onSelect={() => onSchedule(workflow)}>
+                <Clock className="h-4 w-4" aria-hidden />
+                Schedule
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                className="gap-2"
+                onSelect={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -179,8 +189,8 @@ export function WorkflowCard({
             <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete{" "}
-              <span className="font-semibold">{workflow.name}</span>? This will also delete all
-              its steps, schedules, and execution history. This action cannot be undone.
+              <span className="font-semibold">{workflow.name}</span>? This will also delete all its
+              steps, schedules, and execution history. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -197,6 +207,6 @@ export function WorkflowCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

@@ -208,7 +208,7 @@ function HistoryRow({
           type="button"
           onClick={() => onViewWorkflow?.(log.workflow_id)}
         >
-          Recipe
+          Workflow
           <ChevronRight className="w-3 h-3" />
         </Button>
       </div>

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Loader2, Zap, GitFork, Sparkles } from "lucide-react";
+import { Plus, Search, Loader2, Zap, GitFork, Sparkles, Info } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { WorkflowCard } from "./WorkflowCard";
 import { HistoryList } from "./HistoryList";
 import { RunDialog } from "./RunDialog";
@@ -125,6 +126,15 @@ export function WorkflowsPage() {
         </Button>
       </div>
 
+      <Alert role="note" className="mb-6 border-border bg-muted/40">
+        <Info className="h-4 w-4 text-primary" aria-hidden />
+        <AlertTitle>Experimental feature</AlertTitle>
+        <AlertDescription className="text-muted-foreground">
+          Workflows are in early access—scheduling, execution, and AI-generated steps may change or
+          break. Treat them as best-effort, not something you should expect to always work.
+        </AlertDescription>
+      </Alert>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
@@ -170,7 +180,7 @@ export function WorkflowsPage() {
               onCreate={() => setCreateOpen(true)}
             />
           ) : (
-            <div className="space-y-2.5">
+            <div className="divide-y divide-border">
               {filteredWorkflows.map((wf) => (
                 <WorkflowCard
                   key={wf.id}
