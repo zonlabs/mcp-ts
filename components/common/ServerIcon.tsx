@@ -9,7 +9,7 @@ interface ServerIconProps {
   size?: number;
   className?: string;
   showFallback?: boolean;
-  fallbackImage?: string; // Custom fallback image path (e.g., "/servers/server.png")
+  fallbackImage?: string;
 }
 
 export function ServerIcon({

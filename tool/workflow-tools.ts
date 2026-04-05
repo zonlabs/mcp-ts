@@ -380,7 +380,16 @@ export const workflowRun = tool({
       }
 
       const engineUrl = process.env.WORKFLOW_ENGINE_URL || "http://localhost:3001";
-      const params = safeParseJson(params_json);
+      const paramsResult = parseJsonObject("params", params_json);
+      if (!paramsResult.ok) {
+        yield {
+          state: "output-error" as const,
+          success: false,
+          error: paramsResult.error,
+        };
+        return;
+      }
+      const params = paramsResult.value;
 
       const res = await fetch(`${engineUrl}/api/workflows/${workflow_id}/run`, {
         method: "POST",

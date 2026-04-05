@@ -266,7 +266,6 @@ function CallbackSuccessContent() {
                     serverUrl={effectiveServerUrl || ""}
                     size={26}
                     className="rounded-lg"
-                    neutralTile
                   />
                 </div>
               </div>
