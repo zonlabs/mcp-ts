@@ -15,7 +15,7 @@ export async function GET() {
   const { data: workflows, error } = await supabase
     .from("workflows")
     .select(
-      "id, name, description, is_active, created_at, workflow_steps(toolkit), scheduled_workflows(id)"
+      "id, name, description, is_active, created_at, defaults_for_required_parameters, workflow_steps(toolkit), scheduled_workflows(id)"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
@@ -30,6 +30,7 @@ export async function GET() {
     description: string | null;
     is_active: boolean;
     created_at: string;
+    defaults_for_required_parameters: Record<string, unknown> | null;
     workflow_steps: Array<{ toolkit: string }>;
     scheduled_workflows: Array<{ id: string }>;
   };
@@ -40,6 +41,7 @@ export async function GET() {
     description: w.description,
     is_active: w.is_active,
     created_at: w.created_at,
+    default_params: w.defaults_for_required_parameters ?? {},
     toolkits: [...new Set(w.workflow_steps.map((s) => s.toolkit))],
     step_count: w.workflow_steps.length,
     schedule_count: w.scheduled_workflows.length,

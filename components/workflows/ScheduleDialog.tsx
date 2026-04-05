@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Clock, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import type { Workflow, Schedule } from "@/types/workflow";
+import { defaultParamsToJson } from "@/lib/utils";
 
 interface ScheduleDialogProps {
   workflow: Workflow;
@@ -41,6 +42,10 @@ export function ScheduleDialog({
   onClose,
   onSuccess,
 }: ScheduleDialogProps) {
+  const defaultsKey = useMemo(
+    () => JSON.stringify(workflow.default_params ?? {}),
+    [workflow.default_params]
+  );
   const isEditing = !!schedule;
   const [name, setName] = useState("");
   const [cronExpr, setCronExpr] = useState("0 9 * * *");
@@ -60,12 +65,12 @@ export function ScheduleDialog({
     } else {
       setName(`${workflow.name} Schedule`);
       setCronExpr("0 9 * * *");
-      setParamsJson("{}");
+      setParamsJson(defaultParamsToJson(workflow.default_params));
       setIsEnabled(true);
     }
     setError(null);
     setParamsError(null);
-  }, [open, schedule, workflow.name]);
+  }, [open, schedule, workflow.name, workflow.id, defaultsKey]);
 
   function validateParams(): Record<string, unknown> | null {
     try {

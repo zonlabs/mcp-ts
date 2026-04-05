@@ -135,9 +135,10 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
           workflow: [],
           input_schema: inputSchema,
           output_schema: { type: "object" },
+          defaults_for_required_parameters: defaultParams,
           is_active: true,
         })
-        .select("id, name, description, is_active, created_at")
+        .select("id, name, description, is_active, created_at, defaults_for_required_parameters")
         .single();
 
       if (wfError || !workflow) {
@@ -214,11 +215,25 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
         if (!schedError && sched) schedule = sched;
       }
 
+      const wfSaved = workflow as {
+        id: string;
+        name: string;
+        description: string | null;
+        is_active: boolean;
+        created_at: string;
+        defaults_for_required_parameters?: Record<string, unknown> | null;
+      };
+
       yield {
         state: "output-available" as const,
         success: true,
         workflow: {
-          ...workflow,
+          id: wfSaved.id,
+          name: wfSaved.name,
+          description: wfSaved.description,
+          is_active: wfSaved.is_active,
+          created_at: wfSaved.created_at,
+          default_params: wfSaved.defaults_for_required_parameters ?? defaultParams,
           toolkits: [...new Set(steps.map((s) => s.toolkit))],
           step_count: steps.length,
           schedule_count: schedule ? 1 : 0,

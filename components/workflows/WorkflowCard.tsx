@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Clock, Trash2, GitFork, MoreVertical } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Play, Clock, Trash2, GitFork, MoreVertical, Braces } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +45,7 @@ export function WorkflowCard({
   onToggleActive,
   onView,
 }: WorkflowCardProps) {
+  const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [toggling, setToggling] = useState(false);
 
@@ -168,6 +170,13 @@ export function WorkflowCard({
               <DropdownMenuItem className="gap-2" onSelect={() => onSchedule(workflow)}>
                 <Clock className="h-4 w-4" aria-hidden />
                 Schedule
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-2"
+                onSelect={() => router.push(`/workflows/${workflow.id}?tab=default-inputs`)}
+              >
+                <Braces className="h-4 w-4" aria-hidden />
+                Default inputs
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

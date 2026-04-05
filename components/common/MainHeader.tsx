@@ -2,6 +2,7 @@
 
 import Header from "@/components/common/Header";
 import { usePathname } from "next/navigation";
+import { Toaster } from "react-hot-toast";
 
 export default function MainHeader() {
   const pathname = usePathname();
@@ -10,5 +11,10 @@ export default function MainHeader() {
     return null;
   }
 
-  return <Header />;
+  return (
+    <>
+      <Header />
+      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+    </>
+  );
 }

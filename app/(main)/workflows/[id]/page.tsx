@@ -7,9 +7,13 @@ export const metadata: Metadata = {
 
 export default async function WorkflowDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  return <WorkflowDetail workflowId={id} />;
+  const sp = await searchParams;
+  const tab = typeof sp.tab === "string" ? sp.tab : undefined;
+  return <WorkflowDetail workflowId={id} initialTab={tab} />;
 }

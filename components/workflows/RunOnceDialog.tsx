@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { CalendarClock, Loader2, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Workflow, Schedule } from "@/types/workflow";
+import { defaultParamsToJson } from "@/lib/utils";
 
 interface RunOnceDialogProps {
   workflow: Workflow;
@@ -53,6 +54,11 @@ export function RunOnceDialog({
   onClose,
   onSuccess,
 }: RunOnceDialogProps) {
+  const defaultsKey = useMemo(
+    () => JSON.stringify(workflow.default_params ?? {}),
+    [workflow.default_params]
+  );
+
   const defaultTime = new Date(Date.now() + 10 * 60_000);
   defaultTime.setSeconds(0, 0);
 
@@ -69,13 +75,13 @@ export function RunOnceDialog({
     const t = new Date(Date.now() + 10 * 60_000);
     t.setSeconds(0, 0);
     setDateTime(toLocalDateTimeString(t));
-    setParamsJson("{}");
+    setParamsJson(defaultParamsToJson(workflow.default_params));
     setParamsError(null);
     setError(null);
     setLoading(false);
     setSuccess(false);
     setScheduledFor("");
-  }, [open]);
+  }, [open, workflow.id, defaultsKey]);
 
   function validateParams(): Record<string, unknown> | null {
     try {

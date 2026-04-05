@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Play, Loader2, Terminal } from "lucide-react";
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import type { McpConnectionRecord } from "@/lib/mcp-connections";
 import type { Workflow, McpSession } from "@/types/workflow";
+import { defaultParamsToJson } from "@/lib/utils";
 
 interface RunDialogProps {
   workflow: Workflow;
@@ -30,13 +31,16 @@ interface RunDialogProps {
   onSuccess?: (executionLogId: string) => void;
 }
 
-const DEFAULT_PARAMS = "{}";
-
 export function RunDialog({ workflow, open, onClose, onSuccess }: RunDialogProps) {
+  const defaultsKey = useMemo(
+    () => JSON.stringify(workflow.default_params ?? {}),
+    [workflow.default_params]
+  );
+
   const [sessions, setSessions] = useState<McpSession[]>([]);
   const [scheduleId, setScheduleId] = useState<string>("");
   const [selectedSession, setSelectedSession] = useState<string>("");
-  const [paramsJson, setParamsJson] = useState(DEFAULT_PARAMS);
+  const [paramsJson, setParamsJson] = useState("{}");
   const [paramsError, setParamsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -45,12 +49,17 @@ export function RunDialog({ workflow, open, onClose, onSuccess }: RunDialogProps
 
   useEffect(() => {
     if (!open) {
-      setParamsJson(DEFAULT_PARAMS);
+      setParamsJson("{}");
       setParamsError(null);
       setError(null);
       setSuccessId(null);
       return;
     }
+
+    setParamsJson(defaultParamsToJson(workflow.default_params));
+    setParamsError(null);
+    setError(null);
+    setSuccessId(null);
 
     async function loadRunContext() {
       setFetching(true);
@@ -83,7 +92,7 @@ export function RunDialog({ workflow, open, onClose, onSuccess }: RunDialogProps
     }
 
     loadRunContext();
-  }, [open, workflow.id]);
+  }, [open, workflow.id, defaultsKey]);
 
   function validateParams(): Record<string, unknown> | null {
     try {

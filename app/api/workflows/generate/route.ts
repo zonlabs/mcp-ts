@@ -266,9 +266,10 @@ ${toolkitGuidance}
       workflow: [],
       input_schema: inputSchema,
       output_schema: { type: "object" },
+      defaults_for_required_parameters: defaultParams,
       is_active: true,
     })
-    .select("id, name, description, is_active, created_at")
+    .select("id, name, description, is_active, created_at, defaults_for_required_parameters")
     .single();
 
   if (wfError || !workflow) {
@@ -335,10 +336,24 @@ ${toolkitGuidance}
     if (!schedError) schedule = sched;
   }
 
+  const wfRow = workflow as {
+    id: string;
+    name: string;
+    description: string | null;
+    is_active: boolean;
+    created_at: string;
+    defaults_for_required_parameters?: Record<string, unknown> | null;
+  };
+
   return NextResponse.json(
     {
       workflow: {
-        ...workflow,
+        id: wfRow.id,
+        name: wfRow.name,
+        description: wfRow.description,
+        is_active: wfRow.is_active,
+        created_at: wfRow.created_at,
+        default_params: wfRow.defaults_for_required_parameters ?? defaultParams,
         toolkits: [...new Set(parsedSteps.map((s) => s.toolkit))],
         step_count: parsedSteps.length,
         schedule_count: schedule ? 1 : 0,

@@ -10,6 +10,8 @@ export interface Workflow {
   toolkits: string[];
   step_count: number;
   schedule_count: number;
+  /** Saved defaults for `{{params.*}}` placeholders (DB: defaults_for_required_parameters) */
+  default_params?: Record<string, unknown>;
 }
 
 export interface WorkflowStep {
@@ -47,6 +49,7 @@ export interface WorkflowDetail {
   created_at: string;
   input_schema: Record<string, unknown>;
   output_schema: Record<string, unknown>;
+  default_params?: Record<string, unknown>;
   workflow_steps: WorkflowStep[];
   scheduled_workflows: Schedule[];
 }
