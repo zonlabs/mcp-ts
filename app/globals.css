@@ -157,6 +157,11 @@
     @apply bg-background text-foreground;
   }
 
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not(:disabled):not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   /* Global Thin Scrollbar */
   * {
     scrollbar-width: thin;
