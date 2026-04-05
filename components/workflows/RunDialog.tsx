@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { McpConnectionRecord } from "@/lib/mcp-connections";
 import type { Workflow, McpSession } from "@/types/workflow";
 
 interface RunDialogProps {
@@ -51,29 +52,37 @@ export function RunDialog({ workflow, open, onClose, onSuccess }: RunDialogProps
       return;
     }
 
-    async function fetchBootstrap() {
+    async function loadRunContext() {
       setFetching(true);
       try {
-        const res = await fetch("/api/workflows/bootstrap-test");
-        if (res.ok) {
-          const data = (await res.json()) as {
-            sessions: McpSession[];
-            schedules: Array<{ id: string; workflow_id: string }>;
-          };
-          setSessions(data.sessions ?? []);
-          if (data.sessions?.[0]) setSelectedSession(data.sessions[0].session_id);
-          // Find first schedule for this workflow
-          const wfSchedule = (data.schedules ?? []).find(
-            (s) => s.workflow_id === workflow.id
+        const [connRes, schRes] = await Promise.all([
+          fetch("/api/mcp/connections"),
+          fetch(`/api/workflows/${workflow.id}/schedules`),
+        ]);
+
+        if (connRes.ok) {
+          const data = (await connRes.json()) as { connections?: McpConnectionRecord[] };
+          const list = data.connections ?? [];
+          setSessions(
+            list.map((c) => ({
+              session_id: c.sessionId,
+              server_id: c.serverId,
+              active: c.active,
+            }))
           );
-          if (wfSchedule) setScheduleId(wfSchedule.id);
+          if (list[0]) setSelectedSession(list[0].sessionId);
+        }
+
+        if (schRes.ok) {
+          const sch = (await schRes.json()) as { schedules?: Array<{ id: string }> };
+          if (sch.schedules?.[0]) setScheduleId(sch.schedules[0].id);
         }
       } finally {
         setFetching(false);
       }
     }
 
-    fetchBootstrap();
+    loadRunContext();
   }, [open, workflow.id]);
 
   function validateParams(): Record<string, unknown> | null {
