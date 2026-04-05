@@ -12,7 +12,7 @@ import { HistoryList } from "./HistoryList";
 import { RunDialog } from "./RunDialog";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
-import type { Workflow } from "@/types/workflows";
+import type { Workflow, WorkflowDetail } from "@/types/workflows";
 import { useWorkflowsStore } from "@/stores/workflows";
 import { deleteWorkflow as apiDeleteWorkflow, updateWorkflow as apiUpdateWorkflow } from "@/lib/workflows.api";
 
@@ -93,8 +93,23 @@ export function WorkflowsPage() {
 
   const scheduleWorkflow = useMemo(() => {
     if (!scheduleDialog.workflowId) return null;
+    const detail = workflowDetails[scheduleDialog.workflowId] as WorkflowDetail | undefined;
+    const fromDetail: Workflow | null = detail
+      ? {
+          id: detail.id,
+          name: detail.name,
+          description: detail.description,
+          is_active: detail.is_active,
+          created_at: detail.created_at,
+          toolkits: detail.workflow_steps.map((s) => s.toolkit),
+          step_count: detail.workflow_steps.length,
+          schedule_count: detail.scheduled_workflows.length,
+          default_params: detail.default_params,
+          scheduled_workflows: detail.scheduled_workflows,
+        }
+      : null;
     return (
-      (workflowDetails[scheduleDialog.workflowId] as Workflow | undefined) ??
+      fromDetail ??
       workflows.find((w) => w.id === scheduleDialog.workflowId) ??
       null
     );
@@ -102,8 +117,23 @@ export function WorkflowsPage() {
 
   const runWorkflow = useMemo(() => {
     if (!runDialog.workflowId) return null;
+    const detail = workflowDetails[runDialog.workflowId] as WorkflowDetail | undefined;
+    const fromDetail: Workflow | null = detail
+      ? {
+          id: detail.id,
+          name: detail.name,
+          description: detail.description,
+          is_active: detail.is_active,
+          created_at: detail.created_at,
+          toolkits: detail.workflow_steps.map((s) => s.toolkit),
+          step_count: detail.workflow_steps.length,
+          schedule_count: detail.scheduled_workflows.length,
+          default_params: detail.default_params,
+          scheduled_workflows: detail.scheduled_workflows,
+        }
+      : null;
     return (
-      (workflowDetails[runDialog.workflowId] as Workflow | undefined) ??
+      fromDetail ??
       workflows.find((w) => w.id === runDialog.workflowId) ??
       null
     );
