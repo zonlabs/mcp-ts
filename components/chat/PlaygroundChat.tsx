@@ -32,6 +32,7 @@ import {
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool';
+import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
 
 interface PlaygroundChatProps {
   chatId: string;
@@ -384,17 +385,31 @@ export function PlaygroundChat({
             const headerProps = part.type === 'dynamic-tool'
               ? { type: 'dynamic-tool' as const, state: toolPart.state, toolName: toolName }
               : { type: 'tool-' as const, state: toolPart.state, title: toolTitle };
+            
+            const state = toolPart.state as string;
+            const toolState = state === 'output-available' ? 'complete' 
+              : state === 'executing' || state === 'in-progress' ? 'executing'
+              : 'idle';
+            
             return (
-              <Tool key={`tool-${index}`} defaultOpen={false}>
-                <ToolHeader {...headerProps} />
-                <ToolContent>
-                  <ToolInput input={toolPart.input} />
-                  <ToolOutput 
-                    output={toolPart.state === 'output-available' ? <pre className="text-sm">{JSON.stringify(toolPart.output, null, 2)}</pre> : undefined}
-                    errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
-                  />
-                </ToolContent>
-              </Tool>
+              <>
+                <Tool key={`tool-${index}`} defaultOpen={false}>
+                  <ToolHeader {...headerProps} />
+                  <ToolContent>
+                    <ToolInput input={toolPart.input} />
+                    <ToolOutput 
+                      output={toolPart.state === 'output-available' ? <pre className="text-sm">{JSON.stringify(toolPart.output, null, 2)}</pre> : undefined}
+                      errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
+                    />
+                  </ToolContent>
+                </Tool>
+                <McpAppRenderer
+                  name={toolName || ''}
+                  args={toolPart.input as Record<string, unknown> | undefined}
+                  result={toolPart.state === 'output-available' ? toolPart.output : undefined}
+                  status={toolState}
+                />
+              </>
             );
           }
 

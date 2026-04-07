@@ -5,6 +5,7 @@ import { useMcpStore, type McpStore } from '@/lib/stores/mcp-store';
 import { useMcp } from '@mcp-ts/sdk/client/react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { openAuthPopup } from '@/lib/auth-popup-utils';
+import { setMcpClient } from '@/lib/mcp-client-store';
 
 /**
  * MCP Store Provider
@@ -41,6 +42,7 @@ function McpStoreProviderInner({
     callTool,
     finishAuth,
     resumeAuth,
+    sseClient,
   } = useMcp({
     url: '/api/mcp/sse',
     identity: userId,
@@ -135,6 +137,12 @@ function McpStoreProviderInner({
   useEffect(() => {
     return () => {};
   }, []);
+
+  useEffect(() => {
+    if (connections.length > 0) {
+      setMcpClient({ connections, sseClient });
+    }
+  }, [connections, sseClient]);
 
   return <>{children}</>;
 }
