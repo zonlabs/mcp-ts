@@ -29,12 +29,10 @@ import {
   Trash2,
   ChevronDown,
   KeyRound,
-  Sparkles,
   BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 type WorkflowApiKeyRow = {
@@ -238,22 +236,6 @@ export function WorkflowEngineTokenSection() {
       </div>
 
       <div className="space-y-6">
-          <div className="flex gap-2.5">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">Recommended</span>
-                <Badge variant="secondary" className="text-[0.65rem] font-normal">
-                  Most secure
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Create a workflow API key below instead of copying session tokens. Secrets are stored
-                as a hash; you only see the full key once. Revoke anytime.
-              </p>
-            </div>
-          </div>
-
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
