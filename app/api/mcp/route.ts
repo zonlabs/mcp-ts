@@ -22,7 +22,7 @@ function parseOrderBy(orderBy: string | null): {
 /**
  * GET /api/mcp — public MCP catalog (REST).
  *
- * Query: first, after, orderBy (-createdAt | name | -name | …), categorySlug, search,
+ * Query: first, after, orderBy (-createdAt | name | -name | …), categorySlug, search (name only),
  * featured=1, public=1 (default: list only is_public rows).
  */
 export async function GET(request: Request) {

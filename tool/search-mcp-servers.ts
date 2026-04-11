@@ -5,7 +5,7 @@ import { listMcpServersCatalog } from '@/lib/mcp-servers/service';
 import { restMcpServer } from '@/lib/mcp-servers/rest-serialize';
 
 export const searchMcpServers = tool({
-  description: `Search for MCP servers in the registry by analyzing user intent and finding relevant capabilities.
+  description: `Search for MCP servers in the registry by analyzing user intent and finding relevant capabilities. Matches both server name and description text in the catalog.
 
 **CRITICAL - Intent Analysis Required:**
 detect an specific MCP server name that the user want to use or connect to, you can use that directly.
@@ -22,7 +22,7 @@ User Request → Extract Capability
 - "use Supabase to manage my database" → "supabase"
 `,
   inputSchema: z.object({
-    searchQuery: z.string().optional().describe('Name of the MCP server to find e.g. Exa, Github, Deepwiki etc. or core capability or action keyword(s) extracted from user intent.'),
+    searchQuery: z.string().optional().describe('Terms to match against server name and description in the catalog (case-insensitive). E.g. Github, email, railway.'),
     first: z.number().optional().default(10).describe('Number of results to return (default: 10)'),
     after: z.string().optional().describe('Cursor for pagination'),
   }),
@@ -35,6 +35,7 @@ User Request → Extract Capability
         first: first || 10,
         after: after || null,
         search: searchQuery || null,
+        searchInDescription: true,
         publicOnly: true,
         orderField: 'created_at',
         orderAscending: false,

@@ -785,11 +785,7 @@ export const selectFilteredServers = (state: McpStore) => {
   // Apply search filter
   if (state.searchQuery) {
     const query = state.searchQuery.toLowerCase();
-    servers = servers.filter(
-      (s) =>
-        s.name.toLowerCase().includes(query) ||
-        s.description?.toLowerCase().includes(query)
-    );
+    servers = servers.filter((s) => s.name.toLowerCase().includes(query));
   }
 
   // Apply category filter

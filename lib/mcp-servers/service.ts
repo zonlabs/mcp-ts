@@ -52,6 +52,11 @@ type ListCatalogOpts = {
   orderAscending?: boolean;
   categorySlug?: string | null;
   search?: string | null;
+  /**
+   * When true, `search` matches `name` OR `description` (case-insensitive).
+   * Default false: name only (MCP UI catalog search).
+   */
+  searchInDescription?: boolean;
   featuredOnly?: boolean;
   /** When true, only is_public servers (default for catalog browsing). */
   publicOnly?: boolean;
@@ -102,7 +107,11 @@ export async function listMcpServersCatalog(
   }
   if (opts.search?.trim()) {
     const pat = `%${escapeIlike(opts.search.trim())}%`;
-    q = q.or(`name.ilike.${pat},description.ilike.${pat}`);
+    if (opts.searchInDescription) {
+      q = q.or(`name.ilike.${pat},description.ilike.${pat}`);
+    } else {
+      q = q.ilike("name", pat);
+    }
   }
 
   q = q.order(field, { ascending }).order("id", { ascending });
