@@ -104,8 +104,8 @@ export default function McpServersSection() {
       try {
         const params = new URLSearchParams();
         params.set("first", "16");
-        params.set("public", "1");
-        params.set("featured", "1");
+        params.set("public", "true");
+        params.set("featured", "true");
         params.set("orderBy", "-createdAt");
         const res = await fetch(`/api/mcp?${params}`);
         const j = await res.json();

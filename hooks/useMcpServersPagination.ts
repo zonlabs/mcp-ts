@@ -24,7 +24,7 @@ export function useMcpServersPagination(first: number = 10) {
     async (after?: string | null) => {
       const params = new URLSearchParams();
       params.set("first", String(first));
-      params.set("public", "1");
+      params.set("public", "true");
       params.set("orderBy", "-createdAt");
       if (after) params.set("after", after);
       const res = await fetch(`/api/mcp?${params}`);

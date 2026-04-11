@@ -3,13 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { listUserMcpServers } from "@/lib/mcp-servers/service";
 import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
 
-/** GET /api/mcp/user — current user's saved MCP servers (REST). */
+/** GET /api/mcp/user — current user's saved MCP servers (REST). Guests get an empty list. */
 export async function GET() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ servers: [] });
   }
 
   try {

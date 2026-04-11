@@ -3,6 +3,20 @@ import { createClient } from "@/lib/supabase/server";
 import { listMcpServersCatalog } from "@/lib/mcp-servers/service";
 import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
 
+/** `?key=true` / `?key=false` only; missing or invalid → defaultValue. */
+function parseQueryBoolean(
+  searchParams: URLSearchParams,
+  key: string,
+  defaultValue: boolean
+): boolean {
+  const raw = searchParams.get(key);
+  if (raw === null || raw === "") return defaultValue;
+  const v = raw.trim().toLowerCase();
+  if (v === "true") return true;
+  if (v === "false") return false;
+  return defaultValue;
+}
+
 function parseOrderBy(orderBy: string | null): {
   orderField: "created_at" | "updated_at" | "name";
   orderAscending: boolean;
@@ -20,28 +34,36 @@ function parseOrderBy(orderBy: string | null): {
 }
 
 /**
- * GET /api/mcp — public MCP catalog (REST).
+ * GET /api/mcp — MCP catalog (REST).
+ *
+ * With default `public=true` (or omitted), anonymous clients may read the public catalog (RLS: is_public rows).
+ * With `public=false`, requires a signed-in user (RLS returns own + public rows).
  *
  * Query: first, after, orderBy (-createdAt | name | -name | …), categorySlug, search (name only),
- * featured=1, public=1 (default: list only is_public rows).
+ * `featured=true|false`, `public=true|false` (booleans as strings; default public=true, featured=false).
  */
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { searchParams } = new URL(request.url);
+  const publicOnly = parseQueryBoolean(searchParams, "public", true);
 
-  if (authError || !user) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  // Public catalog (default public=true): allow anonymous reads; RLS limits rows to is_public.
+  // public=false requires auth (RLS still restricts rows for that user).
+  if (!publicOnly && (authError || !user)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
   const first = searchParams.get("first") ? parseInt(searchParams.get("first")!, 10) : 10;
   const after = searchParams.get("after") || undefined;
   const orderBy = searchParams.get("orderBy");
   const categorySlug = searchParams.get("categorySlug") || undefined;
   const search = searchParams.get("search") || undefined;
-  const featured = searchParams.get("featured") === "1" || searchParams.get("featured") === "true";
-  const publicOnly =
-    searchParams.get("public") === "0" || searchParams.get("public") === "false" ? false : true;
+  const featured = parseQueryBoolean(searchParams, "featured", false);
 
   const { orderField, orderAscending } = parseOrderBy(orderBy);
 

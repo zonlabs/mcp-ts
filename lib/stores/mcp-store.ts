@@ -57,7 +57,7 @@ function normalizeConnectionStatus(
 }
 
 function normalizeTransport(value?: string | null): "sse" | "streamable_http" {
-  if (!value) return "sse";
+  if (!value) return "streamable_http";
   const normalized = value.trim().toLowerCase();
   if (normalized === "sse") return "sse";
   if (normalized === "streamable-http" || normalized === "streamable_http" || normalized === "streamablehttp") {
@@ -313,7 +313,7 @@ export const useMcpStore = create<McpStore>()(
           try {
             const params = new URLSearchParams();
             params.set('first', String(variables.first || 20));
-            params.set('public', '1');
+            params.set('public', 'true');
             params.set('orderBy', '-createdAt');
             if (variables.after) params.set('after', variables.after);
             if (variables.categorySlug) params.set('categorySlug', variables.categorySlug);
@@ -560,7 +560,7 @@ export const useMcpStore = create<McpStore>()(
                 serverId: val.serverId || val.identity, // Fallback if needed
                 serverName: val.serverName,
                 url: val.serverUrl,
-                transport: normalizeTransport(val.transportType || val.transport || 'sse'),
+                transport: normalizeTransport(val.transportType || val.transport || "streamable_http"),
                 connectionStatus: normalizedStatus,
                 tools: val.tools || [],
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available
@@ -650,6 +650,8 @@ export const useMcpStore = create<McpStore>()(
                 ? prevActiveCount + 1
                 : prevActiveCount;
 
+            const stampConnectedAt = isNowConnected && !connection.connectedAt;
+
             return {
               connections: {
                 ...state.connections,
@@ -657,6 +659,7 @@ export const useMcpStore = create<McpStore>()(
                   ...connection,
                   connectionStatus: normalizedStatus,
                   ...(tools && { tools }),
+                  ...(stampConnectedAt ? { connectedAt: new Date().toISOString() } : {}),
                 },
               },
               activeConnectionCount: newActiveCount,

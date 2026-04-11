@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -15,6 +15,7 @@ import {
   Copy,
   Check,
   Clock,
+  Link2,
 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
@@ -22,8 +23,8 @@ import ServerManagement from "./ServerManagement";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Session } from "@supabase/supabase-js";
-import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { UserSession } from "@/components/providers/AuthProvider";
+import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 
 interface ServerDetailsProps {
   server: McpServer;
@@ -47,12 +48,17 @@ export function ServerDetails({
 }: ServerDetailsProps) {
   const [urlCopied, setUrlCopied] = useState(false);
 
-  // Get connection status from hook
-  const { connection } = useMcpConnection({ serverId: server.id });
+  const connections = useMcpStore((s) => s.connections);
+  const stored = useMemo(
+    () => findConnectionForServer(connections, server),
+    [connections, server.id, server.url]
+  );
 
-  // Use connection status from hook (current data) if available, otherwise fall back to server prop
-  const connectionStatus = connection?.connectionStatus ?? server.connectionStatus ?? "DISCONNECTED";
+  const connectionStatus =
+    stored?.connectionStatus ?? server.connectionStatus ?? "DISCONNECTED";
   const isConnected = connectionStatus?.toUpperCase() === "READY";
+
+  const addedAtSource = server.createdAt || server.updated_at;
 
   const handleCopyUrl = () => {
     if (server.url) {
@@ -62,15 +68,11 @@ export function ServerDetails({
     }
   };
 
-  const isStaff = userSession?.role === 'staff';
-  const canEdit = isStaff || !(
-    server.isPublic &&
-    server.owner !== session?.user?.email?.split("@")[0]
-  );
-  const canDelete = isStaff || !(
-    server.isPublic &&
-    server.owner !== session?.user?.email?.split("@")[0]
-  );
+  const isStaff = userSession?.role === "staff";
+  const myId = session?.user?.id;
+  const isMine = Boolean(myId && server.owner && server.owner === myId);
+  const canEdit = isStaff || !(server.isPublic && server.owner !== myId);
+  const canDelete = isStaff || !(server.isPublic && server.owner !== myId);
 
   return (
     <div className="p-4 sm:p-6 border-b border-border">
@@ -141,7 +143,7 @@ export function ServerDetails({
                 {server.requiresOauth2 ? (
                   <div className="flex items-center gap-1">
                     <Shield className="h-3.5 w-3.5 text-amber-500" />
-                    <span className="text-muted-foreground">OAuth2</span>
+                    <span className="text-muted-foreground">OAuth</span>
                   </div>
                 ) : (
                   <span className="text-blue-600 dark:text-blue-400 font-medium">
@@ -174,7 +176,10 @@ export function ServerDetails({
               </div>
               {server.url && (
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="font-medium whitespace-nowrap">URL:</span>
+                  <Link2
+                    className="h-3.5 w-3.5 text-muted-foreground shrink-0"
+                    aria-hidden
+                  />
                   <code
                     className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono truncate flex-1 min-w-0"
                     title={server.url}
@@ -195,14 +200,14 @@ export function ServerDetails({
                   </Button>
                 </div>
               )}
-              {connection?.connectedAt && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="font-medium whitespace-nowrap">
-                    Connected At:
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {new Date(connection.connectedAt).toLocaleString("en-US", {
+              {stored?.connectedAt && (
+                <div
+                  className="flex items-center gap-2 text-muted-foreground"
+                  title={`Last connected ${new Date(stored.connectedAt).toLocaleString()}`}
+                >
+                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="text-xs">
+                    {new Date(stored.connectedAt).toLocaleString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -210,6 +215,12 @@ export function ServerDetails({
                       minute: "2-digit",
                     })}
                   </span>
+                </div>
+              )}
+              {isConnected && !stored?.connectedAt && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  <span>Connected — reconnect once to record a &quot;last connected&quot; time.</span>
                 </div>
               )}
             </div>
@@ -221,12 +232,12 @@ export function ServerDetails({
               Metadata
             </h3>
             <div className="space-y-2">
-              {server.createdAt && (
+              {addedAtSource && (
                 <div className="flex items-center gap-2 text-xs">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="font-medium">Added on:</span>
                   <span className="text-muted-foreground">
-                    {new Date(server.createdAt).toLocaleDateString("en-US", {
+                    {new Date(addedAtSource).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -234,11 +245,10 @@ export function ServerDetails({
                   </span>
                 </div>
               )}
-              {server.owner && (
+              {isMine && (
                 <div className="flex items-center gap-2 text-xs">
                   <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="font-medium">By:</span>
-                  <span className="text-muted-foreground">{server.owner}</span>
+                  <span className="text-muted-foreground">Added by you</span>
                 </div>
               )}
               {server.isPublic !== undefined && (

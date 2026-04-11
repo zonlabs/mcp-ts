@@ -455,15 +455,10 @@ export function ServerSidebar({
               ) : userServers && userServers.length > 0 ? (
                 <>
                   {userServers.map((server) => {
-                    const isStaff = userSession?.role === 'staff';
-                    const canEdit = isStaff || !(
-                      server.isPublic &&
-                      server.owner !== session?.user?.email?.split("@")[0]
-                    );
-                    const canDelete = isStaff || !(
-                      server.isPublic &&
-                      server.owner !== session?.user?.email?.split("@")[0]
-                    );
+                    const isStaff = userSession?.role === "staff";
+                    const myId = session?.user?.id;
+                    const canEdit = isStaff || !(server.isPublic && server.owner !== myId);
+                    const canDelete = isStaff || !(server.isPublic && server.owner !== myId);
 
                     return (
                       <ServerListItem

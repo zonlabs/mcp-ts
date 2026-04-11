@@ -42,7 +42,7 @@ export function useMcpServersFiltered(
     async (after?: string | null) => {
       const params = new URLSearchParams();
       params.set("first", String(first));
-      params.set("public", "1");
+      params.set("public", "true");
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (categorySlug) params.set("categorySlug", categorySlug);
       if (after) params.set("after", after);

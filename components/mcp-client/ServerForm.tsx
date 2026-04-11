@@ -406,7 +406,7 @@ export default function ServerForm({
         id: url || name,
         name,
         url,
-        transportType: useCustomTransport ? transport : undefined,
+        transportType: useCustomTransport ? transport : "streamable_http",
       };
 
       try {
@@ -817,8 +817,8 @@ export default function ServerForm({
                       )}
                     />
                     <div className="space-y-1">
-                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth2.1</Label>
-                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth2.1.</p>
+                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth</Label>
+                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth.</p>
                     </div>
                   </div>
                 </div>
