@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { listUserMcpServers } from "@/lib/mcp-servers/service";
-import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
+import { listCategories } from "@/lib/mcp-servers/service";
+import { restCategory } from "@/lib/mcp-servers/rest-serialize";
 
-/** GET /api/mcp/user — current user's saved MCP servers (REST). */
+/** GET /api/categories — MCP server categories (REST). */
 export async function GET() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -13,10 +13,10 @@ export async function GET() {
   }
 
   try {
-    const nodes = await listUserMcpServers(supabase, user.id);
-    return NextResponse.json({ servers: nodes.map(restMcpServer) });
+    const rows = await listCategories(supabase);
+    return NextResponse.json({ categories: rows.map(restCategory) });
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Failed to load servers";
+    const message = e instanceof Error ? e.message : "Failed to load categories";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

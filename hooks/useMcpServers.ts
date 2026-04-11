@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { McpServer } from "@/types/mcp";
-import { MCP_SERVERS_QUERY } from "@/lib/graphql";
 
 interface McpServersData {
   servers: McpServer[] | null;
@@ -21,35 +20,24 @@ export function useMcpServers(): McpServersData {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch servers from GraphQL API
   const fetchServers = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: MCP_SERVERS_QUERY,
-          variables: {
-            first: 100, // Get first 100 servers
-          }
-        }),
-      });
+      const params = new URLSearchParams();
+      params.set('first', '100');
+      params.set('public', '1');
+      params.set('orderBy', '-createdAt');
+      const response = await fetch(`/api/mcp?${params}`);
 
       const result = await response.json();
 
-      if (!response.ok || result.errors) {
-        throw new Error(result.errors?.[0]?.message || 'Failed to fetch servers');
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch servers');
       }
 
-      // Extract nodes from edges structure
-      const edges = result.data?.mcpServers?.edges || [];
-      const servers = edges.map((edge: any) => edge.node);
-      setServers(servers);
+      setServers(Array.isArray(result.servers) ? result.servers : []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch servers';
       setError(errorMessage);
@@ -59,7 +47,6 @@ export function useMcpServers(): McpServersData {
     }
   }, []);
 
-  // Update server in local state
   const updateServer = useCallback((serverId: string, updates: Partial<McpServer>) => {
     setServers(prevServers => {
       if (!prevServers) return prevServers;
@@ -71,7 +58,6 @@ export function useMcpServers(): McpServersData {
     });
   }, []);
 
-  // Handle server actions (activate/deactivate)
   const handleServerAction = useCallback(async (server: McpServer, action: 'activate' | 'deactivate') => {
     try {
       const response = await fetch('/api/mcp/actions', {
@@ -91,15 +77,12 @@ export function useMcpServers(): McpServersData {
         throw new Error(result.errors?.[0]?.message || 'Action failed');
       }
 
-      // Check if OAuth authorization is required
       if (action === 'activate') {
         const connectResult = result.data?.connectMcpServer;
 
         if (connectResult?.requiresAuth) {
           const authUrl = connectResult.authorizationUrl;
           if (authUrl) {
-            // toast.success(`Redirecting to authorization server for ${serverName}...`);
-            // Redirect to OAuth authorization URL
             setTimeout(() => {
               window.location.href = authUrl;
             }, 500);
@@ -110,7 +93,6 @@ export function useMcpServers(): McpServersData {
         }
       }
 
-      // Update local state
       setServers(prevServers => {
         if (!prevServers) return prevServers;
         return prevServers.map(s => {
@@ -123,21 +105,18 @@ export function useMcpServers(): McpServersData {
               ...s,
               connectionStatus: newConnectionStatus,
               tools: (action === 'deactivate' || newConnectionStatus === 'FAILED') ? [] : (updatedServer?.tools || s.tools),
-              updatedAt: new Date().toISOString()
+              updated_at: new Date().toISOString()
             };
           }
           return s;
         });
       });
-
-      // toast.success(`Server ${server.name} ${action}d successfully`);
-    } catch (error) {
+    } catch {
       toast.error(`Failed to ${action} server`);
-      throw error;
+      throw new Error(`Failed to ${action} server`);
     }
   }, []);
 
-  // Handle server CRUD operations
   const handleServerAdd = useCallback(async (data: any) => {
     const response = await fetch('/api/mcp/servers', {
       method: "POST",
@@ -188,7 +167,6 @@ export function useMcpServers(): McpServersData {
     toast.success('Server deleted successfully');
   }, [fetchServers]);
 
-  // Load servers on mount
   useEffect(() => {
     fetchServers();
   }, [fetchServers]);

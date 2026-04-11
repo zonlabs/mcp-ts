@@ -1,88 +1,75 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { MCP_SERVERS_QUERY } from "@/lib/graphql";
+import { listMcpServersCatalog } from "@/lib/mcp-servers/service";
+import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
+
+function parseOrderBy(orderBy: string | null): {
+  orderField: "created_at" | "updated_at" | "name";
+  orderAscending: boolean;
+} {
+  if (!orderBy) return { orderField: "created_at", orderAscending: false };
+  const desc = orderBy.startsWith("-");
+  const key = desc ? orderBy.slice(1) : orderBy;
+  const orderField =
+    key === "name"
+      ? "name"
+      : key === "updatedAt" || key === "updated_at"
+        ? "updated_at"
+        : "created_at";
+  return { orderField, orderAscending: !desc };
+}
 
 /**
- * GET /api/mcp - Fetch MCP servers with optional pagination and ordering
+ * GET /api/mcp — public MCP catalog (REST).
  *
- * Query Parameters (Cursor-based pagination):
- * - first: Number of servers to return (default: 10, e.g., ?first=10)
- * - after: Cursor for pagination (e.g., ?after=cursor_string)
- * - orderBy: Field to order by with optional "-" prefix for descending (e.g., ?orderBy=-createdAt)
- *   Supported fields: name, createdAt, updatedAt
- *
- * Examples:
- * - /api/mcp - Get first 10 servers (default)
- * - /api/mcp?first=10&after=cursor123 - Get next 10 servers after cursor
- * - /api/mcp?orderBy=-createdAt&first=10 - Get 10 newest servers
+ * Query: first, after, orderBy (-createdAt | name | -name | …), categorySlug, search,
+ * featured=1, public=1 (default: list only is_public rows).
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  // Parse query parameters for cursor-based pagination
   const { searchParams } = new URL(request.url);
-  const first = searchParams.get("first") ? parseInt(searchParams.get("first")!) : 10; // Default 10 items
+  const first = searchParams.get("first") ? parseInt(searchParams.get("first")!, 10) : 10;
   const after = searchParams.get("after") || undefined;
-  const orderBy = searchParams.get("orderBy") || undefined;
+  const orderBy = searchParams.get("orderBy");
+  const categorySlug = searchParams.get("categorySlug") || undefined;
+  const search = searchParams.get("search") || undefined;
+  const featured = searchParams.get("featured") === "1" || searchParams.get("featured") === "true";
+  const publicOnly =
+    searchParams.get("public") === "0" || searchParams.get("public") === "false" ? false : true;
 
-  const origin = (process.env.DJANGO_API_URL || process.env.BACKEND_URL)?.replace(/\/$/, "");
-  if (!origin) {
-    return NextResponse.json(
-      { errors: [{ message: "Server misconfigured" }] },
-      { status: 500 }
-    );
+  const { orderField, orderAscending } = parseOrderBy(orderBy);
+
+  try {
+    const conn = await listMcpServersCatalog(supabase, {
+      first,
+      after,
+      orderField,
+      orderAscending,
+      categorySlug,
+      search,
+      featuredOnly: featured,
+      publicOnly,
+    });
+
+    const servers = conn.edges.map((e) => restMcpServer(e.node));
+
+    return NextResponse.json({
+      servers,
+      totalCount: conn.totalCount,
+      pageInfo: {
+        hasNextPage: conn.pageInfo.hasNextPage,
+        hasPreviousPage: conn.pageInfo.hasPreviousPage,
+        endCursor: conn.pageInfo.endCursor,
+      },
+    });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to load servers";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
-
-  // Only add authorization header if token is available
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
-  }
-
-  // Build variables object for cursor-based pagination
-  const variables: { first: number; after?: string; order?: Record<string, string> } = {
-    first,
-  };
-
-  if (after) {
-    variables.after = after;
-  }
-
-  if (orderBy) {
-    // Parse orderBy format: "name", "-name", "createdAt", "-createdAt"
-    const isDesc = orderBy.startsWith("-");
-    const field = isDesc ? orderBy.substring(1) : orderBy;
-    variables.order = {
-      [field]: isDesc ? "DESC" : "ASC"
-    };
-  }
-
-  const resp = await fetch(`${origin}/api/graphql`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      query: MCP_SERVERS_QUERY,
-      variables
-    }),
-    cache: "no-store",
-  });
-
-  const data = await resp.text();
-  return new NextResponse(data, {
-    status: resp.status,
-    headers: { "content-type": "application/json" }
-  });
 }
-
-

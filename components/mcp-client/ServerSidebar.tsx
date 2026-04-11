@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -28,14 +28,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useQuery } from "@apollo/client/react";
-import { gql } from "@apollo/client";
 import { McpServer, Category } from "@/types/mcp";
 import { ServerListItem } from "./ServerListItem";
 import { ServerPlaceholder } from "./ServerPlaceholder";
-import { useDebounce } from "@/hooks/useDebounce";
 import { useMcpServersFiltered } from "@/hooks/useMcpServersFiltered";
-import { CATEGORIES_QUERY } from "@/lib/graphql";
 import { Session } from "@supabase/supabase-js";
 import { UserSession } from "@/components/providers/AuthProvider";
 
@@ -66,8 +62,6 @@ interface ServerSidebarProps {
   userSession?: UserSession | null;
 }
 
-const GET_CATEGORIES = gql`${CATEGORIES_QUERY}`;
-
 export function ServerSidebar({
   publicServers,
   userServers,
@@ -96,22 +90,32 @@ export function ServerSidebar({
 }: ServerSidebarProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearch = useDebounce(searchQuery, 300);
   const observerTarget = useRef<HTMLDivElement>(null);
 
-  // Fetch categories for filter dropdown
-  const { data: categoriesData, loading: categoriesLoading } = useQuery<{
-    categories: {
-      edges: Array<{ node: Category }>;
-    };
-  }>(GET_CATEGORIES, {
-    fetchPolicy: "cache-and-network",
-  });
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  const categories: Category[] = useMemo(
-    () => categoriesData?.categories?.edges?.map((edge) => edge.node) || [],
-    [categoriesData]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCategoriesLoading(true);
+      try {
+        const res = await fetch("/api/categories");
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error || "Failed to load categories");
+        if (!cancelled) {
+          setCategories(Array.isArray(j.categories) ? j.categories : []);
+        }
+      } catch {
+        if (!cancelled) setCategories([]);
+      } finally {
+        if (!cancelled) setCategoriesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Use filtered servers hook when search or category is active
   const {
@@ -123,21 +127,19 @@ export function ServerSidebar({
     loadMore: loadMoreFiltered,
   } = useMcpServersFiltered(
     {
-      searchQuery: debouncedSearch,
+      searchQuery,
       categorySlug: selectedCategory || undefined,
       categories,
     },
     10 // 10 items per page for filtered results
   );
 
-  // Determine which data source to use
   const displayServers = isFiltering
     ? filteredServers
     : activeTab === "public"
       ? publicServers
       : userServers;
 
-  // Only show skeleton on initial load (when no servers loaded yet)
   const displayLoading = isFiltering
     ? filterLoading && filteredServers.length === 0
     : activeTab === "public"
@@ -295,9 +297,8 @@ export function ServerSidebar({
                 <span className="text-xs max-w-[120px] truncate">
                   {selectedCategory
                     ? truncateText(
-                      categoriesData?.categories?.edges.find(
-                        (c) => c.node.slug === selectedCategory
-                      )?.node.name || "Filter",
+                      categories.find((c) => c.slug === selectedCategory)?.name ||
+                        selectedCategory,
                       17
                     )
                     : "Filter"}
@@ -312,13 +313,21 @@ export function ServerSidebar({
                 <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
               ) : (
                 <>
-                  <DropdownMenuItem onClick={() => onCategoryChange("")}>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      onCategoryChange("");
+                    }}
+                  >
                     All Categories
                   </DropdownMenuItem>
-                  {categoriesData?.categories?.edges.map(({ node }) => (
+                  {categories.map((node) => (
                     <DropdownMenuItem
                       key={node.id}
-                      onClick={() => onCategoryChange(node?.slug || "")}
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        onCategoryChange(node?.slug || "");
+                      }}
                     >
                       {node.name}
                     </DropdownMenuItem>

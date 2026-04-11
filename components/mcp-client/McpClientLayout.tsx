@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelLeftOpen } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { Session } from "@supabase/supabase-js";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,15 +85,20 @@ export default function McpClientLayout({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serverToDelete, setServerToDelete] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'public' | 'user'>('public');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const activeServersCount = useMcpStore((state: McpStore) => state.activeConnectionCount);
   const getConnectionByServerId = useMcpStore((state: McpStore) => state.getConnectionByServerId);
   const { mergeWithStoredState } = useMcpConnection();
 
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const categorySlug = searchParams.get("category");
   const router = useRouter();
+  const categorySlug = searchParams.get("category");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(categorySlug);
+
+  useEffect(() => {
+    setSelectedCategory(categorySlug);
+  }, [categorySlug]);
 
   // Merge connection state into server lists using the shared utility
   const mergedPublicServers = useMemo(() =>
@@ -145,13 +150,6 @@ export default function McpClientLayout({
     setSelectedToolName(null);
   }, [selectedServer?.id]);
 
-  // Set category from URL on mount
-  useEffect(() => {
-    if (categorySlug) {
-      setSelectedCategory(categorySlug);
-    }
-  }, [categorySlug]);
-
   const handleAddServer = () => {
     setViewMode('add');
     setSelectedServer(null); // Deselect to show form clearly? Or keep selection? 
@@ -201,19 +199,17 @@ export default function McpClientLayout({
     setViewMode('browse');
   };
 
-  const handleCategorySelect = (categorySlug: string) => {
-    setSelectedCategory(categorySlug);
-
-    const currentParams = new URLSearchParams(window.location.search);
-
-    if (categorySlug && categorySlug !== "") {
-      currentParams.set("category", categorySlug);
+  const handleCategorySelect = (slug: string) => {
+    const next = slug || null;
+    setSelectedCategory(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next) {
+      params.set("category", next);
     } else {
-      currentParams.delete("category");
+      params.delete("category");
     }
-
-    const newUrl = `${window.location.pathname}?${currentParams.toString()}`;
-    router.replace(newUrl, { scroll: false });
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
   const handleServerSelect = (server: McpServer) => {

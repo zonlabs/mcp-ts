@@ -25,6 +25,9 @@ export type McpServer = {
   transport: string;
   owner?: string | null;
   url?: string | null;
+  /** URL or identifier for a custom server icon (catalog / display). */
+  icon?: string | null;
+  isVerified?: boolean;
   command?: string | null;
   args?: any | null;
   requiresOauth2: boolean;
@@ -54,13 +57,6 @@ export type DisconnectResult = {
 export type ServerHealthInfo = {
   status: string;
   tools: ToolInfo[];
-};
-
-// A2A Agent Config (stored in Assistant.config for specialist/tool_agent types)
-export type A2AAgentConfig = {
-  a2a_url: string;
-  skills?: string[];
-  agent_card?: any; // Full agent card from A2A validation (presence indicates validation)
 };
 
 // MCP Config format for MultiServerMCPClient (client-side, no credentials)
