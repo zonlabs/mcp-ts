@@ -152,6 +152,18 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Changelog",
+        "icon": "clock-rotate-left",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelog/2026-04-19"
+            ]
+          }
+        ]
       }
     ]
   },
