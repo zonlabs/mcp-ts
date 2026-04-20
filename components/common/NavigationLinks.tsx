@@ -41,7 +41,7 @@ export function NavigationLinks() {
         <span className={underlineClass} />
       </Link>
       <Link
-        href="https://zonlabs.github.io/mcp-ts/"
+        href="https://docs.mcp-assistant.in/"
         target="_blank"
         rel="noopener noreferrer"
         className={navLinkClass(false)}

@@ -5,7 +5,7 @@
   <p><strong>Web-based MCP client for remote servers and AI tool workflows.</strong></p>
 
   [![Website](https://img.shields.io/badge/Website-mcp--assistant.in-0A66C2?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.mcp-assistant.in/)
-  [![Docs](https://img.shields.io/badge/Docs-mcp--ts-111827?style=for-the-badge&logo=readthedocs&logoColor=white)](https://zonlabs.github.io/mcp-ts/)
+  [![Docs](https://img.shields.io/badge/Docs-docs.mcp--assistant.in-111827?style=for-the-badge&logo=readthedocs&logoColor=white)](https://docs.mcp-assistant.in/)
   [![License](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 </div>
 

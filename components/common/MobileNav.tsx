@@ -19,7 +19,7 @@ export function MobileNav() {
     { href: "/registry", label: "Registry", icon: Package },
     { href: "/workflows", label: "Workflows", icon: GitFork },
     { href: "/chat", label: "Chat", icon: MessageSquare },
-    { href: "https://zonlabs.github.io/mcp-ts/", label: "Docs", icon: BookOpen, external: true },
+    { href: "https://docs.mcp-assistant.in/", label: "Docs", icon: BookOpen, external: true },
   ];
 
   return (
