@@ -160,6 +160,7 @@
           {
             "group": "Changelog",
             "pages": [
+              "changelog/2026-04-20-weekly",
               "changelog/2026-04-20",
               "changelog/2026-04-19"
             ]
