@@ -263,13 +263,14 @@ ${toolkitGuidance}
       user_id: user.id,
       name: generated.name,
       description: generated.description,
-      workflow: [],
+      script_code: "// Generated script\nasync function main(params, context) {\n  // TODO: Implement workflow logic\n}",
       input_schema: inputSchema,
       output_schema: { type: "object" },
       defaults_for_required_parameters: defaultParams,
       is_active: true,
+      toolkit_ids: [],
     })
-    .select("id, name, description, is_active, created_at, defaults_for_required_parameters")
+    .select("id, name, description, is_active, created_at, defaults_for_required_parameters, script_code, toolkit_ids")
     .single();
 
   if (wfError || !workflow) {
@@ -277,45 +278,6 @@ ${toolkitGuidance}
   }
 
   const workflowId = workflow.id as string;
-
-  // Parse and insert steps
-  let parsedSteps: Array<z.infer<typeof StepSchema> & { tool_arguments: Record<string, unknown> }>;
-  try {
-    parsedSteps = generated.steps.map((step) => {
-      const parsedArgs = parseJsonObject(
-        `tool_arguments_json for step "${step.name}"`,
-        step.tool_arguments_json
-      );
-      if (!parsedArgs.ok) {
-        throw new Error(parsedArgs.error);
-      }
-      return { ...step, tool_arguments: parsedArgs.value };
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Invalid tool_arguments_json";
-    return NextResponse.json(
-      { error: `Failed to parse workflow steps: ${msg}` },
-      { status: 500 }
-    );
-  }
-
-  const stepRows = parsedSteps.map((step, idx) => ({
-    workflow_id: workflowId,
-    step_number: idx + 1,
-    name: step.name,
-    toolkit: step.toolkit,
-    tool_slug: step.tool_slug,
-    tool_arguments: step.tool_arguments,
-    timeout_seconds: step.timeout_seconds ?? 120,
-    retry_on_failure: step.retry_on_failure ?? true,
-    max_retries: step.max_retries ?? 1,
-  }));
-
-  const { error: stepsError } = await supabase.from("workflow_steps").insert(stepRows);
-  if (stepsError) {
-    await supabase.from("workflows").delete().eq("id", workflowId);
-    return NextResponse.json({ error: `Failed to create steps: ${stepsError.message}` }, { status: 500 });
-  }
 
   // Insert schedule if provided
   let schedule = null;
@@ -343,6 +305,8 @@ ${toolkitGuidance}
     is_active: boolean;
     created_at: string;
     defaults_for_required_parameters?: Record<string, unknown> | null;
+    script_code?: string | null;
+    toolkit_ids?: string[];
   };
 
   return NextResponse.json(
@@ -354,16 +318,9 @@ ${toolkitGuidance}
         is_active: wfRow.is_active,
         created_at: wfRow.created_at,
         default_params: wfRow.defaults_for_required_parameters ?? defaultParams,
-        toolkits: [...new Set(parsedSteps.map((s) => s.toolkit))],
-        step_count: parsedSteps.length,
+        toolkit_ids: wfRow.toolkit_ids ?? [],
         schedule_count: schedule ? 1 : 0,
       },
-      steps: parsedSteps.map((s) => ({
-        name: s.name,
-        toolkit: s.toolkit,
-        tool_slug: s.tool_slug,
-        tool_arguments: s.tool_arguments,
-      })),
       schedule,
       default_params: defaultParams,
       discovered_tools_count: discoveredTools.length,

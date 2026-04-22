@@ -15,6 +15,9 @@ import {
   Trash2,
   Plus,
   Pause,
+  Braces,
+  History,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,9 +39,7 @@ import {
 import { ToolkitBadge } from "./ToolkitBadge";
 import { RunDialog } from "./RunDialog";
 import { ScheduleDialog } from "./ScheduleDialog";
-import { RunOnceDialog } from "./RunOnceDialog";
 import { HistoryList } from "./HistoryList";
-import { StepEditor } from "./StepEditor";
 import type { WorkflowDetail as WFDetail, Schedule, Workflow } from "@/types/workflows";
 import { cn, defaultParamsToJson } from "@/lib/utils";
 import { toast } from "react-hot-toast";
@@ -56,7 +57,7 @@ interface WorkflowDetailProps {
   initialTab?: string;
 }
 
-const MAIN_TABS = new Set(["overview", "default-inputs", "steps", "schedules", "history"]);
+const MAIN_TABS = new Set(["overview", "script", "default-inputs", "schedules", "history"]);
 
 function normalizeMainTab(t: string | undefined): string {
   return t && MAIN_TABS.has(t) ? t : "overview";
@@ -173,7 +174,6 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
   const loading = useWorkflowsStore((s) => s.workflowDetailsLoading[workflowId] ?? false);
   const error = useWorkflowsStore((s) => s.workflowDetailsError[workflowId] ?? null);
   const history = useWorkflowsStore((s) => s.workflowHistory[workflowId]);
-  const historyLoading = useWorkflowsStore((s) => s.workflowHistoryLoading[workflowId] ?? false);
   const fetchWorkflowDetail = useWorkflowsStore((s) => s.fetchWorkflowDetail);
   const fetchWorkflowHistory = useWorkflowsStore((s) => s.fetchWorkflowHistory);
   const updateWorkflowDetail = useWorkflowsStore((s) => s.updateWorkflowDetail);
@@ -191,7 +191,6 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
 
   // Dialog state
   const [runOpen, setRunOpen] = useState(false);
-  const [runOnceOpen, setRunOnceOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [editSchedule, setEditSchedule] = useState<Schedule | undefined>(undefined);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -203,6 +202,9 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
   const [defaultsJsonText, setDefaultsJsonText] = useState("{}");
   const [defaultsSaving, setDefaultsSaving] = useState(false);
   const [defaultsError, setDefaultsError] = useState<string | null>(null);
+
+  const [scriptDraft, setScriptDraft] = useState("");
+  const [scriptSaving, setScriptSaving] = useState(false);
 
   // Data fetching
   const fetchWorkflow = useCallback(async () => {
@@ -231,6 +233,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
       setDefaultsUseFields(false);
       setDefaultsJsonText(defaultParamsToJson(workflow.default_params));
     }
+    setScriptDraft(workflow.script_code ?? "");
     setDefaultsError(null);
   }, [workflow]);
 
@@ -242,12 +245,8 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     const q = tab === "overview" ? "" : `?tab=${encodeURIComponent(tab)}`;
     router.replace(`${path}${q}`, { scroll: false });
     if (tab === "history" && historyList.length === 0) {
-      fetchHistory();
+      fetchWorkflowHistory(workflowId, 20);
     }
-  }
-
-  async function fetchHistory() {
-    await fetchWorkflowHistory(workflowId, 20);
   }
 
   // Inline editing
@@ -291,7 +290,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     }
   }
 
-  async function deleteWorkflow() {
+  async function handleDeleteWorkflow() {
     const res = await apiDeleteWorkflow(workflowId);
     if (res.ok) {
       removeWorkflow(workflowId);
@@ -299,7 +298,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     }
   }
 
-  async function deleteSchedule(scheduleId: string) {
+  async function handleDeleteSchedule(scheduleId: string) {
     if (!workflow) return;
     const res = await apiDeleteSchedule(workflowId, scheduleId);
     if (res.ok) {
@@ -319,17 +318,6 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     if (res.ok) {
       upsertScheduleInDetail(workflowId, { ...schedule, is_enabled: !schedule.is_enabled });
     }
-  }
-
-  function resetDefaultsForm() {
-    if (!workflow) return;
-    const props = getInputProps(workflow.input_schema);
-    if (Object.keys(props).length > 0) {
-      setDefaultsDraft(buildDefaultsDraft(workflow));
-    } else {
-      setDefaultsJsonText(defaultParamsToJson(workflow.default_params));
-    }
-    setDefaultsError(null);
   }
 
   async function saveDefaultParams() {
@@ -374,7 +362,25 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     }
   }
 
-  // ── Loading / error ───────────────────────────────────────────────────────
+  async function saveScript() {
+    if (!workflow) return;
+    setScriptSaving(true);
+    try {
+      const res = await apiUpdateWorkflow(workflowId, { script_code: scriptDraft });
+      if (!res.ok) {
+        toast.error(res.error ?? "Failed to save script");
+        return;
+      }
+      updateWorkflowDetail(workflowId, { script_code: scriptDraft });
+      updateWorkflowInList(workflowId, { script_code: scriptDraft });
+      toast.success("Script saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setScriptSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] gap-2 text-muted-foreground">
@@ -396,13 +402,10 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     );
   }
 
-  // Toolkit list from steps
-  const toolkits = [...new Set(workflow.workflow_steps.map((s) => s.toolkit))];
-
+  const toolkits = workflow.toolkit_ids;
   const primarySchedule = workflow.scheduled_workflows[0];
   const isScheduleActive = workflow.scheduled_workflows.some((s) => s.is_enabled);
 
-  // Cast for RunDialog
   const workflowForDialog: Workflow = {
     id: workflow.id,
     name: workflow.name,
@@ -410,8 +413,7 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
     is_active: workflow.is_active,
     created_at: workflow.created_at,
     default_params: workflow.default_params,
-    toolkits,
-    step_count: workflow.workflow_steps.length,
+    toolkit_ids: toolkits,
     schedule_count: workflow.scheduled_workflows.length,
     scheduled_workflows: workflow.scheduled_workflows,
   };
@@ -419,20 +421,17 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
   return (
     <>
       <div className="px-3 sm:px-4 lg:px-6 py-6 md:py-10">
-        {/* Back */}
         <div className="mb-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push("/workflows")}
             className="rounded-full border border-border"
-            aria-label="Back"
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Header */}
         <div className="mb-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -448,462 +447,220 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
                     }}
                     autoFocus
                   />
-                  <Button size="icon" variant="ghost" className="h-9 w-9" onClick={saveName} disabled={saving}>
+                  <Button size="icon" variant="ghost" onClick={saveName} disabled={saving}>
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 text-green-600" />}
                   </Button>
-                  <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => setEditingName(false)}>
+                  <Button size="icon" variant="ghost" onClick={() => setEditingName(false)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <h1 className="text-2xl font-semibold text-foreground leading-tight font-serif">
+                  <h1 className="text-2xl font-semibold text-foreground tracking-tight font-serif">
                     {workflow.name}
                   </h1>
                   <button
                     onClick={() => { setNameInput(workflow.name); setEditingName(true); }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-accent"
-                    title="Edit name"
                   >
                     <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
                 </div>
               )}
 
-              <div className="mt-5 grid gap-3 text-sm text-muted-foreground">
-                {/*
-                <div className="flex items-center gap-4">
-                  <span className="w-20 text-xs uppercase tracking-wide text-muted-foreground/70">Apps</span>
-                  <div className="flex items-center gap-2">
-                    {toolkits.length > 0 ? (
-                      toolkits.map((tk) => <ToolkitBadge key={tk} toolkit={tk} size="sm" showLabel />)
-                    ) : (
-                      <span className="text-xs">None</span>
-                    )}
-                  </div>
+              <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Badge variant={isScheduleActive ? "default" : "secondary"} className="gap-1.5">
+                    {isScheduleActive ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                    {isScheduleActive ? "Active" : "Inactive"}
+                  </Badge>
+                  <span className="text-sm">
+                    {describeCron(primarySchedule?.cron_expression)}
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-4">
-                  <span className="w-20 text-xs uppercase tracking-wide text-muted-foreground/70">Creator</span>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs text-foreground">
-                      {workflow.name.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span className="text-sm text-foreground">You</span>
+                {toolkits.length > 0 && (
+                  <div className="flex gap-1.5">
+                    {toolkits.map((tk) => <ToolkitBadge key={tk} toolkit={tk} size="sm" />)}
                   </div>
-                </div>
-                */}
-
-                <div className="flex items-center gap-4">
-                  <span className="w-20 text-xs uppercase tracking-wide text-muted-foreground/70">Schedule</span>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={isScheduleActive ? "default" : "secondary"}
-                      className="gap-1"
-                    >
-                      {isScheduleActive ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                      {isScheduleActive ? "Active" : "Inactive"}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {describeCron(primarySchedule?.cron_expression)}
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                onClick={() => setRunOpen(true)}
-                disabled={!workflow.is_active}
-                className="gap-2"
-                size="sm"
-              >
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setRunOpen(true)} disabled={!workflow.is_active} className="gap-2" size="sm">
                 <Play className="w-3.5 h-3.5" />
                 Run
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => toggleActive()}
-              >
+              <Button variant="outline" size="sm" className="gap-2" onClick={toggleActive}>
                 {workflow.is_active ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                 {workflow.is_active ? "Pause" : "Resume"}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => {
-                  setEditSchedule(primarySchedule);
-                  setScheduleOpen(true);
-                }}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                Edit Schedule
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                onClick={() => setDeleteOpen(true)}
-                title="Delete workflow"
-              >
+              <Button variant="ghost" size="icon" className="h-9 w-9 hover:text-destructive" onClick={() => setDeleteOpen(true)}>
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
         <Tabs value={mainTab} onValueChange={onMainTabChange}>
-          <TabsList className="bg-transparent p-0 border-b border-border rounded-none w-full justify-start">
-            <TabsTrigger value="overview" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="default-inputs" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
-              Default Inputs
-            </TabsTrigger>
-            <TabsTrigger value="steps" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
-              Steps
-            </TabsTrigger>
-            <TabsTrigger value="schedules" className="rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
-              Schedules
-            </TabsTrigger>
-            <TabsTrigger value="history" className="rounded-none px-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
-              History
-            </TabsTrigger>
+          <TabsList className="bg-transparent p-0 border-b border-border rounded-none w-full justify-start mb-6">
+            <TabsTrigger value="overview" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Overview</TabsTrigger>
+            <TabsTrigger value="script" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Script</TabsTrigger>
+            <TabsTrigger value="schedules" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Schedules</TabsTrigger>
+            <TabsTrigger value="default-inputs" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Default Inputs</TabsTrigger>
+            <TabsTrigger value="history" className="rounded-none px-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">History</TabsTrigger>
           </TabsList>
 
-          {/* Overview tab */}
-          <TabsContent value="overview" className="mt-5 space-y-5">
-            {/* Description */}
+          <TabsContent value="overview" className="space-y-6">
             <section>
-              <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                What It Does
-              </h2>
+              <h3 className="text-sm font-semibold mb-2">Description</h3>
               {editingDesc ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={descInput}
-                    onChange={(e) => setDescInput(e.target.value)}
-                    rows={4}
-                    autoFocus
-                  />
+                <div className="space-y-3">
+                  <Textarea value={descInput} onChange={(e) => setDescInput(e.target.value)} rows={3} autoFocus />
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={saveDescription} disabled={saving}>
-                      {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Save
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingDesc(false)}>
-                      Cancel
-                    </Button>
+                    <Button size="sm" onClick={saveDescription} disabled={saving}>Save</Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditingDesc(false)}>Cancel</Button>
                   </div>
                 </div>
               ) : (
-                <div
-                  className="group relative rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground leading-relaxed cursor-pointer hover:bg-muted/70 transition-colors"
-                  onClick={() => { setDescInput(workflow.description ?? ""); setEditingDesc(true); }}
-                >
-                  {workflow.description ?? (
-                    <span className="italic text-muted-foreground/60">No description yet. Click to add one.</span>
-                  )}
-                  <Pencil className="absolute top-3 right-3 w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="group relative rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground leading-relaxed cursor-pointer hover:bg-muted/30" onClick={() => { setDescInput(workflow.description ?? ""); setEditingDesc(true); }}>
+                  {workflow.description || <span className="italic opacity-50">No description provided</span>}
+                  <Pencil className="absolute top-3 right-3 w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
             </section>
-
-            {/* Input schema */}
-            {workflow.input_schema &&
-              Object.keys((workflow.input_schema as { properties?: object }).properties ?? {}).length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                  What You Provide
-                </h2>
-                <div className="rounded-lg border border-border overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted/50 border-b border-border">
-                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide w-1/3">
-                          Input
-                        </th>
-                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          What to enter
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(
-                        (workflow.input_schema as { properties: Record<string, { description?: string; type?: string }> }).properties ?? {}
-                      ).map(([key, val], i) => (
-                        <tr key={key} className={cn("border-b border-border last:border-0", i % 2 === 1 && "bg-muted/20")}>
-                          <td className="px-4 py-3 font-mono text-xs text-foreground">{key}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
-                            {val.description ?? val.type ?? "-"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
           </TabsContent>
 
-          {/* Default inputs - saved defaults for {{params.*}} */}
-          <TabsContent value="default-inputs" className="mt-5">
-            <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
-              These values are stored on the workflow and pre-fill Run, Schedule, and Run once. They
-              map to <code className="text-xs bg-muted px-1 rounded">{"{{params.*}}"}</code> in step
-              arguments.
-            </p>
-
-            {defaultsUseFields ? (
-              <div className="space-y-8 max-w-3xl">
-                {Object.entries(getInputProps(workflow.input_schema)).map(([key, prop]) => {
-                  const required = getRequiredKeys(workflow.input_schema).includes(key);
-                  const isBool = prop.type === "boolean";
-                  return (
-                    <div
-                      key={key}
-                      className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-10"
-                    >
-                      <div className="sm:w-56 shrink-0 space-y-1">
-                        <Label htmlFor={`default-${key}`} className="text-foreground">
-                          {humanizeParamKey(key)}
-                          {required ? (
-                            <span className="text-destructive" aria-hidden>
-                              {" "}
-                              *
-                            </span>
-                          ) : null}
-                        </Label>
-                        {prop.description ? (
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {prop.description}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {isBool ? (
-                          <div className="flex items-center gap-2 pt-0.5">
-                            <Switch
-                              id={`default-${key}`}
-                              checked={defaultsDraft[key] === "true" || defaultsDraft[key] === "1"}
-                              onCheckedChange={(on) => {
-                                setDefaultsDraft((d) => ({ ...d, [key]: on ? "true" : "false" }));
-                              }}
-                            />
-                            <span className="text-sm text-muted-foreground">
-                              {defaultsDraft[key] === "true" || defaultsDraft[key] === "1"
-                                ? "True"
-                                : "False"}
-                            </span>
-                          </div>
-                        ) : (
-                          <Input
-                            id={`default-${key}`}
-                            value={defaultsDraft[key] ?? ""}
-                            onChange={(e) =>
-                              setDefaultsDraft((d) => ({ ...d, [key]: e.target.value }))
-                            }
-                            type={prop.type === "number" ? "number" : "text"}
-                            className="font-mono text-sm"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-2 max-w-3xl">
-                <Label htmlFor="defaults-json">Parameters (JSON object)</Label>
-                <Textarea
-                  id="defaults-json"
-                  value={defaultsJsonText}
-                  onChange={(e) => {
-                    setDefaultsJsonText(e.target.value);
-                    setDefaultsError(null);
-                  }}
-                  rows={12}
-                  className="font-mono text-xs"
-                  placeholder="{}"
-                />
-                <p className="text-xs text-muted-foreground">
-                  This workflow has no input schema yet. Edit the raw JSON object, or add
-                  input_properties when creating the workflow so fields appear above.
-                </p>
-              </div>
-            )}
-
-            {defaultsError ? (
-              <p className="text-sm text-destructive mt-4 rounded-lg bg-destructive/10 px-3 py-2 max-w-3xl">
-                {defaultsError}
-              </p>
-            ) : null}
-
-            <div className="flex justify-end gap-2 mt-8 pt-4 border-t border-border max-w-3xl">
-              <Button type="button" variant="outline" onClick={resetDefaultsForm} disabled={defaultsSaving}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={() => void saveDefaultParams()} disabled={defaultsSaving}>
-                {defaultsSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save"
-                )}
+          <TabsContent value="script" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Workflow Logic (JavaScript)</h3>
+              <Button size="sm" onClick={saveScript} disabled={scriptSaving} className="gap-2">
+                {scriptSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Save Script
               </Button>
             </div>
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <Textarea
+                value={scriptDraft}
+                onChange={(e) => setScriptDraft(e.target.value)}
+                rows={25}
+                className="font-mono text-[13px] leading-relaxed resize-none border-0 focus-visible:ring-0 rounded-none bg-transparent p-4"
+                placeholder="// Write your workflow logic here..."
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Define an <code>async function main(params, context)</code> to handle the execution logic.
+            </p>
           </TabsContent>
 
-          {/* Steps tab */}
-          <TabsContent value="steps" className="mt-5">
-            <StepEditor
-              workflowId={workflowId}
-              steps={workflow.workflow_steps}
-              onStepsChanged={(newSteps) => {
-                updateWorkflowDetail(workflowId, { workflow_steps: newSteps });
-                const nextToolkits = [...new Set(newSteps.map((s) => s.toolkit))];
-                updateWorkflowInList(workflowId, {
-                  step_count: newSteps.length,
-                  toolkits: nextToolkits,
-                });
-              }}
-            />
-          </TabsContent>
-
-          {/* Schedules tab */}
-          <TabsContent value="schedules" className="mt-5">
+          <TabsContent value="schedules">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold">Schedules</h3>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => { setEditSchedule(undefined); setScheduleOpen(true); }}
-              >
+              <h3 className="text-sm font-semibold">Configured Schedules</h3>
+              <Button size="sm" onClick={() => { setEditSchedule(undefined); setScheduleOpen(true); }} className="gap-2">
                 <Plus className="w-3.5 h-3.5" />
                 Add Schedule
               </Button>
             </div>
-
-            {workflow.scheduled_workflows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-border">
-                <Clock className="w-10 h-10 text-muted-foreground/40 mb-3" />
-                <p className="text-sm text-muted-foreground">No schedules configured</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">
-                  Add a schedule to run this workflow automatically
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {workflow.scheduled_workflows.map((sched) => (
-                  <div
-                    key={sched.id}
-                    className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3"
-                  >
-                    <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="space-y-3">
+              {workflow.scheduled_workflows.length === 0 ? (
+                <div className="py-12 text-center rounded-xl border border-dashed border-border bg-muted/20">
+                  <Clock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">No schedules active</p>
+                </div>
+              ) : (
+                workflow.scheduled_workflows.map((s) => (
+                  <div key={s.id} className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">{sched.name}</p>
-                      <p className="text-xs font-mono text-muted-foreground mt-0.5">{sched.cron_expression}</p>
+                      <p className="text-sm font-medium">{s.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono mt-0.5">{s.cron_expression}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Switch
-                        checked={sched.is_enabled}
-                        onCheckedChange={() => toggleSchedule(sched)}
-                        className="scale-75"
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => { setEditSchedule(sched); setScheduleOpen(true); }}
-                        title="Edit schedule"
-                      >
+                    <div className="flex items-center gap-2">
+                      <Switch checked={s.is_enabled} onCheckedChange={() => toggleSchedule(s)} className="scale-75" />
+                      <Button size="icon" variant="ghost" onClick={() => { setEditSchedule(s); setScheduleOpen(true); }}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => setDeleteSchedId(sched.id)}
-                        title="Delete schedule"
-                      >
+                      <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteSchedId(s.id)}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </TabsContent>
 
-          {/* History tab */}
-          <TabsContent value="history" className="mt-5">
-            <HistoryList logs={historyList} loading={historyLoading} />
+          <TabsContent value="default-inputs">
+            <div className="max-w-2xl space-y-6">
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="bg-muted/30 px-4 py-3 border-b border-border">
+                  <h3 className="text-sm font-semibold">Default Input Values</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Pre-filled when running or scheduling this workflow</p>
+                </div>
+                <div className="p-4 space-y-4">
+                  {Object.keys(getInputProps(workflow.input_schema)).length > 0 ? (
+                    Object.entries(getInputProps(workflow.input_schema)).map(([key, prop]) => (
+                      <div key={key} className="space-y-1.5">
+                        <Label className="text-xs font-semibold">{humanizeParamKey(key)}</Label>
+                        <Input
+                          value={defaultsDraft[key] ?? ""}
+                          onChange={(e) => setDefaultsDraft(d => ({ ...d, [key]: e.target.value }))}
+                          placeholder={prop.description || "Enter value..."}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold">Raw Parameters (JSON)</Label>
+                      <Textarea
+                        value={defaultsJsonText}
+                        onChange={(e) => setDefaultsJsonText(e.target.value)}
+                        rows={8}
+                        className="font-mono text-sm"
+                        placeholder="{}"
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="bg-muted/30 px-4 py-3 border-t border-border flex justify-end">
+                  <Button size="sm" onClick={saveDefaultParams} disabled={defaultsSaving} className="gap-2">
+                    {defaultsSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Save Inputs
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="history">
+            <HistoryList logs={historyList} loading={false} />
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Dialogs */}
-      <RunDialog
-        workflow={workflowForDialog}
-        open={runOpen}
-        onClose={() => setRunOpen(false)}
-        onSuccess={() => { fetchHistory(); }}
-      />
-
-      <RunOnceDialog
-        workflow={workflowForDialog}
-        open={runOnceOpen}
-        onClose={() => setRunOnceOpen(false)}
-        onSuccess={(sched) => {
-          upsertScheduleInDetail(workflowId, sched);
-          updateWorkflowInList(workflowId, {
-            schedule_count: workflow.scheduled_workflows.length + 1,
-          });
-        }}
-      />
-
+      <RunDialog workflow={workflowForDialog} open={runOpen} onClose={() => setRunOpen(false)} />
+      
       <ScheduleDialog
         workflow={workflowForDialog}
         schedule={editSchedule}
         open={scheduleOpen}
-        onClose={() => { setScheduleOpen(false); setEditSchedule(undefined); }}
-        onSuccess={(sched) => {
-          if (editSchedule) {
-            upsertScheduleInDetail(workflowId, sched);
-          } else {
-            upsertScheduleInDetail(workflowId, sched);
-            updateWorkflowInList(workflowId, {
-              schedule_count: workflow.scheduled_workflows.length + 1,
-            });
-          }
+        onClose={() => setScheduleOpen(false)}
+        onSuccess={(s) => {
+          upsertScheduleInDetail(workflowId, s);
+          setScheduleOpen(false);
         }}
       />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete <span className="font-semibold">{workflow.name}</span>{" "}
-              including all steps, schedules, and execution history.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the workflow and all its schedules.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={deleteWorkflow}
-            >
-              Delete
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteWorkflow} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -911,19 +668,12 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
       <AlertDialog open={!!deleteSchedId} onOpenChange={(v) => !v && setDeleteSchedId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Schedule</AlertDialogTitle>
-            <AlertDialogDescription>
-              This schedule will be permanently removed. The workflow will no longer run automatically.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Remove Schedule?</AlertDialogTitle>
+            <AlertDialogDescription>The workflow will no longer run automatically at this interval.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteSchedId && deleteSchedule(deleteSchedId)}
-            >
-              Delete
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteSchedId && handleDeleteSchedule(deleteSchedId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

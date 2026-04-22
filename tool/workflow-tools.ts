@@ -132,13 +132,14 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
           user_id: user.id,
           name,
           description,
-          workflow: [],
+          script_code: "// New workflow script",
           input_schema: inputSchema,
           output_schema: { type: "object" },
           defaults_for_required_parameters: defaultParams,
           is_active: true,
+          toolkit_ids: [],
         })
-        .select("id, name, description, is_active, created_at, defaults_for_required_parameters")
+        .select("id, name, description, is_active, created_at, defaults_for_required_parameters, script_code, toolkit_ids")
         .single();
 
       if (wfError || !workflow) {
@@ -151,51 +152,6 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
       }
 
       const workflowId = workflow.id as string;
-
-      let stepRows: Array<Record<string, unknown>>;
-      try {
-        stepRows = steps.map((step, idx) => {
-          const parsedArgs = parseJsonObject(
-            `tool_arguments_json for step "${step.name}"`,
-            step.tool_arguments_json
-          );
-          if (!parsedArgs.ok) {
-            throw new Error(parsedArgs.error);
-          }
-          return {
-            workflow_id: workflowId,
-            step_number: idx + 1,
-            name: step.name,
-            toolkit: step.toolkit,
-            tool_slug: step.tool_slug,
-            tool_arguments: parsedArgs.value,
-            timeout_seconds: step.timeout_seconds ?? 120,
-            retry_on_failure: step.retry_on_failure ?? true,
-            max_retries: step.max_retries ?? 1,
-          };
-        });
-      } catch (err) {
-        yield {
-          state: "output-error" as const,
-          success: false,
-          error: `Invalid step arguments: ${err instanceof Error ? err.message : "unknown error"}`,
-        };
-        return;
-      }
-
-      const { error: stepsError } = await supabase
-        .from("workflow_steps")
-        .insert(stepRows);
-
-      if (stepsError) {
-        await supabase.from("workflows").delete().eq("id", workflowId);
-        yield {
-          state: "output-error" as const,
-          success: false,
-          error: `Failed to create steps: ${stepsError.message}`,
-        };
-        return;
-      }
 
       let schedule: Record<string, unknown> | null = null;
       if (schedule_cron) {
@@ -222,6 +178,8 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
         is_active: boolean;
         created_at: string;
         defaults_for_required_parameters?: Record<string, unknown> | null;
+        script_code?: string | null;
+        toolkit_ids?: string[];
       };
 
       yield {
@@ -234,18 +192,12 @@ Example MCP step tool_arguments_json: '{"owner":"{{params.repo_owner}}","repo":"
           is_active: wfSaved.is_active,
           created_at: wfSaved.created_at,
           default_params: wfSaved.defaults_for_required_parameters ?? defaultParams,
-          toolkits: [...new Set(steps.map((s) => s.toolkit))],
-          step_count: steps.length,
+          toolkit_ids: wfSaved.toolkit_ids ?? [],
           schedule_count: schedule ? 1 : 0,
         },
-        steps: steps.map((s) => ({
-          name: s.name,
-          toolkit: s.toolkit,
-          tool_slug: s.tool_slug,
-        })),
         schedule,
         default_params: defaultParams,
-        message: `Workflow "${name}" created with ${steps.length} step(s)${schedule ? " and a schedule" : ""}.`,
+        message: `Workflow "${name}" created${schedule ? " and a schedule" : ""}.`,
         view_url: `/workflows/${workflowId}`,
       };
     } catch (error) {
@@ -288,7 +240,7 @@ export const workflowList = tool({
       const { data: workflows, error } = await supabase
         .from("workflows")
         .select(
-          "id, name, description, is_active, created_at, workflow_steps(toolkit), scheduled_workflows(id)"
+          "id, name, description, is_active, created_at, toolkit_ids, scheduled_workflows(id)"
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -309,20 +261,21 @@ export const workflowList = tool({
         description: string | null;
         is_active: boolean;
         created_at: string;
-        workflow_steps: Array<{ toolkit: string }>;
+        toolkit_ids: string[] | null;
         scheduled_workflows: Array<{ id: string }>;
       };
 
-      const result = ((workflows ?? []) as Row[]).map((w) => ({
-        id: w.id,
-        name: w.name,
-        description: w.description,
-        is_active: w.is_active,
-        created_at: w.created_at,
-        toolkits: [...new Set(w.workflow_steps.map((s) => s.toolkit))],
-        step_count: w.workflow_steps.length,
-        schedule_count: w.scheduled_workflows.length,
-      }));
+      const result = ((workflows ?? []) as Row[]).map((w) => {
+        return {
+          id: w.id,
+          name: w.name,
+          description: w.description,
+          is_active: w.is_active,
+          created_at: w.created_at,
+          toolkit_ids: w.toolkit_ids ?? [],
+          schedule_count: w.scheduled_workflows.length,
+        };
+      });
 
       yield {
         state: "output-available" as const,

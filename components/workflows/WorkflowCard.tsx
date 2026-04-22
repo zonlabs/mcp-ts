@@ -79,8 +79,8 @@ export function WorkflowCard({
           aria-label={`Open workflow: ${workflow.name}`}
         >
           <div className="shrink-0 pt-0.5">
-            {workflow.toolkits.length > 0 ? (
-              <ToolkitGroup toolkits={workflow.toolkits} max={2} size="md" />
+            {workflow.toolkit_ids.length > 0 ? (
+              <ToolkitGroup toolkits={workflow.toolkit_ids} max={2} size="md" />
             ) : (
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50">
                 <GitFork className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -110,16 +110,29 @@ export function WorkflowCard({
               </p>
             ) : null}
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>
-                {workflow.step_count} step{workflow.step_count !== 1 ? "s" : ""}
-              </span>
               {workflow.schedule_count > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <Clock className="h-3 w-3 shrink-0" aria-hidden />
+                  <Clock className="w-3 h-3" />
                   {workflow.schedule_count} schedule{workflow.schedule_count !== 1 ? "s" : ""}
                 </span>
-              ) : null}
+              ) : (
+                <span className="opacity-50 italic">No schedules</span>
+              )}
             </div>
+
+            {/* Toolkit badges */}
+            {workflow.toolkit_ids.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {workflow.toolkit_ids.map((toolkitId) => (
+                  <span
+                    key={toolkitId}
+                    className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary uppercase tracking-wider"
+                  >
+                    {toolkitId}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </button>
 

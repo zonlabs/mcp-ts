@@ -7,29 +7,15 @@ export interface Workflow {
   description: string | null;
   is_active: boolean;
   created_at: string;
-  toolkits: string[];
-  step_count: number;
+  toolkit_ids: string[];
   schedule_count: number;
   /** Saved defaults for `{{params.*}}` placeholders (DB: defaults_for_required_parameters) */
   default_params?: Record<string, unknown>;
   /** Optional when fetched from detail endpoint */
   scheduled_workflows?: Schedule[];
-}
-
-export interface WorkflowStep {
-  id: string;
-  workflow_id: string;
-  step_number: number;
-  name: string;
-  description: string | null;
-  toolkit: string;
-  tool_slug: string;
-  tool_arguments: Record<string, unknown>;
-  run_if_condition: Record<string, unknown> | null;
-  depends_on_step_id: string | null;
-  retry_on_failure: boolean;
-  max_retries: number;
-  timeout_seconds: number;
+  /** Script content */
+  script_code?: string | null;
+  script_runtime?: Record<string, unknown> | null;
 }
 
 export interface Schedule {
@@ -52,7 +38,9 @@ export interface WorkflowDetail {
   input_schema: Record<string, unknown>;
   output_schema: Record<string, unknown>;
   default_params?: Record<string, unknown>;
-  workflow_steps: WorkflowStep[];
+  script_code: string | null;
+  script_runtime: Record<string, unknown> | null;
+  toolkit_ids: string[];
   scheduled_workflows: Schedule[];
 }
 

@@ -19,8 +19,8 @@ export async function GET(
   const { data: workflow, error } = await supabase
     .from("workflows")
     .select(
-      `id, name, description, is_active, created_at, input_schema, output_schema, defaults_for_required_parameters,
-       workflow_steps(id, step_number, name, description, toolkit, tool_slug, tool_arguments, depends_on_step_id, run_if_condition, retry_on_failure, max_retries, timeout_seconds),
+      `id, name, description, is_active, created_at, input_schema, output_schema, defaults_for_required_parameters, 
+       script_code, script_runtime, toolkit_ids,
        scheduled_workflows(id, name, cron_expression, status, is_enabled, params, created_at)`
     )
     .eq("id", id)
@@ -31,19 +31,14 @@ export async function GET(
     return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
   }
 
-  const steps = [...((workflow.workflow_steps as Array<{ step_number: number }>) ?? [])].sort(
-    (a, b) => a.step_number - b.step_number
-  );
-
   const wf = workflow as Record<string, unknown>;
   const defaultParams = (wf.defaults_for_required_parameters as Record<string, unknown>) ?? {};
-  const { defaults_for_required_parameters: _d, workflow_steps: _ws, ...rest } = wf;
+  const { defaults_for_required_parameters: _d, ...rest } = wf;
 
   return NextResponse.json({
     workflow: {
       ...rest,
       default_params: defaultParams,
-      workflow_steps: steps,
     },
   });
 }
@@ -68,6 +63,9 @@ export async function PUT(
     description?: string;
     is_active?: boolean;
     default_params?: Record<string, unknown>;
+    script_code?: string;
+    script_runtime?: Record<string, unknown>;
+    toolkit_ids?: string[];
   } = {};
   try {
     body = await request.json();
@@ -79,13 +77,16 @@ export async function PUT(
   if (body.name !== undefined) patch.name = body.name.trim();
   if (body.description !== undefined) patch.description = body.description?.trim() ?? null;
   if (body.is_active !== undefined) patch.is_active = body.is_active;
+  if (body.script_code !== undefined) patch.script_code = body.script_code;
+  if (body.script_runtime !== undefined) patch.script_runtime = body.script_runtime;
+  if (body.toolkit_ids !== undefined) patch.toolkit_ids = body.toolkit_ids;
   if (body.default_params !== undefined) {
     const p = body.default_params;
     if (typeof p !== "object" || p === null || Array.isArray(p)) {
       return NextResponse.json(
         { error: "default_params must be a JSON object" },
         { status: 400 }
-      );
+       );
     }
     patch.defaults_for_required_parameters = p;
   }
@@ -99,7 +100,7 @@ export async function PUT(
     .update(patch)
     .eq("id", id)
     .eq("user_id", user.id)
-    .select("id, name, description, is_active, created_at, defaults_for_required_parameters")
+    .select("id, name, description, is_active, created_at, defaults_for_required_parameters, script_code, script_runtime, toolkit_ids")
     .single();
 
   if (error || !data) {
@@ -113,6 +114,9 @@ export async function PUT(
     is_active: boolean;
     created_at: string;
     defaults_for_required_parameters: Record<string, unknown> | null;
+    script_code: string | null;
+    script_runtime: Record<string, unknown> | null;
+    toolkit_ids: string[];
   };
 
   return NextResponse.json({
@@ -123,6 +127,9 @@ export async function PUT(
       is_active: row.is_active,
       created_at: row.created_at,
       default_params: row.defaults_for_required_parameters ?? {},
+      script_code: row.script_code,
+      script_runtime: row.script_runtime,
+      toolkit_ids: row.toolkit_ids ?? [],
     },
   });
 }
@@ -145,7 +152,6 @@ export async function DELETE(
   // Cascade delete in dependency order
   await supabase.from("execution_logs").delete().eq("workflow_id", id).eq("user_id", user.id);
   await supabase.from("scheduled_workflows").delete().eq("workflow_id", id).eq("user_id", user.id);
-  await supabase.from("workflow_steps").delete().eq("workflow_id", id);
 
   const { error } = await supabase
     .from("workflows")

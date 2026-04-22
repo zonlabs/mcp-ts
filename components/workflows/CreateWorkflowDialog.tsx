@@ -12,8 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ToolkitBadge } from "./ToolkitBadge";
 import type { Workflow } from "@/types/workflows";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +23,6 @@ interface CreateWorkflowDialogProps {
 
 interface GeneratedPreview {
   workflow: Workflow;
-  steps: Array<{
-    name: string;
-    toolkit: string;
-    tool_slug: string;
-    tool_arguments: Record<string, unknown>;
-  }>;
   schedule?: { name: string; cron_expression: string } | null;
   default_params?: Record<string, unknown>;
   discovered_tools_count?: number;
@@ -106,12 +98,11 @@ export function CreateWorkflowDialog({ open, onClose, onSuccess }: CreateWorkflo
             Create New Workflow
           </DialogTitle>
           <DialogDescription>
-            Describe what you want automated — AI will design the steps, schedule, and params for you.
+            Describe what you want automated — AI will design the script, schedule, and params for you.
           </DialogDescription>
         </DialogHeader>
 
         {preview ? (
-          /* ── Generated result ── */
           <div className="space-y-4 py-2">
             <div className="flex items-start gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3">
               <CheckCircle2 className="w-4.5 h-4.5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
@@ -120,7 +111,7 @@ export function CreateWorkflowDialog({ open, onClose, onSuccess }: CreateWorkflo
                   {preview.workflow.name}
                 </p>
                 <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
-                  Created with {preview.steps.length} step{preview.steps.length !== 1 ? "s" : ""}
+                  Workflow generated successfully
                   {preview.schedule ? ` • Scheduled: ${preview.schedule.cron_expression}` : ""}
                   {preview.discovered_tools_count
                     ? ` • ${preview.discovered_tools_count} MCP tool${preview.discovered_tools_count !== 1 ? "s" : ""} detected`
@@ -129,54 +120,27 @@ export function CreateWorkflowDialog({ open, onClose, onSuccess }: CreateWorkflo
               </div>
             </div>
 
-            {/* Steps preview */}
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Steps
-              </p>
-              {preview.steps.map((step, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
-                >
-                  <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center shrink-0">
-                    {idx + 1}
-                  </div>
-                  <ToolkitBadge toolkit={step.toolkit} size="sm" />
-                  <span className="text-sm text-foreground flex-1 min-w-0 truncate">
-                    {step.name}
-                  </span>
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    {step.toolkit}
-                  </Badge>
+            {preview.default_params && Object.keys(preview.default_params).length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Default Inputs
+                </p>
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs font-mono space-y-1">
+                  {Object.entries(preview.default_params).map(([k, v]) => (
+                    <div key={k} className="flex gap-2">
+                      <span className="text-muted-foreground">{k}:</span>
+                      <span className="text-foreground">{String(v)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-
-            {/* Default params */}
-            {preview.default_params &&
-              Object.keys(preview.default_params).length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Default Inputs
-                  </p>
-                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs font-mono space-y-1">
-                    {Object.entries(preview.default_params).map(([k, v]) => (
-                      <div key={k} className="flex gap-2">
-                        <span className="text-muted-foreground">{k}:</span>
-                        <span className="text-foreground">{String(v)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground">
-              You can edit steps, params, and schedule on the workflow detail page.
+              You can edit the script, params, and schedule on the workflow detail page.
             </p>
           </div>
         ) : (
-          /* ── Prompt input ── */
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Textarea
@@ -201,7 +165,6 @@ export function CreateWorkflowDialog({ open, onClose, onSuccess }: CreateWorkflo
               </p>
             </div>
 
-            {/* Example prompts */}
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Examples
