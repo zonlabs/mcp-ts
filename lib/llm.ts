@@ -10,6 +10,14 @@ export type LlmConfig = {
   baseUrl?: string;
 };
 
+const TITLE_MODEL_BY_PROVIDER: Record<string, string> = {
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-haiku-4-5',
+  gemini: 'gemini-2.0-flash',
+  google: 'gemini-2.0-flash',
+  deepseek: 'deepseek-chat',
+};
+
 export function getModelFromConfig(config?: LlmConfig) {
   const provider = (config?.provider || 'openai').toLowerCase().trim();
   const apiKey = config?.apiKey?.trim();
@@ -26,4 +34,22 @@ export function getModelFromConfig(config?: LlmConfig) {
     return google(requestedModel);
   }
   return createOpenAI({ apiKey })(requestedModel);
+}
+
+export function getTitleModel(config?: LlmConfig) {
+  const provider = (config?.provider || 'openai').toLowerCase().trim();
+  const apiKey = config?.apiKey?.trim();
+  const titleModel = TITLE_MODEL_BY_PROVIDER[provider] || config?.model?.trim() || 'gpt-4.1-mini';
+
+  if (provider === 'deepseek') {
+    return createDeepSeek({ apiKey: apiKey || '' })(titleModel);
+  }
+  if (provider === 'anthropic') {
+    return createAnthropic({ apiKey: apiKey || '' })(titleModel);
+  }
+  if (provider === 'google' || provider === 'gemini') {
+    return google(titleModel);
+  }
+
+  return createOpenAI({ apiKey })(titleModel);
 }

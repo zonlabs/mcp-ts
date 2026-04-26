@@ -16,7 +16,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { GatewayServerSelection } from '@/lib/gateway-access';
 import { NextResponse } from 'next/server';
 import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
-import { getModelFromConfig } from '@/lib/llm';
+import { getModelFromConfig, getTitleModel } from '@/lib/llm';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -217,12 +217,12 @@ async function generateChatTitle(input: {
     baseUrl?: string;
   };
 }): Promise<string | null> {
-  const model = getModelFromConfig(input.llmConfig);
+  const model = getTitleModel(input.llmConfig);
   try {
     const result = await generateText({
       model,
       prompt: `Create a concise chat title (3-6 words). Avoid quotes and punctuation.\nMessage: ${input.prompt}`,
-      maxOutputTokens: 16,
+      maxOutputTokens: 24,
     });
     const raw = result.text?.trim() || '';
     if (!raw) return null;
