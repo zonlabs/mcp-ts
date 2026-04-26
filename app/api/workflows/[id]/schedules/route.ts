@@ -71,6 +71,8 @@ export async function POST(
     return NextResponse.json({ error: "cron_expression is required" }, { status: 400 });
   }
 
+  const isEnabled = body.is_enabled ?? true;
+
   const { data, error } = await supabase
     .from("scheduled_workflows")
     .insert({
@@ -78,8 +80,8 @@ export async function POST(
       user_id: user.id,
       name: body.name.trim(),
       cron_expression: body.cron_expression.trim(),
-      status: "active",
-      is_enabled: body.is_enabled ?? true,
+      status: isEnabled ? "active" : "paused",
+      is_enabled: isEnabled,
       params: body.params ?? {},
     })
     .select("id, name, cron_expression, status, is_enabled, params, created_at")

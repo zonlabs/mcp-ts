@@ -141,6 +141,8 @@ function McpStoreProviderInner({
   useEffect(() => {
     if (connections.length > 0) {
       setMcpClient({ connections, sseClient });
+    } else {
+      setMcpClient(null);
     }
   }, [connections, sseClient]);
 
