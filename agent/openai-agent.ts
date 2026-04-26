@@ -5,6 +5,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, tool, type LanguageModelUsage, type ToolSet } from "ai";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
 import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
+import { ToolRouter } from "@mcp-ts/sdk/shared";
 import { z } from "zod";
 import type { GatewayServerSelection, GatewayToolInfo } from "@/lib/gateway-access";
 import { getModelFromConfig } from "@/lib/llm";
@@ -41,7 +42,8 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 
 3. **Connect to Server**
    - Call "MCPASSISTANT_INITIATE_CONNECTION" with the server_url and server_name from search results
-   - Inform the user about the connection
+   - Use \`connectionState\` from the tool result to report status accurately
+
 
 4. **Complete the Task**
    - Use the mcp_* tools to fulfill the request
@@ -56,6 +58,9 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 - Present multiple options if several servers match, let the user choose
 - Handle errors gracefully: explain issues clearly and suggest solutions
 - Keep responses concise and actionable
+- Never say "connected successfully" unless MCPASSISTANT_INITIATE_CONNECTION returns \`connectionState: "ready"\`.
+- If connection state is \`ready\`, do not add speculative OAuth warnings like "you may need to authenticate."
+- **CRITICAL TOOL RULE**: You have access to a vast catalog of external tools, but you cannot call them directly. To use a tool, you MUST use \`mcp_search_tool_bm2 5\` to find it, \`mcp_get_tool_schema\` to learn its arguments, and \`mcp_execute_tool\` to run it. Never attempt to call a discovered tool directly by its name.
 `;
 
 const MAX_TOOL_NAME_LENGTH = 64;
@@ -296,7 +301,8 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
   let mcpTools: Record<string, any> = { ...baseTools };
 
   try {
-    const discoveredTools = await AIAdapter.getTools(manager);
+    const router = new ToolRouter(manager, { strategy: "search", maxTools: 5 });
+    const discoveredTools = await AIAdapter.getTools(manager, { toolRouter: router });
     mcpTools = { ...mcpTools, ...discoveredTools };
   } catch (error) {
     console.error("[MCP] Failed to load MCP tools:", error);

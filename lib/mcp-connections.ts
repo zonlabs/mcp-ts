@@ -16,7 +16,7 @@ export interface McpConnectionRecord {
   createdAt: number;
   active: boolean;
   connectionStatus: string;
-  tools: McpToolSummary[];
+  // tools: McpToolSummary[];
 }
 
 function sanitizeTools(tools: any[] = []): McpToolSummary[] {
@@ -31,7 +31,7 @@ function sanitizeTools(tools: any[] = []): McpToolSummary[] {
 function toConnectionRecord(
   session: SessionData,
   active: boolean,
-  tools: McpToolSummary[] = []
+  // tools: McpToolSummary[] = []
 ): McpConnectionRecord {
   return {
     sessionId: session.sessionId,
@@ -42,7 +42,7 @@ function toConnectionRecord(
     createdAt: session.createdAt ?? Date.now(),
     active,
     connectionStatus: active ? "READY" : "FAILED",
-    tools,
+    // tools,
   };
 }
 
@@ -64,9 +64,9 @@ export async function getMcpConnectionsForIdentity(
         const tools = sanitizeTools(
           Array.isArray(toolsResult?.tools) ? toolsResult.tools : []
         );
-        return toConnectionRecord(session, true, tools);
+        return toConnectionRecord(session, true);
       } catch {
-        return toConnectionRecord(session, false, []);
+        return toConnectionRecord(session, false);
       } finally {
         client.disconnect("mcp-connections-check");
         client.dispose();
