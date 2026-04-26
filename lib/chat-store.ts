@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import type { McpAgentUIMessage } from '@/agent/openai-agent';
+import type { McpAgentUIMessage } from '@/agent/chat-agent';
 
 /**
  * Creates a new chat session for the current user.

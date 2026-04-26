@@ -16,7 +16,7 @@ import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import { AlertCircle, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
-import type { McpAgentUIMessage } from '@/agent/openai-agent';
+import type { McpAgentUIMessage } from '@/agent/chat-agent';
 
 import {
   Conversation,

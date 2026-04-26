@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { convertToModelMessages, createIdGenerator, generateText, createUIMessageStreamResponse } from 'ai';
-import { createMcpAgent, type McpAgentUIMessage } from '@/agent/openai-agent';
+import { createMcpAgent, type McpAgentUIMessage } from '@/agent/chat-agent';
 import { createClient } from '@/lib/supabase/server';
 import type { GatewayServerSelection } from '@/lib/gateway-access';
 import { NextResponse } from 'next/server';
