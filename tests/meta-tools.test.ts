@@ -36,4 +36,39 @@ test.describe('executeMetaTool', () => {
         expect(result?.isError).toBe(true);
         expect((result?.content[0] as any).text).toContain('serverName');
     });
+
+    test('should tell the model to execute discovered tools via mcp_execute_tool', async () => {
+        const router = {
+            getToolSchema: () => ({
+                name: 'web_search_exa',
+                description: 'Search the web',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        query: { type: 'string' },
+                    },
+                    required: ['query'],
+                },
+                serverId: 'server-123',
+            }),
+        };
+
+        const result = await executeMetaTool(
+            'mcp_get_tool_schema',
+            { toolName: 'web_search_exa', serverId: 'server-123' },
+            router as any
+        );
+
+        expect(result?.isError).toBe(false);
+        const text = (result?.content[0] as any).text;
+        const schema = JSON.parse(text);
+        expect(schema.executionInstructions).toEqual(
+            expect.objectContaining({
+                nextTool: 'mcp_execute_tool',
+                toolName: 'web_search_exa',
+                serverId: 'server-123',
+            })
+        );
+        expect(schema.executionInstructions.note).toContain('Do not call this discovered tool directly');
+    });
 });
