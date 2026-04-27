@@ -17,6 +17,7 @@
 
 import type { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ToolRouter } from './tool-router.js';
+import type { IndexedTool } from './tool-index.js';
 
 // ---------------------------------------------------------------------------
 // Tool Definitions
@@ -99,7 +100,8 @@ export function createGetSchemaToolDefinition(): Tool {
     description:
       'Get the full input schema (parameters) for a specific tool. ' +
       'Call this after mcp_search_tool_bm25 to get the parameter details ' +
-      'needed to call a tool correctly.',
+      'needed to call a tool correctly. ' +
+      'Do NOT call the discovered tool directly; after reading the schema, call mcp_execute_tool.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -189,7 +191,7 @@ export async function executeMetaTool(
   router: ToolRouter,
   callToolFn?: CallToolFn
 ): Promise<CallToolResult | null> {
-  const resolveToolSchema = (name: string, namespace?: string): { tool?: Tool; error?: CallToolResult } => {
+  const resolveToolSchema = (name: string, namespace?: string): { tool?: IndexedTool; error?: CallToolResult } => {
     try {
       return { tool: router.getToolSchema(name, namespace) };
     } catch (err) {
@@ -322,6 +324,13 @@ export async function executeMetaTool(
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
+        executionInstructions: {
+          nextTool: 'mcp_execute_tool',
+          toolName: tool.name,
+          serverId: tool.serverId,
+          note:
+            'Do not call this discovered tool directly unless it was explicitly registered as a runtime tool. Execute it via mcp_execute_tool and pass these parameters inside args.',
+        },
       };
 
       return {
