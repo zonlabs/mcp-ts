@@ -28,11 +28,19 @@ interface ToolResult {
     messageId: string;
 }
 
+interface SnapshotToolCall {
+    id: string;
+    name: string;
+    arguments: string;
+}
+
 /** State for tracking tool calls during a run */
 interface RunState {
     toolCallArgsBuffer: Map<string, string>;
     toolCallNames: Map<string, string>;
     pendingMcpCalls: Set<string>;
+    completedMcpCalls: Set<string>;
+    assistantMessageId?: string;
     textContent?: string;
     error: boolean;
 }
@@ -116,13 +124,59 @@ export class McpMiddleware extends Middleware {
         if (!anyInput.runId) anyInput.runId = this.generateId('mcp_run');
     }
 
+    private getSnapshotToolCalls(message: any): SnapshotToolCall[] {
+        const rawToolCalls = Array.isArray(message?.toolCalls)
+            ? message.toolCalls
+            : (Array.isArray(message?.tool_calls) ? message.tool_calls : []);
+
+        return rawToolCalls.flatMap((toolCall: any) => {
+            if (!toolCall || typeof toolCall !== 'object') return [];
+
+            const id = typeof toolCall.id === 'string' ? toolCall.id : undefined;
+            const fn = toolCall.function && typeof toolCall.function === 'object'
+                ? toolCall.function
+                : undefined;
+            const name = typeof fn?.name === 'string'
+                ? fn.name
+                : (typeof toolCall.name === 'string' ? toolCall.name : undefined);
+
+            if (!id || !name) return [];
+
+            const rawArgs = fn?.arguments ?? toolCall.arguments ?? toolCall.args;
+            const argsString = typeof rawArgs === 'string'
+                ? rawArgs
+                : (rawArgs && typeof rawArgs === 'object' ? JSON.stringify(rawArgs) : '{}');
+
+            return [{ id, name, arguments: argsString }];
+        });
+    }
+
+    private getResolvedToolCallIds(messages: any[]): Set<string> {
+        const resolved = new Set<string>();
+        for (const message of messages) {
+            if (message?.role !== 'tool') continue;
+            const toolCallId = message.toolCallId ?? message.tool_call_id;
+            if (typeof toolCallId === 'string') {
+                resolved.add(toolCallId);
+            }
+        }
+        return resolved;
+    }
+
+    private shouldFilterMessagesSnapshot(state: RunState): boolean {
+        return state.completedMcpCalls.size > 0 && state.pendingMcpCalls.size === 0;
+    }
+
     /** Process tool call events and update state */
     private handleToolCallEvent(event: BaseEvent, state: RunState): void {
-        const { toolCallArgsBuffer, toolCallNames, pendingMcpCalls } = state;
+        const { toolCallArgsBuffer, toolCallNames, pendingMcpCalls, completedMcpCalls } = state;
 
         // Accumulate text content for reconstruction
         if (event.type === EventType.TEXT_MESSAGE_CHUNK || event.type === EventType.TEXT_MESSAGE_CONTENT) {
             const e = event as any;
+            if (typeof e.messageId === 'string') {
+                state.assistantMessageId = e.messageId;
+            }
             if (e.delta) {
                 state.textContent = (state.textContent || '') + e.delta;
             }
@@ -132,7 +186,7 @@ export class McpMiddleware extends Middleware {
             const e = event as any;
             if (e.toolCallId && e.toolCallName) {
                 toolCallNames.set(e.toolCallId, e.toolCallName);
-                if (this.isMcpTool(e.toolCallName)) {
+                if (this.isMcpTool(e.toolCallName) && !completedMcpCalls.has(e.toolCallId)) {
                     pendingMcpCalls.add(e.toolCallId);
                 }
                 console.log(`[McpMiddleware] TOOL_CALL_START: ${e.toolCallName} (id: ${e.toolCallId}, isMCP: ${this.isMcpTool(e.toolCallName)})`);
@@ -152,32 +206,51 @@ export class McpMiddleware extends Middleware {
             console.log(`[McpMiddleware] TOOL_CALL_END: ${toolCallNames.get(e.toolCallId) ?? 'unknown'} (id: ${e.toolCallId})`);
         }
 
+        if (event.type === EventType.TOOL_CALL_RESULT) {
+            const e = event as any;
+            if (typeof e.toolCallId === 'string') {
+                pendingMcpCalls.delete(e.toolCallId);
+                completedMcpCalls.add(e.toolCallId);
+            }
+        }
+
         // Workaround: Extract parallel tool calls from MESSAGES_SNAPSHOT
         if (event.type === EventType.MESSAGES_SNAPSHOT) {
             const messages = (event as any).messages || [];
             if (messages.length > 0) {
-                const lastMsg = messages[messages.length - 1];
-                // Update text content from snapshot if available (often more reliable)
-                if (lastMsg.role === 'assistant' && lastMsg.content) {
-                    state.textContent = lastMsg.content;
+                const resolvedToolCallIds = this.getResolvedToolCallIds(messages);
+
+                for (const toolCallId of [...pendingMcpCalls]) {
+                    if (resolvedToolCallIds.has(toolCallId) || completedMcpCalls.has(toolCallId)) {
+                        pendingMcpCalls.delete(toolCallId);
+                    }
                 }
 
-                // Discover tools
+                // Discover unresolved tools. LangGraph snapshots include historical
+                // assistant tool calls, so only calls without a tool result are pending.
                 for (let i = messages.length - 1; i >= 0; i--) {
                     const msg = messages[i];
-                    const tools = Array.isArray(msg.toolCalls) ? msg.toolCalls :
-                        (Array.isArray(msg.tool_calls) ? msg.tool_calls : []);
+                    const tools = this.getSnapshotToolCalls(msg)
+                        .filter(tc =>
+                            !resolvedToolCallIds.has(tc.id) &&
+                            !completedMcpCalls.has(tc.id) &&
+                            this.isMcpTool(tc.name)
+                        );
 
                     if (msg.role === 'assistant' && tools.length > 0) {
                         for (const tc of tools) {
-                            if (tc.id && tc.function?.name && !toolCallNames.has(tc.id)) {
-                                toolCallNames.set(tc.id, tc.function.name);
-                                toolCallArgsBuffer.set(tc.id, tc.function.arguments || '{}');
-                                if (this.isMcpTool(tc.function.name)) {
-                                    pendingMcpCalls.add(tc.id);
-                                    console.log(`[McpMiddleware] MESSAGES_SNAPSHOT: Discovered ${tc.function.name} (id: ${tc.id})`);
-                                }
+                            if (!toolCallNames.has(tc.id)) {
+                                toolCallNames.set(tc.id, tc.name);
+                                toolCallArgsBuffer.set(tc.id, tc.arguments || '{}');
+                                pendingMcpCalls.add(tc.id);
+                                console.log(`[McpMiddleware] MESSAGES_SNAPSHOT: Discovered ${tc.name} (id: ${tc.id})`);
                             }
+                        }
+                        if (typeof msg.id === 'string') {
+                            state.assistantMessageId = msg.id;
+                        }
+                        if (typeof msg.content === 'string') {
+                            state.textContent = msg.content;
                         }
                         break;
                     }
@@ -188,10 +261,15 @@ export class McpMiddleware extends Middleware {
 
     /** Execute pending MCP tools and return results */
     private async executeTools(state: RunState): Promise<ToolResult[]> {
-        const { toolCallArgsBuffer, toolCallNames, pendingMcpCalls } = state;
+        const { toolCallArgsBuffer, toolCallNames, pendingMcpCalls, completedMcpCalls } = state;
         const results: ToolResult[] = [];
 
         const promises = [...pendingMcpCalls].map(async (toolCallId) => {
+            if (completedMcpCalls.has(toolCallId)) {
+                pendingMcpCalls.delete(toolCallId);
+                return;
+            }
+
             const toolName = toolCallNames.get(toolCallId);
             if (!toolName) return;
 
@@ -206,6 +284,7 @@ export class McpMiddleware extends Middleware {
                 messageId: this.generateId('mcp_result'),
             });
             pendingMcpCalls.delete(toolCallId);
+            completedMcpCalls.add(toolCallId);
         });
 
         await Promise.all(promises);
@@ -235,6 +314,7 @@ export class McpMiddleware extends Middleware {
                 toolCallArgsBuffer: new Map(),
                 toolCallNames: new Map(),
                 pendingMcpCalls: new Set(),
+                completedMcpCalls: new Set(),
                 textContent: '',
                 error: false,
             };
@@ -286,7 +366,7 @@ export class McpMiddleware extends Middleware {
                 // Add the Assistant Message to history FIRST
                 if (toolCalls.length > 0 || state.textContent) {
                     const assistantMsg = {
-                        id: this.generateId('msg_ast'),
+                        id: state.assistantMessageId || this.generateId('msg_ast'),
                         role: 'assistant',
                         content: state.textContent || null, // Ensure null if empty string for strict LLMs
                         toolCalls: toolCalls.length > 0 ? toolCalls : undefined
@@ -315,6 +395,7 @@ export class McpMiddleware extends Middleware {
                 // Reset state for next turn
                 state.toolCallArgsBuffer.clear();
                 state.toolCallNames.clear();
+                state.assistantMessageId = undefined;
                 state.textContent = ''; // Clear text content for next turn
 
                 console.log(`[McpMiddleware] === CONTINUATION RUN === messages: ${input.messages.length}`);
@@ -340,6 +421,11 @@ export class McpMiddleware extends Middleware {
 
                         if (isContinuation && event.type === EventType.RUN_STARTED) {
                             console.log(`[McpMiddleware] Filtering RUN_STARTED from continuation`);
+                            return;
+                        }
+
+                        if (event.type === EventType.MESSAGES_SNAPSHOT && this.shouldFilterMessagesSnapshot(state)) {
+                            console.log(`[McpMiddleware] Filtering completed MCP MESSAGES_SNAPSHOT to preserve streamed message order`);
                             return;
                         }
 

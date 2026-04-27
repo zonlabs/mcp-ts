@@ -240,4 +240,285 @@ test.describe('McpMiddleware', () => {
     });
     expect(seenRunIds).toEqual(['run-1', 'run-1']);
   });
+
+  test('does not rediscover resolved LangGraph snapshot tool calls', async () => {
+    let handlerCalls = 0;
+    const tools: AguiTool[] = [
+      {
+        name: 'mcp_execute_tool',
+        description: 'Execute selected MCP tool',
+        parameters: { type: 'object', properties: {} },
+        handler: () => {
+          handlerCalls++;
+          return 'stale result';
+        },
+      },
+    ];
+    const input = createInput('find current data');
+    const next = createAgent([
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages,
+            {
+              id: 'assistant-tool',
+              role: 'assistant',
+              content: 'Let me search the web.',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: {
+                    name: 'mcp_execute_tool',
+                    arguments: JSON.stringify({ toolName: 'web_search_exa' }),
+                  },
+                },
+              ],
+            },
+            {
+              id: 'tool-result',
+              role: 'tool',
+              toolCallId: 'call-1',
+              content: 'already resolved',
+            },
+            {
+              id: 'assistant-final',
+              role: 'assistant',
+              content: 'Here is the final answer.',
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+    ]);
+
+    const events = await collectEvents(createMcpMiddleware({ tools })(input, next));
+
+    expect(handlerCalls).toBe(0);
+    expect(events.filter((event) => event.type === EventType.TOOL_CALL_RESULT)).toHaveLength(0);
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+  });
+
+  test('executes unresolved LangGraph snapshot tool calls once', async () => {
+    let continuationInput: RunAgentInput | undefined;
+    const tools: AguiTool[] = [
+      {
+        name: 'mcp_search_tool_bm25',
+        description: 'Search available tools',
+        parameters: { type: 'object', properties: { query: { type: 'string' } } },
+        handler: ({ query }) => `result for ${query}`,
+      },
+    ];
+    const input = createInput('find tools');
+    const next = createAgent([
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages,
+            {
+              id: 'assistant-tool',
+              role: 'assistant',
+              content: 'Let me search for tools.',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: {
+                    name: 'mcp_search_tool_bm25',
+                    arguments: JSON.stringify({ query: 'first search' }),
+                  },
+                },
+              ],
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+      (agentInput, subscriber) => {
+        continuationInput = agentInput;
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+    ]);
+
+    const events = await collectEvents(createMcpMiddleware({ tools })(input, next));
+
+    expect(events.filter((event) => event.type === EventType.TOOL_CALL_RESULT)).toHaveLength(1);
+    expect(continuationInput?.messages.at(-2)).toMatchObject({
+      id: 'assistant-tool',
+      role: 'assistant',
+      content: 'Let me search for tools.',
+    });
+    expect(continuationInput?.messages.at(-1)).toMatchObject({
+      role: 'tool',
+      toolCallId: 'call-1',
+      content: 'result for first search',
+    });
+  });
+
+  test('does not re-execute tool calls already completed by middleware when snapshots omit tool messages', async () => {
+    let handlerCalls = 0;
+    const tools: AguiTool[] = [
+      {
+        name: 'mcp_execute_tool',
+        description: 'Execute selected MCP tool',
+        parameters: { type: 'object', properties: {} },
+        handler: () => {
+          handlerCalls++;
+          return 'web result';
+        },
+      },
+    ];
+    const input = createInput('find current data');
+    const assistantToolCall = {
+      id: 'call-1',
+      type: 'function',
+      function: {
+        name: 'mcp_execute_tool',
+        arguments: JSON.stringify({ toolName: 'web_search_exa' }),
+      },
+    };
+    const next = createAgent([
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages,
+            {
+              id: 'assistant-tool',
+              role: 'assistant',
+              content: 'Let me search the web.',
+              toolCalls: [assistantToolCall],
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages.filter((message: any) => message.role !== 'tool'),
+            {
+              id: 'assistant-final',
+              role: 'assistant',
+              content: 'Here is the final answer.',
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+    ]);
+
+    const events = await collectEvents(createMcpMiddleware({ tools })(input, next));
+
+    expect(handlerCalls).toBe(1);
+    expect(events.filter((event) => event.type === EventType.TOOL_CALL_RESULT)).toHaveLength(1);
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+  });
+
+  test('filters final full-history snapshots after MCP continuations to preserve streamed UI order', async () => {
+    const tools: AguiTool[] = [
+      {
+        name: 'mcp_search_tool_bm25',
+        description: 'Search available tools',
+        parameters: { type: 'object', properties: { query: { type: 'string' } } },
+        handler: () => 'catalog result',
+      },
+    ];
+    const input = createInput('what tools do you have?');
+    const next = createAgent([
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages,
+            {
+              id: 'assistant-tool',
+              role: 'assistant',
+              content: 'Let me search for all available tools.',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: {
+                    name: 'mcp_search_tool_bm25',
+                    arguments: JSON.stringify({ query: 'all tools' }),
+                  },
+                },
+              ],
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: 'assistant-final',
+          delta: 'Here is a complete list of all available tools.',
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages,
+            {
+              id: 'assistant-final',
+              role: 'assistant',
+              content: 'Here is a complete list of all available tools.',
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+    ]);
+
+    const events = await collectEvents(createMcpMiddleware({ tools })(input, next));
+
+    const snapshotEvents = events.filter((event) => event.type === EventType.MESSAGES_SNAPSHOT);
+    expect(snapshotEvents).toHaveLength(1);
+    expect((snapshotEvents[0] as any).messages.at(-1).id).toBe('assistant-tool');
+    expect(events.filter((event) => event.type === EventType.TOOL_CALL_RESULT)).toHaveLength(1);
+    expect(events.at(-2)).toMatchObject({
+      type: EventType.TEXT_MESSAGE_CONTENT,
+      messageId: 'assistant-final',
+    });
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+  });
 });
