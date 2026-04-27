@@ -1,31 +1,66 @@
-<div align="center">
-  <img src="docs/images/mcp-ts-banner.svg" alt="MCP-TS Banner" width="100%" style="max-width: 1200px;" />
-</div>
-
-<div align="center">
-  <a href="https://zonlabs.github.io/mcp-ts/#ag-ui-demo">
-    <em>Watch AG-UI + LangChain demo</em>
-  </a>
-</div>
-<br />
-
-
-
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mcp-ts/sdk">
-    <img src="https://img.shields.io/npm/v/@mcp-ts/sdk?style=flat-square&logo=npm&logoColor=white&label=%40mcp-ts%2Fsdk&color=dc2626" alt="npm version" />
-  </a>
-  <a href="https://docs.mcp-assistant.in/">
-    <img src="https://img.shields.io/badge/docs-website-2563eb?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation" />
-  </a>
-  <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/license-MIT-84cc16?style=flat-square" alt="License: MIT" />
+  <a href="https://github.com/zonlabs/mcp-ts">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.png">
+      <img src="docs/images/logo-light.png" alt="mcp toolkit" width="400">
+    </picture>
   </a>
 </p>
 
+<div align="center">
+  <p>Every resource is context for your AI</p>
 
+  <p>
+    <a href="https://mcp-assistant.in/">🌐 Website</a>
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="https://docs.mcp-assistant.in/">📚 Documentation</a>
+  </p>
+
+  <p>
+    <a href="https://www.npmjs.com/package/@mcp-ts/sdk">
+      <img src="https://img.shields.io/npm/v/@mcp-ts/sdk?color=dc2626&label=npm&logo=npm&style=flat-square" alt="npm version" />
+    </a>
+    <a href="https://pypi.org/project/mcpassistant-gateway/">
+      <img src="https://img.shields.io/pypi/v/mcpassistant-gateway?color=3776ab&label=pypi&logo=pypi&style=flat-square" alt="pypi version" />
+    </a>
+    <a href="https://opensource.org/licenses/MIT">
+      <img src="https://img.shields.io/badge/license-MIT-84cc16?style=flat-square" alt="License: MIT" />
+    </a>
+  </p>
+</div>
+
+<br />
+
+## 📖 Table of Contents
+
+- [✨ Features](#-features)
+- [📦 Packages](#-packages)
+- [🛠️ SDK Setup (@mcp-ts/sdk)](#️-sdk-setup-mcp-tssdk)
+  - [📦 Installation](#-installation)
+  - [🚀 Quick Start](#-quick-start)
+- [🐍 Gateway Setup (mcpassistant-gateway)](#-gateway-setup-mcpassistant-gateway)
+  - [📦 Installation](#-installation-1)
+  - [🚀 Usage](#-usage)
+- [🏗️ Architecture](#️-architecture)
+- [📚 Documentation](#-documentation)
+- [⚙️ Environment Setup](#️-environment-setup)
+- [🧪 Examples](#-examples)
+- [💡 Inspiration](#-inspiration)
+
+---
+
+## 📦 Packages
+
+| Package | Description | Install |
+| :--- | :--- | :--- |
+| **[@mcp-ts/sdk](src)** | TypeScript/JavaScript SDK for clients & servers. | `npm i @mcp-ts/sdk` |
+| **[mcpassistant-gateway](packages/mcp-local-agent)** | Python bridge for local MCP support in remote apps. | `pip install mcpassistant-gateway` |
+
+---
 
 ## ✨ Features
+
+Most features are available out-of-the-box in the **TypeScript SDK**:
 
 - **SSE** - Server-Sent Events for connection state and observability updates
 - **Flexible Storage** - Redis, SQLite, File System, or In-Memory backends
@@ -71,21 +106,23 @@ That’s how `@mcp-ts` started.
 
 <br/>
 
-## 📦 Installation
+## 🛠️ SDK Setup (@mcp-ts/sdk)
+
+### 📦 Installation
 
 ```bash
 npm install @mcp-ts/sdk
 ```
 
-The package supports multiple storage backends out of the box:
+The SDK supports multiple storage backends out of the box:
 - **Memory** (default, no setup required)
 - **File** (local persistence)
 - **SQLite** (fast local persistence, requires `npm install better-sqlite3`)
 - **Redis** (production-ready, requires `npm install ioredis`)
 
-## 🚀 Quick Start
+### 🚀 Quick Start
 
-### 🖥️ Server-Side (Next.js)
+#### 🖥️ Server-Side (Next.js)
 
 ```typescript
 // app/api/mcp/route.ts
@@ -322,14 +359,39 @@ The library supports multiple storage backends. You can explicitly select one us
     MCP_TS_STORAGE_TYPE=memory
     ```
 
+---
+
+## 🐍 Gateway Setup (mcpassistant-gateway)
+
+The **MCP Gateway** is a Python-based bridge that allows local MCP servers to be accessed by remote applications via an outbound connection. This is useful for providing local context (like your filesystem) to a hosted AI agent.
+
+### 📦 Installation
+
+```bash
+pip install mcpassistant-gateway
+```
+
+### 🚀 Usage
+
+You can run the gateway using `uvx` or `pip`:
+
+```bash
+# Run the interactive menu
+uvx mcpassistant-gateway menu
+
+# Run the bridge directly
+uvx mcpassistant-gateway run --name "local-files"
+```
+
+---
+
 ## 🏗️ Architecture
 
-`@mcp-ts/sdk` supports two common runtime topologies: direct SSE from browser clients, and outbound bridge connectivity for local agents.
-
+The MCP Toolkit supports two common runtime topologies:
 
 ```mermaid
 graph LR
-    subgraph Direct["Direct SDK Flow (SSE)"]
+    subgraph Direct["Direct SDK Flow (TypeScript)"]
         UI[Browser UI]
         Hook[useMcp Hook]
         API[Next.js /api/mcp]
@@ -345,10 +407,10 @@ graph LR
         Mgr <--> MCP
     end
 
-    subgraph Bridge["Remote Bridge Flow (mcp-local-agent)"]
+    subgraph Bridge["Remote Bridge Flow (Python)"]
         direction TB
         Spacer[" "]
-        Agent[Local Agent Runtime]
+        Agent[mcpassistant-gateway]
         Remote[Remote Bridge Server]
         LocalMcp[Local MCP Servers]
 
@@ -360,7 +422,7 @@ graph LR
 ```
 
 - **Direct SDK flow**: Browser clients use `useMcp` over HTTP + SSE to a server route backed by `MultiSessionClient`.
-- **Bridge flow**: `mcp-local-agent` keeps an outbound authenticated WebSocket to a remote bridge and forwards tool calls to local MCP servers.
+- **Bridge flow**: `mcpassistant-gateway` keeps an outbound authenticated WebSocket to a remote bridge and forwards tool calls to local MCP servers.
 - **Storage**: Session state and connection metadata persist in Redis, File, SQLite, or Memory backends.
 
 > [!NOTE]

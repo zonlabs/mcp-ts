@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 160" width="700" height="160" role="img" aria-label="toolkit Logo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 160" width="540" height="160" role="img" aria-label="toolkit Logo">
   <!-- Rounded Red Icon on the left -->
   <g transform="translate(0, 0)">
     <rect width="160" height="160" rx="40" fill="#d30000"/>
@@ -9,5 +9,5 @@
   </g>
   
   <!-- "toolkit" Text Style: Modern Two-Tone Dark for Light Theme -->
-  <text x="185" y="112" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="105" letter-spacing="-2" xml:space="preserve"><tspan font-weight="400" fill="#666666">tool</tspan><tspan font-weight="800" fill="#111111">kit</tspan></text>
+  <text x="185" y="112" font-family="'Segoe UI', Arial, sans-serif" font-size="105" letter-spacing="-2" xml:space="preserve"><tspan font-weight="400" fill="#666666" y="112">tool</tspan><tspan font-weight="700" fill="#111111" y="112">kit</tspan></text>
 </svg>
