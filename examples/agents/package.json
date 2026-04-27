@@ -10,26 +10,26 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.42",
-    "@copilotkit/react-core": "1.51.0",
-    "@copilotkit/react-ui": "1.51.0",
-    "@copilotkit/runtime": "1.51.0",
+    "@ag-ui/client": "^0.0.52",
+    "@copilotkit/react-core": "1.56.3",
+    "@copilotkit/react-ui": "1.56.3",
+    "@copilotkit/runtime": "1.56.3",
     "@mcp-ts/sdk": "file:../..",
-    "@supabase/supabase-js": "^2.101.0",
-    "next": "16.1.1",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "react18-json-view": "^0.2.9"
+    "@supabase/supabase-js": "^2.104.1",
+    "next": "16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react18-json-view": "^0.2.10"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.1",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@eslint/eslintrc": "^3.3.5",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^10.2.1",
+    "eslint-config-next": "16.2.4",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6.0.3"
   }
 }

@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
-from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from ag_ui_adk import ADKAgent, AGUIToolset, add_adk_fastapi_endpoint
 from google.adk.agents import LlmAgent
 from google.adk import tools as adk_tools
 from google.adk.models.lite_llm import LiteLlm  # For multi-model support
+from dotenv import load_dotenv
 
 import logging
+
+
+load_dotenv(Path(__file__).with_name(".env"))
 
 GEMINI_MODEL = "gemini-2.0-flash"
 OPENAI_MODEL = "openai/gpt-4o"
@@ -35,6 +41,9 @@ sample_agent = LlmAgent(
 You are a helpful AI assistant that helps users with MCP Tools.
 Note: you can call multiple tools at the same time to save up time.
     """,
+     tools=[
+        AGUIToolset() # Add only the sayHello tool exposed by the AG-UI client
+    ],
 )
 
 # Create ADK middleware agent instance
