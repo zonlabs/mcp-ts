@@ -95,6 +95,10 @@ export class McpMiddleware extends Middleware {
         }
     }
 
+    private normalizeArgsString(argsString: string): string {
+        return JSON.stringify(this.parseArgs(argsString));
+    }
+
     private async executeTool(toolName: string, args: Record<string, any>): Promise<string> {
         const tool = this.tools.find(t => t.name === toolName);
         if (!tool?.handler) {
@@ -376,7 +380,7 @@ export class McpMiddleware extends Middleware {
                 const toolCalls = [];
                 for (const toolCallId of state.pendingMcpCalls) {
                     const name = state.toolCallNames.get(toolCallId);
-                    const args = state.toolCallArgsBuffer.get(toolCallId) || '{}';
+                    const args = this.normalizeArgsString(state.toolCallArgsBuffer.get(toolCallId) || '{}');
                     if (name) {
                         toolCalls.push({
                             id: toolCallId,

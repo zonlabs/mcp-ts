@@ -241,6 +241,73 @@ test.describe('McpMiddleware', () => {
     expect(seenRunIds).toEqual(['run-1', 'run-1']);
   });
 
+  test('normalizes duplicated streamed tool args in assistant history', async () => {
+    const toolResults: string[] = [];
+    const tools: AguiTool[] = [
+      {
+        name: 'mcp_search_tool_bm25',
+        description: 'Search available tools',
+        parameters: { type: 'object', properties: { query: { type: 'string' } } },
+        handler: ({ query }) => {
+          toolResults.push(query);
+          return `result for ${query}`;
+        },
+      },
+    ];
+    const input = createInput('find tools');
+    let continuationInput: RunAgentInput | undefined;
+    const next = createAgent([
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: 'assistant-1',
+          delta: 'Let me search.',
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_START,
+          toolCallId: 'call-1',
+          toolCallName: 'mcp_search_tool_bm25',
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId: 'call-1',
+          delta: JSON.stringify({ query: 'copilotkit' }),
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_ARGS,
+          toolCallId: 'call-1',
+          delta: JSON.stringify({ query: 'copilotkit' }),
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.TOOL_CALL_END,
+          toolCallId: 'call-1',
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+      (agentInput, subscriber) => {
+        continuationInput = agentInput;
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+    ]);
+
+    await collectEvents(createMcpMiddleware({ tools })(input, next));
+
+    const assistantMessage = continuationInput?.messages.at(-2) as any;
+    const argsString = assistantMessage.toolCalls[0].function.arguments;
+    expect(JSON.parse(argsString)).toEqual({ query: 'copilotkit' });
+    expect(toolResults).toEqual(['copilotkit']);
+  });
+
   test('does not rediscover resolved LangGraph snapshot tool calls', async () => {
     let handlerCalls = 0;
     const tools: AguiTool[] = [
