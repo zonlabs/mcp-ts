@@ -163,8 +163,31 @@ export class McpMiddleware extends Middleware {
         return resolved;
     }
 
-    private shouldFilterMessagesSnapshot(state: RunState): boolean {
-        return state.completedMcpCalls.size > 0 && state.pendingMcpCalls.size === 0;
+    private shouldFilterMessagesSnapshot(event: BaseEvent, state: RunState): boolean {
+        if (state.completedMcpCalls.size === 0 || state.pendingMcpCalls.size > 0) {
+            return false;
+        }
+
+        // Only suppress snapshots that replay an assistant answer we already streamed.
+        // Snapshot-only final answers still need to reach the UI.
+        if (!state.assistantMessageId && !state.textContent) {
+            return false;
+        }
+
+        const messages = (event as any).messages;
+        if (!Array.isArray(messages)) {
+            return false;
+        }
+
+        const lastAssistant = [...messages].reverse().find((message) => message?.role === 'assistant');
+        if (!lastAssistant) {
+            return false;
+        }
+
+        return (
+            (typeof lastAssistant.id === 'string' && lastAssistant.id === state.assistantMessageId) ||
+            (typeof lastAssistant.content === 'string' && lastAssistant.content === state.textContent)
+        );
     }
 
     /** Process tool call events and update state */
@@ -424,7 +447,7 @@ export class McpMiddleware extends Middleware {
                             return;
                         }
 
-                        if (event.type === EventType.MESSAGES_SNAPSHOT && this.shouldFilterMessagesSnapshot(state)) {
+                        if (event.type === EventType.MESSAGES_SNAPSHOT && this.shouldFilterMessagesSnapshot(event, state)) {
                             console.log(`[McpMiddleware] Filtering completed MCP MESSAGES_SNAPSHOT to preserve streamed message order`);
                             return;
                         }

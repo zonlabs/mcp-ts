@@ -521,4 +521,82 @@ test.describe('McpMiddleware', () => {
     });
     expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   });
+
+  test('keeps snapshot-only final answers after MCP continuations', async () => {
+    let handlerCalls = 0;
+    const tools: AguiTool[] = [
+      {
+        name: 'mcp_search_tool_bm25',
+        description: 'Search available tools',
+        parameters: { type: 'object', properties: { query: { type: 'string' } } },
+        handler: () => {
+          handlerCalls++;
+          return 'catalog result';
+        },
+      },
+    ];
+    const input = createInput('what tools do you have?');
+    const next = createAgent([
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages,
+            {
+              id: 'assistant-tool',
+              role: 'assistant',
+              content: 'Let me search for all available tools.',
+              toolCalls: [
+                {
+                  id: 'call-1',
+                  type: 'function',
+                  function: {
+                    name: 'mcp_search_tool_bm25',
+                    arguments: JSON.stringify({ query: 'all tools' }),
+                  },
+                },
+              ],
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+      (agentInput, subscriber) => {
+        subscriber.next({
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            ...agentInput.messages,
+            {
+              id: 'assistant-final',
+              role: 'assistant',
+              content: 'Here is a complete list of all available tools.',
+            },
+          ],
+        } as BaseEvent);
+        subscriber.next({
+          type: EventType.RUN_FINISHED,
+          threadId: 'thread-1',
+          runId: agentInput.runId,
+        } as BaseEvent);
+        subscriber.complete();
+      },
+    ]);
+
+    const events = await collectEvents(createMcpMiddleware({ tools })(input, next));
+
+    const snapshotEvents = events.filter((event) => event.type === EventType.MESSAGES_SNAPSHOT);
+    expect(handlerCalls).toBe(1);
+    expect(snapshotEvents).toHaveLength(2);
+    expect((snapshotEvents.at(-1) as any).messages.at(-1)).toMatchObject({
+      id: 'assistant-final',
+      role: 'assistant',
+      content: 'Here is a complete list of all available tools.',
+    });
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+  });
 });
