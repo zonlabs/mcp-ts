@@ -1,21 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { gql } from "@apollo/client";
-import { useQuery } from "@apollo/client/react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, Check, Copy, Star } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { McpServer } from "@/types/mcp";
-import { RECENT_MCP_SERVERS_QUERY } from "@/lib/graphql";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { useRegistryRecentServers } from "@/hooks/useRegistryRecentServers";
 import { RegistryServerCard } from "@/components/registry/RegistryServerCard";
-
-// GraphQL query for recent MCP servers - imported from lib/graphql.ts
-const GET_RECENT_SERVERS = gql`${RECENT_MCP_SERVERS_QUERY}`;
 
 function ServerItemSkeleton() {
   return (
@@ -46,27 +40,22 @@ function ServerCard({ server }: { server: McpServer }) {
 
   return (
     <div className="group flex h-full flex-col gap-3 border-b border-red-200/70 p-3 transition-all duration-300 sm:rounded-xl sm:border-b-0 sm:p-2 sm:hover:bg-card/20 dark:border-red-400/25">
-      {/* Icon and Transport Badge Row */}
       <div className="flex items-center justify-between">
         <ServerIcon
           serverName={server.name}
           serverUrl={server.url}
           size={40}
         />
-        {/* Transport Badge - Right Side */}
         <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-md font-normal">
           {server.transport}
         </Badge>
       </div>
 
-      {/* Server Info */}
       <div className="space-y-2">
-        {/* Title */}
         <h3 className="font-medium text-sm text-foreground/90 group-hover:text-primary transition-colors">
           {server.name}
         </h3>
 
-        {/* Description with Markdown */}
         {server.description && (
           <div className="text-xs text-muted-foreground line-clamp-2 prose prose-sm dark:prose-invert max-w-none prose-p:m-0 prose-p:inline prose-strong:text-foreground prose-em:text-muted-foreground">
             <ReactMarkdown>
@@ -75,7 +64,6 @@ function ServerCard({ server }: { server: McpServer }) {
           </div>
         )}
 
-        {/* URL with Copy Button */}
         {server.url && (
           <button
             onClick={handleCopyUrl}
@@ -91,7 +79,6 @@ function ServerCard({ server }: { server: McpServer }) {
           </button>
         )}
 
-        {/* Created At */}
         {server.createdAt && (
           <p className="text-xs text-muted-foreground">
             {new Date(server.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -103,30 +90,45 @@ function ServerCard({ server }: { server: McpServer }) {
 }
 
 export default function McpServersSection() {
-  // Registry Data
   const { servers: registryServers, loading: registryLoading } = useRegistryRecentServers(12);
 
-  // Local Data (Apollo)
-  const { loading: localLoading, error: localError, data: localData } = useQuery<{
-    mcpServers: {
-      edges: Array<{ node: McpServer }>;
-    };
-  }>(GET_RECENT_SERVERS, {
-    variables: {
-      first: 16,
-      filters: { isFeatured: { exact: true } },
-      order: { createdAt: "DESC" }, // Order by creation date descending (newest first)
-    },
-    fetchPolicy: "cache-and-network", // Always fetch fresh data while showing cached
-  });
+  const [localLoading, setLocalLoading] = useState(true);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [localServers, setLocalServers] = useState<McpServer[]>([]);
 
-  // Extract nodes from edges structure
-  const edges = localData?.mcpServers?.edges || [];
-  const localServers: McpServer[] = edges.map((edge: { node: McpServer }) => edge.node);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLocalLoading(true);
+      setLocalError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set("first", "16");
+        params.set("public", "true");
+        params.set("featured", "true");
+        params.set("orderBy", "-createdAt");
+        const res = await fetch(`/api/mcp?${params}`);
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error || "Failed to load featured servers");
+        if (!cancelled) {
+          setLocalServers(Array.isArray(j.servers) ? j.servers : []);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLocalError(e instanceof Error ? e.message : "Failed to load");
+          setLocalServers([]);
+        }
+      } finally {
+        if (!cancelled) setLocalLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
-      {/* Registry Section */}
       {(registryLoading || registryServers.length > 0) && (
         <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-red-200/75 sm:bg-card/25 sm:p-8 dark:sm:border-red-400/25">
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -151,7 +153,7 @@ export default function McpServersSection() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0 sm:gap-4">
-              {registryServers.map((server, index) => (
+              {registryServers.map((server) => (
                 <div key={server.id} className="border-b border-red-200/70 last:border-b-0 md:border-b-0 dark:border-red-400/25">
                   <RegistryServerCard
                     server={server}
@@ -163,7 +165,6 @@ export default function McpServersSection() {
         </section>
       )}
 
-      {/* Local Section */}
       {!localError && (localLoading || localServers.length > 0) && (
         <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-red-200/75 sm:bg-card/25 sm:p-8 dark:sm:border-red-400/25">
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -196,8 +197,6 @@ export default function McpServersSection() {
               ))}
             </div>
           )}
-
-
         </section>
       )}
     </div>

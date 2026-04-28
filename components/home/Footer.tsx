@@ -69,13 +69,13 @@ export default function Footer() {
               <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">Resources</h4>
               <div className="flex flex-col space-y-2">
                 <a
-                  href="https://zonlabs.github.io/mcp-ts/"
+                  href="https://docs.mcp-assistant.in/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   <BookOpen className="h-4 w-4 flex-shrink-0" />
-                  MCP-TS Docs
+                  Documentation
                 </a>
                 <a
                   href="https://modelcontextprotocol.io/docs/getting-started/intro"

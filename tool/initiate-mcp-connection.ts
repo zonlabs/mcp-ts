@@ -1,10 +1,20 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { getActiveMcpConnections } from '@/lib/mcp-connections';
+import { getMcpConnectionsForIdentity } from '@/lib/mcp-connections';
+
+function normalizeServerUrl(url: string): string {
+  try {
+    const parsed = new URL(url.trim());
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.origin}${path}${parsed.search}`;
+  } catch {
+    return url.trim().replace(/\/+$/, '');
+  }
+}
 
 export const initiateMcpConnection = tool({
-  description: 'Initiate an MCP connection to a specified server',
+  description: 'Initiate an MCP connection to a specified server to connect and verify the connection status.',
   inputSchema: z.object({
     serverName: z.string().describe('Name of the MCP server'),
     serverUrl: z.string().describe('URL of the MCP server'),
@@ -31,8 +41,11 @@ export const initiateMcpConnection = tool({
         return;
       }
 
-      const connections = await getActiveMcpConnections(user.id);
-      const connection = connections.find((conn) => conn.serverUrl === serverUrl);
+      const normalizedTargetUrl = normalizeServerUrl(serverUrl);
+      const connections = await getMcpConnectionsForIdentity(user.id);
+      const connection = connections.find(
+        (conn) => normalizeServerUrl(conn.serverUrl) === normalizedTargetUrl
+      );
 
       if (connection && connection.active) {
         console.log('[initiateMcpConnection] Connection verified');
@@ -40,7 +53,16 @@ export const initiateMcpConnection = tool({
           state: 'output-available' as const,
           success: true,
           sessionId: connection.sessionId,
-          message: `Successfully connected to ${serverName}`,
+          connectionState: 'ready' as const,
+          message: `${serverName} is connected and ready to use.`,
+        };
+      } else if (connection) {
+        yield {
+          state: 'output-available' as const,
+          success: false,
+          sessionId: connection.sessionId,
+          connectionState: 'authorization_pending' as const,
+          message: `${serverName} connection exists but is not ready yet. Complete OAuth authorization in the popup, then try again.`,
         };
       } else {
         console.warn('[initiateMcpConnection] Connection not found or inactive');
@@ -48,6 +70,7 @@ export const initiateMcpConnection = tool({
           state: 'output-error' as const,
           success: false,
           error: 'Connection not found',
+          connectionState: 'failed' as const,
           message: `Connection to ${serverName} was not established. Please try again.`,
         };
       }
@@ -61,6 +84,7 @@ export const initiateMcpConnection = tool({
         state: 'output-error' as const,
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+        connectionState: 'failed' as const,
         message: `Error connecting to ${serverName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }

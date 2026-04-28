@@ -1,5 +1,5 @@
 "use client";
-import { Home, Server, MessageSquare, Package, BookOpen } from "lucide-react";
+import { Home, Server, MessageSquare, Package, BookOpen, GitFork } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -27,13 +27,21 @@ export function NavigationLinks() {
         Registry
         <span className={underlineClass} />
       </Link>
+      <Link
+        href="/workflows"
+        className={navLinkClass(pathname === "/workflows" || pathname.startsWith("/workflows/"))}
+      >
+        <GitFork className="h-4 w-4" />
+        Workflows
+        <span className={underlineClass} />
+      </Link>
       <Link href="/chat" className={navLinkClass(pathname === "/chat")}>
         <MessageSquare className="h-4 w-4" />
         Chat
         <span className={underlineClass} />
       </Link>
       <Link
-        href="https://zonlabs.github.io/mcp-ts/"
+        href="https://docs.mcp-assistant.in/"
         target="_blank"
         rel="noopener noreferrer"
         className={navLinkClass(false)}

@@ -137,7 +137,6 @@ The system supports two MCP transport types:
 **Assistant Management**:
 - Multiple assistant types: orchestrator, specialist, custom
 - Assistant configuration stored in database
-- A2A (Agent-to-Agent) support for specialist assistants
 
 ### Database Schema (Supabase)
 
@@ -154,22 +153,22 @@ The system supports two MCP transport types:
 ## API Routes
 
 ### MCP Management
+- `GET /api/mcp` - Public MCP catalog (REST: `servers`, `totalCount`, `pageInfo`; query: `first`, `after`, `orderBy`, `categorySlug`, `search`, `featured`, `public`)
+- `GET /api/mcp/user` - Current user's saved servers (`{ servers }`)
+- `POST /api/mcp/servers` - Create/update server (`{ server }`)
+- `DELETE /api/mcp/servers` - Delete server (`id` or `name` query param)
+- `GET /api/categories` - MCP categories (`{ categories }`)
 - `POST /api/mcp/auth/connect` - Initiate MCP server connection (returns authUrl if OAuth required)
 - `GET /api/mcp/auth/callback` - OAuth callback handler (completes OAuth flow)
 - `POST /api/mcp/auth/disconnect` - Disconnect from MCP server
 - `GET /api/mcp/tool/list` - List tools from connected MCP server
 - `POST /api/mcp/tool/call` - Execute tool on connected MCP server
 - `GET /api/mcp/connections` - Get all active MCP connections
-- `GET /api/mcp/servers` - Get saved MCP server configurations
 - `POST /api/mcp/actions` - Perform actions on MCP servers
-- `GET /api/mcp/user` - Get current user's MCP data
 
 ### Registry
 - `GET /api/registry` - Fetch MCP servers from registry
 - `POST /api/registry/publish` - Publish server to registry
-
-### A2A (Agent-to-Agent)
-- `POST /api/a2a/validate` - Validate A2A agent URL
 
 ## Key Implementation Patterns
 
@@ -230,18 +229,17 @@ This allows the callback handler to:
 
 - `app/(main)/` - Main application routes (home, registry, MCP servers, etc.)
 - `app/(main)/(playground-app)/` - Playground chat interface with assistants
-- `app/api/` - API routes for MCP, registry, A2A
+- `app/api/` - API routes for MCP, registry
 
 ### Key Components
 
 - `components/playground/` - Playground chat UI components
-- `components/providers/` - React context providers (Auth, Apollo, Theme, Playground)
+- `components/providers/` - React context providers (Auth, Theme, Playground)
 - `components/ui/` - shadcn/ui base components
 
 ### Providers
 
 - `AuthProvider` - Supabase authentication context
-- `ApolloProvider` - GraphQL client (if using GraphQL API)
 - `ThemeProvider` - next-themes for dark/light mode
 - `PlaygroundProvider` - Assistant and playground state management
 - `AssistantRuntimeProvider` - Assistant UI runtime for chat

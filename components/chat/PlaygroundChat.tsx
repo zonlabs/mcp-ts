@@ -3,18 +3,20 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect, useState } from 'react';
+import { Fragment, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
+import { ServerIcon } from '@/components/common/ServerIcon';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { cn } from '@/lib/utils';
+import { useMcpStore } from '@/lib/stores/mcp-store';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
-import { ArrowUpRight } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
-import type { McpAgentUIMessage } from '@/agent/openai-agent';
+import type { McpAgentUIMessage } from '@/agent/chat-agent';
 
 import {
   Conversation,
@@ -32,12 +34,96 @@ import {
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool';
+import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
 
 interface PlaygroundChatProps {
   chatId: string;
   initialMessages: McpAgentUIMessage[];
   initialDraft?: string;
   isReadOnly?: boolean;
+}
+
+function normalizeServerUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.trim());
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.origin}${path}${parsed.search}`;
+  } catch {
+    return url.trim().replace(/\/+$/, '');
+  }
+}
+
+function MCPConnectionApprovedStatus({ input }: { input: any }) {
+  const connections = useMcpStore(state => state.connections);
+  const normalizedTargetUrl = normalizeServerUrl(input.serverUrl);
+
+  const existingConnection = Object.values(connections).find((conn) => {
+    if (input.serverId && conn.serverId === input.serverId) return true;
+    if (!normalizedTargetUrl) return false;
+    return normalizeServerUrl(conn.url) === normalizedTargetUrl;
+  });
+
+  const connectionStatus = existingConnection?.connectionStatus;
+  const isReady = connectionStatus === 'READY';
+  const isFailed = connectionStatus === 'FAILED' || connectionStatus === 'DISCONNECTED';
+
+  return (
+    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2 p-2 sm:p-3 bg-background rounded-lg animate-in fade-in slide-in-from-bottom-2">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <ServerIcon
+          serverName={input.serverName || ''}
+          serverUrl={input.serverUrl || ''}
+          size={30}
+          className="rounded-lg flex-shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <span className="truncate block text-[15px] sm:text-base font-semibold text-foreground leading-tight">
+            {input.serverName || 'MCP Server'}
+          </span>
+        </div>
+        <div
+          className={cn(
+            "inline-flex items-center gap-2 text-xs sm:text-sm",
+            isReady
+              ? "text-green-600 dark:text-green-400"
+              : isFailed
+                ? "text-red-600 dark:text-red-400"
+                : "text-muted-foreground"
+          )}
+        >
+          <span>{isReady ? 'Connected' : isFailed ? 'Connection failed' : 'Connecting...'}</span>
+          {isReady ? (
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          ) : isFailed ? (
+            <AlertCircle className="h-3.5 w-3.5" />
+          ) : (
+            <svg
+              className="animate-spin"
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+          )}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground font-semibold">
+        {isReady
+          ? 'Connection is ready.'
+          : isFailed
+            ? 'Connection did not reach ready state. Please try again.'
+            : 'Waiting for connection to reach ready state.'}
+      </p>
+    </div>
+  );
 }
 
 export function PlaygroundChat({ 
@@ -50,7 +136,6 @@ export function PlaygroundChat({
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
-  const [contextUsage, setContextUsage] = useState<any | undefined>(undefined);
 
   const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
@@ -140,10 +225,10 @@ export function PlaygroundChat({
     }
   }, [messages, chatId]);
 
-  useEffect(() => {
-    const latest = [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage);
-    setContextUsage(latest?.metadata?.usage);
-  }, [messages]);
+  const contextUsage = useMemo(
+    () => [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage)?.metadata?.usage,
+    [messages]
+  );
 
   useEffect(() => {
     if (hasSentInitialDraft.current) return;
@@ -332,6 +417,12 @@ export function PlaygroundChat({
                 );
               }
 
+              if (toolPart.state === 'approval-responded' && toolPart.approval?.approved === true) {
+                return (
+                  <MCPConnectionApprovedStatus key={`tool-${index}`} input={input} />
+                );
+              }
+
               if (toolPart.state === 'approval-responded' && toolPart.approval?.approved === false) {
                 return (
                   <div
@@ -384,17 +475,31 @@ export function PlaygroundChat({
             const headerProps = part.type === 'dynamic-tool'
               ? { type: 'dynamic-tool' as const, state: toolPart.state, toolName: toolName }
               : { type: 'tool-' as const, state: toolPart.state, title: toolTitle };
+            
+            const state = toolPart.state as string;
+            const toolState = state === 'output-available' ? 'complete' 
+              : state === 'executing' || state === 'in-progress' ? 'executing'
+              : 'idle';
+            
             return (
-              <Tool key={`tool-${index}`} defaultOpen={false}>
-                <ToolHeader {...headerProps} />
-                <ToolContent>
-                  <ToolInput input={toolPart.input} />
-                  <ToolOutput 
-                    output={toolPart.state === 'output-available' ? <pre className="text-sm">{JSON.stringify(toolPart.output, null, 2)}</pre> : undefined}
-                    errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
-                  />
-                </ToolContent>
-              </Tool>
+              <Fragment key={`tool-group-${index}`}>
+                <Tool key={`tool-${index}`} defaultOpen={false}>
+                  <ToolHeader {...headerProps} />
+                  <ToolContent>
+                    <ToolInput input={toolPart.input} />
+                    <ToolOutput 
+                      output={toolPart.state === 'output-available' ? toolPart.output : undefined}
+                      errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
+                    />
+                  </ToolContent>
+                </Tool>
+                <McpAppRenderer
+                  name={toolName || ''}
+                  args={toolPart.input as Record<string, unknown> | undefined}
+                  result={toolPart.state === 'output-available' ? toolPart.output : undefined}
+                  status={toolState}
+                />
+              </Fragment>
             );
           }
 

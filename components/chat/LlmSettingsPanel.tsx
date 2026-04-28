@@ -157,7 +157,6 @@ export function LlmSettingsPanel() {
         ) : null}
         <span>Your key stays in your browser and is sent only with your prompts.</span>
       </div>
-      <div className="border-t border-border" />
     </div>
   );
 }

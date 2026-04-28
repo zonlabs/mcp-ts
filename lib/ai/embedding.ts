@@ -176,6 +176,7 @@ export const storeServerEmbeddings = async (
 
 type DeleteEmbeddingsArgs = {
   userId?: string;
+  serverId?: string;
   serverName?: string;
 };
 
@@ -190,6 +191,10 @@ export const deleteServerEmbeddings = async (
 
   if (args.userId) {
     query = query.eq("user_id", args.userId);
+  }
+
+  if (args.serverId) {
+    query = query.eq("server_id", args.serverId);
   }
 
   if (args.serverName) {

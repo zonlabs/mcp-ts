@@ -38,14 +38,9 @@ import { McpServer } from "@/types/mcp";
 import { toast } from "react-hot-toast";
 import { Session } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useQuery } from "@apollo/client/react";
-import { CATEGORIES_QUERY } from "@/lib/graphql";
 import { Category } from "@/types/mcp";
-import { gql } from "@apollo/client";
 import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
-
-const GET_CATEGORIES = gql`${CATEGORIES_QUERY}`;
 
 const serverSchema = z.object({
   id: z.string().optional(),
@@ -134,13 +129,34 @@ export default function ServerForm({
   const [connectionStatusTrail, setConnectionStatusTrail] = useState<string[]>([]);
   const { connect: activateServerConnection } = useMcpConnection();
 
-  const { loading, error, data } = useQuery<{
-    categories: {
-      edges: Array<{ node: Category }>;
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCategoriesLoading(true);
+      setCategoriesError(null);
+      try {
+        const res = await fetch("/api/categories");
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error || "Failed to load categories");
+        if (!cancelled) {
+          setCategories(Array.isArray(j.categories) ? j.categories : []);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setCategoriesError(e instanceof Error ? e.message : "Failed to load categories");
+        }
+      } finally {
+        if (!cancelled) setCategoriesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
-  }>(GET_CATEGORIES, {
-    fetchPolicy: "cache-and-network",
-  });
+  }, []);
 
   const {
     register,
@@ -390,7 +406,7 @@ export default function ServerForm({
         id: url || name,
         name,
         url,
-        transportType: useCustomTransport ? transport : undefined,
+        transportType: useCustomTransport ? transport : "streamable_http",
       };
 
       try {
@@ -733,10 +749,10 @@ export default function ServerForm({
 
                 <div className="space-y-1">
                   <Label htmlFor="categoryIds" className="text-xs">Categories</Label>
-                  {loading ? (
+                  {categoriesLoading ? (
                     <p className="text-xs text-muted-foreground">Loading categories...</p>
-                  ) : error ? (
-                    <p className="text-xs text-red-500">Failed to load categories</p>
+                  ) : categoriesError ? (
+                    <p className="text-xs text-red-500">{categoriesError}</p>
                   ) : (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -744,7 +760,7 @@ export default function ServerForm({
                           <div className="flex items-center gap-1.5 truncate">
                             {selectedCategoryIds.length > 0 ? (
                               selectedCategoryIds.map((id) => {
-                                const category = data?.categories?.edges.find(({ node }) => node.id === id)?.node;
+                                const category = categories.find((c) => c.id === id);
                                 if (!category) return null;
                                 return (
                                   <div key={id} className="flex items-center gap-1 bg-secondary px-2 py-0.5 rounded">
@@ -766,14 +782,14 @@ export default function ServerForm({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-[300px]" align="start">
-                        {data?.categories?.edges.map(({ node }) => (
+                        {categories.map((node) => (
                           <DropdownMenuCheckboxItem
                             key={node.id}
                             checked={selectedCategoryIds.includes(node.id)}
                             onCheckedChange={(checked) => {
                               const newIds = checked
                                 ? [...selectedCategoryIds, node.id]
-                                : selectedCategoryIds.filter((id) => id !== node.id);
+                                : selectedCategoryIds.filter((cid) => cid !== node.id);
                               setSelectedCategoryIds(newIds);
                               setValue("categoryIds", newIds);
                             }}
@@ -801,8 +817,8 @@ export default function ServerForm({
                       )}
                     />
                     <div className="space-y-1">
-                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth2.1</Label>
-                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth2.1.</p>
+                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth</Label>
+                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth.</p>
                     </div>
                   </div>
                 </div>

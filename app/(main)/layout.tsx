@@ -23,11 +23,9 @@ export default async function MainLayout({
     return (
         <AuthProvider userSession={userSession}>
             <div className="min-h-screen">
-                <div className="mx-auto max-w-5xl w-full">
-                    <MainHeader />
-                    <main>
-                        {children}
-                    </main>
+                <MainHeader />
+                <div className="mx-auto w-full max-w-5xl">
+                    <main>{children}</main>
                 </div>
             </div>
         </AuthProvider>

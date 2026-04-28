@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AuthProvider from "@/components/providers/AuthProvider";
-import { ApolloProvider } from "@/components/providers/ApolloProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 
@@ -34,18 +33,16 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
         <AuthProvider userSession={userSession}>
-          <ApolloProvider>
-            <McpStoreProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                {children}
-              </ThemeProvider>
-            </McpStoreProvider>
-          </ApolloProvider>
+          <McpStoreProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+          </McpStoreProvider>
         </AuthProvider>
       </body>
     </html>

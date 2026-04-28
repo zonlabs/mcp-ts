@@ -13,7 +13,7 @@ export default function Header() {
   const user = userSession?.user;
 
   return (
-    <nav className="sticky top-0 z-[200] bg-background/80">
+    <nav className="sticky top-0 z-[200] bg-background">
       <div className="max-w-5xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
         <div className="relative flex items-center justify-between">
           {/* Left: Mobile menu, Logo */}

@@ -1,33 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { USER_MCP_SERVERS_QUERY } from "@/lib/graphql";
+import { listUserMcpServers } from "@/lib/mcp-servers/service";
+import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
 
+/** GET /api/mcp/user — current user's saved MCP servers (REST). Guests get an empty list. */
 export async function GET() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ errors: [{ message: "Unauthorized" }] }, { status: 401 });
+    return NextResponse.json({ servers: [] });
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  const origin = (process.env.DJANGO_API_URL || process.env.BACKEND_URL)?.replace(/\/$/, "");
-  if (!origin) {
-    return NextResponse.json({ errors: [{ message: "Server misconfigured" }] }, { status: 500 });
+  try {
+    const nodes = await listUserMcpServers(supabase, user.id);
+    return NextResponse.json({ servers: nodes.map(restMcpServer) });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to load servers";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const resp = await fetch(`${origin}/api/graphql`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ query: USER_MCP_SERVERS_QUERY }),
-    cache: "no-store",
-  });
-
-  const data = await resp.text();
-  return new NextResponse(data, { status: resp.status, headers: { "content-type": "application/json" } });
 }

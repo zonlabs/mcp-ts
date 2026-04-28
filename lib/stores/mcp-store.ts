@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import toast from 'react-hot-toast';
 import type { McpServer, ToolInfo, ParsedRegistryServer } from '@/types/mcp';
-import { query } from '@/lib/graphql-client';
-import { MCP_SERVERS_QUERY } from '@/lib/graphql';
 
 /**
  * Stored Connection Type
@@ -59,7 +57,7 @@ function normalizeConnectionStatus(
 }
 
 function normalizeTransport(value?: string | null): "sse" | "streamable_http" {
-  if (!value) return "sse";
+  if (!value) return "streamable_http";
   const normalized = value.trim().toLowerCase();
   if (normalized === "sse") return "sse";
   if (normalized === "streamable-http" || normalized === "streamable_http" || normalized === "streamablehttp") {
@@ -313,25 +311,26 @@ export const useMcpStore = create<McpStore>()(
           set({ publicServersLoading: true, publicServersError: null });
 
           try {
-            const filters: any = {};
-            if (variables.categorySlug) {
-              filters.categorySlug = variables.categorySlug;
+            const params = new URLSearchParams();
+            params.set('first', String(variables.first || 20));
+            params.set('public', 'true');
+            params.set('orderBy', '-createdAt');
+            if (variables.after) params.set('after', variables.after);
+            if (variables.categorySlug) params.set('categorySlug', variables.categorySlug);
+
+            const response = await fetch(`/api/mcp?${params}`);
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.error || 'Failed to fetch servers');
             }
 
-            const data = await query<{ mcpServers: any }>(MCP_SERVERS_QUERY, {
-              first: variables.first || 20,
-              after: variables.after || null,
-              filters: Object.keys(filters).length > 0 ? filters : null,
-              order: { createdAt: 'DESC' },
-            });
-
-            const servers = data.mcpServers.edges.map((edge: any) => edge.node);
+            const servers: McpServer[] = Array.isArray(data.servers) ? data.servers : [];
 
             set({
               publicServers: variables.after ? [...get().publicServers, ...servers] : servers,
-              publicServersCursor: data.mcpServers.pageInfo.endCursor,
-              publicServersHasNext: data.mcpServers.pageInfo.hasNextPage,
-              publicServersTotalCount: data.mcpServers.totalCount,
+              publicServersCursor: data.pageInfo?.endCursor ?? null,
+              publicServersHasNext: Boolean(data.pageInfo?.hasNextPage),
+              publicServersTotalCount: typeof data.totalCount === 'number' ? data.totalCount : servers.length,
               publicServersLoading: false,
             });
           } catch (error) {
@@ -368,11 +367,7 @@ export const useMcpStore = create<McpStore>()(
             }
 
             const data = await response.json();
-            const servers = Array.isArray(data?.servers)
-              ? data.servers
-              : Array.isArray(data?.data?.getUserMcpServers)
-                ? data.data.getUserMcpServers
-                : [];
+            const servers = Array.isArray(data?.servers) ? data.servers : [];
 
             set({
               userServers: servers,
@@ -398,11 +393,12 @@ export const useMcpStore = create<McpStore>()(
               body: JSON.stringify(server),
             });
 
+            const body = await response.json();
             if (!response.ok) {
-              throw new Error('Failed to add server');
+              throw new Error(body.error || 'Failed to add server');
             }
 
-            const { data: newServer } = await response.json();
+            const newServer = body.server as McpServer;
 
             // Add to user servers list
             set((state) => ({
@@ -431,11 +427,12 @@ export const useMcpStore = create<McpStore>()(
               body: JSON.stringify({ id: serverId, ...updates }),
             });
 
+            const body = await response.json();
             if (!response.ok) {
-              throw new Error('Failed to update server');
+              throw new Error(body.error || 'Failed to update server');
             }
 
-            const { data: updatedServer } = await response.json();
+            const updatedServer = body.server as McpServer;
 
             // Update in user servers list
             set((state) => ({
@@ -563,7 +560,7 @@ export const useMcpStore = create<McpStore>()(
                 serverId: val.serverId || val.identity, // Fallback if needed
                 serverName: val.serverName,
                 url: val.serverUrl,
-                transport: normalizeTransport(val.transportType || val.transport || 'sse'),
+                transport: normalizeTransport(val.transportType || val.transport || "streamable_http"),
                 connectionStatus: normalizedStatus,
                 tools: val.tools || [],
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available
@@ -653,6 +650,8 @@ export const useMcpStore = create<McpStore>()(
                 ? prevActiveCount + 1
                 : prevActiveCount;
 
+            const stampConnectedAt = isNowConnected && !connection.connectedAt;
+
             return {
               connections: {
                 ...state.connections,
@@ -660,6 +659,7 @@ export const useMcpStore = create<McpStore>()(
                   ...connection,
                   connectionStatus: normalizedStatus,
                   ...(tools && { tools }),
+                  ...(stampConnectedAt ? { connectedAt: new Date().toISOString() } : {}),
                 },
               },
               activeConnectionCount: newActiveCount,
@@ -788,11 +788,7 @@ export const selectFilteredServers = (state: McpStore) => {
   // Apply search filter
   if (state.searchQuery) {
     const query = state.searchQuery.toLowerCase();
-    servers = servers.filter(
-      (s) =>
-        s.name.toLowerCase().includes(query) ||
-        s.description?.toLowerCase().includes(query)
-    );
+    servers = servers.filter((s) => s.name.toLowerCase().includes(query));
   }
 
   // Apply category filter

@@ -18,8 +18,23 @@ import {
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { isValidElement } from "react";
+import { useMemo } from "react";
 
 import { CodeBlock } from "./code-block";
+
+const MAX_TOOL_JSON_PREVIEW_CHARS = 50000;
+
+function stringifyForPreview(value: unknown): string {
+  try {
+    const serialized = JSON.stringify(value, null, 2);
+    if (!serialized) return "";
+    if (serialized.length <= MAX_TOOL_JSON_PREVIEW_CHARS) return serialized;
+    const omitted = serialized.length - MAX_TOOL_JSON_PREVIEW_CHARS;
+    return `${serialized.slice(0, MAX_TOOL_JSON_PREVIEW_CHARS)}\n\n/* Output truncated (${omitted.toLocaleString()} chars omitted) */`;
+  } catch {
+    return String(value);
+  }
+}
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
@@ -128,6 +143,7 @@ export type ToolInputProps = ComponentProps<"div"> & {
 };
 
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
+  const inputJson = useMemo(() => stringifyForPreview(input), [input]);
   if (!input) return null;
   
   return (
@@ -136,7 +152,7 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
         Parameters
       </h4>
       <div className="rounded-md bg-muted/50">
-        <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+        <CodeBlock code={inputJson} language="json" />
       </div>
     </div>
   );
@@ -153,18 +169,32 @@ export const ToolOutput = ({
   errorText,
   ...props
 }: ToolOutputProps) => {
+  const outputJson = useMemo(() => {
+    if (!output || typeof output !== "object" || isValidElement(output)) {
+      return null;
+    }
+    return stringifyForPreview(output);
+  }, [output]);
+
+  const outputText = useMemo(() => {
+    if (!output || typeof output !== "string") {
+      return null;
+    }
+    if (output.length <= MAX_TOOL_JSON_PREVIEW_CHARS) return output;
+    const omitted = output.length - MAX_TOOL_JSON_PREVIEW_CHARS;
+    return `${output.slice(0, MAX_TOOL_JSON_PREVIEW_CHARS)}\n\n/* Output truncated (${omitted.toLocaleString()} chars omitted) */`;
+  }, [output]);
+
   if (!output && !errorText) {
     return null;
   }
 
   let Output = <div>{output as ReactNode}</div>;
 
-  if (output && typeof output === "object" && !isValidElement(output)) {
-    Output = (
-      <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
-    );
-  } else if (output && typeof output === "string") {
-    Output = <CodeBlock code={output} language="json" />;
+  if (outputJson) {
+    Output = <CodeBlock code={outputJson} language="json" />;
+  } else if (outputText !== null) {
+    Output = <CodeBlock code={outputText} language="json" />;
   }
 
   return (

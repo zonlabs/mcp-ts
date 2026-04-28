@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Shield, Edit, Trash2 } from "lucide-react";
+import { Shield, Edit, Trash2, Link2 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { Button } from "@/components/ui/button";
@@ -109,9 +109,13 @@ export function ServerListItem({
         </div>
         <div className="space-y-1">
           {server.url && (
-            <p className="text-xs text-muted-foreground truncate">
-              url: {server.url}
-            </p>
+            <div
+              className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0"
+              title={server.url}
+            >
+              <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="truncate font-mono">{server.url}</span>
+            </div>
           )}
           <p className="text-xs text-muted-foreground">
             transport: {server.transport}

@@ -1,13 +1,11 @@
 import { UIToolInvocation, tool } from 'ai';
 import { z } from 'zod';
-import { SEARCH_MCP_SERVERS_QUERY } from '@/lib/graphql';
-import { findRelevantContent } from '@/lib/ai/embedding';
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
-const GRAPHQL_ENDPOINT = `${BACKEND_URL}/api/graphql`;
+import { createPublicSupabaseClient } from '@/lib/supabase/public-client';
+import { listMcpServersCatalog } from '@/lib/mcp-servers/service';
+import { restMcpServer } from '@/lib/mcp-servers/rest-serialize';
 
 export const searchMcpServers = tool({
-  description: `Search for MCP servers in the registry by analyzing user intent and finding relevant capabilities.
+  description: `Search for MCP servers in the registry by analyzing user intent and finding relevant capabilities. Matches both server name and description text in the catalog.
 
 **CRITICAL - Intent Analysis Required:**
 detect an specific MCP server name that the user want to use or connect to, you can use that directly.
@@ -24,7 +22,7 @@ User Request → Extract Capability
 - "use Supabase to manage my database" → "supabase"
 `,
   inputSchema: z.object({
-    searchQuery: z.string().optional().describe('Name of the MCP server to find e.g. Exa, Github, Deepwiki etc. or core capability or action keyword(s) extracted from user intent.'),
+    searchQuery: z.string().optional().describe('Terms to match against server name and description in the catalog (case-insensitive). E.g. Github, email, railway.'),
     first: z.number().optional().default(10).describe('Number of results to return (default: 10)'),
     after: z.string().optional().describe('Cursor for pagination'),
   }),
@@ -32,111 +30,33 @@ User Request → Extract Capability
     yield { state: 'loading' as const };
 
     try {
-      let embeddingResults: any[] = [];
-      let allTextResults: any[] = [];
-
-      // 1. Semantic search using embeddings (if query provided) - COMMENTED OUT due to API key issues
-      /*
-      if (searchQuery) {
-        try {
-          const embeddings = await findRelevantContent(
-            searchQuery,
-            'mcp_server_embeddings',
-            0.35, // similarity threshold
-            first || 10
-          );
-
-          embeddingResults = embeddings.map((emb: any) => ({
-            id: emb.server_id,
-            name: emb.server_name,
-            url: emb.server_url,
-            description: emb.description,
-            transport: emb.transport,
-            similarity: emb.similarity,
-            matchType: 'semantic'
-          }));
-        } catch (embError) {
-          console.error('[Search] Embedding search failed:', embError);
-        }
-      }
-      */
-
-      // 2. Text-based GraphQL search across name OR description
-      // Uses custom 'search' parameter that searches both fields with OR logic
-      const response = await fetch(GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: SEARCH_MCP_SERVERS_QUERY,
-          variables: {
-            first: first || 10,
-            after: after || null,
-            filters: null,
-            search: searchQuery || null,
-          },
-        }),
+      const supabase = createPublicSupabaseClient();
+      const conn = await listMcpServersCatalog(supabase, {
+        first: first || 10,
+        after: after || null,
+        search: searchQuery || null,
+        searchInDescription: true,
+        publicOnly: true,
+        orderField: 'created_at',
+        orderAscending: false,
       });
 
-      const data = await response.json();
+      const textOnlyServers = conn.edges.map((edge) => ({
+        ...restMcpServer(edge.node),
+        matchType: 'text' as const,
+      }));
 
-      if (data.data?.mcpServers) {
-        allTextResults = data.data.mcpServers.edges.map((edge: any) => edge.node);
-      }
-
-      if (response.ok && data.data?.mcpServers) {
-        const pageInfo = data.data.mcpServers.pageInfo;
-
-        // 3. Semantic results have full server metadata from embeddings - COMMENTED OUT
-        /*
-        const uniqueSemanticServers = embeddingResults.reduce((acc: any[], curr: any) => {
-          const existing = acc.find(s => s.id === curr.id);
-          if (!existing || curr.similarity > existing.similarity) {
-            if (existing) {
-              const index = acc.indexOf(existing);
-              acc[index] = curr;
-            } else {
-              acc.push(curr);
-            }
-          }
-          return acc;
-        }, []).sort((a: any, b: any) => b.similarity - a.similarity);
-        */
-        const uniqueSemanticServers: any[] = [];
-
-        const textOnlyServers = allTextResults
-          .map((server: any) => ({
-            ...server,
-            matchType: 'text'
-          }));
-
-        yield {
-          state: 'output-available' as const,
-          success: true,
-          servers: textOnlyServers, 
-          semanticResults: uniqueSemanticServers,
-          count: textOnlyServers.length + uniqueSemanticServers.length,
-          semanticCount: uniqueSemanticServers.length,
-          hasNextPage: pageInfo.hasNextPage,
-          endCursor: pageInfo.endCursor,
-          message: `Found ${textOnlyServers.length} server${textOnlyServers.length !== 1 ? 's' : ''}${searchQuery ? ` matching "${searchQuery}"` : ''}`,
-        };
-      } else if (data.errors) {
-        yield {
-          state: 'output-error' as const,
-          success: false,
-          error: data.errors[0]?.message || 'GraphQL error',
-          message: `Error: ${data.errors[0]?.message || 'GraphQL error'}`,
-        };
-      } else {
-        yield {
-          state: 'output-error' as const,
-          success: false,
-          error: 'Failed to search servers',
-          message: 'Failed to search servers',
-        };
-      }
+      yield {
+        state: 'output-available' as const,
+        success: true,
+        servers: textOnlyServers,
+        semanticResults: [] as unknown[],
+        count: textOnlyServers.length,
+        semanticCount: 0,
+        hasNextPage: conn.pageInfo.hasNextPage,
+        endCursor: conn.pageInfo.endCursor,
+        message: `Found ${textOnlyServers.length} server${textOnlyServers.length !== 1 ? 's' : ''}${searchQuery ? ` matching "${searchQuery}"` : ''}`,
+      };
     } catch (error) {
       yield {
         state: 'output-error' as const,

@@ -154,10 +154,8 @@ export function useFilteredServers() {
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      serversWithConnections = serversWithConnections.filter(
-        (s) =>
-          s.name.toLowerCase().includes(query) ||
-          s.description?.toLowerCase().includes(query)
+      serversWithConnections = serversWithConnections.filter((s) =>
+        s.name.toLowerCase().includes(query)
       );
     }
 
