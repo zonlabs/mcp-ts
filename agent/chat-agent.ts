@@ -1,4 +1,3 @@
-import { checkMcpConnections } from "@/tool/check-mcp-connections";
 import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
 import { searchMcpServers } from "@/tool/search-mcp-servers";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -37,7 +36,6 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 ## Available Tool Types
 
 1. Built-in assistant tools
-   - \`MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS\`
    - \`MCPASSISTANT_SEARCH_SERVERS\`
    - \`MCPASSISTANT_INITIATE_CONNECTION\`
 
@@ -53,17 +51,23 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 
 ## Default Workflow
 
-1. Check whether the needed capability is already available.
-2. If not, call \`MCPASSISTANT_SEARCH_SERVERS\` to find a suitable MCP server.
-3. If needed, call \`MCPASSISTANT_INITIATE_CONNECTION\` using the server details from search results.
-4. When using the remote MCP tool catalog, follow this exact flow: search -> schema -> execute.
+1. Call \`MCPASSISTANT_SEARCH_SERVERS\` to find a suitable MCP server. Search results include all connected servers plus connection status on matching catalog results when available.
+2. If needed, call \`MCPASSISTANT_INITIATE_CONNECTION\` using the server details from search results.
+3. When using the remote MCP tool catalog, follow this exact flow: search -> schema -> execute.
    - First call \`mcp_search_tool_bm25\` or \`mcp_search_tool_regex\`
    - Then call \`mcp_get_tool_schema\` for the chosen tool
    - Then call \`mcp_execute_tool\` with arguments that match the schema
+4. If the user is vague about which connected server to use and ToolRouter search returns no suitable tools:
+   - Call \`MCPASSISTANT_SEARCH_SERVERS\` with the user's core capability or task.
+   - Inspect \`connectedServers\` from the search result, even when \`servers\` has no good catalog match.
+   - Pick the most likely connected server by server name, URL, and the user's requested capability.
+   - Retry ToolRouter search using focused terms from that connected server and the capability.
+   - If multiple connected servers are plausible, ask the user to choose instead of guessing.
 
 ## Key Rules
 
 - Be proactive: search for servers or tools when a task needs a capability you do not already have.
+- Treat \`connectedServers\` from \`MCPASSISTANT_SEARCH_SERVERS\` as the current connected-server inventory. Use it to decide which already-connected server to query when the user did not name a specific server, tool etc.
 - Never call a discovered remote MCP tool directly by its original name. Use \`mcp_execute_tool\`.
 - Always inspect a discovered remote tool with \`mcp_get_tool_schema\` before executing it, unless the user already provided the exact required arguments and the schema is already known in the current context.
 - Only call \`MCPASSISTANT_INITIATE_CONNECTION\` after getting server details from \`MCPASSISTANT_SEARCH_SERVERS\`.
@@ -308,7 +312,6 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
   }
 
   const baseTools = {
-    MCPASSISTANT_CHECK_ACTIVE_CONNECTIONS: checkMcpConnections,
     MCPASSISTANT_SEARCH_SERVERS: searchMcpServers,
     MCPASSISTANT_INITIATE_CONNECTION: initiateMcpConnection,
   };
