@@ -176,7 +176,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
         throw new Error("Please sign in first.");
       }
 
-      const callbackUrl = `${window.location.origin}/api/mcp/auth/callback`;
+      const callbackUrl = `${window.location.origin}/auth/callback/success`;
       const identity = String(server.id || serverUrl || server.name || "").trim();
       if (!identity) {
         throw new Error("Missing server identity for connection.");

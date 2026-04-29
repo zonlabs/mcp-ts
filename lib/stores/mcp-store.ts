@@ -586,7 +586,7 @@ export const useMcpStore = create<McpStore>()(
           if (!mcpActions) throw new Error("Please sign in first.");
 
           try {
-            const callbackUrl = `${window.location.origin}/api/mcp/auth/callback`; // This route might need to be re-thought or removed if mcp-ts handles it differently
+            const callbackUrl = `${window.location.origin}/auth/callback/success`;
             await mcpActions.connect({
               serverId: server.id,
               serverName: server.name,

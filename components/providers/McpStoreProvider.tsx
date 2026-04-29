@@ -70,10 +70,9 @@ function McpStoreProviderInner({
             windowName: `mcp-auth-popup-${state}`,
           });
 
-          if (authResult.code && (authResult.state || state)) {
-            const authState = authResult.state || state;
+          if (authResult.code && (authResult.sessionId || authResult.state || state)) {
+            const authState = authResult.sessionId || authResult.state || state;
             await finishAuth(authState, authResult.code);
-            await resumeAuth(authState);
           } else if (authResult.sessionId) {
             await resumeAuth(authResult.sessionId);
           }
@@ -85,7 +84,7 @@ function McpStoreProviderInner({
               new CustomEvent('mcp-oauth-success', {
                 detail: {
                   state,
-                  sessionId: authResult.sessionId,
+                  sessionId: authResult.sessionId || authResult.state || state,
                   serverUrl: authResult.serverUrl || parsed.searchParams.get('resource') || undefined,
                 },
               })
@@ -125,23 +124,11 @@ function McpStoreProviderInner({
   }, [connections, syncConnections]);
 
   useEffect(() => {
-    // On mount: fetch user servers
-    const initializeConnections = async () => {
-      // Fetch user servers
-      await fetchUserServers();
-    };
-
-    initializeConnections();
+    void fetchUserServers();
   }, [fetchUserServers]);
 
   useEffect(() => {
-    return () => {};
-  }, []);
-
-  useEffect(() => {
-    if (connections.length > 0) {
-      setMcpClient({ connections, sseClient });
-    }
+    setMcpClient({ connections, sseClient });
   }, [connections, sseClient]);
 
   return <>{children}</>;
