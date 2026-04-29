@@ -2,27 +2,16 @@ import { UIToolInvocation, tool } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createPublicSupabaseClient } from '@/lib/supabase/public-client';
-import { getMcpConnectionsForIdentity, type McpConnectionRecord } from '@/lib/mcp-connections';
+import { getStoredMcpConnectionsForIdentity, type McpConnectionRecord } from '@/lib/mcp-connections';
 import { listMcpServersCatalog } from '@/lib/mcp-servers/service';
 import { restMcpServer } from '@/lib/mcp-servers/rest-serialize';
+import { normalizeServerUrl } from '@/lib/url';
 import type { McpServer } from '@/types/mcp';
 
 type McpServerSearchResult = McpServer & {
   activeConnection?: McpConnectionRecord | null;
   activeConnections?: McpConnectionRecord[];
 };
-
-function normalizeServerUrl(url?: string | null): string | null {
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
-}
 
 function findConnectionsForServer(
   server: McpServer,
@@ -43,9 +32,9 @@ async function getUserMcpConnections(): Promise<McpConnectionRecord[]> {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user?.id) return [];
-    return getMcpConnectionsForIdentity(user.id);
+    return getStoredMcpConnectionsForIdentity(user.id);
   } catch (error) {
-    console.error('[searchMcpServers] Failed to load user connections:', error);
+    console.error('[searchMcpServers] Failed to load stored user connections:', error);
     return [];
   }
 }

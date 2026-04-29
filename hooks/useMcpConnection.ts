@@ -7,6 +7,7 @@ import {
   type StoredConnection,
   findConnectionForServer
 } from '@/lib/stores/mcp-store';
+import { normalizeServerUrl } from '@/lib/url';
 
 // Re-export StoredConnection for backward compatibility
 export type { StoredConnection };
@@ -26,17 +27,6 @@ type ConnectableServer = {
   transportType?: string | null;
   title?: string | null;
 };
-
-function normalizeServerUrl(url?: string | null): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
-}
 
 function extractServerUrl(server: ConnectableServer): string | null {
   return server.remoteUrl || server.url || null;
