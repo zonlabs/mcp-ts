@@ -47,9 +47,13 @@ function toConnectionRecord(
 }
 
 function getStoredConnectionStatus(session: SessionData): string {
-  const state =
-    (session as { state?: unknown; connectionStatus?: unknown }).state ??
-    (session as { state?: unknown; connectionStatus?: unknown }).connectionStatus;
+  const sessionRecord = session as unknown as Record<string, unknown>;
+
+  if (typeof sessionRecord.active === "boolean") {
+    return sessionRecord.active ? "READY" : "DISCONNECTED";
+  }
+
+  const state = sessionRecord.connectionStatus ?? sessionRecord.state;
 
   return typeof state === "string" && state.trim()
     ? state.trim().toUpperCase()
