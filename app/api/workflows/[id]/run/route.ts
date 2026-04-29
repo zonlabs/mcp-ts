@@ -1,31 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Queue } from "bullmq";
-import IORedis from "ioredis";
 import { createClient } from "@/lib/supabase/server";
+import { createWorkflowRedisConnection } from "@/lib/workflow-redis";
 import { storage } from "@mcp-ts/sdk/server";
 
 type SessionData = Awaited<ReturnType<typeof storage.getIdentitySessionsData>>[number];
-
-function resolveRedisUrl(): string {
-  if (process.env.REDIS_URL?.trim()) return process.env.REDIS_URL.trim();
-  const rh = process.env.REDISHOST?.trim();
-  const rp = process.env.REDISPORT?.trim();
-  if (rh && rp) {
-    const proto = process.env.REDIS_TLS ? "rediss" : "redis";
-    const pw = process.env.REDISPASSWORD?.trim();
-    const user = process.env.REDISUSER?.trim() ?? "default";
-    return pw
-      ? `${proto}://${encodeURIComponent(user)}:${encodeURIComponent(pw)}@${rh}:${rp}/0`
-      : `${proto}://${rh}:${rp}/0`;
-  }
-  const host = process.env.REDIS_HOST?.trim() ?? "localhost";
-  const port = process.env.REDIS_PORT?.trim() ?? "6379";
-  const pw = process.env.REDIS_PASSWORD?.trim();
-  const proto = process.env.REDIS_TLS ? "rediss" : "redis";
-  return pw
-    ? `${proto}://default:${encodeURIComponent(pw)}@${host}:${port}/0`
-    : `${proto}://${host}:${port}/0`;
-}
 
 export async function POST(
   request: NextRequest,
@@ -142,7 +121,7 @@ export async function POST(
 
   const executionLogId = executionLog.id as string;
   const jobId = `execution-${executionLogId}`;
-  const redis = new IORedis(resolveRedisUrl(), { maxRetriesPerRequest: null });
+  const redis = createWorkflowRedisConnection();
   const queue = new Queue("workflow-executions", { connection: redis });
 
   try {

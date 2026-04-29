@@ -80,8 +80,6 @@ You are MCP Assistant, an AI agent that helps users complete tasks by discoverin
 `.trim();
 }
 
-const INSTRUCTIONS = buildChatAgentInstructions();
-
 const MAX_TOOL_NAME_LENGTH = 64;
 
 type McpAgentCallOptions = {
@@ -351,7 +349,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   };
 
   const agent = new ToolLoopAgent<McpAgentCallOptions, ToolSet>({
-    instructions: INSTRUCTIONS,
+    instructions: buildChatAgentInstructions(),
     model: createOpenAI()("gpt-4o-mini"),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
@@ -380,7 +378,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         }, { once: true });
       }
 
-      const instructions = INSTRUCTIONS;
+      const instructions = buildChatAgentInstructions();
       const messagesToUse = messages || [];
 
       const selectedServers = callOptions?.gatewaySelections?.map((s) => s.mcpServer) || options.gatewaySelections?.map((s) => s.mcpServer) || [];
