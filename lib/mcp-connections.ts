@@ -46,6 +46,31 @@ function toConnectionRecord(
   };
 }
 
+function getStoredConnectionStatus(session: SessionData): string {
+  const state =
+    (session as { state?: unknown; connectionStatus?: unknown }).state ??
+    (session as { state?: unknown; connectionStatus?: unknown }).connectionStatus;
+
+  return typeof state === "string" && state.trim()
+    ? state.trim().toUpperCase()
+    : "DISCONNECTED";
+}
+
+export async function getStoredMcpConnectionsForIdentity(
+  identity: string
+): Promise<McpConnectionRecord[]> {
+  const sessions = await storage.getIdentitySessionsData(identity);
+
+  return sessions.map((session) => {
+    const connectionStatus = getStoredConnectionStatus(session);
+
+    return {
+      ...toConnectionRecord(session, connectionStatus === "READY"),
+      connectionStatus,
+    };
+  });
+}
+
 export async function getMcpConnectionsForIdentity(
   identity: string
 ): Promise<McpConnectionRecord[]> {

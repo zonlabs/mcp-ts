@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import toast from 'react-hot-toast';
 import type { McpServer, ToolInfo, ParsedRegistryServer } from '@/types/mcp';
+import { normalizeServerUrl } from '@/lib/url';
 
 /**
  * Stored Connection Type
@@ -64,17 +65,6 @@ function normalizeTransport(value?: string | null): "sse" | "streamable_http" {
     return "streamable_http";
   }
   return "sse";
-}
-
-function normalizeServerUrl(url?: string | null): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
 }
 
 export function findConnectionForServer<T extends { id: string; url?: string | null }>(
