@@ -456,13 +456,20 @@ export class ToolIndex {
 
   /**
    * Get tool definition(s) by name.
-   * If namespace is provided, it tries to match sessionId or serverName.
+   * If namespace is provided, it matches exact session/server IDs or a
+   * case-insensitive fragment of the human-readable server name.
    */
   getTool(name: string, namespace?: string): IndexedTool[] {
     const list = this.tools.get(name) ?? [];
     if (!namespace) return list;
 
-    return list.filter((t) => t.sessionId === namespace || t.serverId === namespace);
+    const namespaceLower = namespace.toLowerCase();
+    return list.filter(
+      (t) =>
+        t.sessionId === namespace ||
+        t.serverId === namespace ||
+        t.serverName.toLowerCase().includes(namespaceLower)
+    );
   }
 
   /** All indexed tool names. */

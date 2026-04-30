@@ -68,6 +68,35 @@ test.describe('ToolIndex', () => {
         );
     });
 
+    test('should resolve tools by exact IDs or server name fragments', async () => {
+        const index = new ToolIndex();
+        const tools: IndexedTool[] = [
+            {
+                name: 'query',
+                description: 'Query database tables',
+                inputSchema: { type: 'object', properties: {} },
+                serverName: 'Database MCP',
+                sessionId: 'session-db',
+                serverId: 'server-db',
+            },
+            {
+                name: 'query',
+                description: 'Query analytics warehouse',
+                inputSchema: { type: 'object', properties: {} },
+                serverName: 'Analytics Warehouse',
+                sessionId: 'session-analytics',
+                serverId: 'server-analytics',
+            },
+        ];
+
+        await index.buildIndex(tools);
+
+        expect(index.getTool('query', 'session-db')).toHaveLength(1);
+        expect(index.getTool('query', 'server-db')).toHaveLength(1);
+        expect(index.getTool('query', 'MCP')).toHaveLength(1);
+        expect(index.getTool('query', 'DATABASE')[0].serverName).toBe('Database MCP');
+    });
+
     test('should strip required-term prefixes before embedding query text', async () => {
         let embeddingQueryText: string | null = null;
         const embedFn = async (texts: string[]): Promise<number[][]> => {
