@@ -7,6 +7,7 @@ import {
   type StoredConnection,
   findConnectionForServer
 } from '@/lib/stores/mcp-store';
+import { normalizeServerUrl } from '@/lib/url';
 
 // Re-export StoredConnection for backward compatibility
 export type { StoredConnection };
@@ -26,17 +27,6 @@ type ConnectableServer = {
   transportType?: string | null;
   title?: string | null;
 };
-
-function normalizeServerUrl(url?: string | null): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
-}
 
 function extractServerUrl(server: ConnectableServer): string | null {
   return server.remoteUrl || server.url || null;
@@ -176,7 +166,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
         throw new Error("Please sign in first.");
       }
 
-      const callbackUrl = `${window.location.origin}/api/mcp/auth/callback`;
+      const callbackUrl = `${window.location.origin}/auth/callback/success`;
       const identity = String(server.id || serverUrl || server.name || "").trim();
       if (!identity) {
         throw new Error("Missing server identity for connection.");

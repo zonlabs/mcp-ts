@@ -46,6 +46,35 @@ function toConnectionRecord(
   };
 }
 
+function getStoredConnectionStatus(session: SessionData): string {
+  const sessionRecord = session as unknown as Record<string, unknown>;
+
+  if (typeof sessionRecord.active === "boolean") {
+    return sessionRecord.active ? "READY" : "DISCONNECTED";
+  }
+
+  const state = sessionRecord.connectionStatus ?? sessionRecord.state;
+
+  return typeof state === "string" && state.trim()
+    ? state.trim().toUpperCase()
+    : "DISCONNECTED";
+}
+
+export async function getStoredMcpConnectionsForIdentity(
+  identity: string
+): Promise<McpConnectionRecord[]> {
+  const sessions = await storage.getIdentitySessionsData(identity);
+
+  return sessions.map((session) => {
+    const connectionStatus = getStoredConnectionStatus(session);
+
+    return {
+      ...toConnectionRecord(session, connectionStatus === "READY"),
+      connectionStatus,
+    };
+  });
+}
+
 export async function getMcpConnectionsForIdentity(
   identity: string
 ): Promise<McpConnectionRecord[]> {

@@ -11,7 +11,7 @@ export interface AuthPopupOptions {
 }
 
 export interface AuthPopupResult {
-  sessionId: string;
+  sessionId?: string;
   serverName?: string;
   serverId?: string;
   serverUrl?: string;
@@ -78,7 +78,7 @@ export function openAuthPopup(options: AuthPopupOptions): Promise<AuthPopupResul
         console.log('[Auth Popup] Received auth code');
         messageReceived = true;
         cleanup(false);
-        resolve({ sessionId, serverName, serverId, serverUrl, code, state });
+        resolve({ sessionId: sessionId || state, serverName, serverId, serverUrl, code, state });
       } else if (type === 'mcp-auth-error') {
         settled = true;
         console.error('[Auth Popup] Authentication error:', error);

@@ -101,7 +101,7 @@ function CallbackSuccessContent() {
     if (code && state && window.opener) {
       hasPostedResultRef.current = true;
       window.opener.postMessage(
-        { type: "MCP_AUTH_CODE", code, state },
+        { type: "MCP_AUTH_CODE", code, sessionId: state, state },
         window.location.origin
       );
       setStatus("success");

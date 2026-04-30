@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import toast from 'react-hot-toast';
 import type { McpServer, ToolInfo, ParsedRegistryServer } from '@/types/mcp';
+import { normalizeServerUrl } from '@/lib/url';
 
 /**
  * Stored Connection Type
@@ -64,17 +65,6 @@ function normalizeTransport(value?: string | null): "sse" | "streamable_http" {
     return "streamable_http";
   }
   return "sse";
-}
-
-function normalizeServerUrl(url?: string | null): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
 }
 
 export function findConnectionForServer<T extends { id: string; url?: string | null }>(
@@ -586,7 +576,7 @@ export const useMcpStore = create<McpStore>()(
           if (!mcpActions) throw new Error("Please sign in first.");
 
           try {
-            const callbackUrl = `${window.location.origin}/api/mcp/auth/callback`; // This route might need to be re-thought or removed if mcp-ts handles it differently
+            const callbackUrl = `${window.location.origin}/auth/callback/success`;
             await mcpActions.connect({
               serverId: server.id,
               serverName: server.name,

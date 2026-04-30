@@ -11,6 +11,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { cn } from '@/lib/utils';
 import { useMcpStore } from '@/lib/stores/mcp-store';
+import { normalizeServerUrl } from '@/lib/url';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import { AlertCircle, ArrowUpRight, CheckCircle2 } from 'lucide-react';
@@ -41,17 +42,6 @@ interface PlaygroundChatProps {
   initialMessages: McpAgentUIMessage[];
   initialDraft?: string;
   isReadOnly?: boolean;
-}
-
-function normalizeServerUrl(url?: string | null): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
 }
 
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
