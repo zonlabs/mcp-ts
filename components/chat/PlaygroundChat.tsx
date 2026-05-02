@@ -443,6 +443,7 @@ export function PlaygroundChat({
   };
 
   const renderMessageParts = (m: McpAgentUIMessage, isLastMessage: boolean) => {
+    const lastPart = m.parts[m.parts.length - 1] as any | undefined;
     const chainOfThought = buildChainOfThoughtSummary(m.parts, {
       getToolName: (part) => {
         const toolPart = part as any;
@@ -468,7 +469,11 @@ export function PlaygroundChat({
                 <ChainOfThoughtStep
                   icon={BrainIcon}
                   label="Reasoning"
-                  status={isLastMessage && status === 'streaming' ? 'active' : 'complete'}
+                  status={
+                    isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning'
+                      ? 'active'
+                      : 'complete'
+                  }
                 >
                   <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-6">
                     {chainOfThought.reasoningText}
