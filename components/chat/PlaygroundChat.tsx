@@ -17,10 +17,10 @@ import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import {
   AlertCircle,
   ArrowUpRight,
-  BrainIcon,
   ChevronDownIcon,
   CheckCircle2,
   FileTextIcon,
+  LightbulbIcon,
   Loader2,
   SearchIcon,
   TerminalIcon,
@@ -92,7 +92,7 @@ function ToolDetailBlock({
       </div>
       <pre
         className={cn(
-          "max-h-48 overflow-auto rounded-md border px-3 py-2 text-xs leading-5",
+          "max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-md border px-3 py-2 text-xs leading-5",
           "bg-muted/35 text-muted-foreground",
           tone === 'error' && "border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-300"
         )}
@@ -147,7 +147,7 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
       status={step.status}
     >
       {hasDetails && isDetailsOpen && (
-        <div className="grid gap-2 pt-1">
+        <div className="grid gap-2 pt-1 min-w-0">
           {step.input !== undefined && (
             <ToolDetailBlock label="Args" value={step.input} />
           )}
@@ -159,6 +159,47 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
           )}
         </div>
       )}
+    </ChainOfThoughtStep>
+  );
+}
+
+function ReasoningStepWithDuration({
+  reasoningText,
+  isStreaming,
+}: {
+  reasoningText: string;
+  isStreaming: boolean;
+}) {
+  const startTimeRef = useRef<number | null>(null);
+  const [duration, setDuration] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (isStreaming) {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now();
+      }
+    } else if (startTimeRef.current !== null) {
+      setDuration(Math.ceil((Date.now() - startTimeRef.current) / 1000));
+      startTimeRef.current = null;
+    }
+  }, [isStreaming]);
+
+  const description = isStreaming
+    ? 'Thinking...'
+    : duration !== undefined
+      ? `Thought for ${duration}s`
+      : undefined;
+
+  return (
+    <ChainOfThoughtStep
+      icon={LightbulbIcon}
+      label="Reasoning"
+      description={description}
+      status={isStreaming ? 'active' : 'complete'}
+    >
+      <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-6">
+        {reasoningText}
+      </div>
     </ChainOfThoughtStep>
   );
 }
@@ -466,19 +507,12 @@ export function PlaygroundChat({
             <ChainOfThoughtHeader>Chain of Thought</ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {chainOfThought.reasoningText && (
-                <ChainOfThoughtStep
-                  icon={BrainIcon}
-                  label="Reasoning"
-                  status={
+                <ReasoningStepWithDuration
+                  reasoningText={chainOfThought.reasoningText}
+                  isStreaming={
                     isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning'
-                      ? 'active'
-                      : 'complete'
                   }
-                >
-                  <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-6">
-                    {chainOfThought.reasoningText}
-                  </div>
-                </ChainOfThoughtStep>
+                />
               )}
               {chainOfThought.toolSteps.map((step) => (
                 <ChainOfThoughtToolStepItem
