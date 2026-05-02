@@ -2,9 +2,9 @@ import React from "react";
 
 const RECIPE_DATA = [
   {
-    id: "zapier-email-summary",
+    id: "composio-email-summary",
     title: "Email Summary",
-    description: "Using Zapier MCP check my unread emails from today and summarize the important ones",
+    description: "Using Composio MCP to get access to Gmail, check my unread emails from today and summarize the important ones",
     icons: ["https://logos.composio.dev/api/gmail"],
   },
   {

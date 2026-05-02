@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 const MOBILE_STARTER_PROMPTS = [
    {
     label: 'Draft Follow-Up Email',
-    prompt: 'Using Composio MCP to get access to Gmail, draft a clear, professional follow-up email with access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
+    prompt: 'Using Composio MCP to get access to Gmail, draft a clear, professional follow-up email. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
     icon: 'https://logos.composio.dev/api/gmail',
   },
   {

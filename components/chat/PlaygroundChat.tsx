@@ -303,7 +303,7 @@ export function PlaygroundChat({
     {
       label: 'GitHub Issue Summary',
       prompt: 'Use GitHub to retrieve the latest open issues for this repository and summarize the most critical bugs.',
-      icon: 'https://connect.composio.dev/mcp',
+      icon: 'https://logos.composio.dev/api/github',
     },
     {
       label: 'Semantic Search',
