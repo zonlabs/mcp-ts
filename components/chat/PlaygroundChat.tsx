@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { Fragment, useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { ServerIcon } from '@/components/common/ServerIcon';
@@ -13,7 +13,16 @@ import { cn } from '@/lib/utils';
 import { useMcpStore } from '@/lib/stores/mcp-store';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
-import { AlertCircle, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowUpRight,
+  BrainIcon,
+  ChevronDownIcon,
+  CheckCircle2,
+  FileTextIcon,
+  SearchIcon,
+  TerminalIcon,
+} from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
@@ -23,24 +32,118 @@ import {
   ConversationContent,
 } from '@/components/ai-elements/conversation';
 import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from '@/components/ai-elements/reasoning';
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool';
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from '@/components/ai-elements/chain-of-thought';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
+import {
+  buildChainOfThoughtSummary,
+  hasToolStepDetails,
+  type ChainOfThoughtToolStep,
+  type ToolStepIconKey,
+} from '@/components/chat/chain-of-thought-utils';
 
 interface PlaygroundChatProps {
   chatId: string;
   initialMessages: McpAgentUIMessage[];
   initialDraft?: string;
   isReadOnly?: boolean;
+}
+
+const toolStepIcons: Record<ToolStepIconKey, typeof TerminalIcon> = {
+  execute: TerminalIcon,
+  read: FileTextIcon,
+  search: SearchIcon,
+};
+
+function formatToolDetail(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function ToolDetailBlock({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: unknown;
+  tone?: 'default' | 'error';
+}) {
+  return (
+    <div className="space-y-1">
+      <div
+        className={cn(
+          "text-[10px] font-medium uppercase tracking-[0.14em]",
+          tone === 'error' ? "text-red-500/90 dark:text-red-400/90" : "text-muted-foreground"
+        )}
+      >
+        {label}
+      </div>
+      <pre
+        className={cn(
+          "max-h-48 overflow-auto rounded-md border px-3 py-2 text-xs leading-5",
+          "bg-muted/35 text-muted-foreground",
+          tone === 'error' && "border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-300"
+        )}
+      >
+        {formatToolDetail(value)}
+      </pre>
+    </div>
+  );
+}
+
+function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const hasDetails = hasToolStepDetails(step);
+
+  const label = hasDetails ? (
+    <button
+      type="button"
+      onClick={() => setIsDetailsOpen((open) => !open)}
+      className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-left transition-colors hover:text-foreground"
+      aria-expanded={isDetailsOpen}
+    >
+      <span className="truncate">{step.label}</span>
+      <ChevronDownIcon
+        className={cn(
+          "size-3.5 shrink-0 transition-transform",
+          isDetailsOpen ? "rotate-180" : "rotate-0"
+        )}
+      />
+    </button>
+  ) : (
+    step.label
+  );
+
+  return (
+    <ChainOfThoughtStep
+      icon={step.iconKey ? toolStepIcons[step.iconKey] : undefined}
+      label={label}
+      description={step.description}
+      status={step.status}
+    >
+      {hasDetails && isDetailsOpen && (
+        <div className="grid gap-2 pt-1">
+          {step.input !== undefined && (
+            <ToolDetailBlock label="Args" value={step.input} />
+          )}
+          {step.output !== undefined && (
+            <ToolDetailBlock label="Result" value={step.output} />
+          )}
+          {step.errorText && (
+            <ToolDetailBlock label="Error" value={step.errorText} tone="error" />
+          )}
+        </div>
+      )}
+    </ChainOfThoughtStep>
+  );
 }
 
 function normalizeServerUrl(url?: string | null): string | null {
@@ -333,11 +436,15 @@ export function PlaygroundChat({
   };
 
   const renderMessageParts = (m: McpAgentUIMessage, isLastMessage: boolean) => {
-    const reasoningParts = m.parts.filter((part: any) => part.type === "reasoning");
-    const reasoningText = reasoningParts.map((part: any) => part.text).join("\n\n");
-    const hasReasoning = reasoningParts.length > 0;
-    const lastPart = m.parts.at(-1);
-    const isReasoningStreaming = isLastMessage && status === 'streaming' && lastPart?.type === "reasoning";
+    const chainOfThought = buildChainOfThoughtSummary(m.parts, {
+      getToolName: (part) => {
+        const toolPart = part as any;
+        if (!isToolUIPart(toolPart)) return undefined;
+        return getToolName(toolPart as ToolUIPart<any> | DynamicToolUIPart);
+      },
+      isLastMessage,
+      status,
+    });
 
     const lastTextIndex = m.parts
       .map((p: any, idx: number) => (p?.type === 'text' && p.text ? idx : -1))
@@ -346,13 +453,35 @@ export function PlaygroundChat({
 
     return (
       <>
-        {hasReasoning && (
-          <Reasoning className="w-full" isStreaming={isReasoningStreaming}>
-            <ReasoningTrigger />
-            <ReasoningContent>{reasoningText}</ReasoningContent>
-          </Reasoning>
+        {chainOfThought.hasChainOfThought && (
+          <ChainOfThought className="mb-3" defaultOpen>
+            <ChainOfThoughtHeader>Chain of Thought</ChainOfThoughtHeader>
+            <ChainOfThoughtContent>
+              {chainOfThought.reasoningText && (
+                <ChainOfThoughtStep
+                  icon={BrainIcon}
+                  label="Reasoning"
+                  status={isLastMessage && status === 'streaming' ? 'active' : 'complete'}
+                >
+                  <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-6">
+                    {chainOfThought.reasoningText}
+                  </div>
+                </ChainOfThoughtStep>
+              )}
+              {chainOfThought.toolSteps.map((step) => (
+                <ChainOfThoughtToolStepItem
+                  key={step.key}
+                  step={step}
+                />
+              ))}
+            </ChainOfThoughtContent>
+          </ChainOfThought>
         )}
         {m.parts.map((part: any, index: number) => {
+          if (part.type === 'reasoning') {
+            return null;
+          }
+
           if (part.type === 'text' && part.text) {
             return (
               <AssistantMessage
@@ -453,28 +582,21 @@ export function PlaygroundChat({
               }
 
               if (toolPart.state === 'output-error') {
-                const toolTitle = part.type.replace(/^tool-/, '');
-                const headerProps = part.type === 'dynamic-tool' 
-                  ? { type: part.type as 'dynamic-tool', state: toolPart.state, toolName: toolName }
-                  : { type: part.type as 'tool-', state: toolPart.state, title: toolTitle };
                 return (
-                  <Tool key={`tool-${index}`} defaultOpen={false}>
-                    <ToolHeader {...headerProps} />
-                    <ToolContent>
-                      <ToolInput input={toolPart.input} />
-                      <ToolOutput errorText={toolPart.errorText} />
-                    </ToolContent>
-                  </Tool>
+                  <div
+                    key={`tool-${index}`}
+                    className="w-full inline-flex items-center gap-2 text-xs text-red-600 dark:text-red-400"
+                  >
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    <span className="font-medium">
+                      Connection tool failed{toolPart.errorText ? `: ${toolPart.errorText}` : '.'}
+                    </span>
+                  </div>
                 );
               }
 
               return null;
             }
-
-            const toolTitle = part.type.replace(/^tool-/, '');
-            const headerProps = part.type === 'dynamic-tool'
-              ? { type: 'dynamic-tool' as const, state: toolPart.state, toolName: toolName }
-              : { type: 'tool-' as const, state: toolPart.state, title: toolTitle };
             
             const state = toolPart.state as string;
             const toolState = state === 'output-available' ? 'complete' 
@@ -482,24 +604,13 @@ export function PlaygroundChat({
               : 'idle';
             
             return (
-              <Fragment key={`tool-group-${index}`}>
-                <Tool key={`tool-${index}`} defaultOpen={false}>
-                  <ToolHeader {...headerProps} />
-                  <ToolContent>
-                    <ToolInput input={toolPart.input} />
-                    <ToolOutput 
-                      output={toolPart.state === 'output-available' ? toolPart.output : undefined}
-                      errorText={toolPart.state === 'output-error' ? toolPart.errorText : undefined}
-                    />
-                  </ToolContent>
-                </Tool>
-                <McpAppRenderer
-                  name={toolName || ''}
-                  args={toolPart.input as Record<string, unknown> | undefined}
-                  result={toolPart.state === 'output-available' ? toolPart.output : undefined}
-                  status={toolState}
-                />
-              </Fragment>
+              <McpAppRenderer
+                key={`tool-${index}`}
+                name={toolName || ''}
+                args={toolPart.input as Record<string, unknown> | undefined}
+                result={toolPart.state === 'output-available' ? toolPart.output : undefined}
+                status={toolState}
+              />
             );
           }
 
