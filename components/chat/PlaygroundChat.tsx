@@ -301,9 +301,9 @@ export function PlaygroundChat({
   
   const mobileStarterPrompts = [
     {
-      label: 'Market Analysis',
-      prompt: 'Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.',
-      icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
+      label: 'GitHub Issue Summary',
+      prompt: 'Use GitHub to retrieve the latest open issues for this repository and summarize the most critical bugs.',
+      icon: 'https://connect.composio.dev/mcp',
     },
     {
       label: 'Semantic Search',
@@ -312,8 +312,8 @@ export function PlaygroundChat({
     },
     {
       label: 'Draft Follow-Up Email',
-      prompt: 'Draft a clear, professional follow-up email using Rube with access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
-      icon: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIB8EFu3xpWgE33JuAX-U-1geBFJnk8PAJSA&s',
+      prompt: 'Draft a clear, professional follow-up email using composio mcp to get access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
+      icon: 'https://logos.composio.dev/api/gmail',
     },
     {
       label: 'Notion Meeting Prep',

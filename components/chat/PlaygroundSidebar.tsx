@@ -402,23 +402,17 @@ export const PlaygroundSidebar = () => {
           {activeChatTitle}
         </button>
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/chat")}
           className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-          aria-label="Go to home page"
+          aria-label="New chat"
         >
-          <Image
-            src="/logo-mark-red.svg"
-            alt="Home"
-            width={20}
-            height={20}
-            className="opacity-90"
-          />
+          <SquarePen className="w-5 h-5 text-foreground" />
         </button>
       </div>
 
       {/* Mobile Drawer */}
       <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <DialogContent className="md:hidden p-0 rounded-none max-w-full w-full h-full left-0 top-0 translate-x-0 translate-y-0 border-0" showCloseButton={false}>
+        <DialogContent className="md:hidden p-0 rounded-none max-w-[85vw] w-72 h-full left-0 top-0 translate-x-0 translate-y-0 border-y-0 border-l-0 border-r border-border/60" showCloseButton={false}>
           <div className="h-full flex flex-col bg-background">
             <div className="h-14 border-b border-border/60 px-3 flex items-center justify-between">
               <div className="flex items-center gap-2">

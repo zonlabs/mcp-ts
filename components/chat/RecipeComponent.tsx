@@ -5,7 +5,7 @@ const RECIPE_DATA = [
     id: "zapier-email-summary",
     title: "Email Summary",
     description: "Using Zapier MCP check my unread emails from today and summarize the important ones",
-    icons: ["https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/zapier-icon.png"],
+    icons: ["https://logos.composio.dev/api/gmail"],
   },
   {
     id: "web-search",
@@ -14,10 +14,10 @@ const RECIPE_DATA = [
     icons: ["https://awsmp-logos.s3.amazonaws.com/seller-7s5a3z2w3unay/b6519f9126c0432087c79827b95283c6.png"],
   },
   {
-    id: "draft-follow-up-email",
-    title: "Draft Blog Post",
-    description: "Draft a blog post about AI productivity tips and save it to Google Docs",
-    icons: ["https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIB8EFu3xpWgE33JuAX-U-1geBFJnk8PAJSA&s"],
+    id: "github-issue-summary",
+    title: "GitHub Issue Summary",
+    description: "Use Composio MCP to get access to Github to fetch the latest open issues for this repository and summarize the most critical bugs.",
+    icons: ["https://logos.composio.dev/api/github"],
   },
   {
     id: "supabase-project",
