@@ -135,10 +135,10 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
           {step.status === 'active' && (
             <Loader2 className="size-3 animate-spin text-primary" />
           )}
-          {step.status === 'complete' && !step.errorText && (
+          {step.status === 'complete' && !step.hasError && (
             <CheckCircle2 className="size-3 text-green-500" />
           )}
-          {step.status === 'complete' && step.errorText && (
+          {step.status === 'complete' && step.hasError && (
             <AlertCircle className="size-3 text-red-500" />
           )}
           <span>{step.description}</span>

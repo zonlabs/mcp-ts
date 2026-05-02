@@ -55,6 +55,26 @@ test("marks pending and errored tool states with useful labels", () => {
   assert.equal(getToolStepDescription("output-error"), "Error");
 });
 
+test("tracks errored tool state independently of error text", () => {
+  const summary = buildChainOfThoughtSummary(
+    [
+      {
+        type: "tool-search",
+        state: "output-error",
+        errorText: "",
+      },
+    ],
+    {
+      getToolName: (part) => part.type.replace(/^tool-/, ""),
+      isLastMessage: false,
+      status: "ready",
+    }
+  );
+
+  assert.equal(summary.toolSteps[0].hasError, true);
+  assert.equal(summary.toolSteps[0].errorText, "");
+});
+
 test("classifies common tool names into semantic icon keys", () => {
   assert.equal(getToolStepIconKey("MCPASSISTANT_SEARCH_SERVERS"), "search");
   assert.equal(getToolStepIconKey("mcp_execute_tool"), "execute");

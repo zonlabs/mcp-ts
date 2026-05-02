@@ -12,6 +12,7 @@ export type ChainOfThoughtToolStep = {
   label: string;
   description: string;
   status: ChainOfThoughtStepStatus;
+  hasError?: boolean;
   iconKey?: ToolStepIconKey;
   input?: unknown;
   output?: unknown;
@@ -128,6 +129,7 @@ export function buildChainOfThoughtSummary(
 
     if ("input" in part) step.input = part.input;
     if ("output" in part) step.output = part.output;
+    if (part.state === "output-error") step.hasError = true;
     if (typeof part.errorText === "string") step.errorText = part.errorText;
 
     return [step];
