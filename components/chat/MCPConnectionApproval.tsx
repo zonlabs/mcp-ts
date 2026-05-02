@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ServerIcon } from '../common/ServerIcon';
 import { useMcpStore } from '@/lib/stores/mcp-store';
+import { normalizeServerUrl } from '@/lib/url';
 
 interface MCPConnectionApprovalProps {
   serverName: string;
@@ -37,17 +38,6 @@ export function MCPConnectionApproval({
   const connectServer = useMcpStore(state => state.connect);
   const disconnectServer = useMcpStore(state => state.disconnect);
   const connections = useMcpStore(state => state.connections);
-
-  const normalizeServerUrl = (url?: string | null): string | null => {
-    if (!url) return null;
-    try {
-      const parsed = new URL(url.trim());
-      const path = parsed.pathname.replace(/\/+$/, '') || '/';
-      return `${parsed.origin}${path}${parsed.search}`;
-    } catch {
-      return url.trim().replace(/\/+$/, '');
-    }
-  };
 
   // Check if we already have a connection for this server
   const normalizedTargetUrl = normalizeServerUrl(serverUrl);

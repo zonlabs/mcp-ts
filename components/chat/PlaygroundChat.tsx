@@ -11,6 +11,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { cn } from '@/lib/utils';
 import { useMcpStore } from '@/lib/stores/mcp-store';
+import { normalizeServerUrl } from '@/lib/url';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import {

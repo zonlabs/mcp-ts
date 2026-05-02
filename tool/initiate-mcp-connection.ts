@@ -2,16 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { getMcpConnectionsForIdentity } from '@/lib/mcp-connections';
-
-function normalizeServerUrl(url: string): string {
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
-}
+import { normalizeServerUrl } from '@/lib/url';
 
 export const initiateMcpConnection = tool({
   description: 'Initiate an MCP connection to a specified server to connect and verify the connection status.',
