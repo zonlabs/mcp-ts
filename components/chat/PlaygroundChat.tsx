@@ -17,10 +17,10 @@ import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import {
   AlertCircle,
   ArrowUpRight,
-  BrainIcon,
   ChevronDownIcon,
   CheckCircle2,
   FileTextIcon,
+  LightbulbIcon,
   Loader2,
   SearchIcon,
   TerminalIcon,
@@ -92,7 +92,7 @@ function ToolDetailBlock({
       </div>
       <pre
         className={cn(
-          "max-h-48 overflow-auto rounded-md border px-3 py-2 text-xs leading-5",
+          "max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-md border px-3 py-2 text-xs leading-5",
           "bg-muted/35 text-muted-foreground",
           tone === 'error' && "border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-300"
         )}
@@ -147,7 +147,7 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
       status={step.status}
     >
       {hasDetails && isDetailsOpen && (
-        <div className="grid gap-2 pt-1">
+        <div className="grid gap-2 pt-1 min-w-0">
           {step.input !== undefined && (
             <ToolDetailBlock label="Args" value={step.input} />
           )}
@@ -159,6 +159,49 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
           )}
         </div>
       )}
+    </ChainOfThoughtStep>
+  );
+}
+
+function ReasoningStepWithDuration({
+  reasoningText,
+  isStreaming,
+}: {
+  reasoningText: string;
+  isStreaming: boolean;
+}) {
+  const startTimeRef = useRef<number | null>(null);
+  const elapsedMsRef = useRef(0);
+  const [duration, setDuration] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (isStreaming) {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now();
+      }
+    } else if (startTimeRef.current !== null) {
+      elapsedMsRef.current += Date.now() - startTimeRef.current;
+      setDuration(Math.ceil(elapsedMsRef.current / 1000));
+      startTimeRef.current = null;
+    }
+  }, [isStreaming]);
+
+  const description = isStreaming
+    ? 'Thinking...'
+    : duration !== undefined
+      ? `Thought for ${duration}s`
+      : undefined;
+
+  return (
+    <ChainOfThoughtStep
+      icon={LightbulbIcon}
+      label="Reasoning"
+      description={description}
+      status={isStreaming ? 'active' : 'complete'}
+    >
+      <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-6">
+        {reasoningText}
+      </div>
     </ChainOfThoughtStep>
   );
 }
@@ -260,9 +303,9 @@ export function PlaygroundChat({
   
   const mobileStarterPrompts = [
     {
-      label: 'Market Analysis',
-      prompt: 'Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.',
-      icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
+      label: 'GitHub Issue Summary',
+      prompt: 'Use GitHub to retrieve the latest open issues for this repository and summarize the most critical bugs.',
+      icon: 'https://logos.composio.dev/api/github',
     },
     {
       label: 'Semantic Search',
@@ -271,8 +314,8 @@ export function PlaygroundChat({
     },
     {
       label: 'Draft Follow-Up Email',
-      prompt: 'Draft a clear, professional follow-up email using Rube with access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
-      icon: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIB8EFu3xpWgE33JuAX-U-1geBFJnk8PAJSA&s',
+      prompt: 'Draft a clear, professional follow-up email using composio mcp to get access to Gmail. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
+      icon: 'https://logos.composio.dev/api/gmail',
     },
     {
       label: 'Notion Meeting Prep',
@@ -466,19 +509,12 @@ export function PlaygroundChat({
             <ChainOfThoughtHeader>Chain of Thought</ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {chainOfThought.reasoningText && (
-                <ChainOfThoughtStep
-                  icon={BrainIcon}
-                  label="Reasoning"
-                  status={
+                <ReasoningStepWithDuration
+                  reasoningText={chainOfThought.reasoningText}
+                  isStreaming={
                     isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning'
-                      ? 'active'
-                      : 'complete'
                   }
-                >
-                  <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-6">
-                    {chainOfThought.reasoningText}
-                  </div>
-                </ChainOfThoughtStep>
+                />
               )}
               {chainOfThought.toolSteps.map((step) => (
                 <ChainOfThoughtToolStepItem

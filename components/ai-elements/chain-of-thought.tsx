@@ -135,7 +135,7 @@ export const ChainOfThoughtStep = memo(
         <Icon className="size-4" />
         <div className="absolute top-7 bottom-0 left-1/2 -mx-px w-px bg-border" />
       </div>
-      <div className="flex-1 space-y-2 overflow-hidden">
+      <div className="flex-1 min-w-0 space-y-2 overflow-hidden">
         <div>{label}</div>
         {description && (
           <div className="text-muted-foreground text-xs">{description}</div>
