@@ -41,7 +41,8 @@ const PENDING_TOOL_STATES = new Set([
 export type ToolStepIconKey =
   | "execute"
   | "read"
-  | "search";
+  | "search"
+  | "tool";
 
 export function isChainOfThoughtToolPart(part: ChainOfThoughtPart): boolean {
   return (
@@ -75,15 +76,15 @@ export function getToolStepStatus(
 }
 
 export function getToolStepDescription(state: string | undefined): string {
-  if (state === "output-available") return "Tool completed";
-  if (state === "output-error") return "Tool returned an error";
-  if (state === "executing" || state === "in-progress") return "Running tool";
+  if (state === "output-available") return "Completed";
+  if (state === "output-error") return "Error";
+  if (state === "executing" || state === "in-progress") return "Running";
   if (state === "approval-requested") return "Waiting for approval";
   if (state === "approval-responded") return "Approval received";
-  return "Preparing tool";
+  return "Preparing";
 }
 
-export function getToolStepIconKey(toolName: string | undefined): ToolStepIconKey | undefined {
+export function getToolStepIconKey(toolName: string | undefined): ToolStepIconKey {
   const normalized = (toolName || "").toLowerCase().replace(/[^a-z0-9]+/g, " ");
 
   if (/(^|\s)(search|find|query|lookup|list)(\s|$)/.test(normalized)) return "search";
@@ -94,7 +95,7 @@ export function getToolStepIconKey(toolName: string | undefined): ToolStepIconKe
     return "read";
   }
 
-  return undefined;
+  return "tool";
 }
 
 export function hasToolStepDetails(step: ChainOfThoughtToolStep): boolean {

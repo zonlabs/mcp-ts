@@ -21,8 +21,10 @@ import {
   ChevronDownIcon,
   CheckCircle2,
   FileTextIcon,
+  Loader2,
   SearchIcon,
   TerminalIcon,
+  Wrench,
 } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
@@ -57,6 +59,7 @@ const toolStepIcons: Record<ToolStepIconKey, typeof TerminalIcon> = {
   execute: TerminalIcon,
   read: FileTextIcon,
   search: SearchIcon,
+  tool: Wrench,
 };
 
 function formatToolDetail(value: unknown): string {
@@ -127,7 +130,20 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
     <ChainOfThoughtStep
       icon={step.iconKey ? toolStepIcons[step.iconKey] : undefined}
       label={label}
-      description={step.description}
+      description={
+        <div className="flex items-center gap-1.5">
+          {step.status === 'active' && (
+            <Loader2 className="size-3 animate-spin text-primary" />
+          )}
+          {step.status === 'complete' && !step.errorText && (
+            <CheckCircle2 className="size-3 text-green-500" />
+          )}
+          {step.status === 'complete' && step.errorText && (
+            <AlertCircle className="size-3 text-red-500" />
+          )}
+          <span>{step.description}</span>
+        </div>
+      }
       status={step.status}
     >
       {hasDetails && isDetailsOpen && (
@@ -147,16 +163,6 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
   );
 }
 
-function normalizeServerUrl(url?: string | null): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${path}${parsed.search}`;
-  } catch {
-    return url.trim().replace(/\/+$/, '');
-  }
-}
 
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
   const connections = useMcpStore(state => state.connections);
