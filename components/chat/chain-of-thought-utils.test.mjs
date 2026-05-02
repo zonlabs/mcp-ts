@@ -32,7 +32,7 @@ test("builds a chain-of-thought summary from reasoning and tool parts", () => {
   assert.equal(summary.reasoningText, "Search the connected tools first.");
   assert.deepEqual(summary.toolSteps, [
     {
-      description: "Tool completed",
+      description: "Completed",
       iconKey: "search",
       input: { query: "calendar" },
       key: "tool-1",
@@ -46,13 +46,13 @@ test("builds a chain-of-thought summary from reasoning and tool parts", () => {
 test("marks the currently executing last tool as active", () => {
   assert.equal(getToolStepStatus("executing", true, "streaming"), "active");
   assert.equal(getToolStepStatus("in-progress", true, "streaming"), "active");
-  assert.equal(getToolStepDescription("executing"), "Running tool");
+  assert.equal(getToolStepDescription("executing"), "Running");
 });
 
 test("marks pending and errored tool states with useful labels", () => {
   assert.equal(getToolStepStatus("input-available", true, "ready"), "pending");
   assert.equal(getToolStepStatus("output-error", false, "ready"), "complete");
-  assert.equal(getToolStepDescription("output-error"), "Tool returned an error");
+  assert.equal(getToolStepDescription("output-error"), "Error");
 });
 
 test("classifies common tool names into semantic icon keys", () => {
@@ -60,8 +60,8 @@ test("classifies common tool names into semantic icon keys", () => {
   assert.equal(getToolStepIconKey("mcp_execute_tool"), "execute");
   assert.equal(getToolStepIconKey("mcp_get_tool_schema"), "read");
   assert.equal(getToolStepIconKey("read_file"), "read");
-  assert.equal(getToolStepIconKey("connect_server"), undefined);
-  assert.equal(getToolStepIconKey("custom_tool"), undefined);
+  assert.equal(getToolStepIconKey("connect_server"), "tool");
+  assert.equal(getToolStepIconKey("custom_tool"), "tool");
 });
 
 test("detects when a tool step has expandable details", () => {
