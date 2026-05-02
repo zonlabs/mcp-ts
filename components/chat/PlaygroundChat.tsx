@@ -171,6 +171,7 @@ function ReasoningStepWithDuration({
   isStreaming: boolean;
 }) {
   const startTimeRef = useRef<number | null>(null);
+  const elapsedMsRef = useRef(0);
   const [duration, setDuration] = useState<number | undefined>(undefined);
 
   useEffect(() => {
@@ -179,7 +180,8 @@ function ReasoningStepWithDuration({
         startTimeRef.current = Date.now();
       }
     } else if (startTimeRef.current !== null) {
-      setDuration(Math.ceil((Date.now() - startTimeRef.current) / 1000));
+      elapsedMsRef.current += Date.now() - startTimeRef.current;
+      setDuration(Math.ceil(elapsedMsRef.current / 1000));
       startTimeRef.current = null;
     }
   }, [isStreaming]);
