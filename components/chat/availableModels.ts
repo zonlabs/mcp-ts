@@ -86,14 +86,28 @@ export const AVAILABLE_MODELS = [
   {
     id: "deepseek-chat",
     name: "DeepSeek-V3.2",
-    description: "Dec 2025 upgrade; general-purpose model optimized for agentic tool-use",
+    description: "Legacy alias mapped to DeepSeek-V4-Flash non-thinking mode; scheduled deprecation on 2026-07-24",
     provider: "DeepSeek",
     tag: "Balanced"
   },
   {
+    id: "deepseek-v4-flash",
+    name: "DeepSeek-V4-Flash",
+    description: "Official v4 fast/cost-efficient model with 1M context and tool calling support",
+    provider: "DeepSeek",
+    tag: "Fast"
+  },
+  {
+    id: "deepseek-v4-pro",
+    name: "DeepSeek-V4-Pro",
+    description: "Official v4 flagship model with stronger reasoning/coding and 1M context",
+    provider: "DeepSeek",
+    tag: "Premium"
+  },
+  {
     id: "deepseek-reasoner",
     name: "DeepSeek Reasoner",
-    description: "Thinking-mode model based on R1 architecture; full chain-of-thought visibility",
+    description: "Legacy alias mapped to DeepSeek-V4-Flash thinking mode; scheduled deprecation on 2026-07-24",
     provider: "DeepSeek",
     tag: "Reasoning"
   }
