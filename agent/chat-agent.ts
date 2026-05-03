@@ -22,8 +22,8 @@ interface CreateMcpAgentOptions {
 }
 
 function buildChatAgentInstructions(now: Date = new Date()): string {
-  const currentDate = now.toISOString().split("T")[0];
-  const currentTime = now.toLocaleTimeString("en-US", { hour12: false });
+  const istDateTime = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const [currentDate, currentTime] = istDateTime.split(", ").map((s) => s.trim());
 
   return `
 You are MCP Assistant, an AI agent that completes tasks by discovering, connecting to, and using Model Context Protocol (MCP) servers.
