@@ -323,7 +323,7 @@ export const PlaygroundSidebar = () => {
                 onClick={() => onNavigate(`/chat/${chat.id}`)}
                 className="w-full text-left"
               >
-                <span className="block truncate">{formatChatTitle(chat.title)}</span>
+                <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
               </button>
             )}
           </div>
@@ -369,7 +369,7 @@ export const PlaygroundSidebar = () => {
     labelText: string
   ) => (
     <div className={wrapperClassName}>
-      <div className={cn("flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80", labelClassName)}>
+      <div className={cn("flex items-center gap-2 text-[11px] font-instrument-serif uppercase tracking-[0.16em] text-muted-foreground/80", labelClassName)}>
         <span>{labelText}</span>
       </div>
       <div className="mt-2 relative">
@@ -423,7 +423,7 @@ export const PlaygroundSidebar = () => {
                   height={20}
                   className="opacity-90"
                 />
-                <span className="text-sm font-medium">MCP Assistant</span>
+                <span className="text-sm font-medium font-sans-original">MCP Assistant</span>
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -445,7 +445,7 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <LayoutGrid className="w-5 h-5" />
-                <span>Apps</span>
+                <span className="font-instrument-serif text-[16px] tracking-wide">Apps</span>
               </button>
               <button
                 onClick={() => navigateTo('/chat')}
@@ -457,7 +457,7 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <SquarePen className="w-5 h-5" />
-                  <span>New Chat</span>
+                  <span className="font-instrument-serif text-[16px] tracking-wide">New Chat</span>
               </button>
               <button
                 onClick={() => setIsSettingsOpen((prev) => !prev)}
@@ -503,7 +503,7 @@ export const PlaygroundSidebar = () => {
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{userName}</p>
+                  <p className="text-[15px] font-instrument-serif tracking-wide truncate">{userName}</p>
                   {user?.email && (
                     <p className="text-xs text-muted-foreground truncate">
                       {user.email}
@@ -668,7 +668,7 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <LayoutGrid className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate">Apps</span>}
+                {isOpen && <span className="truncate text-[16px]">Apps</span>}
               </button>
             </TooltipTrigger>
             {!isOpen && (
@@ -692,7 +692,7 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <SquarePen className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate">New Chat</span>}
+                {isOpen && <span className="truncate text-[16px]">New Chat</span>}
               </button>
             </TooltipTrigger>
             {!isOpen && (
@@ -723,7 +723,7 @@ export const PlaygroundSidebar = () => {
                 <Settings className="w-5 h-5 flex-shrink-0" />
                 {isOpen && (
                   <>
-                    <span className="truncate flex-1 text-left">Settings</span>
+                    <span className="truncate flex-1 text-left text-[16px]">Settings</span>
                     <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
                   </>
                 )}
@@ -791,7 +791,7 @@ export const PlaygroundSidebar = () => {
                         onClick={() => router.push(`/chat/${chat.id}`)}
                         className="w-full text-left"
                       >
-                        <span className="block truncate">{formatChatTitle(chat.title)}</span>
+                        <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
                       </button>
                     )}
                   </div>

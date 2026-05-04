@@ -79,10 +79,10 @@ export const RecipeComponent: React.FC<Props> = ({ onAction }) => {
 
           {/* Content */}
           <div className="pr-10">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">
+            <h3 className="text-[15px] text-zinc-900 dark:text-white leading-tight">
               {item.title}
             </h3>
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 leading-snug line-clamp-2">
+            <p className="mt-1 text-[13px] text-zinc-600 dark:text-zinc-400 leading-snug line-clamp-2">
               {item.description}
             </p>
           </div>

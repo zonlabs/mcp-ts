@@ -215,8 +215,8 @@ export function WorkflowEngineTokenSection() {
       <div className="flex items-start gap-3">
         <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0 space-y-1.5">
-          <h2 className="text-lg font-semibold tracking-tight">Workflow Automation Engine</h2>
-          <p className="text-pretty text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-xl font-instrument-serif font-medium tracking-wide">Workflow Automation Engine</h2>
+          <p className="text-pretty text-[15px] font-instrument-serif tracking-wide leading-relaxed text-muted-foreground">
             Revocable API keys for MCP clients and automation. Use as{" "}
             <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.7rem]">
               Authorization: Bearer
@@ -239,7 +239,7 @@ export function WorkflowEngineTokenSection() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h4 className="text-sm font-semibold tracking-tight">Your API keys</h4>
+                <h4 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em]">Your API keys</h4>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Keys start with <code className="rounded bg-muted px-1 font-mono">wfmcp_</code>
                 </p>

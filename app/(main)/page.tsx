@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -142,7 +142,7 @@ export default function Home() {
                   width={44}
                   height={44}
                 />
-                <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                <p className="text-lg sm:text-xl font-bold tracking-tight text-foreground font-sans-original">
                   MCP Assistant
                 </p>
               </motion.div>

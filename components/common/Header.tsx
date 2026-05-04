@@ -26,7 +26,7 @@ export default function Header() {
             {/* Logo */}
             <Link href="/" className="hidden lg:flex items-center gap-2">
               <Logo size={34} />
-              <span className="text-sm font-semibold text-foreground hidden sm:inline-block">
+              <span className="text-sm font-semibold text-foreground hidden sm:inline-block font-sans-original">
                 MCP Assistant
               </span>
             </Link>

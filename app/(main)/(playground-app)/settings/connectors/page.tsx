@@ -128,8 +128,8 @@ export default function ConnectorsPage() {
     <div className="px-1 sm:px-3 md:px-6">
       <div className="max-w-5xl space-y-6 sm:space-y-8">
         <div className="mb-6">
-          <h1 className="text-xl sm:text-2xl font-semibold mb-1">Connectors</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-instrument-serif font-medium mb-1">Connectors</h1>
+          <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground">
             Active MCP server connections
           </p>
         </div>
@@ -139,7 +139,7 @@ export default function ConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <HardDrive className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium text-foreground">
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">
                   Local MCP Servers
                 </h3>
                 <Badge variant="outline">Local</Badge>
@@ -149,7 +149,7 @@ export default function ConnectorsPage() {
                   <code className="font-mono text-foreground">uvx mcpassistant-gateway</code>
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground mt-1">
                 Enable local MCP servers to let the agent execute their MCP tools.
               </p>
             </div>
@@ -209,7 +209,7 @@ export default function ConnectorsPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium break-all">
+                        <p className="text-[15px] font-instrument-serif tracking-wide font-medium break-all">
                           {info?.title || selection.mcpServer}
                         </p>
                         <Badge variant="outline" className="font-mono text-[10px]">{selection.agentId}</Badge>
@@ -256,7 +256,7 @@ export default function ConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium text-foreground">Remote MCP Connections</h3>
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">Remote MCP Connections</h3>
                 <Badge variant="outline">Remote</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -275,7 +275,7 @@ export default function ConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium text-foreground">Remote MCP Connections</h3>
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">Remote MCP Connections</h3>
                 <Badge variant="outline">Remote</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -291,7 +291,7 @@ export default function ConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium text-foreground">Remote MCP Connections</h3>
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">Remote MCP Connections</h3>
                 <Badge variant="outline">Remote</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-1">

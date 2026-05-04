@@ -57,7 +57,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
             className="h-3.5 w-3.5 rounded-full"
           />
         ) : null}
-        <span className="text-foreground/80 truncate">
+        <span className="text-foreground/80 truncate text-[15px]">
           {selected?.name || "Select model"}
         </span>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -66,10 +66,10 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden">
           <DialogHeader className="px-4 pt-4 flex-row items-center gap-2 space-y-0">
-            <DialogTitle className="text-sm">Select model</DialogTitle>
+            <DialogTitle className="text-sm font-instrument-serif tracking-wide">Select model</DialogTitle>
             <Link
               href="/settings/api-keys"
-              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+              className="flex items-center gap-1.5 text-xs text-primary hover:underline font-instrument-serif tracking-wide"
             >
               <Info className="h-3.5 w-3.5" />
               <span>Click here to add an API key</span>
@@ -96,7 +96,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
             ) : (
               grouped.map(([provider, items]) => (
                 <div key={provider} className="px-2 pb-3">
-                  <div className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">
+                  <div className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground font-instrument-serif">
                     {provider}
                   </div>
                   <div className="space-y-1">
@@ -122,7 +122,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
                             </span>
                           )}
                         </div>
-                        <div className="flex-1 text-sm text-foreground text-left">
+                        <div className="flex-1 text-[15px] text-foreground text-left font-instrument-serif tracking-wide">
                           {model.name}
                         </div>
                         {selectedModel === model.id ? (

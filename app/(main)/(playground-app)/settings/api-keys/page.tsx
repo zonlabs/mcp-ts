@@ -8,8 +8,8 @@ export default function ApiKeysPage() {
   return (
     <div className="px-1 md:px-6 pb-16">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-1">API Keys</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-3xl font-instrument-serif font-medium mb-1">API Keys</h1>
+        <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground">
           LLM provider credentials and Workflow Automation Engine access
         </p>
       </div>

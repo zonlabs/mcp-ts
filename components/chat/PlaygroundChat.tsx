@@ -232,7 +232,7 @@ function ReasoningStepWithDuration({
       description={description}
       status={isStreaming ? 'active' : 'complete'}
     >
-      <div className="whitespace-pre-wrap text-muted-foreground/80 text-xs italic tracking-wide leading-6">
+      <div className="whitespace-pre-wrap text-muted-foreground/80 text-[17px] font-instrument-serif tracking-wide leading-relaxed">
         {reasoningText}
       </div>
     </ChainOfThoughtStep>
@@ -720,7 +720,7 @@ export function PlaygroundChat({
                 />
               </div>
               <div className="w-full max-w-xs">
-                <p className="mb-2 px-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                <p className="mb-2 px-1 text-[10px] font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
                   Quick Actions
                 </p>
                 <div className="space-y-1">
@@ -766,8 +766,8 @@ export function PlaygroundChat({
 
           <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center px-6">
             <div className="w-full max-w-3xl space-y-8">
-              <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
-                <h1 className="text-5xl md:text-6xl font-serif tracking-tight text-foreground mb-10 leading-tight">
+            <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
+                <h1 className="text-5xl md:text-7xl tracking-tight text-foreground mb-10 leading-tight">
                   Let&apos;s figure it out together
                 </h1>
               </div>
@@ -827,7 +827,7 @@ export function PlaygroundChat({
                 {(status === 'streaming' || status === 'submitted') && (
                   <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="p-1"><LoadingSpinner /></div>
-                    <div className="prose prose-sm dark:prose-invert italic text-muted-foreground flex items-center h-8">
+                    <div className="prose prose-sm dark:prose-invert font-instrument-serif tracking-wide text-muted-foreground text-[17px] flex items-center h-8">
                       Thinking...
                     </div>
                   </div>

@@ -69,7 +69,7 @@ export function LlmSettingsPanel() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-[220px]">
-          <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+          <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
             Provider
           </label>
           <Select
@@ -101,7 +101,7 @@ export function LlmSettingsPanel() {
         </div>
 
         <div className="flex-1 min-w-[220px]">
-          <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+          <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
             Model
           </label>
           <ModelSelector
@@ -122,7 +122,7 @@ export function LlmSettingsPanel() {
         </div>
 
         <div className="flex-1 min-w-[260px]">
-          <label className="block text-xs uppercase tracking-wide text-muted-foreground mb-1">
+          <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
             API Key
           </label>
           <div className="relative">
@@ -145,7 +145,7 @@ export function LlmSettingsPanel() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-[15px] font-instrument-serif tracking-wide text-muted-foreground">
         {getProviderIconUrl(config.provider) ? (
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-xs">
             <img

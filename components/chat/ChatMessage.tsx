@@ -130,7 +130,7 @@ export function UserMessage({ message, parts, onEdit }: {
             </div>
           ) : (
             <>
-              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-sm whitespace-pre-wrap break-words w-fit max-w-full">
+              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed font-instrument-serif tracking-wide whitespace-pre-wrap break-words w-fit max-w-full">
                 {textContent}
               </div>
 
@@ -234,7 +234,7 @@ export function AssistantMessage({
     <div className="flex flex-col items-start gap-3 w-full">
       {text && (
         <div className="flex flex-col gap-1 w-full">
-          <div className="prose prose-sm dark:prose-invert max-w-full leading-7">
+          <div className="prose prose-sm dark:prose-invert max-w-full leading-relaxed font-instrument-serif tracking-wide text-muted-foreground/90 text-[17px]">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{

@@ -72,15 +72,15 @@ export default function SettingsPage() {
   return (
     <div className="px-1 md:px-6 pb-16">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-1">Account</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-3xl mb-1">Account</h1>
+        <p className="text-[15px] text-muted-foreground">
           Manage your account settings and preferences
         </p>
       </div>
 
       <div className="space-y-8 max-w-2xl">
         <section className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">Profile</h3>
+          <h3 className="text-sm uppercase tracking-[0.16em] text-muted-foreground">Profile</h3>
 
           <div className="flex items-center gap-4">
             {userImage ? (
@@ -98,9 +98,9 @@ export default function SettingsPage() {
             )}
 
             <div className="flex flex-col gap-1">
-              <p className="text-base font-medium">{userName}</p>
+              <p className="text-[18px] font-medium">{userName}</p>
               {user?.email && (
-                <p className="text-sm text-muted-foreground">{user.email}</p>
+                <p className="text-[15px] text-muted-foreground">{user.email}</p>
               )}
             </div>
           </div>
@@ -109,40 +109,40 @@ export default function SettingsPage() {
         <div className="border-t border-border"></div>
 
         <section className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">
+          <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Account Information
           </h3>
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">User ID</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">User ID</p>
                 <p className="text-sm font-mono break-all">{user?.id || "N/A"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Phone</p>
-                <p className="text-sm">{user?.phone || "Not provided"}</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Phone</p>
+                <p className="text-[15px] font-instrument-serif tracking-wide">{user?.phone || "Not provided"}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Member Since</p>
-                <p className="text-sm">{formatDate(user?.created_at)}</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Member Since</p>
+                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.created_at)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Last Updated</p>
-                <p className="text-sm">{formatDate(user?.updated_at)}</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Last Updated</p>
+                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.updated_at)}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Last Sign In</p>
-                <p className="text-sm">{formatDate(user?.last_sign_in_at)}</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Last Sign In</p>
+                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.last_sign_in_at)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Email Confirmed</p>
-                <p className="text-sm">{formatDate(user?.email_confirmed_at)}</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Email Confirmed</p>
+                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.email_confirmed_at)}</p>
               </div>
             </div>
           </div>
