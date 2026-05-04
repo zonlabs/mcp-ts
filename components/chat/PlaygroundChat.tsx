@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   FileTextIcon,
   LightbulbIcon,
+  ListIcon,
   Loader2,
   SearchIcon,
   TerminalIcon,
@@ -40,6 +41,7 @@ import {
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
 } from '@/components/ai-elements/chain-of-thought';
+import { Shimmer } from '@/components/ai-elements/shimmer';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
 import {
   buildChainOfThoughtSummary,
@@ -59,8 +61,36 @@ const toolStepIcons: Record<ToolStepIconKey, typeof TerminalIcon> = {
   execute: TerminalIcon,
   read: FileTextIcon,
   search: SearchIcon,
+  list: ListIcon,
   tool: Wrench,
 };
+
+function ReasoningAmberIcon({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "relative inline-flex items-center justify-center rounded-full",
+        "bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/25",
+        "dark:bg-amber-400/15 dark:text-amber-300 dark:ring-amber-300/25",
+        className
+      )}
+    >
+      <LightbulbIcon className="size-2.5" />
+    </span>
+  );
+}
+
+function ActiveStepLabel({ children, isActive }: { children: string; isActive: boolean }) {
+  if (!isActive) {
+    return <span>{children}</span>;
+  }
+
+  return (
+    <Shimmer as="span" duration={1.6}>
+      {children}
+    </Shimmer>
+  );
+}
 
 function formatToolDetail(value: unknown): string {
   if (typeof value === 'string') return value;
@@ -106,6 +136,7 @@ function ToolDetailBlock({
 function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const hasDetails = hasToolStepDetails(step);
+  const isActive = step.status === 'active';
 
   const label = hasDetails ? (
     <button
@@ -114,7 +145,9 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
       className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-left transition-colors hover:text-foreground"
       aria-expanded={isDetailsOpen}
     >
-      <span className="truncate">{step.label}</span>
+      <span className="truncate">
+        <ActiveStepLabel isActive={isActive}>{step.label}</ActiveStepLabel>
+      </span>
       <ChevronDownIcon
         className={cn(
           "size-3.5 shrink-0 transition-transform",
@@ -123,7 +156,7 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
       />
     </button>
   ) : (
-    step.label
+    <ActiveStepLabel isActive={isActive}>{step.label}</ActiveStepLabel>
   );
 
   return (
@@ -194,19 +227,17 @@ function ReasoningStepWithDuration({
 
   return (
     <ChainOfThoughtStep
-      icon={LightbulbIcon}
-      label="Reasoning"
+      icon={ReasoningAmberIcon}
+      label={<ActiveStepLabel isActive={isStreaming}>Reasoning</ActiveStepLabel>}
       description={description}
       status={isStreaming ? 'active' : 'complete'}
     >
-      <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-6">
+      <div className="whitespace-pre-wrap text-muted-foreground/80 text-xs italic tracking-wide leading-6">
         {reasoningText}
       </div>
     </ChainOfThoughtStep>
   );
 }
-
-
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
   const connections = useMcpStore(state => state.connections);
   const normalizedTargetUrl = normalizeServerUrl(input.serverUrl);
@@ -502,11 +533,16 @@ export function PlaygroundChat({
       .filter((idx: number) => idx !== -1)
       .pop();
 
+    const isCoTActive = (
+      (isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning') ||
+      chainOfThought.toolSteps.some(step => step.status === 'active')
+    );
+
     return (
       <>
         {chainOfThought.hasChainOfThought && (
           <ChainOfThought className="mb-3" defaultOpen>
-            <ChainOfThoughtHeader>Chain of Thought</ChainOfThoughtHeader>
+            <ChainOfThoughtHeader progress={isCoTActive}>Chain of Thought</ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {chainOfThought.reasoningText && (
                 <ReasoningStepWithDuration

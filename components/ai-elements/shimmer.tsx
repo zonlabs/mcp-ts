@@ -36,7 +36,7 @@ const ShimmerComponent = ({
   as: Component = "p",
   className,
   duration = 2,
-  spread = 2,
+  spread = 1.0,
 }: TextShimmerProps) => {
   const MotionComponent = getMotionComponent(
     Component as keyof JSX.IntrinsicElements
@@ -52,7 +52,7 @@ const ShimmerComponent = ({
       animate={{ backgroundPosition: "0% center" }}
       className={cn(
         "relative inline-block bg-[length:250%_100%,auto] bg-clip-text text-transparent",
-        "[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--color-background),#0000_calc(50%+var(--spread)))] [background-repeat:no-repeat,padding-box]",
+        "[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),rgba(255,255,255,0.9),#0000_calc(50%+var(--spread)))] [background-repeat:no-repeat,padding-box]",
         className
       )}
       initial={{ backgroundPosition: "100% center" }}

@@ -10,8 +10,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import { BrainIcon, ChevronDownIcon, DotIcon } from "lucide-react";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
+import { Shimmer } from "./shimmer";
 
 interface ChainOfThoughtContextValue {
   isOpen: boolean;
@@ -70,10 +71,12 @@ export const ChainOfThought = memo(
 
 export type ChainOfThoughtHeaderProps = ComponentProps<
   typeof CollapsibleTrigger
->;
+> & {
+  progress?: boolean;
+};
 
 export const ChainOfThoughtHeader = memo(
-  ({ className, children, ...props }: ChainOfThoughtHeaderProps) => {
+  ({ className, children, progress, ...props }: ChainOfThoughtHeaderProps) => {
     const { isOpen, setIsOpen } = useChainOfThought();
 
     return (
@@ -86,7 +89,15 @@ export const ChainOfThoughtHeader = memo(
           {...props}
         >
           <BrainIcon className="size-4" />
-          <span>{children ?? "Chain of Thought"}</span>
+          {isOpen ? (
+            <span>{children ?? "Chain of Thought"}</span>
+          ) : progress ? (
+            <Shimmer as="span" duration={1.6}>
+              {typeof children === "string" ? children : "Chain of Thought"}
+            </Shimmer>
+          ) : (
+            <span>{children ?? "Chain of Thought"}</span>
+          )}
           <ChevronDownIcon
             className={cn(
               "size-4 transition-transform",
@@ -100,7 +111,7 @@ export const ChainOfThoughtHeader = memo(
 );
 
 export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
-  icon?: LucideIcon;
+  icon?: LucideIcon | ComponentType<{ className?: string }>;
   label: ReactNode;
   description?: ReactNode;
   status?: "complete" | "active" | "pending";

@@ -43,6 +43,7 @@ export type ToolStepIconKey =
   | "execute"
   | "read"
   | "search"
+  | "list"
   | "tool";
 
 export function isChainOfThoughtToolPart(part: ChainOfThoughtPart): boolean {
@@ -88,7 +89,8 @@ export function getToolStepDescription(state: string | undefined): string {
 export function getToolStepIconKey(toolName: string | undefined): ToolStepIconKey {
   const normalized = (toolName || "").toLowerCase().replace(/[^a-z0-9]+/g, " ");
 
-  if (/(^|\s)(search|find|query|lookup|list)(\s|$)/.test(normalized)) return "search";
+  if (/(^|\s)(list|ls)(\s|$)/.test(normalized)) return "list";
+  if (/(^|\s)(search|find|query|lookup)(\s|$)/.test(normalized)) return "search";
   if (/(^|\s)(execute|run|call|invoke|submit|send|write|create|update|delete)(\s|$)/.test(normalized)) {
     return "execute";
   }
