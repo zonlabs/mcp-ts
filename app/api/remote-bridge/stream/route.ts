@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireRemoteProxyBaseUrl } from "@/lib/remote-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const REMOTE_PROXY_BASE_URL = (process.env.REMOTE_PROXY_BASE_URL || "https://hub.linkos.in/agent").replace(/\/+$/, "");
 
 async function getSubjectFromSession(): Promise<string> {
   const supabase = await createClient();
@@ -23,8 +22,9 @@ async function getSubjectFromSession(): Promise<string> {
 export async function GET() {
   try {
     const subject = await getSubjectFromSession();
+    const baseUrl = requireRemoteProxyBaseUrl();
 
-    const upstream = await fetch(`${REMOTE_PROXY_BASE_URL}/manage/agents/stream?subject=${encodeURIComponent(subject)}`, {
+    const upstream = await fetch(`${baseUrl}/manage/agents/stream?subject=${encodeURIComponent(subject)}`, {
       method: "GET",
       cache: "no-store",
       headers: {
@@ -51,7 +51,7 @@ export async function GET() {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected stream error";
-    const status = message === "Unauthorized" ? 401 : 500;
+    const status = message === "Unauthorized" ? 401 : message.includes("REMOTE_PROXY_BASE_URL") ? 503 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

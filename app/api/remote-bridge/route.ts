@@ -4,6 +4,7 @@ import {
   getBridgeSubjectFromUserId,
   getRemoteAgents,
   getRemoteServerInfo,
+  requireRemoteProxyBaseUrl,
   invokeRemoteServer,
 } from "@/lib/remote-bridge";
 
@@ -19,8 +20,6 @@ interface RemoteBridgeRequestBody {
   token?: string;
   payload?: unknown;
 }
-
-const REMOTE_PROXY_BASE_URL = (process.env.REMOTE_PROXY_BASE_URL || "https://hub.linkos.in/agent").replace(/\/+$/, "");
 
 function jsonHeaders(): Record<string, string> {
   return {
@@ -49,6 +48,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
+    // For calls that hit the gateway directly, fail fast with a friendly status code.
+    if (action === "issue-token" || action === "revoke-token") {
+      requireRemoteProxyBaseUrl();
+    }
+
     if (action === "agents") {
       const agents = await getRemoteAgents(subject);
       return NextResponse.json({ success: true, agents });
@@ -56,7 +60,8 @@ export async function POST(request: Request) {
 
     if (action === "issue-token") {
       const expiryMinutes = Math.max(1, Math.min(1440, Number(body?.expiryMinutes) || 60));
-      const response = await fetch(`${REMOTE_PROXY_BASE_URL}/manage/jwt/issue`, {
+      const baseUrl = requireRemoteProxyBaseUrl();
+      const response = await fetch(`${baseUrl}/manage/jwt/issue`, {
         method: "POST",
         headers: jsonHeaders(),
         body: JSON.stringify({
@@ -77,7 +82,8 @@ export async function POST(request: Request) {
       if (!token) {
         return NextResponse.json({ error: "token is required" }, { status: 400 });
       }
-      const response = await fetch(`${REMOTE_PROXY_BASE_URL}/manage/jwt/revoke`, {
+      const baseUrl = requireRemoteProxyBaseUrl();
+      const response = await fetch(`${baseUrl}/manage/jwt/revoke`, {
         method: "POST",
         headers: jsonHeaders(),
         body: JSON.stringify({ token }),
@@ -103,7 +109,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
-    const status = message === "Unauthorized" ? 401 : 500;
+    const status = message === "Unauthorized" ? 401 : message.includes("REMOTE_PROXY_BASE_URL") ? 503 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 
-const REMOTE_PROXY_BASE_URL = "https://hub.linkos.in/agent";
+const REMOTE_PROXY_BASE_URL = process.env.NEXT_PUBLIC_REMOTE_PROXY_BASE_URL || "";
 const GATEWAY_INSTALL_COMMAND = "uvx mcpassistant-gateway";
 
 interface RemoteAgent {
@@ -31,6 +31,7 @@ function normalizeBaseUrl(url: string): string {
 }
 
 function invokeUrl(agentId: string, mcpServer: string): string {
+  if (!REMOTE_PROXY_BASE_URL) return "";
   return `${normalizeBaseUrl(REMOTE_PROXY_BASE_URL)}/${agentId}/${mcpServer}/mcp`;
 }
 

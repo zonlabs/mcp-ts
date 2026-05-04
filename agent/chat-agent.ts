@@ -185,7 +185,13 @@ async function getLocalMcpTools(identity: string, gatewaySelections?: GatewaySer
     return { tools: {}, toolIndex: new Map<string, string[]>() };
   }
 
-  const agents = await getRemoteAgents(subject);
+  let agents: Awaited<ReturnType<typeof getRemoteAgents>> = [];
+  try {
+    agents = await getRemoteAgents(subject);
+  } catch (error) {
+    console.error("[MCP][Gateway] Remote gateway unavailable; continuing without gateway tools.", error);
+    return { tools: {}, toolIndex: new Map<string, string[]>() };
+  }
   const availablePairs = collectAgentServerPairs(agents);
   const allowedSelections = normalizedSelections.length > 0
     ? normalizedSelections.filter((selection) =>
