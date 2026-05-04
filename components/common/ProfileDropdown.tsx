@@ -52,10 +52,10 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
             />
           ) : (
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-              <User className="h-4 w-4 text-primary" aria-hidden />
+              <User className="h-4 w-4 text-primary" strokeWidth={2} aria-hidden />
             </div>
           )}
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -78,7 +78,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
 
         <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
           <Link href="/settings">
-            <Settings className="size-4 shrink-0" />
+            <Settings className="size-4 shrink-0" strokeWidth={2} />
             Settings
           </Link>
         </DropdownMenuItem>
@@ -92,7 +92,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
             void signOutAndRedirect();
           }}
         >
-          <LogOut className="size-4 shrink-0" />
+          <LogOut className="size-4 shrink-0" strokeWidth={2} />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

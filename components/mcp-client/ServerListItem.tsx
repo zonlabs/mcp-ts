@@ -108,17 +108,8 @@ export function ServerListItem({
           </div>
         </div>
         <div className="space-y-1">
-          {server.url && (
-            <div
-              className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0"
-              title={server.url}
-            >
-              <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="truncate font-mono">{server.url}</span>
-            </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            transport: {server.transport}
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
+            {server.description || ""}
           </p>
           {server.createdAt && (
             <p className="text-xs text-muted-foreground">

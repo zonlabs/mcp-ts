@@ -310,7 +310,7 @@ export default function Home() {
 
       {/* Features Section */}
       <section className="py-24 relative overflow-hidden bg-background">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(var(--primary-rgb),0.03),transparent_70%)]" />
+
 
         <div className="max-w-5xl mx-auto px-3 sm:px-6 relative">
           <motion.div

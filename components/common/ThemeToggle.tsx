@@ -35,27 +35,27 @@ export function ThemeToggle() {
         <Button variant="ghost" size="icon">
           <Sun className={`h-[1.2rem] w-[1.2rem] transition-all ${
             theme === 'light' ? 'rotate-0 scale-100' : 'rotate-90 scale-0'
-          }`} />
+          }`} strokeWidth={2} />
           <Moon className={`absolute h-[1.2rem] w-[1.2rem] transition-all ${
             theme === 'dark' ? 'rotate-0 scale-100' : '-rotate-90 scale-0'
-          }`} />
+          }`} strokeWidth={2} />
           <Monitor className={`absolute h-[1.2rem] w-[1.2rem] transition-all ${
             theme === 'system' ? 'rotate-0 scale-100' : 'rotate-90 scale-0'
-          }`} />
+          }`} strokeWidth={2} />
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("light")} className="flex items-center gap-2">
-          <Sun className="h-4 w-4" />
+          <Sun className="h-4 w-4" strokeWidth={2} />
           Light
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")} className="flex items-center gap-2">
-          <Moon className="h-4 w-4" />
+          <Moon className="h-4 w-4" strokeWidth={2} />
           Dark
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")} className="flex items-center gap-2">
-          <Monitor className="h-4 w-4" />
+          <Monitor className="h-4 w-4" strokeWidth={2} />
           System
         </DropdownMenuItem>
       </DropdownMenuContent>

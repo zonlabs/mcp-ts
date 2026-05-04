@@ -30,7 +30,7 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
 
   if (type === "no-selection") {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 min-h-[calc(100vh-120px)] bg-gray-50/30 dark:bg-transparent">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 min-h-[calc(100vh-120px)] dark:bg-transparent">
         <motion.div
           variants={containerVariants}
           initial="hidden"
