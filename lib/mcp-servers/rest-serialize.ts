@@ -6,8 +6,11 @@ export function restCategory(row: CategoryRow): Category {
 }
 
 /** Plain REST JSON shape for one MCP server (matches `McpServer` UI type). */
-export function restMcpServer(node: McpServerNode): McpServer {
-  return {
+export function restMcpServer(
+  node: McpServerNode,
+  options: { includeHeaders?: boolean } = {}
+): McpServer {
+  const server: McpServer = {
     id: node.id,
     name: node.name,
     description: node.description,
@@ -24,4 +27,10 @@ export function restMcpServer(node: McpServerNode): McpServer {
     updated_at: node.updatedAt,
     createdAt: node.createdAt,
   };
+
+  if (options.includeHeaders && node.headers) {
+    server.headers = node.headers;
+  }
+
+  return server;
 }

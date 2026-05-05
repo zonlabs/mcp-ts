@@ -39,6 +39,7 @@ export type McpServerNode = {
   transport: string;
   url: string | null;
   icon: string | null;
+  headers?: Record<string, string>;
   isVerified: boolean;
   categories: Category[];
   description: string | null;
@@ -60,6 +61,22 @@ export type McpServersConnection = {
     endCursor: string | null;
   };
 };
+
+export function normalizeHeaderRecord(headers: unknown): Record<string, string> | undefined {
+  if (!headers || typeof headers !== "object") return undefined;
+
+  const entries = Array.isArray(headers)
+    ? headers.map((header) => {
+      if (!header || typeof header !== "object") return ["", ""] as const;
+      const { key, value } = header as { key?: unknown; value?: unknown };
+      return [String(key ?? "").trim(), String(value ?? "").trim()] as const;
+    })
+    : Object.entries(headers as Record<string, unknown>)
+      .map(([key, value]) => [key.trim(), String(value ?? "").trim()] as const);
+
+  const normalized = entries.filter(([key, value]) => key.length > 0 && value.length > 0);
+  return normalized.length > 0 ? Object.fromEntries(normalized) : undefined;
+}
 
 export function mapCategoryRow(row: CategoryRow): Category {
   return {
@@ -86,6 +103,7 @@ export function mapServerRow(row: McpServerRow): McpServerNode {
     transport: row.transport,
     url: row.url,
     icon: row.icon ?? null,
+    headers: normalizeHeaderRecord(row.headers),
     isVerified: row.is_verified ?? false,
     categories,
     description: row.description,

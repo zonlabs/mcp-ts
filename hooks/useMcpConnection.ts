@@ -26,7 +26,24 @@ type ConnectableServer = {
   transport?: string;
   transportType?: string | null;
   title?: string | null;
+  headers?: Record<string, string> | Array<{ key: string; value: string }> | null;
 };
+
+function normalizeHeaders(
+  headers?: Record<string, string> | Array<{ key: string; value: string }> | null
+): Record<string, string> | undefined {
+  if (!headers) return undefined;
+
+  const entries = Array.isArray(headers)
+    ? headers.map((header) => [header.key, header.value] as const)
+    : Object.entries(headers);
+
+  const normalized = entries
+    .map(([key, value]) => [String(key).trim(), String(value).trim()] as const)
+    .filter(([key, value]) => key.length > 0 && value.length > 0);
+
+  return normalized.length > 0 ? Object.fromEntries(normalized) : undefined;
+}
 
 function extractServerUrl(server: ConnectableServer): string | null {
   return server.remoteUrl || server.url || null;
@@ -177,7 +194,8 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
         serverName: server.title || server.name,
         serverUrl: serverUrl,
         transportType: transport,
-        callbackUrl
+        callbackUrl,
+        headers: normalizeHeaders(server.headers),
       });
 
     } catch (error) {

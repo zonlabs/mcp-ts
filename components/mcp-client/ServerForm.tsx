@@ -65,6 +65,28 @@ const serverSchema = z.object({
 
 type ServerFormData = z.infer<typeof serverSchema>;
 
+function normalizeHeaderRows(headers?: ServerFormData["headers"]): Record<string, string> | undefined {
+  const entries = (headers ?? [])
+    .map((header) => [header.key.trim(), header.value.trim()] as const)
+    .filter(([key, value]) => key.length > 0 && value.length > 0);
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function headerRecordToRows(
+  headers?: Record<string, string> | Array<{ key: string; value: string }> | null
+): Array<{ key: string; value: string }> {
+  if (!headers) return [];
+
+  const entries = Array.isArray(headers)
+    ? headers.map((header) => [header.key, header.value] as const)
+    : Object.entries(headers);
+
+  return entries
+    .map(([key, value]) => ({ key: String(key).trim(), value: String(value).trim() }))
+    .filter((header) => header.key.length > 0 && header.value.length > 0);
+}
+
 interface ServerFormProps {
   server?: McpServer | null;
   mode: "add" | "edit";
@@ -232,7 +254,7 @@ export default function ServerForm({
           : "",
         requiresOauth: server.requiresOauth2 || false,
         isPublic: server.isPublic || false,
-        headers: [],
+        headers: headerRecordToRows(server.headers),
       });
       setTransportType(server.transport as "sse" | "streamable_http");
       setUseCustomTransport(true);
@@ -407,6 +429,7 @@ export default function ServerForm({
         name,
         url,
         transportType: useCustomTransport ? transport : "streamable_http",
+        headers: normalizeHeaderRows(form.headers),
       };
 
       try {

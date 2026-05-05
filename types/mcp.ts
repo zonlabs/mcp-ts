@@ -30,6 +30,7 @@ export type McpServer = {
   isVerified?: boolean;
   command?: string | null;
   args?: any | null;
+  headers?: Record<string, string> | Array<{ key: string; value: string }> | null;
   requiresOauth2: boolean;
   isPublic?: boolean;
   connectionStatus?: string | null;

@@ -67,6 +67,22 @@ function normalizeTransport(value?: string | null): "sse" | "streamable_http" {
   return "sse";
 }
 
+function normalizeHeaders(
+  headers?: Record<string, string> | Array<{ key: string; value: string }> | null
+): Record<string, string> | undefined {
+  if (!headers) return undefined;
+
+  const entries = Array.isArray(headers)
+    ? headers.map((header) => [header.key, header.value] as const)
+    : Object.entries(headers);
+
+  const normalized = entries
+    .map(([key, value]) => [String(key).trim(), String(value).trim()] as const)
+    .filter(([key, value]) => key.length > 0 && value.length > 0);
+
+  return normalized.length > 0 ? Object.fromEntries(normalized) : undefined;
+}
+
 export function findConnectionForServer<T extends { id: string; url?: string | null }>(
   connections: Record<string, StoredConnection>,
   server: T
@@ -582,7 +598,8 @@ export const useMcpStore = create<McpStore>()(
               serverName: server.name,
               serverUrl: server.url,
               transportType: server.transport,
-              callbackUrl
+              callbackUrl,
+              headers: normalizeHeaders(server.headers),
             });
             toast.success(`Connection initiated for ${server.name}`);
           } catch (error) {

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decodeOffsetCursor, encodeOffsetCursor } from "./cursor";
-import { mapServerRow, type CategoryRow, type McpServerRow, type McpServersConnection, type McpServerNode } from "./types";
+import { mapServerRow, normalizeHeaderRecord, type CategoryRow, type McpServerRow, type McpServersConnection, type McpServerNode } from "./types";
 
 const SERVER_SELECT = `
   *,
@@ -172,7 +172,7 @@ export async function saveUserMcpServer(
     url: (body.url as string) || null,
     icon: (body.icon as string) || null,
     is_verified: Boolean(body.isVerified ?? body.is_verified),
-    headers: body.headers ?? null,
+    headers: normalizeHeaderRecord(body.headers) ?? null,
     query_params: body.queryParams ?? null,
     requires_oauth2: Boolean(body.requiresOauth2 ?? body.requiresOauth),
     is_public: Boolean(body.isPublic),
