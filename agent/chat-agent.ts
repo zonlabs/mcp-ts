@@ -15,15 +15,32 @@ import {
   getRemoteServerInfo,
   invokeRemoteServer,
 } from "@/lib/remote-bridge";
+import {
+  type AgentPreferences,
+  normalizeAgentPreferences,
+  shouldRequireMcpToolApproval,
+} from "@/lib/agent-preferences";
 
 interface CreateMcpAgentOptions {
   userId?: string;
   gatewaySelections?: GatewayServerSelection[];
+  agentPreferences?: Partial<AgentPreferences>;
 }
 
-function buildChatAgentInstructions(now: Date = new Date()): string {
-  const istDateTime = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-  const [currentDate, currentTime] = istDateTime.split(", ").map((s) => s.trim());
+function buildChatAgentInstructions(
+  now: Date = new Date(),
+  agentPreferences: Partial<AgentPreferences> = {}
+): string {
+  const preferences = normalizeAgentPreferences(agentPreferences);
+  let localizedDateTime: string;
+
+  try {
+    localizedDateTime = now.toLocaleString(preferences.language, { timeZone: preferences.timezone });
+  } catch {
+    localizedDateTime = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  }
+
+  const [currentDate, currentTime] = localizedDateTime.split(", ").map((s) => s.trim());
 
   return `
 You are MCP Assistant, an AI agent that completes tasks by discovering, connecting to, and using Model Context Protocol (MCP) servers.
@@ -31,7 +48,10 @@ You are MCP Assistant, an AI agent that completes tasks by discovering, connecti
 ## Time Context
 - Date: ${currentDate}
 - Time: ${currentTime}
+- Timezone: ${preferences.timezone}
+- Preferred language: ${preferences.language}
 - Use these values for time-sensitive requests.
+- Prefer the user's selected language unless the current chat asks for a different language.
 
 ## Tools
 
@@ -69,6 +89,7 @@ type McpAgentCallOptions = {
     model?: string;
   };
   gatewaySelections?: { agentId: string; mcpServer: string }[];
+  agentPreferences?: Partial<AgentPreferences>;
 };
 
 function normalizeGatewaySelections(selections: GatewayServerSelection[]): GatewayServerSelection[] {
@@ -166,9 +187,9 @@ function shortenToolKeysForProvider(tools: Record<string, any>): Record<string, 
     out[newKey] =
       spec && typeof spec === "object"
         ? {
-            ...spec,
-            description: prevDesc ? `${prevDesc}\n\n${registryNote}` : registryNote,
-          }
+          ...spec,
+          description: prevDesc ? `${prevDesc}\n\n${registryNote}` : registryNote,
+        }
         : spec;
   }
 
@@ -195,12 +216,12 @@ async function getLocalMcpTools(identity: string, gatewaySelections?: GatewaySer
   const availablePairs = collectAgentServerPairs(agents);
   const allowedSelections = normalizedSelections.length > 0
     ? normalizedSelections.filter((selection) =>
-        availablePairs.has(`${selection.agentId}::${selection.mcpServer}`)
-      )
+      availablePairs.has(`${selection.agentId}::${selection.mcpServer}`)
+    )
     : Array.from(availablePairs).map((pair) => {
-        const [agentId, mcpServer] = pair.split("::");
-        return { agentId, mcpServer } as GatewayServerSelection;
-      });
+      const [agentId, mcpServer] = pair.split("::");
+      return { agentId, mcpServer } as GatewayServerSelection;
+    });
 
   if (allowedSelections.length === 0) {
     return { tools: {}, toolIndex: new Map<string, string[]>() };
@@ -283,7 +304,11 @@ async function getLocalMcpTools(identity: string, gatewaySelections?: GatewaySer
   return { tools: gatewayTools, toolIndex };
 }
 
-async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) {
+async function getRemoteMcpTools(
+  identity: string,
+  client?: MultiSessionClient,
+  agentPreferences: Partial<AgentPreferences> = {}
+) {
   const manager = client || new MultiSessionClient(identity);
 
   if (!client) {
@@ -304,6 +329,12 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
   try {
     const router = new ToolRouter(manager, { strategy: "search", maxTools: 5 });
     const discoveredTools = await AIAdapter.getTools(manager, { toolRouter: router });
+    if (discoveredTools.mcp_execute_tool) {
+      discoveredTools.mcp_execute_tool = {
+        ...discoveredTools.mcp_execute_tool,
+        needsApproval: () => shouldRequireMcpToolApproval(normalizeAgentPreferences(agentPreferences)),
+      };
+    }
     mcpTools = { ...mcpTools, ...discoveredTools };
   } catch (error) {
     console.error("[MCP] Failed to load MCP tools:", error);
@@ -316,13 +347,18 @@ async function getRemoteMcpTools(identity: string, client?: MultiSessionClient) 
 
 export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   const identity = options.userId?.trim() || "demo-user-123";
+  const initialAgentPreferences = normalizeAgentPreferences(options.agentPreferences);
 
   const { tools: localTools, toolIndex: localIndex } = await getLocalMcpTools(
     identity,
     options.gatewaySelections
   );
 
-  const { manager, tools: remoteTools } = await getRemoteMcpTools(identity);
+  const { manager, tools: remoteTools } = await getRemoteMcpTools(
+    identity,
+    undefined,
+    initialAgentPreferences
+  );
 
   console.log(
     `[MCP] Loaded ${Object.keys(localTools).length} local tools (including built-ins) and ${Object.keys(remoteTools).length} remote tools.`
@@ -334,7 +370,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   };
 
   const agent = new ToolLoopAgent<McpAgentCallOptions, ToolSet>({
-    instructions: buildChatAgentInstructions(),
+    instructions: buildChatAgentInstructions(new Date(), initialAgentPreferences),
     model: createOpenAI()("gpt-4o-mini"),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
@@ -353,6 +389,13 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
           })
         )
         .optional(),
+      agentPreferences: z
+        .object({
+          timezone: z.string().optional(),
+          language: z.string().optional(),
+          toolApprovalMode: z.enum(["always", "risky", "never"]).optional(),
+        })
+        .optional(),
     }),
     prepareCall: async ({ options: callOptions, abortSignal, messages, ...settings }) => {
       const model = getModelFromConfig(callOptions?.llmConfig);
@@ -363,23 +406,26 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         }, { once: true });
       }
 
-      const instructions = buildChatAgentInstructions();
+      const instructions = buildChatAgentInstructions(
+        new Date(),
+        callOptions?.agentPreferences || initialAgentPreferences
+      );
       const messagesToUse = messages || [];
 
       const selectedServers = callOptions?.gatewaySelections?.map((s) => s.mcpServer) || options.gatewaySelections?.map((s) => s.mcpServer) || [];
       const gatewayToolNames = selectedServers.flatMap((server) => localIndex.get(server) || []);
-      
+
       const toolsForCall = {
         ...combinedTools,
       };
 
       const activeTools: string[] = selectedServers.length > 0
         ? [
-            ...Object.keys(combinedTools).filter(
-              (k) => k.startsWith("MCPASSISTANT_")
-            ),
-            ...gatewayToolNames,
-          ]
+          ...Object.keys(combinedTools).filter(
+            (k) => k.startsWith("MCPASSISTANT_")
+          ),
+          ...gatewayToolNames,
+        ]
         : Object.keys(toolsForCall);
 
       return {

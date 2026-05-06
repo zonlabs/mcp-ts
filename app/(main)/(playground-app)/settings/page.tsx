@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
-import { ThemeSelector } from "@/components/chat/ThemeSelector";
 import { useRouter } from "next/navigation";
 import { Github, Mail } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -185,18 +184,6 @@ export default function SettingsPage() {
             <div className="border-t border-border"></div>
           </>
         )}
-
-        <section className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Preferences
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Theme</label>
-              <ThemeSelector />
-            </div>
-          </div>
-        </section>
 
         <section>
           <button

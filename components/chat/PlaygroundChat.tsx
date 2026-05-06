@@ -6,6 +6,7 @@ import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIP
 import { useRef, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
+import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
 import { ServerIcon } from '@/components/common/ServerIcon';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
@@ -28,6 +29,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
+import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
 
@@ -369,6 +371,7 @@ export function PlaygroundChat({
             messages: chatMessages,
             ...(body ?? {}),
             llmConfig: currentConfig,
+            agentPreferences: readAgentPreferencesFromStorage(),
             chatId,
             gatewaySelections: readGatewaySelectionsFromStorage(),
           },
@@ -596,6 +599,57 @@ export function PlaygroundChat({
             const approvalId = 'approval' in toolPart ? toolPart.approval?.id : undefined;
 
             const isInitiateConn = toolName === 'MCPASSISTANT_INITIATE_CONNECTION' || toolName?.includes('INITIATE_CONNECTION');
+            const isMcpExecuteTool = toolName === 'mcp_execute_tool';
+
+            if (isMcpExecuteTool) {
+              const input = toolPart.input as Record<string, unknown>;
+
+              if (toolPart.state === 'approval-requested') {
+                return (
+                  <div key={`tool-${index}`} className="w-full">
+                    <MCPToolApproval
+                      input={input || {}}
+                      onApprove={() => {
+                        if (approvalId && addToolApprovalResponse) {
+                          addToolApprovalResponse({
+                            id: approvalId,
+                            approved: true,
+                          });
+                        }
+                      }}
+                      onDeny={() => {
+                        approvalId &&
+                          addToolApprovalResponse?.({
+                            id: approvalId,
+                            approved: false,
+                            reason: "User denied the MCP tool request.",
+                          });
+                      }}
+                    />
+                  </div>
+                );
+              }
+
+              if (toolPart.state === 'approval-responded') {
+                return (
+                  <MCPToolApprovalStatus
+                    key={`tool-${index}`}
+                    approved={toolPart.approval?.approved === true}
+                    reason={toolPart.approval?.reason}
+                  />
+                );
+              }
+
+              if (toolPart.state === 'output-denied') {
+                return (
+                  <MCPToolApprovalStatus
+                    key={`tool-${index}`}
+                    approved={false}
+                    reason="MCP tool request denied."
+                  />
+                );
+              }
+            }
 
             if (isInitiateConn) {
               const input = toolPart.input as any;

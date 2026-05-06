@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Plug, KeyRound } from "lucide-react";
+import { User, Plug, KeyRound, SlidersHorizontal } from "lucide-react";
 
 interface SettingsNavItem {
   label: string;
@@ -12,6 +12,7 @@ interface SettingsNavItem {
 
 const navItems: SettingsNavItem[] = [
   { label: "Account", href: "/settings", icon: User },
+  { label: "Preferences", href: "/settings/preferences", icon: SlidersHorizontal },
   { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
   { label: "Connectors", href: "/settings/connectors", icon: Plug },
 ];

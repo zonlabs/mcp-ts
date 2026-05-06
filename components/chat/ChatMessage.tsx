@@ -288,49 +288,37 @@ export function AssistantMessage({
                     </Tooltip>
                   )}
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => setShowUsage(!showUsage)}
-                        className={`p-1.5 rounded-md transition-all ${showUsage
-                            ? "bg-primary/10 text-primary"
-                            : "hover:bg-accent text-muted-foreground"
-                          }`}
-                      >
-                        <Gauge className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{showUsage ? "Hide metrics" : "Show metrics"}</TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
-
-              {/* ✅ Usage Metrics */}
-              {showUsage && usage && (
-                <div className="flex flex-col gap-2 w-fit animate-in fade-in slide-in-from-top-1 duration-200">
-                  {usage.inputTokens !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Input Tokens</span>
-                      <span className="text-[11px] font-bold">{usage.inputTokens}</span>
-                    </div>
-                  )}
-
-                  {usage.outputTokens !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Output Tokens</span>
-                      <span className="text-[11px] font-bold">{usage.outputTokens}</span>
-                    </div>
-                  )}
-
-                  {usage.totalTokens !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <Sigma className="w-3.5 h-3.5 text-blue-500" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Tokens</span>
-                      <span className="text-[11px] font-bold">{usage.totalTokens}</span>
-                    </div>
+                  {usage && (usage.inputTokens !== undefined || usage.outputTokens !== undefined || usage.totalTokens !== undefined) && (
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <div className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors cursor-default">
+                          <Gauge className="w-4 h-4" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="flex flex-col gap-2 p-3 bg-background border border-border/50 text-foreground shadow-md">
+                        {usage.inputTokens !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Input</span>
+                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.inputTokens.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {usage.outputTokens !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Output</span>
+                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.outputTokens.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {usage.totalTokens !== undefined && (
+                          <div className="flex items-center gap-2 border-t border-border/50 pt-2 mt-1">
+                            <Sigma className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total</span>
+                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.totalTokens.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               )}

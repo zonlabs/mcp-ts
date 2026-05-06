@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   Link,
   User,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -65,6 +66,7 @@ export const PlaygroundSidebar = () => {
 
   const settingsLinks = [
     { label: "Account", href: "/settings", icon: User },
+    { label: "Preferences", href: "/settings/preferences", icon: SlidersHorizontal },
     { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
     { label: "Connectors", href: "/settings/connectors", icon: Plug },
   ];
