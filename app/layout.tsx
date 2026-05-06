@@ -3,6 +3,7 @@ import "./globals.css";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
+import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
 
 export const metadata: Metadata = {
   title: "MCP Assistant",
@@ -40,6 +41,7 @@ export default async function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
+              <WebLanguageProvider />
               {children}
             </ThemeProvider>
           </McpStoreProvider>

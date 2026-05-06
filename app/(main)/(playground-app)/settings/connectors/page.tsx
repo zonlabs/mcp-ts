@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { selectionKey } from "@/lib/gateway-access";
+import { useI18n } from "@/lib/web-i18n";
 
 interface Connection {
   sessionId: string;
@@ -29,6 +30,7 @@ interface Connection {
 }
 
 export default function ConnectorsPage() {
+  const { t, language } = useI18n();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
@@ -128,9 +130,9 @@ export default function ConnectorsPage() {
     <div className="px-1 sm:px-3 md:px-6">
       <div className="max-w-5xl space-y-6 sm:space-y-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-instrument-serif font-medium mb-1">Connectors</h1>
+          <h1 className="text-3xl font-instrument-serif font-medium mb-1">{t("connectors")}</h1>
           <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground">
-            Active MCP server connections
+            {t("activeMcpServerConnections")}
           </p>
         </div>
 
@@ -140,17 +142,17 @@ export default function ConnectorsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <HardDrive className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">
-                  Local MCP Servers
+                  {t("localMcpServers")}
                 </h3>
-                <Badge variant="outline">Local</Badge>
+                <Badge variant="outline">{t("local")}</Badge>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <Info className="h-3 w-3" />
-                  Install gateway:
+                  {t("installGateway")}
                   <code className="font-mono text-foreground">uvx mcpassistant-gateway</code>
                 </span>
               </div>
               <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground mt-1">
-                Enable local MCP servers to let the agent execute their MCP tools.
+                {t("enableLocalMcpServers")}
               </p>
             </div>
           </div>
@@ -158,10 +160,10 @@ export default function ConnectorsPage() {
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Badge variant="secondary" className="gap-1">
               <Server className="w-3 h-3" />
-              {detectedSelections.length} detected
+              {detectedSelections.length} {t("detected")}
             </Badge>
             <Badge variant={enabledDetectedCount > 0 ? "default" : "outline"}>
-              {enabledDetectedCount} enabled
+              {enabledDetectedCount} {t("enabled")}
             </Badge>
             <Button
               variant="outline"
@@ -171,7 +173,7 @@ export default function ConnectorsPage() {
               className="h-7 px-2 gap-1.5"
             >
               {loadingGatewayServers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Refresh
+              {t("refresh")}
             </Button>
           </div>
 
@@ -182,11 +184,11 @@ export default function ConnectorsPage() {
           {loadingGatewayServers ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
               <Loader2 className="w-4 h-4 animate-spin" />
-              Detecting gateway MCP servers...
+              {t("detectingGatewayServers")}
             </div>
           ) : detectedSelections.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No gateway MCP servers detected. Start your local gateway and refresh.
+              {t("noGatewayServersDetected")}
             </p>
           ) : (
             <div className="grid gap-2 lg:grid-cols-2">
@@ -223,15 +225,15 @@ export default function ConnectorsPage() {
                         {info?.status === "connected" ? (
                           <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
                             <CheckCircle2 className="w-3 h-3" />
-                            Connected
+                            {t("connected")}
                           </span>
                         ) : info?.status === "error" ? (
                           <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
                             <XCircle className="w-3 h-3" />
-                            {info.instructions || "Error"}
+                            {info.instructions || t("error")}
                           </span>
                         ) : null}
-                        <span>{toolCount} tools</span>
+                        <span>{toolCount} {t("tools")}</span>
                       </div>
                     </div>
                     <Checkbox
@@ -256,17 +258,17 @@ export default function ConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">Remote MCP Connections</h3>
-                <Badge variant="outline">Remote</Badge>
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">{t("remoteMcpConnections")}</h3>
+                <Badge variant="outline">{t("remote")}</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Authenticated remote MCP servers connected to your browser session.
+                {t("authenticatedRemoteConnections")}
               </p>
             </div>
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-3">
                 <Clock className="w-8 h-8 text-muted-foreground animate-spin" />
-                <p className="text-sm text-muted-foreground">Loading connections...</p>
+                <p className="text-sm text-muted-foreground">{t("loadingConnections")}</p>
               </div>
             </div>
           </section>
@@ -275,15 +277,15 @@ export default function ConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">Remote MCP Connections</h3>
-                <Badge variant="outline">Remote</Badge>
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">{t("remoteMcpConnections")}</h3>
+                <Badge variant="outline">{t("remote")}</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Authenticated remote MCP servers connected to your browser session.
+                {t("authenticatedRemoteConnections")}
               </p>
             </div>
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No active remote connections found</p>
+              <p className="text-muted-foreground">{t("noActiveRemoteConnections")}</p>
             </div>
           </section>
         ) : (
@@ -291,11 +293,11 @@ export default function ConnectorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <Globe className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">Remote MCP Connections</h3>
-                <Badge variant="outline">Remote</Badge>
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">{t("remoteMcpConnections")}</h3>
+                <Badge variant="outline">{t("remote")}</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Authenticated remote MCP servers connected to your browser session.
+                {t("authenticatedRemoteConnections")}
               </p>
             </div>
 
@@ -347,7 +349,7 @@ export default function ConnectorsPage() {
                               </button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Disconnect</p>
+                              <p>{t("disconnect")}</p>
                             </TooltipContent>
                           </Tooltip>
                         </div>
@@ -356,15 +358,14 @@ export default function ConnectorsPage() {
 
                     <div className="space-y-1.5 text-xs text-muted-foreground">
                       <div className="flex items-start gap-1.5">
-                        <span className="text-muted-foreground/70 whitespace-nowrap">Session ID:</span>
+                        <span className="text-muted-foreground/70 whitespace-nowrap">{t("sessionId")}:</span>
                         <code className="font-mono text-[11px] break-all">{conn.sessionId}</code>
                       </div>
                       <div className="flex items-start gap-1.5">
                         <Calendar className="w-3 h-3 text-muted-foreground/70 mt-0.5" />
-                        <span className="text-muted-foreground/70 whitespace-nowrap">Connected At:</span>
+                        <span className="text-muted-foreground/70 whitespace-nowrap">{t("connectedAt")}:</span>
                         <span className="break-words">
-                          {new Date(conn.createdAt).toLocaleString('en-IN', {
-                            timeZone: 'Asia/Kolkata',
+                          {new Date(conn.createdAt).toLocaleString(language, {
                             year: 'numeric',
                             month: 'short',
                             day: '2-digit',

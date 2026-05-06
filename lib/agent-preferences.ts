@@ -2,7 +2,6 @@ export type ToolApprovalMode = "always" | "risky" | "never";
 
 export interface AgentPreferences {
   timezone: string;
-  language: string;
   toolApprovalMode: ToolApprovalMode;
 }
 
@@ -10,23 +9,13 @@ export const AGENT_PREFERENCES_STORAGE_KEY = "mcp-assistant:agent-preferences:v1
 
 export const DEFAULT_AGENT_PREFERENCES: AgentPreferences = {
   timezone: "Asia/Kolkata",
-  language: "en-US",
   toolApprovalMode: "always",
 };
 
 const TOOL_APPROVAL_MODES = new Set<ToolApprovalMode>(["always", "risky", "never"]);
 
-function browserLanguage(): string {
-  if (typeof navigator === "undefined") return DEFAULT_AGENT_PREFERENCES.language;
-  return navigator.language || DEFAULT_AGENT_PREFERENCES.language;
-}
-
 export function getDefaultAgentPreferences(): AgentPreferences {
-  if (typeof window === "undefined") return { ...DEFAULT_AGENT_PREFERENCES };
-  return {
-    ...DEFAULT_AGENT_PREFERENCES,
-    language: browserLanguage(),
-  };
+  return { ...DEFAULT_AGENT_PREFERENCES };
 }
 
 export function normalizeAgentPreferences(input: Partial<AgentPreferences> | null | undefined): AgentPreferences {
@@ -38,7 +27,6 @@ export function normalizeAgentPreferences(input: Partial<AgentPreferences> | nul
 
   return {
     timezone: input?.timezone?.trim() || defaults.timezone,
-    language: input?.language?.trim() || defaults.language,
     toolApprovalMode,
   };
 }

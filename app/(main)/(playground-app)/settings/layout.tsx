@@ -3,19 +3,13 @@
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { User, Plug, KeyRound, SlidersHorizontal } from "lucide-react";
+import { useI18n } from "@/lib/web-i18n";
 
 interface SettingsNavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
 }
-
-const navItems: SettingsNavItem[] = [
-  { label: "Account", href: "/settings", icon: User },
-  { label: "Preferences", href: "/settings/preferences", icon: SlidersHorizontal },
-  { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
-  { label: "Connectors", href: "/settings/connectors", icon: Plug },
-];
 
 export default function SettingsLayout({
   children,
@@ -24,17 +18,25 @@ export default function SettingsLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useI18n();
+
+  const translatedNavItems: SettingsNavItem[] = [
+    { label: t("account"), href: "/settings", icon: User },
+    { label: t("preferences"), href: "/settings/preferences", icon: SlidersHorizontal },
+    { label: t("apiKeys"), href: "/settings/api-keys", icon: KeyRound },
+    { label: t("connectors"), href: "/settings/connectors", icon: Plug },
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col md:flex-row px-3 py-4 md:p-6 md:mt-8 gap-4 md:gap-0 overflow-x-hidden">
       {/* Navigation */}
       <div className="md:w-64 md:pr-6 shrink-0">
         <div className="md:border-r border-border h-full md:pr-6">
-          <h2 className="text-lg font-semibold mb-3 md:mb-6">Settings</h2>
+          <h2 className="text-lg font-semibold mb-3 md:mb-6">{t("settings")}</h2>
 
           {/* Desktop Nav */}
           <nav className="hidden md:block space-y-1">
-            {navItems.map((item) => {
+            {translatedNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
 

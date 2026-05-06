@@ -43,6 +43,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { getAppUrl } from "@/lib/url";
+import { useI18n } from "@/lib/web-i18n";
 
 export const PlaygroundSidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -60,15 +61,16 @@ export const PlaygroundSidebar = () => {
   const [isSavingShare, setIsSavingShare] = useState(false);
   const [shareCopyMessage, setShareCopyMessage] = useState<string | null>(null);
   const { userSession } = useAuth();
+  const { t } = useI18n();
   const user = userSession?.user;
   const router = useRouter();
   const pathname = usePathname();
 
   const settingsLinks = [
-    { label: "Account", href: "/settings", icon: User },
-    { label: "Preferences", href: "/settings/preferences", icon: SlidersHorizontal },
-    { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
-    { label: "Connectors", href: "/settings/connectors", icon: Plug },
+    { label: t("account"), href: "/settings", icon: User },
+    { label: t("preferences"), href: "/settings/preferences", icon: SlidersHorizontal },
+    { label: t("apiKeys"), href: "/settings/api-keys", icon: KeyRound },
+    { label: t("connectors"), href: "/settings/connectors", icon: Plug },
   ];
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';
@@ -132,7 +134,7 @@ export const PlaygroundSidebar = () => {
       const detail = (event as CustomEvent<{ chatId: string }>).detail;
       if (!detail?.chatId) return;
       setChats((prev) => [
-        { id: detail.chatId, title: 'New Chat', updated_at: new Date().toISOString(), created_at: new Date().toISOString() },
+        { id: detail.chatId, title: "New Chat", updated_at: new Date().toISOString(), created_at: new Date().toISOString() },
         ...prev,
       ]);
     };
@@ -148,9 +150,9 @@ export const PlaygroundSidebar = () => {
 
   const formatChatTitle = (title: string | null) => {
     const normalized = (title || "").trim();
-    if (!normalized) return "New Chat";
-    if (normalized.toLowerCase() === "anonymous chat") return "New Chat";
-    if (normalized.toLowerCase() === "new chat") return "New Chat";
+    if (!normalized) return t("newChat");
+    if (normalized.toLowerCase() === "anonymous chat") return t("newChat");
+    if (normalized.toLowerCase() === "new chat") return t("newChat");
     return normalized;
   };
 
@@ -161,10 +163,10 @@ export const PlaygroundSidebar = () => {
   }, [pathname]);
 
   const activeChatTitle = useMemo(() => {
-    if (!activeChatId) return "New Chat";
+    if (!activeChatId) return t("newChat");
     const activeChat = chats.find((chat) => chat.id === activeChatId);
     return formatChatTitle(activeChat?.title ?? null);
-  }, [activeChatId, chats]);
+  }, [activeChatId, chats, t]);
 
   const handleRenameChat = (chatId: string) => {
     const current = chats.find((c) => c.id === chatId);
@@ -286,10 +288,10 @@ export const PlaygroundSidebar = () => {
   const renderChatItems = (onNavigate: (path: string) => void) => (
     <>
       {isLoadingChats && (
-        <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
+        <div className="px-2 py-2 text-xs text-muted-foreground">{t("loadingChats")}</div>
       )}
       {!isLoadingChats && filteredChats.length === 0 && (
-        <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
+        <div className="px-2 py-2 text-xs text-muted-foreground">{t("noChatsYet")}</div>
       )}
       {filteredChats.map((chat) => (
         <div
@@ -344,11 +346,11 @@ export const PlaygroundSidebar = () => {
             <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
               <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                 <SquarePen className="h-4 w-4" />
-                Rename
+                {t("rename")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                 <ArrowUpRight className="h-4 w-4" />
-                Share
+                {t("share")}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="my-1" />
               <DropdownMenuItem
@@ -356,7 +358,7 @@ export const PlaygroundSidebar = () => {
                 className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
               >
                 <X className="h-4 w-4" />
-                Delete
+                {t("delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -379,7 +381,7 @@ export const PlaygroundSidebar = () => {
         <input
           value={chatQuery}
           onChange={(e) => setChatQuery(e.target.value)}
-          placeholder="Search chats"
+          placeholder={t("searchChats")}
           className="w-full rounded-md border border-border/60 bg-background/60 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
       </div>
@@ -447,7 +449,7 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <LayoutGrid className="w-5 h-5" />
-                <span className="font-instrument-serif text-[16px] tracking-wide">Apps</span>
+                <span className="font-instrument-serif text-[16px] tracking-wide">{t("apps")}</span>
               </button>
               <button
                 onClick={() => navigateTo('/chat')}
@@ -459,7 +461,7 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <SquarePen className="w-5 h-5" />
-                  <span className="font-instrument-serif text-[16px] tracking-wide">New Chat</span>
+                  <span className="font-instrument-serif text-[16px] tracking-wide">{t("newChat")}</span>
               </button>
               <button
                 onClick={() => setIsSettingsOpen((prev) => !prev)}
@@ -472,7 +474,7 @@ export const PlaygroundSidebar = () => {
                 aria-expanded={isSettingsOpen}
               >
                 <Settings className="w-5 h-5" />
-                <span className="flex-1 text-left">Settings</span>
+                <span className="flex-1 text-left">{t("settings")}</span>
                 <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
               </button>
               {isSettingsOpen && (
@@ -482,7 +484,7 @@ export const PlaygroundSidebar = () => {
               )}
 
               <div className="pt-3">
-                {renderChatSearch("mt-2", "px-3", "Your Chats")}
+                {renderChatSearch("mt-2", "px-3", t("yourChats"))}
                 <div className="mt-2 space-y-1 max-h-[45vh] overflow-y-auto pr-1">
                   {renderChatItems(navigateTo)}
                 </div>
@@ -517,7 +519,7 @@ export const PlaygroundSidebar = () => {
                   className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
                 >
                   <User className="w-3.5 h-3.5" />
-                  <span>Account</span>
+                  <span>{t("account")}</span>
                 </button>
               </div>
             </div>
@@ -530,7 +532,7 @@ export const PlaygroundSidebar = () => {
         <DialogContent className="w-[calc(100vw-2.5rem)] max-w-sm md:max-w-xs max-h-[85vh] overflow-y-auto bg-background text-foreground p-4 sm:p-5">
           <div className="space-y-4">
             <DialogHeader className="space-y-0">
-              <DialogTitle className="text-base font-semibold">Share this conversation</DialogTitle>
+              <DialogTitle className="text-base font-semibold">{t("shareConversation")}</DialogTitle>
             </DialogHeader>
             <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300 px-3 py-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-md">
@@ -543,8 +545,8 @@ export const PlaygroundSidebar = () => {
 
             <div className="space-y-2">
               {([
-                { value: 'PRIVATE', label: 'Private', description: 'Only you have access' },
-                { value: 'PUBLIC', label: 'Public access', description: 'Anyone with the link can view' },
+                { value: 'PRIVATE', label: t("private"), description: t("onlyYouAccess") },
+                { value: 'PUBLIC', label: t("publicAccess"), description: t("anyoneWithLink") },
               ] as const).map((option) => (
                 <button
                   key={option.value}
@@ -604,7 +606,7 @@ export const PlaygroundSidebar = () => {
                 onClick={handleCopyShareLink}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-white text-zinc-900 px-3 py-2 text-xs transition-colors hover:bg-zinc-100 cursor-pointer dark:bg-white dark:text-zinc-900"
               >
-                <span>Copy link</span>
+                <span>{t("copyLink")}</span>
                 <Link className="h-4 w-4" />
               </button>
             </div>
@@ -670,12 +672,12 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <LayoutGrid className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate text-[16px]">Apps</span>}
+                {isOpen && <span className="truncate text-[16px]">{t("apps")}</span>}
               </button>
             </TooltipTrigger>
             {!isOpen && (
               <TooltipContent side="right" sideOffset={8}>
-                Apps
+                {t("apps")}
               </TooltipContent>
             )}
           </Tooltip>
@@ -694,12 +696,12 @@ export const PlaygroundSidebar = () => {
                 )}
               >
                 <SquarePen className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate text-[16px]">New Chat</span>}
+                {isOpen && <span className="truncate text-[16px]">{t("newChat")}</span>}
               </button>
             </TooltipTrigger>
             {!isOpen && (
               <TooltipContent side="right" sideOffset={8}>
-                New Chat
+                {t("newChat")}
               </TooltipContent>
             )}
           </Tooltip>
@@ -725,7 +727,7 @@ export const PlaygroundSidebar = () => {
                 <Settings className="w-5 h-5 flex-shrink-0" />
                 {isOpen && (
                   <>
-                    <span className="truncate flex-1 text-left text-[16px]">Settings</span>
+                    <span className="truncate flex-1 text-left text-[16px]">{t("settings")}</span>
                     <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
                   </>
                 )}
@@ -733,7 +735,7 @@ export const PlaygroundSidebar = () => {
             </TooltipTrigger>
             {!isOpen && (
               <TooltipContent side="right" sideOffset={8}>
-                Settings
+                {t("settings")}
               </TooltipContent>
             )}
           </Tooltip>
@@ -748,16 +750,16 @@ export const PlaygroundSidebar = () => {
           )}
           {isOpen && (
             <div className="px-3 pb-3">
-              {renderChatSearch("", "", "Your Chats")}
+              {renderChatSearch("", "", t("yourChats"))}
             </div>
           )}
           {isOpen && (
             <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
               {isLoadingChats && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
+                <div className="px-2 py-2 text-xs text-muted-foreground">{t("loadingChats")}</div>
               )}
               {!isLoadingChats && filteredChats.length === 0 && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
+                <div className="px-2 py-2 text-xs text-muted-foreground">{t("noChatsYet")}</div>
               )}
               {filteredChats.map((chat) => (
                 <div
@@ -812,11 +814,11 @@ export const PlaygroundSidebar = () => {
                     <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
                       <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                         <SquarePen className="h-4 w-4" />
-                        Rename
+                        {t("rename")}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                         <ArrowUpRight className="h-4 w-4" />
-                        Share
+                        {t("share")}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="my-1" />
                       <DropdownMenuItem
@@ -824,7 +826,7 @@ export const PlaygroundSidebar = () => {
                         className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
                       >
                         <X className="h-4 w-4" />
-                        Delete
+                        {t("delete")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -860,7 +862,7 @@ export const PlaygroundSidebar = () => {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
-                Account Settings
+                {t("account")} {t("settings")}
               </TooltipContent>
             </Tooltip>
           ) : (

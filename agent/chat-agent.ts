@@ -35,7 +35,7 @@ function buildChatAgentInstructions(
   let localizedDateTime: string;
 
   try {
-    localizedDateTime = now.toLocaleString(preferences.language, { timeZone: preferences.timezone });
+    localizedDateTime = now.toLocaleString("en-US", { timeZone: preferences.timezone });
   } catch {
     localizedDateTime = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
   }
@@ -49,9 +49,7 @@ You are MCP Assistant, an AI agent that completes tasks by discovering, connecti
 - Date: ${currentDate}
 - Time: ${currentTime}
 - Timezone: ${preferences.timezone}
-- Preferred language: ${preferences.language}
 - Use these values for time-sensitive requests.
-- Prefer the user's selected language unless the current chat asks for a different language.
 
 ## Tools
 
@@ -392,7 +390,6 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
       agentPreferences: z
         .object({
           timezone: z.string().optional(),
-          language: z.string().optional(),
           toolApprovalMode: z.enum(["always", "risky", "never"]).optional(),
         })
         .optional(),

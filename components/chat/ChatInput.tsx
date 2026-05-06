@@ -26,6 +26,7 @@ import {
 import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/chat/llmConfig';
 import { ModelSelector } from '@/components/chat/ModelSelector';
 import { AVAILABLE_MODELS } from '@/components/chat/availableModels';
+import { useI18n } from '@/lib/web-i18n';
 
 async function convertFilesToDataURLs(files: FileList) {
   return Promise.all(
@@ -68,6 +69,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: ChatInputProps) {
+  const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -213,7 +215,7 @@ export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: Ch
             <Textarea
               ref={textareaRef}
               value={input}
-              placeholder="Type your prompt..."
+              placeholder={t("typeYourPrompt")}
               disabled={disabled}
               rows={1}
               onChange={(e) => setInput(e.target.value)}

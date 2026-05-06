@@ -32,6 +32,7 @@ import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
+import { useI18n } from '@/lib/web-i18n';
 
 import {
   Conversation,
@@ -318,6 +319,7 @@ export function PlaygroundChat({
   initialDraft,
   isReadOnly = false 
 }: PlaygroundChatProps) {
+  const { t } = useI18n();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
@@ -365,13 +367,17 @@ export function PlaygroundChat({
       prepareSendMessagesRequest: ({ body, messages: chatMessages }) => {
         const bodyConfig = (body as any)?.llmConfig;
         const currentConfig = bodyConfig ?? getCurrentLlmConfig();
+        const agentPreferences = readAgentPreferencesFromStorage();
 
         return {
           body: {
             messages: chatMessages,
             ...(body ?? {}),
             llmConfig: currentConfig,
-            agentPreferences: readAgentPreferencesFromStorage(),
+            agentPreferences: {
+              timezone: agentPreferences.timezone,
+              toolApprovalMode: agentPreferences.toolApprovalMode,
+            },
             chatId,
             gatewaySelections: readGatewaySelectionsFromStorage(),
           },
@@ -775,7 +781,7 @@ export function PlaygroundChat({
               </div>
               <div className="w-full max-w-xs">
                 <p className="mb-2 px-1 text-[10px] font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
-                  Quick Actions
+                  {t("quickActions")}
                 </p>
                 <div className="space-y-1">
                 {mobileStarterPrompts.map((item) => (
@@ -803,7 +809,7 @@ export function PlaygroundChat({
               <div className="px-1">
                 {isReadOnly ? (
                   <div className="w-full text-center p-3 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
-                    This is a read-only shared chat
+                    {t("readOnlySharedChat")}
                   </div>
                   ) : (
                 <ChatInput
@@ -822,13 +828,13 @@ export function PlaygroundChat({
             <div className="w-full max-w-3xl space-y-8">
             <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
                 <h1 className="text-5xl md:text-7xl tracking-tight text-foreground mb-10 leading-tight">
-                  Let&apos;s figure it out together
+                  {t("chatHeroTitle")}
                 </h1>
               </div>
 
               {isReadOnly ? (
                 <div className="w-full text-center p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
-                  This is a read-only shared chat
+                  {t("readOnlySharedChat")}
                 </div>
               ) : (
                 <ChatInput
@@ -882,7 +888,7 @@ export function PlaygroundChat({
                   <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="p-1"><LoadingSpinner /></div>
                     <div className="prose prose-sm dark:prose-invert font-instrument-serif tracking-wide text-muted-foreground text-[17px] flex items-center h-8">
-                      Thinking...
+                      {t("thinking")}
                     </div>
                   </div>
                 )}
@@ -903,7 +909,7 @@ export function PlaygroundChat({
             <div className={chatContentWidthClass}>
               {isReadOnly ? (
                 <div className="w-full text-center p-3 sm:p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm shadow-sm max-w-2xl mx-auto">
-                  This is a read-only shared chat
+                  {t("readOnlySharedChat")}
                 </div>
               ) : (
                   <ChatInput

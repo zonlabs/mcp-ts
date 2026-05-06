@@ -342,7 +342,7 @@ export function ServerSidebar({
         <div className="mt-2 relative">
           <Input
             type="text"
-            placeholder="Search by server name…"
+            placeholder="Search by server name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 pl-8 text-sm"

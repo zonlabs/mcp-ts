@@ -2,9 +2,11 @@
 import { Home, MessageSquare, Package, BookOpen, Workflow, Hammer } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/lib/web-i18n";
 
 export function NavigationLinks() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   const navLinkClass = (isActive: boolean) => `flex items-center gap-2 text-sm font-medium transition-colors relative group ${isActive ? "text-foreground" : "text-foreground/80 hover:text-foreground"}`;
 
@@ -19,7 +21,7 @@ export function NavigationLinks() {
     <div className="flex items-center justify-center gap-6">
       <Link href="/" className={navLinkClass(pathname === "/")}>
         <Home {...iconProps} />
-        Home
+        {t("home")}
         <span className={underlineClass} />
       </Link>
       <Link href="/mcp" className={navLinkClass(pathname === "/mcp")}>
@@ -29,7 +31,7 @@ export function NavigationLinks() {
       </Link>
       <Link href="/registry" className={navLinkClass(pathname === "/registry")}>
         <Package {...iconProps} />
-        Registry
+        {t("registry")}
         <span className={underlineClass} />
       </Link>
       <Link
@@ -37,12 +39,12 @@ export function NavigationLinks() {
         className={navLinkClass(pathname === "/workflows" || pathname.startsWith("/workflows/"))}
       >
         <Workflow {...iconProps} />
-        Workflows
+        {t("workflows")}
         <span className={underlineClass} />
       </Link>
       <Link href="/chat" className={navLinkClass(pathname === "/chat")}>
         <MessageSquare {...iconProps} />
-        Chat
+        {t("chat")}
         <span className={underlineClass} />
       </Link>
       <Link
@@ -52,7 +54,7 @@ export function NavigationLinks() {
         className={navLinkClass(false)}
       >
         <BookOpen {...iconProps} />
-        Docs
+        {t("docs")}
         <span className={underlineClass} />
       </Link>
     </div>

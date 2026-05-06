@@ -16,11 +16,17 @@ import {
   AgentPreferences,
   DEFAULT_AGENT_PREFERENCES,
   ToolApprovalMode,
-  describeToolApprovalMode,
   normalizeAgentPreferences,
   readAgentPreferencesFromStorage,
   writeAgentPreferencesToStorage,
 } from "@/lib/agent-preferences";
+import {
+  WEB_LANGUAGE_OPTIONS,
+  asWebLanguageOption,
+  readWebLanguageFromStorage,
+  writeWebLanguageToStorage,
+} from "@/lib/web-language";
+import { useI18n } from "@/lib/web-i18n";
 
 const TIMEZONE_OPTIONS = [
   { value: "Asia/Kolkata", label: "India Standard Time" },
@@ -35,23 +41,13 @@ const TIMEZONE_OPTIONS = [
   { value: "Australia/Sydney", label: "Sydney" },
 ];
 
-const LANGUAGE_OPTIONS = [
-  { value: "en-US", label: "English (US)" },
-  { value: "en-GB", label: "English (UK)" },
-  { value: "hi-IN", label: "Hindi" },
-  { value: "es-ES", label: "Spanish" },
-  { value: "fr-FR", label: "French" },
-  { value: "de-DE", label: "German" },
-  { value: "ja-JP", label: "Japanese" },
-];
-
 const TOOL_POLICY_OPTIONS: Array<{
   value: ToolApprovalMode;
-  label: string;
+  labelKey: "askEveryTime" | "askRiskyTools" | "runAutomatically";
 }> = [
-  { value: "always", label: "Ask every time" },
-  { value: "risky", label: "Ask for risky tools" },
-  { value: "never", label: "Run automatically" },
+  { value: "always", labelKey: "askEveryTime" },
+  { value: "risky", labelKey: "askRiskyTools" },
+  { value: "never", labelKey: "runAutomatically" },
 ];
 
 function getGmtOffsetLabel(timezone: string, date: Date): string {
@@ -71,10 +67,10 @@ function formatTimezoneOptionLabel(timezone: string, date: Date): string {
   return `${timezone} (${getGmtOffsetLabel(timezone, date)})`;
 }
 
-function formatCurrentTimeInTimezone(timezone: string, date: Date): string {
+function formatCurrentTimeInTimezone(timezone: string, date: Date, locale: string): string {
   let dateText = "";
   try {
-    dateText = new Intl.DateTimeFormat("en-US", {
+    dateText = new Intl.DateTimeFormat(locale, {
       timeZone: timezone,
       weekday: "short",
       month: "short",
@@ -83,7 +79,7 @@ function formatCurrentTimeInTimezone(timezone: string, date: Date): string {
       minute: "2-digit",
     }).format(date);
   } catch {
-    dateText = new Intl.DateTimeFormat("en-US", {
+    dateText = new Intl.DateTimeFormat(locale, {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -122,13 +118,16 @@ function PreferenceRow({
 }
 
 export default function PreferencesPage() {
+  const { t } = useI18n();
   const [preferences, setPreferences] = useState<AgentPreferences>(DEFAULT_AGENT_PREFERENCES);
+  const [webLanguage, setWebLanguage] = useState("en-US");
   const [hasLoaded, setHasLoaded] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     setPreferences(readAgentPreferencesFromStorage());
+    setWebLanguage(readWebLanguageFromStorage());
     setHasLoaded(true);
   }, []);
 
@@ -145,10 +144,15 @@ export default function PreferencesPage() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const policyDescription = useMemo(
-    () => describeToolApprovalMode(preferences.toolApprovalMode),
-    [preferences.toolApprovalMode]
-  );
+  const policyDescription = useMemo(() => {
+    if (preferences.toolApprovalMode === "never") {
+      return t("runAutomatically");
+    }
+    if (preferences.toolApprovalMode === "risky") {
+      return t("askRiskyTools");
+    }
+    return t("askEveryTime");
+  }, [preferences.toolApprovalMode, t]);
 
   const timezoneTriggerLabel = useMemo(
     () => formatTimezoneOptionLabel(preferences.timezone, now),
@@ -156,8 +160,8 @@ export default function PreferencesPage() {
   );
 
   const timezoneCurrentTimeLabel = useMemo(
-    () => formatCurrentTimeInTimezone(preferences.timezone, now),
-    [preferences.timezone, now]
+    () => formatCurrentTimeInTimezone(preferences.timezone, now, webLanguage),
+    [preferences.timezone, now, webLanguage]
   );
 
   const updatePreferences = (patch: Partial<AgentPreferences>) => {
@@ -169,37 +173,37 @@ export default function PreferencesPage() {
       <div className="max-w-3xl space-y-7">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <h1 className="text-3xl">Preferences</h1>
+            <h1 className="text-3xl">{t("preferences")}</h1>
             <Badge variant="outline" className="gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              {savedAt ? "Saved" : "Local"}
+              {savedAt ? t("saved") : t("local")}
             </Badge>
           </div>
           <p className="text-[15px] text-muted-foreground">
-            Choose how the agent localizes responses and handles MCP tool execution.
+            {t("chooseAgentBehavior")}
           </p>
         </div>
 
         <section className="rounded-lg border border-border/70 px-4">
           <PreferenceRow
             icon={Palette}
-            title="Theme"
-            description="Choose the app color scheme for chat, settings, and connector views."
+            title={t("theme")}
+            description={t("themeDescription")}
           >
             <ThemeSelector />
           </PreferenceRow>
 
           <PreferenceRow
             icon={Globe2}
-            title="Timezone"
-            description="Used for date-sensitive answers, scheduling language, and timestamps."
+            title={t("timezone")}
+            description={t("timezoneDescription")}
           >
             <Select
               value={preferences.timezone}
               onValueChange={(timezone) => updatePreferences({ timezone })}
             >
               <SelectTrigger className="h-9 rounded-md">
-                <SelectValue placeholder="Select timezone">
+                <SelectValue placeholder={t("selectTimezone")}>
                   {timezoneTriggerLabel}
                 </SelectValue>
               </SelectTrigger>
@@ -217,24 +221,28 @@ export default function PreferencesPage() {
               </SelectContent>
             </Select>
             <p className="mt-2 text-sm text-muted-foreground">
-              Current time: {timezoneCurrentTimeLabel}
+              {t("currentTime")}: {timezoneCurrentTimeLabel}
             </p>
           </PreferenceRow>
 
           <PreferenceRow
             icon={Languages}
-            title="Language"
-            description="The assistant will prefer this language unless the chat asks for another one."
+            title={t("language")}
+            description={t("languageWebOnly")}
           >
-            <Select
-              value={preferences.language}
-              onValueChange={(language) => updatePreferences({ language })}
+              <Select
+              value={webLanguage}
+              onValueChange={(language) => {
+                const selectedLanguage = asWebLanguageOption(language);
+                setWebLanguage(selectedLanguage);
+                writeWebLanguageToStorage(selectedLanguage);
+              }}
             >
               <SelectTrigger className="h-9 rounded-md">
-                <SelectValue placeholder="Select language" />
+                <SelectValue placeholder={t("selectLanguage")} />
               </SelectTrigger>
               <SelectContent>
-                {LANGUAGE_OPTIONS.map((option) => (
+                {WEB_LANGUAGE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -245,7 +253,7 @@ export default function PreferencesPage() {
 
           <PreferenceRow
             icon={ShieldCheck}
-            title="MCP tool approval"
+            title={t("mcpToolApproval")}
             description={policyDescription}
           >
             <Select
@@ -255,12 +263,12 @@ export default function PreferencesPage() {
               }
             >
               <SelectTrigger className="h-9 rounded-md">
-                <SelectValue placeholder="Select approval policy" />
+                <SelectValue placeholder={t("selectApprovalPolicy")} />
               </SelectTrigger>
               <SelectContent>
                 {TOOL_POLICY_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
