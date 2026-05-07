@@ -39,16 +39,18 @@ function AssistantAvatar() {
   );
 }
 
-export function UserMessage({ message, parts, onEdit }: { 
-  message: any; 
-  parts?: any[]; 
-  onEdit?: (newContent: string) => void 
+export function UserMessage({ message, parts, onEdit }: {
+  message: any;
+  parts?: any[];
+  onEdit?: (newContent: string) => void
 }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
   const REGEN_PREFIX = "\u2063__regen__\n";
+  const COLLAPSE_THRESHOLD = 200;
 
   const getMessageContent = () => {
     if (typeof message === "string") return message;
@@ -67,6 +69,7 @@ export function UserMessage({ message, parts, onEdit }: {
   };
 
   const textContent = getMessageContent();
+  const isLong = textContent.length > COLLAPSE_THRESHOLD;
 
   useEffect(() => {
     if (isEditing) {
@@ -98,7 +101,7 @@ export function UserMessage({ message, parts, onEdit }: {
         <div className="flex flex-col items-end gap-1 w-full max-w-[75%] sm:max-w-[640px]">
           {isEditing ? (
             <div className="flex flex-col gap-3 w-full bg-secondary/30 p-4 rounded-2xl border border-border/50 animate-in fade-in zoom-in-95 duration-200">
-               <Textarea
+              <Textarea
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 className="min-h-[100px] bg-background border-none focus-visible:ring-1 focus-visible:ring-primary/20 resize-none text-sm p-0 shadow-none leading-relaxed"
@@ -111,16 +114,16 @@ export function UserMessage({ message, parts, onEdit }: {
                   <span>{t("subsequentMessagesDeleted")}</span>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsEditing(false)}
                     className="h-8 px-3 text-xs hover:bg-background/80"
                   >
                     {t("cancel")}
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={handleSave}
                     disabled={editValue.trim() === "" || editValue === textContent}
                     className="h-8 px-4 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
@@ -132,8 +135,18 @@ export function UserMessage({ message, parts, onEdit }: {
             </div>
           ) : (
             <>
-              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed font-instrument-serif tracking-wide whitespace-pre-wrap break-words w-fit max-w-full">
-                {textContent}
+              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed font-instrument-serif tracking-wide w-fit max-w-full">
+                <p className={`whitespace-pre-wrap break-words ${isLong && !isExpanded ? "line-clamp-3" : ""}`}>
+                  {textContent}
+                </p>
+                {isLong && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="mt-1.5 text-xs font-instrument-serif tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {isExpanded ? "Show less" : "Show more"}
+                  </button>
+                )}
               </div>
 
               <TooltipProvider>

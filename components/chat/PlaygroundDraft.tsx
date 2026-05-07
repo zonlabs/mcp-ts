@@ -36,6 +36,7 @@ export function PlaygroundDraft() {
   const { t } = useI18n();
   const router = useRouter();
   const [status, setStatus] = useState<'ready' | 'submitted' | 'streaming' | 'error'>('ready');
+  const [chatInput, setChatInput] = useState('');
 
   const sendDraft = async (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
@@ -98,7 +99,7 @@ export function PlaygroundDraft() {
               {promptButtons.map((item) => (
                 <button
                   key={item.label}
-                  onClick={() => sendDraft({ text: item.prompt })}
+                  onClick={() => setChatInput(item.prompt)}
                   className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-foreground/90 hover:bg-accent/30 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -119,6 +120,8 @@ export function PlaygroundDraft() {
         <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
           <div className="px-1">
             <ChatInput
+              input={chatInput}
+              onInputChange={setChatInput}
               onSend={sendDraft}
               status={status}
               disabled={status === 'submitted' || status === 'streaming'}
@@ -137,6 +140,8 @@ export function PlaygroundDraft() {
           </div>
 
           <ChatInput
+            input={chatInput}
+            onInputChange={setChatInput}
             onSend={sendDraft}
             status={status}
             disabled={status === 'submitted' || status === 'streaming'}
@@ -144,7 +149,7 @@ export function PlaygroundDraft() {
 
           <div className="px-4">
             <RecipeComponent
-              onAction={(prompt) => sendDraft({ text: prompt })}
+              onAction={(prompt) => setChatInput(prompt)}
             />
           </div>
         </div>

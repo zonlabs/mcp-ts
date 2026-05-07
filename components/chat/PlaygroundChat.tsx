@@ -224,11 +224,9 @@ function ReasoningStepWithDuration({
     }
   }, [isStreaming]);
 
-  const description = isStreaming
-    ? t("thinking")
-    : duration !== undefined
-      ? `${t("thoughtFor")} ${duration}s`
-      : undefined;
+  const description = !isStreaming && duration !== undefined
+    ? `${t("thoughtFor")} ${duration}s`
+    : undefined;
 
   return (
     <ChainOfThoughtStep
@@ -237,7 +235,7 @@ function ReasoningStepWithDuration({
       description={description}
       status={isStreaming ? 'active' : 'complete'}
     >
-      <div className="whitespace-pre-wrap text-muted-foreground/80 text-[17px] font-instrument-serif tracking-wide leading-relaxed">
+      <div className="whitespace-pre-wrap text-muted-foreground/80 text-[14px] font-instrument-serif tracking-wide leading-relaxed">
         {reasoningText}
       </div>
     </ChainOfThoughtStep>
@@ -323,6 +321,7 @@ export function PlaygroundChat({
   isReadOnly = false 
 }: PlaygroundChatProps) {
   const { t } = useI18n();
+  const [chatInput, setChatInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
@@ -562,7 +561,7 @@ export function PlaygroundChat({
     return (
       <>
         {chainOfThought.hasChainOfThought && (
-          <ChainOfThought className="mb-3" defaultOpen>
+          <ChainOfThought className="mb-3" open={isCoTActive}>
             <ChainOfThoughtHeader progress={isCoTActive}>{t("chainOfThought")}</ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {chainOfThought.reasoningText && (
@@ -854,6 +853,8 @@ export function PlaygroundChat({
                 </div>
               ) : (
                 <ChatInput
+                  input={chatInput}
+                  onInputChange={setChatInput}
                   onSend={sendChatInput}
                   onStop={stop}
                   status={status}
@@ -864,7 +865,7 @@ export function PlaygroundChat({
 
               <div className="px-4">
                 <RecipeComponent
-                  onAction={(prompt) => sendChatInput({ text: prompt })}
+                  onAction={(prompt) => setChatInput(prompt)}
                 />
               </div>
             </div>
@@ -903,9 +904,6 @@ export function PlaygroundChat({
                 {(status === 'streaming' || status === 'submitted') && (
                   <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="p-1"><LoadingSpinner /></div>
-                    <div className="prose prose-sm dark:prose-invert font-instrument-serif tracking-wide text-muted-foreground text-[17px] flex items-center h-8">
-                      {t("thinking")}
-                    </div>
                   </div>
                 )}
 
