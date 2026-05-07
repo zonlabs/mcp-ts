@@ -35,10 +35,20 @@ export const en = {
   newChat: "New Chat",
   yourChats: "Your Chats",
   searchChats: "Search chats",
+  chatHistory: "History",
   loadingChats: "Loading chats...",
   noChatsYet: "No chats yet",
   rename: "Rename",
   openInNewTab: "Open in new tab",
+  pinChat: "Pin chat",
+  unpinChat: "Unpin chat",
+  pinnedChats: "Pinned",
+  todayChats: "Today",
+  yesterdayChats: "Yesterday",
+  previous7Days: "Previous 7 days",
+  previous30Days: "Previous 30 days",
+  olderChats: "Older",
+  justNow: "Just now",
   share: "Share",
   delete: "Delete",
   copyLink: "Copy link",
@@ -244,6 +254,30 @@ export const en = {
 export type WebMessageKey = keyof typeof en;
 type Dictionary = Record<WebMessageKey, string>;
 type Locale = (typeof WEB_I18N_LANGUAGE_OPTIONS)[number]["value"];
+type RecipeMessageKey =
+  | "recipeEmailSummary"
+  | "recipeEmailSummaryDesc"
+  | "recipeSemanticSearch"
+  | "recipeSemanticSearchDesc"
+  | "recipeGithubIssueSummary"
+  | "recipeGithubIssueSummaryDesc"
+  | "recipeSupabaseProject"
+  | "recipeSupabaseProjectDesc"
+  | "recipeNotionMeetingPrep"
+  | "recipeNotionMeetingPrepDesc"
+  | "recipeMarketAnalysis"
+  | "recipeMarketAnalysisDesc";
+type ChatSidebarMessageKey =
+  | "chatHistory"
+  | "pinChat"
+  | "unpinChat"
+  | "pinnedChats"
+  | "todayChats"
+  | "yesterdayChats"
+  | "previous7Days"
+  | "previous30Days"
+  | "olderChats"
+  | "justNow";
 
 export const webI18nLocales = WEB_I18N_LANGUAGE_OPTIONS.map((option) => option.value);
 
@@ -388,10 +422,330 @@ const localeSources: Record<Exclude<Locale, "en-US">, LocaleOverrides> = {
   },
 };
 
+const localizedOpenInNewTab: Record<Exclude<Locale, "en-US">, string> = {
+  "zh-CN": "在新标签页中打开",
+  "hi-IN": "नए टैब में खोलें",
+  "es-ES": "Abrir en una pestaña nueva",
+  "fr-FR": "Ouvrir dans un nouvel onglet",
+  "ar-SA": "فتح في علامة تبويب جديدة",
+  "ja-JP": "新しいタブで開く",
+  "pt-BR": "Abrir em nova aba",
+  "ru-RU": "Открыть в новой вкладке",
+  "ur-PK": "نئے ٹیب میں کھولیں",
+};
+
+const localizedChatSidebarMessages: Record<
+  Exclude<Locale, "en-US">,
+  Pick<Dictionary, ChatSidebarMessageKey>
+> = {
+  "zh-CN": {
+    chatHistory: "历史记录",
+    pinChat: "固定聊天",
+    unpinChat: "取消固定聊天",
+    pinnedChats: "已固定",
+    todayChats: "今天",
+    yesterdayChats: "昨天",
+    previous7Days: "过去 7 天",
+    previous30Days: "过去 30 天",
+    olderChats: "更早",
+    justNow: "刚刚",
+  },
+  "hi-IN": {
+    chatHistory: "इतिहास",
+    pinChat: "चैट पिन करें",
+    unpinChat: "चैट अनपिन करें",
+    pinnedChats: "पिन की गई",
+    todayChats: "आज",
+    yesterdayChats: "कल",
+    previous7Days: "पिछले 7 दिन",
+    previous30Days: "पिछले 30 दिन",
+    olderChats: "पुरानी",
+    justNow: "अभी",
+  },
+  "es-ES": {
+    chatHistory: "Historial",
+    pinChat: "Fijar chat",
+    unpinChat: "Desfijar chat",
+    pinnedChats: "Fijados",
+    todayChats: "Hoy",
+    yesterdayChats: "Ayer",
+    previous7Days: "Últimos 7 días",
+    previous30Days: "Últimos 30 días",
+    olderChats: "Más antiguos",
+    justNow: "Ahora mismo",
+  },
+  "fr-FR": {
+    chatHistory: "Historique",
+    pinChat: "Épingler le chat",
+    unpinChat: "Désépingler le chat",
+    pinnedChats: "Épinglés",
+    todayChats: "Aujourd'hui",
+    yesterdayChats: "Hier",
+    previous7Days: "7 derniers jours",
+    previous30Days: "30 derniers jours",
+    olderChats: "Plus anciens",
+    justNow: "À l'instant",
+  },
+  "ar-SA": {
+    chatHistory: "السجل",
+    pinChat: "تثبيت المحادثة",
+    unpinChat: "إلغاء تثبيت المحادثة",
+    pinnedChats: "مثبتة",
+    todayChats: "اليوم",
+    yesterdayChats: "أمس",
+    previous7Days: "آخر 7 أيام",
+    previous30Days: "آخر 30 يوما",
+    olderChats: "أقدم",
+    justNow: "الآن",
+  },
+  "ja-JP": {
+    chatHistory: "履歴",
+    pinChat: "チャットをピン留め",
+    unpinChat: "ピン留めを解除",
+    pinnedChats: "ピン留め",
+    todayChats: "今日",
+    yesterdayChats: "昨日",
+    previous7Days: "過去 7 日間",
+    previous30Days: "過去 30 日間",
+    olderChats: "それ以前",
+    justNow: "たった今",
+  },
+  "pt-BR": {
+    chatHistory: "Histórico",
+    pinChat: "Fixar chat",
+    unpinChat: "Desafixar chat",
+    pinnedChats: "Fixados",
+    todayChats: "Hoje",
+    yesterdayChats: "Ontem",
+    previous7Days: "Últimos 7 dias",
+    previous30Days: "Últimos 30 dias",
+    olderChats: "Mais antigos",
+    justNow: "Agora",
+  },
+  "ru-RU": {
+    chatHistory: "История",
+    pinChat: "Закрепить чат",
+    unpinChat: "Открепить чат",
+    pinnedChats: "Закрепленные",
+    todayChats: "Сегодня",
+    yesterdayChats: "Вчера",
+    previous7Days: "Последние 7 дней",
+    previous30Days: "Последние 30 дней",
+    olderChats: "Более старые",
+    justNow: "Только что",
+  },
+  "ur-PK": {
+    chatHistory: "تاریخ",
+    pinChat: "چیٹ پن کریں",
+    unpinChat: "چیٹ ان پن کریں",
+    pinnedChats: "پن کی گئی",
+    todayChats: "آج",
+    yesterdayChats: "گزشتہ روز",
+    previous7Days: "پچھلے 7 دن",
+    previous30Days: "پچھلے 30 دن",
+    olderChats: "پرانی",
+    justNow: "ابھی",
+  },
+};
+
+const localizedRecipeMessages: Record<
+  Exclude<Locale, "en-US">,
+  Pick<Dictionary, RecipeMessageKey>
+> = {
+  "zh-CN": {
+    recipeEmailSummary: "邮件摘要",
+    recipeEmailSummaryDesc:
+      "使用 Composio MCP 访问 Gmail，查看我今天的未读邮件并总结重要内容",
+    recipeSemanticSearch: "语义搜索",
+    recipeSemanticSearchDesc:
+      "使用 Exa 搜索网页，查找过去一个月关于 LLM 优化的最新研究论文。",
+    recipeGithubIssueSummary: "GitHub Issue 摘要",
+    recipeGithubIssueSummaryDesc:
+      "使用 Composio MCP 访问 GitHub，获取此仓库最新开放 issue 并总结最关键的 bug。",
+    recipeSupabaseProject: "Supabase 项目",
+    recipeSupabaseProjectDesc:
+      "帮助用户管理 Supabase 项目和数据库。遵循 Supabase 最佳实践，协助处理项目、表、迁移、SQL 和故障排查。",
+    recipeNotionMeetingPrep: "Notion 会议准备",
+    recipeNotionMeetingPrepDesc:
+      "直接从 Notion 综合项目笔记和最新更新，生成一份简报文档。",
+    recipeMarketAnalysis: "市场分析",
+    recipeMarketAnalysisDesc:
+      "使用 Alpha Vantage 获取 {TICKER} 最近 30 天的每日价格。总结价格趋势是上涨、下跌还是持平。",
+  },
+  "hi-IN": {
+    recipeEmailSummary: "ईमेल सारांश",
+    recipeEmailSummaryDesc:
+      "Gmail तक पहुंचने के लिए Composio MCP का उपयोग करें, आज के मेरे अपठित ईमेल जांचें और महत्वपूर्ण ईमेल का सारांश दें",
+    recipeSemanticSearch: "सिमेंटिक खोज",
+    recipeSemanticSearchDesc:
+      "पिछले महीने के LLM ऑप्टिमाइजेशन पर नवीनतम शोध पत्र खोजने के लिए Exa से वेब खोजें।",
+    recipeGithubIssueSummary: "GitHub इश्यू सारांश",
+    recipeGithubIssueSummaryDesc:
+      "इस रिपॉजिटरी के नवीनतम खुले इश्यू लाने और सबसे महत्वपूर्ण बग का सारांश देने के लिए Composio MCP से GitHub तक पहुंचें।",
+    recipeSupabaseProject: "Supabase प्रोजेक्ट",
+    recipeSupabaseProjectDesc:
+      "आप उपयोगकर्ताओं को Supabase प्रोजेक्ट और डेटाबेस प्रबंधित करने में मदद करते हैं। Supabase best practices का पालन करते हुए प्रोजेक्ट, टेबल, माइग्रेशन, SQL और troubleshooting में मदद करें।",
+    recipeNotionMeetingPrep: "Notion मीटिंग तैयारी",
+    recipeNotionMeetingPrepDesc:
+      "Notion से प्रोजेक्ट नोट्स और हालिया अपडेट को मिलाकर एक briefing document बनाएं।",
+    recipeMarketAnalysis: "बाजार विश्लेषण",
+    recipeMarketAnalysisDesc:
+      "Alpha Vantage से {TICKER} के पिछले 30 दिनों के daily prices fetch करें। बताएं कि price trend ऊपर, नीचे या flat है।",
+  },
+  "es-ES": {
+    recipeEmailSummary: "Resumen de correo",
+    recipeEmailSummaryDesc:
+      "Usa Composio MCP para acceder a Gmail, revisar mis correos no leídos de hoy y resumir los importantes",
+    recipeSemanticSearch: "Búsqueda semántica",
+    recipeSemanticSearchDesc:
+      "Busca en la web con Exa los artículos de investigación más recientes sobre optimización de LLM del último mes.",
+    recipeGithubIssueSummary: "Resumen de issues de GitHub",
+    recipeGithubIssueSummaryDesc:
+      "Usa Composio MCP para acceder a GitHub, obtener los issues abiertos más recientes de este repositorio y resumir los bugs más críticos.",
+    recipeSupabaseProject: "Proyecto Supabase",
+    recipeSupabaseProjectDesc:
+      "Ayuda a los usuarios a gestionar proyectos y bases de datos de Supabase. Asiste con proyectos, tablas, migraciones, SQL y resolución de problemas siguiendo buenas prácticas de Supabase.",
+    recipeNotionMeetingPrep: "Preparación de reunión en Notion",
+    recipeNotionMeetingPrepDesc:
+      "Genera un documento informativo sintetizando notas del proyecto y actualizaciones recientes directamente desde Notion.",
+    recipeMarketAnalysis: "Análisis de mercado",
+    recipeMarketAnalysisDesc:
+      "Usa Alpha Vantage para obtener los precios diarios de los últimos 30 días de {TICKER}. Resume si la tendencia del precio sube, baja o está plana.",
+  },
+  "fr-FR": {
+    recipeEmailSummary: "Résumé des e-mails",
+    recipeEmailSummaryDesc:
+      "Utilise Composio MCP pour accéder à Gmail, consulter mes e-mails non lus d'aujourd'hui et résumer les plus importants",
+    recipeSemanticSearch: "Recherche sémantique",
+    recipeSemanticSearchDesc:
+      "Recherche sur le web avec Exa les derniers articles de recherche sur l'optimisation des LLM du mois dernier.",
+    recipeGithubIssueSummary: "Résumé des issues GitHub",
+    recipeGithubIssueSummaryDesc:
+      "Utilise Composio MCP pour accéder à GitHub, récupérer les dernières issues ouvertes de ce dépôt et résumer les bugs les plus critiques.",
+    recipeSupabaseProject: "Projet Supabase",
+    recipeSupabaseProjectDesc:
+      "Aide les utilisateurs à gérer des projets et bases de données Supabase. Assiste sur les projets, tables, migrations, SQL et dépannage en suivant les bonnes pratiques Supabase.",
+    recipeNotionMeetingPrep: "Préparation de réunion Notion",
+    recipeNotionMeetingPrepDesc:
+      "Génère un document de briefing en synthétisant les notes de projet et les dernières mises à jour directement depuis Notion.",
+    recipeMarketAnalysis: "Analyse de marché",
+    recipeMarketAnalysisDesc:
+      "Utilise Alpha Vantage pour récupérer les prix quotidiens des 30 derniers jours de {TICKER}. Résume si la tendance du prix monte, baisse ou reste stable.",
+  },
+  "ar-SA": {
+    recipeEmailSummary: "ملخص البريد الإلكتروني",
+    recipeEmailSummaryDesc:
+      "استخدم Composio MCP للوصول إلى Gmail، وافحص رسائلي غير المقروءة اليوم، ولخص الرسائل المهمة",
+    recipeSemanticSearch: "بحث دلالي",
+    recipeSemanticSearchDesc:
+      "ابحث في الويب باستخدام Exa للعثور على أحدث أبحاث تحسين LLM خلال الشهر الماضي.",
+    recipeGithubIssueSummary: "ملخص مشكلات GitHub",
+    recipeGithubIssueSummaryDesc:
+      "استخدم Composio MCP للوصول إلى GitHub وجلب أحدث المشكلات المفتوحة في هذا المستودع وتلخيص أهم الأخطاء.",
+    recipeSupabaseProject: "مشروع Supabase",
+    recipeSupabaseProjectDesc:
+      "ساعد المستخدمين في إدارة مشاريع وقواعد بيانات Supabase. قدم المساعدة في المشاريع والجداول والترحيلات وSQL واستكشاف الأخطاء مع اتباع أفضل ممارسات Supabase.",
+    recipeNotionMeetingPrep: "تحضير اجتماع Notion",
+    recipeNotionMeetingPrepDesc:
+      "أنشئ مستند إحاطة عبر تلخيص ملاحظات المشروع وآخر التحديثات مباشرة من Notion.",
+    recipeMarketAnalysis: "تحليل السوق",
+    recipeMarketAnalysisDesc:
+      "استخدم Alpha Vantage لجلب الأسعار اليومية لآخر 30 يوما لـ {TICKER}. لخص ما إذا كان اتجاه السعر صاعدا أو هابطا أو مستقرا.",
+  },
+  "ja-JP": {
+    recipeEmailSummary: "メール要約",
+    recipeEmailSummaryDesc:
+      "Composio MCP で Gmail にアクセスし、今日の未読メールを確認して重要なものを要約する",
+    recipeSemanticSearch: "セマンティック検索",
+    recipeSemanticSearchDesc:
+      "Exa を使ってウェブを検索し、過去 1 か月の LLM 最適化に関する最新研究論文を探す。",
+    recipeGithubIssueSummary: "GitHub Issue 要約",
+    recipeGithubIssueSummaryDesc:
+      "Composio MCP で GitHub にアクセスし、このリポジトリの最新の未解決 issue を取得して重要なバグを要約する。",
+    recipeSupabaseProject: "Supabase プロジェクト",
+    recipeSupabaseProjectDesc:
+      "Supabase プロジェクトとデータベースの管理を支援します。Supabase のベストプラクティスに従い、プロジェクト、テーブル、マイグレーション、SQL、トラブルシューティングを支援します。",
+    recipeNotionMeetingPrep: "Notion 会議準備",
+    recipeNotionMeetingPrepDesc:
+      "Notion からプロジェクトノートと最新更新を統合し、ブリーフィング資料を生成する。",
+    recipeMarketAnalysis: "市場分析",
+    recipeMarketAnalysisDesc:
+      "Alpha Vantage を使って {TICKER} の過去 30 日分の日次価格を取得し、価格トレンドが上昇、下落、横ばいかを要約する。",
+  },
+  "pt-BR": {
+    recipeEmailSummary: "Resumo de e-mails",
+    recipeEmailSummaryDesc:
+      "Use o Composio MCP para acessar o Gmail, verificar meus e-mails não lidos de hoje e resumir os importantes",
+    recipeSemanticSearch: "Busca semântica",
+    recipeSemanticSearchDesc:
+      "Pesquise na web com Exa os artigos de pesquisa mais recentes sobre otimização de LLM do último mês.",
+    recipeGithubIssueSummary: "Resumo de issues do GitHub",
+    recipeGithubIssueSummaryDesc:
+      "Use o Composio MCP para acessar o GitHub, buscar as issues abertas mais recentes deste repositório e resumir os bugs mais críticos.",
+    recipeSupabaseProject: "Projeto Supabase",
+    recipeSupabaseProjectDesc:
+      "Ajude usuários a gerenciar projetos e bancos de dados Supabase. Auxilie com projetos, tabelas, migrações, SQL e solução de problemas seguindo boas práticas do Supabase.",
+    recipeNotionMeetingPrep: "Preparação de reunião no Notion",
+    recipeNotionMeetingPrepDesc:
+      "Gere um documento de briefing sintetizando notas do projeto e atualizações recentes diretamente do Notion.",
+    recipeMarketAnalysis: "Análise de mercado",
+    recipeMarketAnalysisDesc:
+      "Use Alpha Vantage para buscar os preços diários dos últimos 30 dias de {TICKER}. Resuma se a tendência do preço está subindo, caindo ou estável.",
+  },
+  "ru-RU": {
+    recipeEmailSummary: "Сводка писем",
+    recipeEmailSummaryDesc:
+      "Используйте Composio MCP для доступа к Gmail, проверьте мои непрочитанные письма за сегодня и кратко изложите важные",
+    recipeSemanticSearch: "Семантический поиск",
+    recipeSemanticSearchDesc:
+      "Найдите в интернете через Exa последние исследовательские статьи по оптимизации LLM за последний месяц.",
+    recipeGithubIssueSummary: "Сводка issue GitHub",
+    recipeGithubIssueSummaryDesc:
+      "Используйте Composio MCP для доступа к GitHub, получите последние открытые issue этого репозитория и кратко изложите самые критичные ошибки.",
+    recipeSupabaseProject: "Проект Supabase",
+    recipeSupabaseProjectDesc:
+      "Помогайте пользователям управлять проектами и базами данных Supabase. Помогайте с проектами, таблицами, миграциями, SQL и устранением неполадок, следуя лучшим практикам Supabase.",
+    recipeNotionMeetingPrep: "Подготовка встречи Notion",
+    recipeNotionMeetingPrepDesc:
+      "Создайте briefing-документ, синтезируя заметки проекта и последние обновления прямо из Notion.",
+    recipeMarketAnalysis: "Анализ рынка",
+    recipeMarketAnalysisDesc:
+      "Используйте Alpha Vantage, чтобы получить дневные цены {TICKER} за последние 30 дней. Кратко опишите, растет цена, падает или остается стабильной.",
+  },
+  "ur-PK": {
+    recipeEmailSummary: "ای میل خلاصہ",
+    recipeEmailSummaryDesc:
+      "Composio MCP کے ذریعے Gmail تک رسائی حاصل کریں، آج کی میری unread emails دیکھیں اور اہم emails کا خلاصہ بنائیں",
+    recipeSemanticSearch: "Semantic تلاش",
+    recipeSemanticSearchDesc:
+      "Exa کے ذریعے ویب تلاش کریں اور پچھلے مہینے کی LLM optimization پر تازہ ترین research papers تلاش کریں۔",
+    recipeGithubIssueSummary: "GitHub issue خلاصہ",
+    recipeGithubIssueSummaryDesc:
+      "Composio MCP کے ذریعے GitHub تک رسائی حاصل کریں، اس repository کے تازہ ترین open issues حاصل کریں اور اہم bugs کا خلاصہ بنائیں۔",
+    recipeSupabaseProject: "Supabase پروجیکٹ",
+    recipeSupabaseProjectDesc:
+      "صارفین کو Supabase projects اور databases manage کرنے میں مدد دیں۔ Supabase best practices کے مطابق projects, tables, migrations, SQL اور troubleshooting میں مدد کریں۔",
+    recipeNotionMeetingPrep: "Notion meeting تیاری",
+    recipeNotionMeetingPrepDesc:
+      "Notion سے project notes اور recent updates کو synthesize کر کے briefing document بنائیں۔",
+    recipeMarketAnalysis: "مارکیٹ تجزیہ",
+    recipeMarketAnalysisDesc:
+      "Alpha Vantage سے {TICKER} کے پچھلے 30 دنوں کے daily prices حاصل کریں۔ خلاصہ کریں کہ price trend اوپر، نیچے یا flat ہے۔",
+  },
+};
+
 const dictionaries: Record<Locale, Dictionary> = Object.fromEntries(
   WEB_I18N_LANGUAGE_OPTIONS.map((option) => [
     option.value,
-    option.value === "en-US" ? en : { ...en, ...localeSources[option.value as Exclude<Locale, "en-US">] },
+    option.value === "en-US"
+      ? en
+      : {
+          ...en,
+          ...localeSources[option.value as Exclude<Locale, "en-US">],
+          ...localizedChatSidebarMessages[option.value as Exclude<Locale, "en-US">],
+          ...localizedRecipeMessages[option.value as Exclude<Locale, "en-US">],
+          openInNewTab: localizedOpenInNewTab[option.value as Exclude<Locale, "en-US">],
+        },
   ])
 ) as Record<Locale, Dictionary>;
 

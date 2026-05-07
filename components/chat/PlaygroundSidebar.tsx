@@ -73,6 +73,7 @@ export const PlaygroundSidebar = () => {
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareChatId, setShareChatId] = useState<string | null>(null);
   const [shareVisibility, setShareVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
@@ -265,7 +266,7 @@ export const PlaygroundSidebar = () => {
     return "older";
   };
 
-  const chatGroups = useMemo<ChatGroup[]>(() => {
+  const { pinnedChatGroups, unpinnedChatGroups, hasVisibleChats } = useMemo(() => {
     const query = chatQuery.trim().toLowerCase();
     const filtered = query
       ? chats.filter((chat) => (chat.title || "").toLowerCase().includes(query))
@@ -287,16 +288,31 @@ export const PlaygroundSidebar = () => {
       older: t("olderChats"),
     };
     const order = ["pinned", "today", "yesterday", "previous7", "previous30", "older"];
-    const groups = new Map<string, SidebarChat[]>();
 
-    for (const chat of sorted) {
-      const key = chat.is_pinned ? "pinned" : getRecencyGroupKey(chat);
-      groups.set(key, [...(groups.get(key) ?? []), chat]);
-    }
+    const toGroups = (items: SidebarChat[]) => {
+      const groups = new Map<string, SidebarChat[]>();
+      for (const chat of items) {
+        const key = chat.is_pinned ? "pinned" : getRecencyGroupKey(chat);
+        groups.set(key, [...(groups.get(key) ?? []), chat]);
+      }
+      return order
+        .map((key) => ({ key, label: labels[key], chats: groups.get(key) ?? [] }))
+        .filter((group) => group.chats.length > 0);
+    };
 
-    return order
-      .map((key) => ({ key, label: labels[key], chats: groups.get(key) ?? [] }))
-      .filter((group) => group.chats.length > 0);
+    const pinned = sorted.filter((chat) => chat.is_pinned);
+    const unpinned = sorted.filter((chat) => !chat.is_pinned);
+
+    const pinnedChatGroups = toGroups(pinned);
+    const unpinnedChatGroups = toGroups(unpinned);
+
+    return {
+      pinnedChatGroups,
+      unpinnedChatGroups,
+      hasVisibleChats:
+        pinnedChatGroups.length > 0 ||
+        unpinnedChatGroups.length > 0,
+    };
   }, [chats, chatQuery, language, t]);
 
   const formatChatTitle = (title: string | null) => {
@@ -471,15 +487,12 @@ export const PlaygroundSidebar = () => {
     </>
   );
 
-  const renderChatItems = (onNavigate: (path: string) => void) => (
+  const renderChatGroups = (
+    groups: ChatGroup[],
+    onNavigate: (path: string) => void
+  ) => (
     <>
-      {isLoadingChats && (
-        <div className="px-2 py-2 text-xs text-muted-foreground">{t("loadingChats")}</div>
-      )}
-      {!isLoadingChats && chatGroups.length === 0 && (
-        <div className="px-2 py-2 text-xs text-muted-foreground">{t("noChatsYet")}</div>
-      )}
-      {chatGroups.map((group) => (
+      {groups.map((group) => (
         <div key={group.key} className="space-y-1">
           <div className="px-2 pt-3 pb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
             {group.label}
@@ -572,6 +585,45 @@ export const PlaygroundSidebar = () => {
         </div>
       ))}
     </>
+  );
+
+  const renderChatHistory = (onNavigate: (path: string) => void) => (
+    <>
+      {isLoadingChats && (
+        <div className="px-2 py-2 text-xs text-muted-foreground">{t("loadingChats")}</div>
+      )}
+      {!isLoadingChats && !hasVisibleChats && (
+        <div className="px-2 py-2 text-xs text-muted-foreground">{t("noChatsYet")}</div>
+      )}
+      {hasVisibleChats && (
+        <>
+          <div className="mt-1 px-1">
+            {renderHistoryToggle()}
+          </div>
+          {isHistoryOpen && (
+            <>
+              {renderChatGroups(pinnedChatGroups, onNavigate)}
+              {renderChatGroups(unpinnedChatGroups, onNavigate)}
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+
+  const renderHistoryToggle = (className?: string) => (
+    <button
+      type="button"
+      onClick={() => setIsHistoryOpen((prev) => !prev)}
+      aria-expanded={isHistoryOpen}
+      className={cn(
+        "flex w-fit items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-foreground",
+        className
+      )}
+    >
+      <span>{t("chatHistory")}</span>
+      <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isHistoryOpen ? "rotate-90" : "")} />
+    </button>
   );
 
   const renderChatSearch = (
@@ -693,7 +745,7 @@ export const PlaygroundSidebar = () => {
               <div className="pt-3">
                 {renderChatSearch("mt-2", "px-3", t("yourChats"))}
                 <div className="mt-2 space-y-1 max-h-[45vh] overflow-y-auto pr-1">
-                  {renderChatItems(navigateTo)}
+                  {renderChatHistory(navigateTo)}
                 </div>
               </div>
             </div>
@@ -962,7 +1014,7 @@ export const PlaygroundSidebar = () => {
           )}
           {isOpen && (
             <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
-              {renderChatItems(router.push)}
+              {renderChatHistory(router.push)}
             </div>
           )}
         </div>
