@@ -46,10 +46,18 @@ import { toast } from "react-hot-toast";
 import { getAppUrl } from "@/lib/url";
 import { useI18n } from "@/lib/web-i18n";
 
+type SidebarChat = {
+  id: string;
+  title: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+  visibility?: string | null;
+};
+
 export const PlaygroundSidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [chats, setChats] = useState<{ id: string; title: string | null; updated_at: string | null; created_at: string | null; visibility?: string | null }[]>([]);
+  const [chats, setChats] = useState<SidebarChat[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [chatQuery, setChatQuery] = useState("");
   const [activeChatMenuId, setActiveChatMenuId] = useState<string | null>(null);
@@ -81,6 +89,31 @@ export const PlaygroundSidebar = () => {
   const navigateTo = (path: string) => {
     router.push(path);
     setIsMobileMenuOpen(false);
+  };
+
+  const moveChatToTop = (detail: {
+    chatId: string;
+    title?: string | null;
+    visibility?: string | null;
+    updatedAt?: string;
+    createdAt?: string;
+  }) => {
+    const timestamp = detail.updatedAt ?? new Date().toISOString();
+    setChats((prev) => {
+      const existing = prev.find((chat) => chat.id === detail.chatId);
+      const nextChat: SidebarChat = {
+        id: detail.chatId,
+        title: detail.title ?? existing?.title ?? "New Chat",
+        updated_at: timestamp,
+        created_at: existing?.created_at ?? detail.createdAt ?? timestamp,
+        visibility: detail.visibility ?? existing?.visibility,
+      };
+
+      return [
+        nextChat,
+        ...prev.filter((chat) => chat.id !== detail.chatId),
+      ];
+    });
   };
 
   useEffect(() => {
@@ -118,13 +151,7 @@ export const PlaygroundSidebar = () => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ chatId: string; title: string }>).detail;
       if (!detail?.chatId || !detail?.title) return;
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === detail.chatId
-            ? { ...chat, title: detail.title }
-            : chat
-        )
-      );
+      moveChatToTop(detail);
     };
     window.addEventListener('chat:title', handler as EventListener);
     return () => window.removeEventListener('chat:title', handler as EventListener);
@@ -132,15 +159,33 @@ export const PlaygroundSidebar = () => {
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ chatId: string }>).detail;
+      const detail = (event as CustomEvent<{
+        chatId: string;
+        title?: string | null;
+        visibility?: string | null;
+        updatedAt?: string;
+        createdAt?: string;
+      }>).detail;
       if (!detail?.chatId) return;
-      setChats((prev) => [
-        { id: detail.chatId, title: "New Chat", updated_at: new Date().toISOString(), created_at: new Date().toISOString() },
-        ...prev,
-      ]);
+      moveChatToTop(detail);
     };
     window.addEventListener('chat:created', handler as EventListener);
     return () => window.removeEventListener('chat:created', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        chatId: string;
+        title?: string | null;
+        visibility?: string | null;
+        updatedAt?: string;
+      }>).detail;
+      if (!detail?.chatId) return;
+      moveChatToTop(detail);
+    };
+    window.addEventListener('chat:updated', handler as EventListener);
+    return () => window.removeEventListener('chat:updated', handler as EventListener);
   }, []);
 
   const filteredChats = useMemo(() => {
@@ -181,11 +226,12 @@ export const PlaygroundSidebar = () => {
     setEditingChatId(null);
     if (!trimmed) return;
 
-    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, title: trimmed } : c)));
+    const updatedAt = new Date().toISOString();
+    moveChatToTop({ chatId, title: trimmed, updatedAt });
     const supabase = createClient();
     const { error } = await supabase
       .from("chats")
-      .update({ title: trimmed, updated_at: new Date().toISOString() })
+      .update({ title: trimmed, updated_at: updatedAt })
       .eq("id", chatId);
     if (error) {
       console.error("[PlaygroundSidebar] failed to rename chat:", error);
@@ -243,7 +289,7 @@ export const PlaygroundSidebar = () => {
       return;
     }
     setShareVisibility(targetVisibility);
-    setChats((prev) => prev.map((c) => (c.id === shareChatId ? { ...c, visibility: targetVisibility } : c)));
+    moveChatToTop({ chatId: shareChatId, visibility: targetVisibility, updatedAt: new Date().toISOString() });
     setIsSavingShare(false);
     toast.success(t("shareSettingsUpdated"));
   };

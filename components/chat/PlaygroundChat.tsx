@@ -390,9 +390,16 @@ export function PlaygroundChat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
+  const notifyChatUpdated = () => {
+    window.dispatchEvent(new CustomEvent('chat:updated', {
+      detail: { chatId, updatedAt: new Date().toISOString() },
+    }));
+  };
+
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
     const currentConfig = getCurrentLlmConfig();
+    notifyChatUpdated();
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
@@ -471,6 +478,7 @@ export function PlaygroundChat({
       .reverse()
       .find((m: any) => m?.role === 'assistant' && m?.id);
     const currentConfig = getCurrentLlmConfig();
+    notifyChatUpdated();
     if (!lastAssistant) {
       regenerate({ body: { llmConfig: currentConfig } });
       return;
@@ -505,6 +513,7 @@ export function PlaygroundChat({
     setMessages(updatedMessages as McpAgentUIMessage[]);
 
     const currentConfig = getCurrentLlmConfig();
+    notifyChatUpdated();
     regenerate({
       body: { 
         llmConfig: currentConfig,
@@ -619,6 +628,7 @@ export function PlaygroundChat({
                     <MCPToolApproval
                       input={input || {}}
                       onApprove={() => {
+                        notifyChatUpdated();
                         if (approvalId && addToolApprovalResponse) {
                           addToolApprovalResponse({
                             id: approvalId,
@@ -627,6 +637,7 @@ export function PlaygroundChat({
                         }
                       }}
                       onDeny={() => {
+                        notifyChatUpdated();
                         approvalId &&
                           addToolApprovalResponse?.({
                             id: approvalId,
@@ -673,6 +684,7 @@ export function PlaygroundChat({
                       transportType={input.transportType || 'sse'}
                       approvalId={approvalId || ''}
                       onApprove={(data) => {
+                        notifyChatUpdated();
                         if (approvalId && addToolApprovalResponse) {
                           addToolApprovalResponse({
                             id: approvalId,
@@ -681,6 +693,7 @@ export function PlaygroundChat({
                         }
                       }}
                       onDeny={() => {
+                        notifyChatUpdated();
                         approvalId &&
                           addToolApprovalResponse?.({
                             id: approvalId,
