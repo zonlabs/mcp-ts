@@ -1,6 +1,5 @@
 "use client";
 
-import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
@@ -11,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import { BrainIcon, ChevronDownIcon, DotIcon } from "lucide-react";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
-import { createContext, memo, useContext, useMemo } from "react";
+import { createContext, memo, useCallback, useContext, useMemo, useState } from "react";
 import { Shimmer } from "./shimmer";
 
 interface ChainOfThoughtContextValue {
@@ -48,11 +47,18 @@ export const ChainOfThought = memo(
     children,
     ...props
   }: ChainOfThoughtProps) => {
-    const [isOpen, setIsOpen] = useControllableState({
-      defaultProp: defaultOpen,
-      onChange: onOpenChange,
-      prop: open,
-    });
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+    const isControlled = open !== undefined;
+    const isOpen = isControlled ? open : uncontrolledOpen;
+    const setIsOpen = useCallback(
+      (nextOpen: boolean) => {
+        if (!isControlled) {
+          setUncontrolledOpen(nextOpen);
+        }
+        onOpenChange?.(nextOpen);
+      },
+      [isControlled, onOpenChange]
+    );
 
     const chainOfThoughtContext = useMemo(
       () => ({ isOpen, setIsOpen }),
