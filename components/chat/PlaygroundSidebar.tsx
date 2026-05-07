@@ -564,12 +564,12 @@ export const PlaygroundSidebar = () => {
 
         <DropdownMenuItem onClick={() => onNavigate("/faq")} className="gap-2 rounded-md">
           <HelpCircle className="h-4 w-4" />
-          <span>Help</span>
+          <span>{t("help")}</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem onClick={handleFeedbackClick} className="gap-2 rounded-md">
           <MessageSquareText className="h-4 w-4" />
-          <span>Feedback</span>
+          <span>{t("feedback")}</span>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -580,7 +580,7 @@ export const PlaygroundSidebar = () => {
           className="gap-2 rounded-md"
         >
           <LogOut className="h-4 w-4" />
-          <span>Logout</span>
+          <span>{t("signOut")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
