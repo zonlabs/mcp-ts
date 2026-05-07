@@ -597,7 +597,7 @@ export function PlaygroundChat({
     return (
       <>
         {chainOfThought.hasChainOfThought && (
-          <ChainOfThought className="mb-3" open={isCoTActive}>
+          <ChainOfThought className="mb-3" defaultOpen={isCoTActive}>
             <ChainOfThoughtHeader progress={isCoTActive}>{t("chainOfThought")}</ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {chainOfThought.reasoningText && (
