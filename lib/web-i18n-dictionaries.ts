@@ -324,7 +324,6 @@ const requiredLocalizedKeys = [
   "quickActions",
   "chatHeroTitle",
   "readOnlySharedChat",
-  "thinking",
   "toolExecutionRequest",
   "actionRequired",
   "requestingToolExecution",

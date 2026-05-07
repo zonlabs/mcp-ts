@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
-  Settings,
   LogOut,
   SquarePen,
   PanelLeftOpen,
@@ -25,6 +24,9 @@ import {
   ExternalLink,
   Pin,
   PinOff,
+  History,
+  HelpCircle,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -47,6 +49,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "react-hot-toast";
 import { getAppUrl } from "@/lib/url";
 import { useI18n } from "@/lib/web-i18n";
+import { signOutAndRedirect } from "@/components/common/SignOutButton";
 
 type SidebarChat = {
   id: string;
@@ -72,8 +75,8 @@ export const PlaygroundSidebar = () => {
   const [activeChatMenuId, setActiveChatMenuId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(true);
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareChatId, setShareChatId] = useState<string | null>(null);
   const [shareVisibility, setShareVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
@@ -464,27 +467,269 @@ export const PlaygroundSidebar = () => {
     }
   };
 
-  const renderSettingsLinks = (onNavigate: (path: string) => void, itemClassName: string) => (
-    <>
-      {settingsLinks.map((link) => {
-        const Icon = link.icon;
-        return (
-          <button
-            key={link.href}
-            onClick={() => onNavigate(link.href)}
-            className={cn(
-              itemClassName,
-              pathname === link.href
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-            )}
-          >
-            <Icon className="w-4 h-4" />
-            <span>{link.label}</span>
-          </button>
-        );
-      })}
-    </>
+  const handleFeedbackClick = () => {
+    window.open("https://github.com/zonlabs/mcp-assistant/issues", "_blank", "noopener,noreferrer");
+  };
+
+  const renderProfileDropdown = (
+    expanded: boolean,
+    onNavigate: (path: string) => void,
+    menuSide: "top" | "right",
+    menuAlign: "start" | "end"
+  ) => (
+    <DropdownMenu onOpenChange={(open) => {
+      if (!open) setIsProfileSettingsOpen(false);
+    }}>
+      <DropdownMenuTrigger asChild>
+        <button
+          title={!expanded ? t("account") : undefined}
+          className={cn(
+            "w-full rounded-md transition-colors cursor-pointer hover:bg-accent",
+            expanded ? "flex items-center gap-3 p-2" : "flex items-center justify-center p-2"
+          )}
+        >
+          {userImage ? (
+            <Image
+              src={userImage}
+              alt={userName}
+              width={expanded ? 40 : 32}
+              height={expanded ? 40 : 32}
+              className="rounded-full flex-shrink-0"
+            />
+          ) : (
+            <div
+              className={cn(
+                "bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold",
+                expanded ? "w-10 h-10" : "w-8 h-8 text-sm"
+              )}
+            >
+              {userName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          {expanded && (
+            <>
+              <div className="flex flex-col items-start overflow-hidden flex-1">
+                <span className="text-sm font-medium truncate w-full">{userName}</span>
+                {user?.email && (
+                  <span className="text-xs text-muted-foreground truncate w-full">
+                    {user.email}
+                  </span>
+                )}
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            </>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align={menuAlign}
+        side={menuSide}
+        sideOffset={8}
+        collisionPadding={12}
+        className="w-56 max-w-[calc(100vw-1rem)] rounded-xl p-2"
+      >
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault();
+            setIsProfileSettingsOpen((prev) => !prev);
+          }}
+          className="gap-2 rounded-md"
+        >
+            <SlidersHorizontal className="h-4 w-4" />
+          <span>{t("settings")}</span>
+          <ChevronRight className={cn("ml-auto h-4 w-4 transition-transform", isProfileSettingsOpen ? "rotate-90" : "")} />
+        </DropdownMenuItem>
+
+        {isProfileSettingsOpen && (
+          <div className="mb-1 ml-2 border-l border-border/60 pl-2">
+            {settingsLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <DropdownMenuItem
+                  key={link.href}
+                  onClick={() => {
+                    setIsProfileSettingsOpen(false);
+                    onNavigate(link.href);
+                  }}
+                  className="gap-2 rounded-md"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{link.label}</span>
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+        )}
+
+        <DropdownMenuItem onClick={() => onNavigate("/faq")} className="gap-2 rounded-md">
+          <HelpCircle className="h-4 w-4" />
+          <span>Help</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={handleFeedbackClick} className="gap-2 rounded-md">
+          <MessageSquareText className="h-4 w-4" />
+          <span>Feedback</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={() => void signOutAndRedirect()}
+          className="gap-2 rounded-md"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Logout</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const renderSidebarContent = (
+    expanded: boolean,
+    onNavigate: (path: string) => void,
+    onToggleSidebar: () => void,
+    toggleLabel: string,
+    profileMenuSide: "top" | "right",
+    profileMenuAlign: "start" | "end"
+  ) => (
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-background">
+      <div
+        className={cn(
+          "flex items-center pt-3 px-3 pb-3 flex-shrink-0",
+          expanded ? "justify-start" : "justify-center"
+        )}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onToggleSidebar}
+              className="flex items-center rounded-md p-2 hover:bg-accent/50 transition-colors cursor-pointer group"
+              aria-label={toggleLabel}
+            >
+              {expanded ? (
+                <PanelLeftClose className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
+              ) : (
+                <PanelLeftOpen className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
+              )}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {toggleLabel}
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+
+      <div
+        className={cn(
+          "pb-3 space-y-2 flex-shrink-0",
+          expanded ? "px-2" : "px-1"
+        )}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onNavigate('/mcp')}
+              className={cn(
+                "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                expanded ? "gap-3 px-3" : "justify-center px-0",
+                pathname === "/mcp"
+                  ? "text-primary hover:text-primary/80"
+                  : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LayoutGrid className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="truncate text-[16px]">{t("apps")}</span>}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {t("apps")}
+            </TooltipContent>
+          )}
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onNavigate('/chat')}
+              className={cn(
+                "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                expanded ? "gap-3 px-3" : "justify-center px-0",
+                pathname === "/chat"
+                  ? "text-primary hover:text-primary/80"
+                  : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <SquarePen className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="truncate text-[16px]">{t("newChat")}</span>}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {t("newChat")}
+            </TooltipContent>
+          )}
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => {
+                if (!expanded) {
+                  setIsOpen(true);
+                  setIsHistoryOpen(true);
+                } else {
+                  setIsHistoryOpen((prev) => !prev);
+                }
+              }}
+              className={cn(
+                "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+                expanded ? "gap-3 px-3" : "justify-center px-0"
+              )}
+            >
+              <History className="w-5 h-5 flex-shrink-0" />
+              {expanded && (
+                <>
+                  <span className="truncate flex-1 text-left text-[16px]">{t("chatHistory")}</span>
+                  <ChevronRight className={cn("w-4 h-4 transition-transform", isHistoryOpen ? "rotate-90" : "")} />
+                </>
+              )}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {t("chatHistory")}
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        {expanded && (
+          <div className="px-3 pb-3">
+            {renderChatSearch("", "", t("yourChats"))}
+          </div>
+        )}
+        {expanded && (
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pb-2 space-y-1">
+            {renderChatHistory(onNavigate)}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border/60 p-3 flex-shrink-0 bg-background">
+        {renderProfileDropdown(
+          expanded,
+          onNavigate,
+          profileMenuSide,
+          profileMenuAlign
+        )}
+      </div>
+    </div>
   );
 
   const renderChatGroups = (
@@ -597,9 +842,6 @@ export const PlaygroundSidebar = () => {
       )}
       {hasVisibleChats && (
         <>
-          <div className="mt-1 px-1">
-            {renderHistoryToggle()}
-          </div>
           {isHistoryOpen && (
             <>
               {renderChatGroups(pinnedChatGroups, onNavigate)}
@@ -609,21 +851,6 @@ export const PlaygroundSidebar = () => {
         </>
       )}
     </>
-  );
-
-  const renderHistoryToggle = (className?: string) => (
-    <button
-      type="button"
-      onClick={() => setIsHistoryOpen((prev) => !prev)}
-      aria-expanded={isHistoryOpen}
-      className={cn(
-        "flex w-fit items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-foreground",
-        className
-      )}
-    >
-      <span>{t("chatHistory")}</span>
-      <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", isHistoryOpen ? "rotate-90" : "")} />
-    </button>
   );
 
   const renderChatSearch = (
@@ -675,114 +902,15 @@ export const PlaygroundSidebar = () => {
 
       {/* Mobile Drawer */}
       <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <DialogContent className="md:hidden p-0 rounded-none max-w-[85vw] w-72 h-full left-0 top-0 translate-x-0 translate-y-0 border-y-0 border-l-0 border-r border-border/60" showCloseButton={false}>
-          <div className="h-full flex flex-col bg-background">
-            <div className="h-14 border-b border-border/60 px-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logo-mark-red.svg"
-                  alt="MCP Assistant"
-                  width={20}
-                  height={20}
-                  className="opacity-90"
-                />
-                <span className="text-sm font-medium font-sans-original">MCP Assistant</span>
-              </div>
-              <button
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-                aria-label={t("closeNavigationMenu")}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="px-3 py-4 space-y-2">
-              <button
-                onClick={() => navigateTo('/mcp')}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  pathname === "/mcp"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <LayoutGrid className="w-5 h-5" />
-                <span className="font-instrument-serif text-[16px] tracking-wide">{t("apps")}</span>
-              </button>
-              <button
-                onClick={() => navigateTo('/chat')}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  pathname === "/chat"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <SquarePen className="w-5 h-5" />
-                  <span className="font-instrument-serif text-[16px] tracking-wide">{t("newChat")}</span>
-              </button>
-              <button
-                onClick={() => setIsSettingsOpen((prev) => !prev)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  pathname.startsWith("/settings")
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-                aria-expanded={isSettingsOpen}
-              >
-                <Settings className="w-5 h-5" />
-                <span className="flex-1 text-left">{t("settings")}</span>
-                <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
-              </button>
-              {isSettingsOpen && (
-                <div className="pl-4 pr-1 space-y-1">
-                  {renderSettingsLinks(navigateTo, "w-full flex items-center gap-2 rounded-md pl-4 pr-2 py-2 text-sm transition-colors")}
-                </div>
-              )}
-
-              <div className="pt-3">
-                {renderChatSearch("mt-2", "px-3", t("yourChats"))}
-                <div className="mt-2 space-y-1 max-h-[45vh] overflow-y-auto pr-1">
-                  {renderChatHistory(navigateTo)}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-auto border-t border-border/60 p-3">
-              <div className="flex items-center gap-3">
-                {userImage ? (
-                  <Image
-                    src={userImage}
-                    alt={userName}
-                    width={34}
-                    height={34}
-                    className="rounded-full flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-8.5 h-8.5 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
-                    {userName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-instrument-serif tracking-wide truncate">{userName}</p>
-                  {user?.email && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {user.email}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => navigateTo('/settings')}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>{t("account")}</span>
-                </button>
-              </div>
-            </div>
-          </div>
+        <DialogContent className="md:hidden block overflow-hidden p-0 rounded-none max-w-[85vw] w-80 h-[100dvh] left-0 top-0 translate-x-0 translate-y-0 border-y-0 border-l-0 border-r border-border/60" showCloseButton={false}>
+          {renderSidebarContent(
+            true,
+            navigateTo,
+            () => setIsMobileMenuOpen(false),
+            t("closeNavigationMenu"),
+            "top",
+            "start"
+          )}
         </DialogContent>
       </Dialog>
 
@@ -876,209 +1004,21 @@ export const PlaygroundSidebar = () => {
 
       {/* Desktop Sidebar */}
       <div className="relative hidden md:flex">
-      <div
-        className={cn(
-          "transition-all duration-300 ease-in-out flex flex-col bg-background",
-          isOpen ? "w-64" : "w-16"
-        )}
-      >
-        {/* Logo Section */}
-        <div className={cn(
-          "flex items-center pt-3 px-3 pb-3 flex-shrink-0",
-          isOpen ? "justify-start" : "justify-center"
-        )}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={cn(
-                  "flex items-center rounded-md hover:bg-accent/50 transition-colors cursor-pointer group",
-                  isOpen ? "p-2" : "p-2"
-                )}
-              >
-                {isOpen ? (
-                  <PanelLeftClose className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
-                ) : (
-                  <PanelLeftOpen className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
-                )}
-              </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                {t("toggleSidebar")}
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
-        {/* Navigation Buttons */}
-        <div className={cn(
-          "pb-3 space-y-2 flex-shrink-0",
-          isOpen ? "px-2" : "px-1"
-        )}>
-
-          {/* Apps Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/mcp')}
-                className={cn(
-                  "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                  isOpen ? "gap-3 px-3" : "justify-center px-0",
-                  pathname === "/mcp"
-                    ? "text-primary hover:text-primary/80"
-                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <LayoutGrid className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate text-[16px]">{t("apps")}</span>}
-              </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                {t("apps")}
-              </TooltipContent>
-            )}
-          </Tooltip>
-
-          {/* New Chat Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/chat')}
-                className={cn(
-                  "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                  isOpen ? "gap-3 px-3" : "justify-center px-0",
-                  pathname === "/chat"
-                    ? "text-primary hover:text-primary/80"
-                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <SquarePen className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate text-[16px]">{t("newChat")}</span>}
-              </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                {t("newChat")}
-              </TooltipContent>
-            )}
-          </Tooltip>
-
-          {/* Settings Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => {
-                  setIsSettingsOpen((prev) => !prev);
-                  if (!isOpen) {
-                    setIsOpen(true);
-                  }
-                }}
-                className={cn(
-                  "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                  isOpen ? "gap-3 px-3" : "justify-center px-0",
-                  pathname.startsWith("/settings")
-                    ? "text-primary hover:text-primary/80"
-                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Settings className="w-5 h-5 flex-shrink-0" />
-                {isOpen && (
-                  <>
-                    <span className="truncate flex-1 text-left text-[16px]">{t("settings")}</span>
-                    <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
-                  </>
-                )}
-              </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                {t("settings")}
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
-        {/* Chats List */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          {isOpen && isSettingsOpen && (
-            <div className="px-2 pb-2 space-y-1">
-              {renderSettingsLinks(router.push, "w-full flex items-center gap-2 rounded-md pl-5 pr-2 py-2 text-sm transition-colors")}
-            </div>
+        <div
+          className={cn(
+            "h-full min-h-0 transition-all duration-300 ease-in-out bg-background",
+            isOpen ? "w-64" : "w-16"
           )}
-          {isOpen && (
-            <div className="px-3 pb-3">
-              {renderChatSearch("", "", t("yourChats"))}
-            </div>
-          )}
-          {isOpen && (
-            <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
-              {renderChatHistory(router.push)}
-            </div>
+        >
+          {renderSidebarContent(
+            isOpen,
+            router.push,
+            () => setIsOpen((prev) => !prev),
+            t("toggleSidebar"),
+            "right",
+            isOpen ? "start" : "end"
           )}
         </div>
-
-
-        {/* Profile Action at Bottom */}
-        <div className={cn("p-3 flex-shrink-0")}>
-          {!isOpen ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => router.push('/settings')}
-                  className="w-full flex items-center justify-center p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
-                >
-                  {userImage ? (
-                    <Image
-                      src={userImage}
-                      alt={userName}
-                      width={32}
-                      height={32}
-                      className="rounded-full flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
-                      {userName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={8}>
-                {t("account")} {t("settings")}
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <button
-              onClick={() => router.push('/settings')}
-              className="w-full flex items-center gap-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
-            >
-              {userImage ? (
-                <Image
-                  src={userImage}
-                  alt={userName}
-                  width={40}
-                  height={40}
-                  className="rounded-full flex-shrink-0"
-                />
-              ) : (
-                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold">
-                  {userName.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="flex flex-col items-start overflow-hidden flex-1">
-                <span className="text-sm font-medium truncate w-full">{userName}</span>
-                {user?.email && (
-                  <span className="text-xs text-muted-foreground truncate w-full">
-                    {user.email}
-                  </span>
-                )}
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            </button>
-          )}
-        </div>
-      </div>
       </div>
     </>
   );

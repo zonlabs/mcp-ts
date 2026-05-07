@@ -102,17 +102,17 @@ function PreferenceRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-3 border-b border-border/70 py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_260px] sm:items-center">
-      <div className="flex min-w-0 gap-3">
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <Icon className="h-4 w-4" />
+    <div className="grid gap-6 border-b border-border/70 py-6 last:border-b-0 lg:grid-cols-[1fr_260px] lg:items-center lg:min-h-[110px]">
+      <div className="flex min-w-0 gap-4">
+        <span className="mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground shadow-sm">
+          <Icon className="h-5 w-5" />
         </span>
-        <div className="min-w-0">
-          <Label className="text-[15px] font-medium">{title}</Label>
-          <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
+        <div className="min-w-0 flex flex-col justify-center">
+          <Label className="text-[16px] font-semibold tracking-tight">{title}</Label>
+          <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground/80 lg:max-w-[440px]">{description}</p>
         </div>
       </div>
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 flex flex-col justify-center lg:items-end">{children}</div>
     </div>
   );
 }
@@ -184,7 +184,7 @@ export default function PreferencesPage() {
           </p>
         </div>
 
-        <section className="rounded-lg border border-border/70 px-4">
+        <section className="px-4">
           <PreferenceRow
             icon={Palette}
             title={t("theme")}

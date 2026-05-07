@@ -3,7 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useMemo, useState, useCallback, memo } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
@@ -59,6 +59,41 @@ interface PlaygroundChatProps {
   initialDraft?: string;
   isReadOnly?: boolean;
 }
+
+interface MessageRowProps {
+  m: McpAgentUIMessage;
+  isLastMessage: boolean;
+  onEdit: (id: string, text: string) => void;
+  renderParts: (m: McpAgentUIMessage, isLast: boolean) => React.ReactNode;
+}
+
+const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderParts }: MessageRowProps) {
+  const text = m.parts
+    .filter((p: any) => p.type === 'text')
+    .map((p: any) => p.text)
+    .join(' ');
+  return (
+    <div className={cn('group flex flex-col gap-3', m.role === 'user' ? 'items-end' : 'items-start')}>
+      {m.role === 'user' ? (
+        <UserMessage
+          message={{ text }}
+          parts={m.parts.filter((p: any) => p.type === 'file')}
+          onEdit={(newText) => onEdit(m.id, newText)}
+        />
+      ) : (
+        renderParts(m, isLastMessage)
+      )}
+    </div>
+  );
+}, (prev, next) => {
+  if (prev.isLastMessage !== next.isLastMessage) return false;
+  if (next.isLastMessage) return false;
+  return (
+    prev.m === next.m &&
+    prev.onEdit === next.onEdit &&
+    prev.renderParts === next.renderParts
+  );
+});
 
 const toolStepIcons: Record<ToolStepIconKey, typeof TerminalIcon> = {
   execute: TerminalIcon,
@@ -494,7 +529,7 @@ export function PlaygroundChat({
     });
   };
 
-  const handleEditMessage = (messageId: string, newText: string) => {
+  const handleEditMessage = useCallback((messageId: string, newText: string) => {
     if (isReadOnly) return;
     const mIndex = messages.findIndex(m => m.id === messageId);
     if (mIndex === -1) return;
@@ -519,7 +554,8 @@ export function PlaygroundChat({
         action: 'edit-message'
       }
     });
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReadOnly, messages, setMessages, regenerate]);
 
   const formatErrorMessage = (err: any) => {
     const raw = err?.message || "An error occurred";
@@ -879,25 +915,13 @@ export function PlaygroundChat({
                 {messages.map((m, index) => {
                   const isLastMessage = index === messages.length - 1;
                   return (
-                    <div key={m.id} className={cn("group flex flex-col gap-3", m.role === 'user' ? "items-end" : "items-start")}>
-                      {m.role === 'user' ? (
-                        (() => {
-                          const text = m.parts
-                            .filter((p: any) => p.type === 'text')
-                            .map((p: any) => p.text)
-                            .join(' ');
-                          return (
-                            <UserMessage
-                              message={{ text }}
-                              parts={m.parts.filter((p: any) => p.type === 'file')}
-                              onEdit={(newText) => handleEditMessage(m.id, newText)}
-                            />
-                          );
-                        })()
-                      ) : (
-                        renderMessageParts(m, isLastMessage)
-                      )}
-                    </div>
+                    <MessageRow
+                      key={m.id}
+                      m={m}
+                      isLastMessage={isLastMessage}
+                      onEdit={handleEditMessage}
+                      renderParts={renderMessageParts}
+                    />
                   );
                 })}
 
