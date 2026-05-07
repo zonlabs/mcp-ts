@@ -32,7 +32,6 @@ import { McpServer, Category } from "@/types/mcp";
 import { ServerListItem } from "./ServerListItem";
 import { ServerPlaceholder } from "./ServerPlaceholder";
 import { useMcpServersFiltered } from "@/hooks/useMcpServersFiltered";
-import { Session } from "@supabase/supabase-js";
 import { UserSession } from "@/components/providers/AuthProvider";
 
 interface ServerSidebarProps {
@@ -58,7 +57,7 @@ interface ServerSidebarProps {
   onTabChange: (tab: "public" | "user") => void;
   selectedCategory: string | null;
   onCategoryChange: (category: string) => void;
-  session: Session | null;
+  session: UserSession | null;
   userSession?: UserSession | null;
 }
 

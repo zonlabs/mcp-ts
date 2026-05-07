@@ -4,6 +4,7 @@ import AuthProvider from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "MCP Assistant",
@@ -16,15 +17,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <AuthProvider>
+        <AuthProvider userSession={user ? { user } : null}>
           <McpStoreProvider>
             <ThemeProvider
               attribute="class"

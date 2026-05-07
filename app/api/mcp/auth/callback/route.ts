@@ -57,7 +57,6 @@ async function handleCallback(request: NextRequest) {
       return NextResponse.redirect(errorUrl);
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
     const userId = user.id;
 
     // Create MCP client - it will load serverId from session

@@ -1,10 +1,11 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
-export interface UserSession extends Session {
+export interface UserSession {
+  user: User;
   role?: string;
 }
 
@@ -33,23 +34,29 @@ export default function AuthProvider({ children, userSession = null }: AuthProvi
     let isMounted = true;
     const supabase = createClient();
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (isMounted) {
-          setSession((data.session as UserSession | null) ?? null);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setSession(null);
-        }
-      });
+    const loadAuthenticatedUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (isMounted) {
+        setSession(user ? { user } : null);
+      }
+    };
+
+    loadAuthenticatedUser().catch(() => {
+      if (isMounted) setSession(null);
+    });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession((nextSession as UserSession | null) ?? null);
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setSession(null);
+        return;
+      }
+      loadAuthenticatedUser().catch(() => {
+        if (isMounted) setSession(null);
+      });
     });
 
     return () => {

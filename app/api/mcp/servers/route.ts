@@ -8,9 +8,7 @@ async function getSessionUser() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return null;
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-  return { supabase, user, session };
+  return { supabase, user };
 }
 
 async function handleEmbeddings(saved: { id: string; name: string; description: string | null; url: string | null; transport: string }, userId: string) {

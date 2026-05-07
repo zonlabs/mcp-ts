@@ -1,9 +1,9 @@
-import { Session } from "@supabase/supabase-js";
 import McpClientLayout from "@/components/mcp-client/McpClientLayout";
 import { useMcpServers } from "@/hooks/useMcpServers";
+import { UserSession } from "@/components/providers/AuthProvider";
 
 interface McpClientWrapperProps {
-  session: Session | null;
+  session: UserSession | null;
 }
 
 export default function McpClientWrapper({ session }: McpClientWrapperProps) {
