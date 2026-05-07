@@ -23,6 +23,8 @@ import {
   User,
   SlidersHorizontal,
   ExternalLink,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -52,6 +54,13 @@ type SidebarChat = {
   updated_at: string | null;
   created_at: string | null;
   visibility?: string | null;
+  is_pinned?: boolean | null;
+};
+
+type ChatGroup = {
+  key: string;
+  label: string;
+  chats: SidebarChat[];
 };
 
 export const PlaygroundSidebar = () => {
@@ -70,7 +79,7 @@ export const PlaygroundSidebar = () => {
   const [isSavingShare, setIsSavingShare] = useState(false);
   const [shareCopyMessage, setShareCopyMessage] = useState<string | null>(null);
   const { userSession } = useAuth();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const user = userSession?.user;
   const router = useRouter();
   const pathname = usePathname();
@@ -95,6 +104,7 @@ export const PlaygroundSidebar = () => {
     chatId: string;
     title?: string | null;
     visibility?: string | null;
+    isPinned?: boolean | null;
     updatedAt?: string;
     createdAt?: string;
   }) => {
@@ -107,6 +117,7 @@ export const PlaygroundSidebar = () => {
         updated_at: timestamp,
         created_at: existing?.created_at ?? detail.createdAt ?? timestamp,
         visibility: detail.visibility ?? existing?.visibility,
+        is_pinned: detail.isPinned ?? existing?.is_pinned ?? false,
       };
 
       return [
@@ -128,11 +139,26 @@ export const PlaygroundSidebar = () => {
       try {
         const { data, error } = await supabase
           .from("chats")
-          .select("id, title, updated_at, created_at, visibility")
+          .select("id, title, updated_at, created_at, visibility, is_pinned")
           .eq("user_id", user.id)
+          .order("is_pinned", { ascending: false })
           .order("updated_at", { ascending: false });
         if (!isActive) return;
         if (error) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("chats")
+            .select("id, title, updated_at, created_at, visibility")
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false });
+          if (!isActive) return;
+          if (!fallbackError) {
+            setChats(
+              Array.isArray(fallbackData)
+                ? fallbackData.map((chat) => ({ ...chat, is_pinned: false }))
+                : []
+            );
+            return;
+          }
           console.error("[PlaygroundSidebar] failed to load chats:", error);
           setChats([]);
           return;
@@ -163,6 +189,7 @@ export const PlaygroundSidebar = () => {
         chatId: string;
         title?: string | null;
         visibility?: string | null;
+        isPinned?: boolean | null;
         updatedAt?: string;
         createdAt?: string;
       }>).detail;
@@ -179,6 +206,7 @@ export const PlaygroundSidebar = () => {
         chatId: string;
         title?: string | null;
         visibility?: string | null;
+        isPinned?: boolean | null;
         updatedAt?: string;
       }>).detail;
       if (!detail?.chatId) return;
@@ -188,11 +216,88 @@ export const PlaygroundSidebar = () => {
     return () => window.removeEventListener('chat:updated', handler as EventListener);
   }, []);
 
-  const filteredChats = useMemo(() => {
+  const getChatTimestamp = (chat: SidebarChat) => {
+    const value = Date.parse(chat.updated_at || chat.created_at || "");
+    return Number.isNaN(value) ? 0 : value;
+  };
+
+  const getAgeLabel = (chat: SidebarChat) => {
+    const timestamp = getChatTimestamp(chat);
+    if (!timestamp) return "";
+
+    const diffMs = timestamp - Date.now();
+    const absMs = Math.abs(diffMs);
+    if (absMs < 60_000) return t("justNow");
+
+    const formatter = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
+    if (absMs < 60 * 60_000) {
+      return formatter.format(Math.round(diffMs / 60_000), "minute");
+    }
+    if (absMs < 24 * 60 * 60_000) {
+      return formatter.format(Math.round(diffMs / (60 * 60_000)), "hour");
+    }
+    if (absMs < 30 * 24 * 60 * 60_000) {
+      return formatter.format(Math.round(diffMs / (24 * 60 * 60_000)), "day");
+    }
+
+    const date = new Date(timestamp);
+    return date.toLocaleDateString(language, {
+      month: "short",
+      day: "numeric",
+      ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+    });
+  };
+
+  const getRecencyGroupKey = (chat: SidebarChat) => {
+    const timestamp = getChatTimestamp(chat);
+    if (!timestamp) return "older";
+
+    const date = new Date(timestamp);
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const startOfChatDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const daysAgo = Math.floor((startOfToday - startOfChatDay) / 86_400_000);
+
+    if (daysAgo <= 0) return "today";
+    if (daysAgo === 1) return "yesterday";
+    if (daysAgo <= 7) return "previous7";
+    if (daysAgo <= 30) return "previous30";
+    return "older";
+  };
+
+  const chatGroups = useMemo<ChatGroup[]>(() => {
     const query = chatQuery.trim().toLowerCase();
-    if (!query) return chats;
-    return chats.filter((chat) => (chat.title || "").toLowerCase().includes(query));
-  }, [chats, chatQuery]);
+    const filtered = query
+      ? chats.filter((chat) => (chat.title || "").toLowerCase().includes(query))
+      : chats;
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (Boolean(a.is_pinned) !== Boolean(b.is_pinned)) {
+        return Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+      }
+      return getChatTimestamp(b) - getChatTimestamp(a);
+    });
+
+    const labels: Record<string, string> = {
+      pinned: t("pinnedChats"),
+      today: t("todayChats"),
+      yesterday: t("yesterdayChats"),
+      previous7: t("previous7Days"),
+      previous30: t("previous30Days"),
+      older: t("olderChats"),
+    };
+    const order = ["pinned", "today", "yesterday", "previous7", "previous30", "older"];
+    const groups = new Map<string, SidebarChat[]>();
+
+    for (const chat of sorted) {
+      const key = chat.is_pinned ? "pinned" : getRecencyGroupKey(chat);
+      groups.set(key, [...(groups.get(key) ?? []), chat]);
+    }
+
+    return order
+      .map((key) => ({ key, label: labels[key], chats: groups.get(key) ?? [] }))
+      .filter((group) => group.chats.length > 0);
+  }, [chats, chatQuery, language, t]);
 
   const formatChatTitle = (title: string | null) => {
     const normalized = (title || "").trim();
@@ -273,6 +378,36 @@ export const PlaygroundSidebar = () => {
     window.open(`/chat/${chatId}`, "_blank", "noopener,noreferrer");
   };
 
+  const handleTogglePinChat = async (chatId: string, isPinned: boolean) => {
+    const chat = chats.find((c) => c.id === chatId);
+    const nextPinned = !isPinned;
+    const updatedAt = new Date().toISOString();
+    moveChatToTop({
+      chatId,
+      title: chat?.title,
+      visibility: chat?.visibility,
+      isPinned: nextPinned,
+      updatedAt,
+    });
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("chats")
+      .update({ is_pinned: nextPinned, updated_at: updatedAt })
+      .eq("id", chatId);
+
+    if (error) {
+      console.error("[PlaygroundSidebar] failed to update pin:", error);
+      moveChatToTop({
+        chatId,
+        title: chat?.title,
+        visibility: chat?.visibility,
+        isPinned,
+        updatedAt: chat?.updated_at ?? updatedAt,
+      });
+    }
+  };
+
   const handleSaveShare = async (nextVisibility?: 'PRIVATE' | 'PUBLIC') => {
     if (!shareChatId) return;
     setIsSavingShare(true);
@@ -341,10 +476,15 @@ export const PlaygroundSidebar = () => {
       {isLoadingChats && (
         <div className="px-2 py-2 text-xs text-muted-foreground">{t("loadingChats")}</div>
       )}
-      {!isLoadingChats && filteredChats.length === 0 && (
+      {!isLoadingChats && chatGroups.length === 0 && (
         <div className="px-2 py-2 text-xs text-muted-foreground">{t("noChatsYet")}</div>
       )}
-      {filteredChats.map((chat) => (
+      {chatGroups.map((group) => (
+        <div key={group.key} className="space-y-1">
+          <div className="px-2 pt-3 pb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
+            {group.label}
+          </div>
+          {group.chats.map((chat) => (
         <div
           key={chat.id}
           className={cn(
@@ -378,7 +518,13 @@ export const PlaygroundSidebar = () => {
                 onClick={() => onNavigate(`/chat/${chat.id}`)}
                 className="w-full text-left"
               >
-                <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
+                <span className="flex items-center gap-1.5">
+                  {chat.is_pinned && <Pin className="h-3 w-3 shrink-0 fill-current" />}
+                  <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/70">
+                  {getAgeLabel(chat)}
+                </span>
               </button>
             )}
           </div>
@@ -395,6 +541,10 @@ export const PlaygroundSidebar = () => {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+              <DropdownMenuItem onClick={() => handleTogglePinChat(chat.id, Boolean(chat.is_pinned))} className="gap-2 rounded-md px-2 py-2 text-sm">
+                {chat.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                {chat.is_pinned ? t("unpinChat") : t("pinChat")}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                 <SquarePen className="h-4 w-4" />
                 {t("rename")}
@@ -417,6 +567,8 @@ export const PlaygroundSidebar = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+          ))}
         </div>
       ))}
     </>
@@ -810,87 +962,7 @@ export const PlaygroundSidebar = () => {
           )}
           {isOpen && (
             <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
-              {isLoadingChats && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">{t("loadingChats")}</div>
-              )}
-              {!isLoadingChats && filteredChats.length === 0 && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">{t("noChatsYet")}</div>
-              )}
-              {filteredChats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className={cn(
-                    "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                    pathname === `/chat/${chat.id}`
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    {editingChatId === chat.id ? (
-                      <input
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleSaveRenameChat(chat.id);
-                          }
-                          if (e.key === "Escape") {
-                            e.preventDefault();
-                            handleCancelRenameChat();
-                          }
-                        }}
-                        onBlur={() => handleSaveRenameChat(chat.id)}
-                        autoFocus
-                        className="w-full bg-transparent border border-border/60 rounded-md px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => router.push(`/chat/${chat.id}`)}
-                        className="w-full text-left"
-                      >
-                        <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
-                      </button>
-                    )}
-                  </div>
-                  <DropdownMenu onOpenChange={(open) => setActiveChatMenuId(open ? chat.id : null)}>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={cn(
-                          "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
-                          activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                        )}
-                        aria-label={t("chatActions")}
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
-                      <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
-                        <SquarePen className="h-4 w-4" />
-                        {t("rename")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleOpenChatInNewTab(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
-                        <ExternalLink className="h-4 w-4" />
-                        {t("openInNewTab")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
-                        <ArrowUpRight className="h-4 w-4" />
-                        {t("share")}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="my-1" />
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteChat(chat.id)}
-                        className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                        {t("delete")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
+              {renderChatItems(router.push)}
             </div>
           )}
         </div>
