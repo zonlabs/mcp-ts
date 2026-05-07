@@ -7,6 +7,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import { createClient } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/web-i18n';
 
 const MOBILE_STARTER_PROMPTS = [
    {
@@ -32,8 +33,10 @@ const MOBILE_STARTER_PROMPTS = [
 ];
 
 export function PlaygroundDraft() {
+  const { t } = useI18n();
   const router = useRouter();
   const [status, setStatus] = useState<'ready' | 'submitted' | 'streaming' | 'error'>('ready');
+  const [chatInput, setChatInput] = useState('');
 
   const sendDraft = async (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
@@ -90,13 +93,13 @@ export function PlaygroundDraft() {
           </div>
           <div className="w-full max-w-xs">
             <p className="mb-2 px-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
-              Quick Actions
+              {t("quickActions")}
             </p>
             <div className="space-y-1">
               {promptButtons.map((item) => (
                 <button
                   key={item.label}
-                  onClick={() => sendDraft({ text: item.prompt })}
+                  onClick={() => setChatInput(item.prompt)}
                   className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-foreground/90 hover:bg-accent/30 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -117,6 +120,8 @@ export function PlaygroundDraft() {
         <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
           <div className="px-1">
             <ChatInput
+              input={chatInput}
+              onInputChange={setChatInput}
               onSend={sendDraft}
               status={status}
               disabled={status === 'submitted' || status === 'streaming'}
@@ -129,12 +134,14 @@ export function PlaygroundDraft() {
       <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center px-6">
         <div className="w-full max-w-3xl space-y-8">
           <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
-            <h1 className="text-5xl md:text-6xl font-serif tracking-tight text-foreground mb-10 leading-tight">
-              Let&apos;s figure it out together
+              <h1 className="text-5xl md:text-6xl font-serif tracking-tight text-foreground mb-10 leading-tight">
+              {t("chatHeroTitle")}
             </h1>
           </div>
 
           <ChatInput
+            input={chatInput}
+            onInputChange={setChatInput}
             onSend={sendDraft}
             status={status}
             disabled={status === 'submitted' || status === 'streaming'}
@@ -142,7 +149,7 @@ export function PlaygroundDraft() {
 
           <div className="px-4">
             <RecipeComponent
-              onAction={(prompt) => sendDraft({ text: prompt })}
+              onAction={(prompt) => setChatInput(prompt)}
             />
           </div>
         </div>

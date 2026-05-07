@@ -36,11 +36,11 @@ import {
 } from "@/components/ui/tabs";
 import { McpServer } from "@/types/mcp";
 import { toast } from "react-hot-toast";
-import { Session } from "@supabase/supabase-js";
 import Link from "next/link";
 import { Category } from "@/types/mcp";
 import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
+import { UserSession } from "@/components/providers/AuthProvider";
 
 const serverSchema = z.object({
   id: z.string().optional(),
@@ -90,7 +90,7 @@ function headerRecordToRows(
 interface ServerFormProps {
   server?: McpServer | null;
   mode: "add" | "edit";
-  session: Session | null;
+  session: UserSession | null;
   onSubmit: (data: ServerFormData) => Promise<void>;
   onCancel: () => void;
 }

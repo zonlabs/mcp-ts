@@ -3,9 +3,10 @@
 import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useMemo, useState, useCallback, memo } from 'react';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
+import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
 import { ServerIcon } from '@/components/common/ServerIcon';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
@@ -28,8 +29,10 @@ import {
   Wrench,
 } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
+import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
+import { useI18n } from '@/lib/web-i18n';
 
 import {
   Conversation,
@@ -56,6 +59,41 @@ interface PlaygroundChatProps {
   initialDraft?: string;
   isReadOnly?: boolean;
 }
+
+interface MessageRowProps {
+  m: McpAgentUIMessage;
+  isLastMessage: boolean;
+  onEdit: (id: string, text: string) => void;
+  renderParts: (m: McpAgentUIMessage, isLast: boolean) => React.ReactNode;
+}
+
+const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderParts }: MessageRowProps) {
+  const text = m.parts
+    .filter((p: any) => p.type === 'text')
+    .map((p: any) => p.text)
+    .join(' ');
+  return (
+    <div className={cn('group flex flex-col gap-3', m.role === 'user' ? 'items-end' : 'items-start')}>
+      {m.role === 'user' ? (
+        <UserMessage
+          message={{ text }}
+          parts={m.parts.filter((p: any) => p.type === 'file')}
+          onEdit={(newText) => onEdit(m.id, newText)}
+        />
+      ) : (
+        renderParts(m, isLastMessage)
+      )}
+    </div>
+  );
+}, (prev, next) => {
+  if (prev.isLastMessage !== next.isLastMessage) return false;
+  if (next.isLastMessage) return false;
+  return (
+    prev.m === next.m &&
+    prev.onEdit === next.onEdit &&
+    prev.renderParts === next.renderParts
+  );
+});
 
 const toolStepIcons: Record<ToolStepIconKey, typeof TerminalIcon> = {
   execute: TerminalIcon,
@@ -134,6 +172,7 @@ function ToolDetailBlock({
 }
 
 function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) {
+  const { t } = useI18n();
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const hasDetails = hasToolStepDetails(step);
   const isActive = step.status === 'active';
@@ -182,13 +221,13 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
       {hasDetails && isDetailsOpen && (
         <div className="grid gap-2 pt-1 min-w-0">
           {step.input !== undefined && (
-            <ToolDetailBlock label="Args" value={step.input} />
+            <ToolDetailBlock label={t("args")} value={step.input} />
           )}
           {step.output !== undefined && (
-            <ToolDetailBlock label="Result" value={step.output} />
+            <ToolDetailBlock label={t("result")} value={step.output} />
           )}
           {step.errorText && (
-            <ToolDetailBlock label="Error" value={step.errorText} tone="error" />
+            <ToolDetailBlock label={t("error")} value={step.errorText} tone="error" />
           )}
         </div>
       )}
@@ -203,6 +242,7 @@ function ReasoningStepWithDuration({
   reasoningText: string;
   isStreaming: boolean;
 }) {
+  const { t } = useI18n();
   const startTimeRef = useRef<number | null>(null);
   const elapsedMsRef = useRef(0);
   const [duration, setDuration] = useState<number | undefined>(undefined);
@@ -219,26 +259,25 @@ function ReasoningStepWithDuration({
     }
   }, [isStreaming]);
 
-  const description = isStreaming
-    ? 'Thinking...'
-    : duration !== undefined
-      ? `Thought for ${duration}s`
-      : undefined;
+  const description = !isStreaming && duration !== undefined
+    ? `${t("thoughtFor")} ${duration}s`
+    : undefined;
 
   return (
     <ChainOfThoughtStep
       icon={ReasoningAmberIcon}
-      label={<ActiveStepLabel isActive={isStreaming}>Reasoning</ActiveStepLabel>}
+      label={<ActiveStepLabel isActive={isStreaming}>{t("reasoning")}</ActiveStepLabel>}
       description={description}
       status={isStreaming ? 'active' : 'complete'}
     >
-      <div className="whitespace-pre-wrap text-muted-foreground/80 text-[17px] font-instrument-serif tracking-wide leading-relaxed">
+      <div className="whitespace-pre-wrap text-muted-foreground/80 text-[14px] font-instrument-serif tracking-wide leading-relaxed">
         {reasoningText}
       </div>
     </ChainOfThoughtStep>
   );
 }
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
+  const { t } = useI18n();
   const connections = useMcpStore(state => state.connections);
   const normalizedTargetUrl = normalizeServerUrl(input.serverUrl);
 
@@ -263,7 +302,7 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
         />
         <div className="min-w-0 flex-1">
           <span className="truncate block text-[15px] sm:text-base font-semibold text-foreground leading-tight">
-            {input.serverName || 'MCP Server'}
+            {input.serverName || t("mcpServer")}
           </span>
         </div>
         <div
@@ -276,7 +315,7 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
                 : "text-muted-foreground"
           )}
         >
-          <span>{isReady ? 'Connected' : isFailed ? 'Connection failed' : 'Connecting...'}</span>
+          <span>{isReady ? t("connected") : isFailed ? t("connectionFailed") : t("connecting")}</span>
           {isReady ? (
             <CheckCircle2 className="h-3.5 w-3.5" />
           ) : isFailed ? (
@@ -301,10 +340,10 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
       </div>
       <p className="text-xs text-muted-foreground font-semibold">
         {isReady
-          ? 'Connection is ready.'
+          ? t("connectionReady")
           : isFailed
-            ? 'Connection did not reach ready state. Please try again.'
-            : 'Waiting for connection to reach ready state.'}
+            ? t("connectionNotReady")
+            : t("waitingForConnectionReady")}
       </p>
     </div>
   );
@@ -316,6 +355,8 @@ export function PlaygroundChat({
   initialDraft,
   isReadOnly = false 
 }: PlaygroundChatProps) {
+  const { t } = useI18n();
+  const [chatInput, setChatInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
@@ -334,12 +375,12 @@ export function PlaygroundChat({
   
   const mobileStarterPrompts = [
     {
-      label: 'GitHub Issue Summary',
+      label: t("recipeGithubIssueSummary"),
       prompt: 'Use GitHub to retrieve the latest open issues for this repository and summarize the most critical bugs.',
       icon: 'https://logos.composio.dev/api/github',
     },
     {
-      label: 'Semantic Search',
+      label: t("recipeSemanticSearch"),
       prompt: 'Search the web using Exa to find the latest research papers on LLM optimization from the past month.',
       icon: 'https://awsmp-logos.s3.amazonaws.com/seller-7s5a3z2w3unay/b6519f9126c0432087c79827b95283c6.png',
     },
@@ -349,7 +390,7 @@ export function PlaygroundChat({
       icon: 'https://logos.composio.dev/api/gmail',
     },
     {
-      label: 'Notion Meeting Prep',
+      label: t("recipeNotionMeetingPrep"),
       prompt: 'Generate a briefing document by synthesizing project notes and recent updates directly from Notion.',
       icon: 'https://api.iconify.design/logos:notion-icon.svg',
     },
@@ -363,12 +404,17 @@ export function PlaygroundChat({
       prepareSendMessagesRequest: ({ body, messages: chatMessages }) => {
         const bodyConfig = (body as any)?.llmConfig;
         const currentConfig = bodyConfig ?? getCurrentLlmConfig();
+        const agentPreferences = readAgentPreferencesFromStorage();
 
         return {
           body: {
             messages: chatMessages,
             ...(body ?? {}),
             llmConfig: currentConfig,
+            agentPreferences: {
+              timezone: agentPreferences.timezone,
+              toolApprovalMode: agentPreferences.toolApprovalMode,
+            },
             chatId,
             gatewaySelections: readGatewaySelectionsFromStorage(),
           },
@@ -378,9 +424,16 @@ export function PlaygroundChat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
+  const notifyChatUpdated = () => {
+    window.dispatchEvent(new CustomEvent('chat:updated', {
+      detail: { chatId, updatedAt: new Date().toISOString() },
+    }));
+  };
+
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
     const currentConfig = getCurrentLlmConfig();
+    notifyChatUpdated();
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
@@ -459,6 +512,7 @@ export function PlaygroundChat({
       .reverse()
       .find((m: any) => m?.role === 'assistant' && m?.id);
     const currentConfig = getCurrentLlmConfig();
+    notifyChatUpdated();
     if (!lastAssistant) {
       regenerate({ body: { llmConfig: currentConfig } });
       return;
@@ -475,7 +529,7 @@ export function PlaygroundChat({
     });
   };
 
-  const handleEditMessage = (messageId: string, newText: string) => {
+  const handleEditMessage = useCallback((messageId: string, newText: string) => {
     if (isReadOnly) return;
     const mIndex = messages.findIndex(m => m.id === messageId);
     if (mIndex === -1) return;
@@ -493,13 +547,15 @@ export function PlaygroundChat({
     setMessages(updatedMessages as McpAgentUIMessage[]);
 
     const currentConfig = getCurrentLlmConfig();
+    notifyChatUpdated();
     regenerate({
       body: { 
         llmConfig: currentConfig,
         action: 'edit-message'
       }
     });
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReadOnly, messages, setMessages, regenerate]);
 
   const formatErrorMessage = (err: any) => {
     const raw = err?.message || "An error occurred";
@@ -541,8 +597,8 @@ export function PlaygroundChat({
     return (
       <>
         {chainOfThought.hasChainOfThought && (
-          <ChainOfThought className="mb-3" defaultOpen>
-            <ChainOfThoughtHeader progress={isCoTActive}>Chain of Thought</ChainOfThoughtHeader>
+          <ChainOfThought className="mb-3" defaultOpen={isCoTActive}>
+            <ChainOfThoughtHeader progress={isCoTActive}>{t("chainOfThought")}</ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {chainOfThought.reasoningText && (
                 <ReasoningStepWithDuration
@@ -596,6 +652,59 @@ export function PlaygroundChat({
             const approvalId = 'approval' in toolPart ? toolPart.approval?.id : undefined;
 
             const isInitiateConn = toolName === 'MCPASSISTANT_INITIATE_CONNECTION' || toolName?.includes('INITIATE_CONNECTION');
+            const isMcpExecuteTool = toolName === 'mcp_execute_tool';
+
+            if (isMcpExecuteTool) {
+              const input = toolPart.input as Record<string, unknown>;
+
+              if (toolPart.state === 'approval-requested') {
+                return (
+                  <div key={`tool-${index}`} className="w-full">
+                    <MCPToolApproval
+                      input={input || {}}
+                      onApprove={() => {
+                        notifyChatUpdated();
+                        if (approvalId && addToolApprovalResponse) {
+                          addToolApprovalResponse({
+                            id: approvalId,
+                            approved: true,
+                          });
+                        }
+                      }}
+                      onDeny={() => {
+                        notifyChatUpdated();
+                        approvalId &&
+                          addToolApprovalResponse?.({
+                            id: approvalId,
+                            approved: false,
+                            reason: t("userDeniedMcpToolRequest"),
+                          });
+                      }}
+                    />
+                  </div>
+                );
+              }
+
+              if (toolPart.state === 'approval-responded') {
+                return (
+                  <MCPToolApprovalStatus
+                    key={`tool-${index}`}
+                    approved={toolPart.approval?.approved === true}
+                    reason={toolPart.approval?.reason}
+                  />
+                );
+              }
+
+              if (toolPart.state === 'output-denied') {
+                return (
+                  <MCPToolApprovalStatus
+                    key={`tool-${index}`}
+                    approved={false}
+                    reason={t("mcpToolRequestDenied")}
+                  />
+                );
+              }
+            }
 
             if (isInitiateConn) {
               const input = toolPart.input as any;
@@ -610,6 +719,7 @@ export function PlaygroundChat({
                       transportType={input.transportType || 'sse'}
                       approvalId={approvalId || ''}
                       onApprove={(data) => {
+                        notifyChatUpdated();
                         if (approvalId && addToolApprovalResponse) {
                           addToolApprovalResponse({
                             id: approvalId,
@@ -618,11 +728,12 @@ export function PlaygroundChat({
                         }
                       }}
                       onDeny={() => {
+                        notifyChatUpdated();
                         approvalId &&
                           addToolApprovalResponse?.({
                             id: approvalId,
                             approved: false,
-                            reason: "User denied the connection request.",
+                            reason: t("userDeniedConnectionRequest"),
                           });
                       }}
                     />
@@ -656,7 +767,7 @@ export function PlaygroundChat({
                       <line x1="12" y1="8" x2="12" y2="12" />
                       <circle cx="12" cy="16" r="1" />
                     </svg>
-                    <span className="font-medium">Connection request cancelled.</span>
+                    <span className="font-medium">{t("connectionRequestCancelled")}</span>
                   </div>
                 );
               }
@@ -673,7 +784,7 @@ export function PlaygroundChat({
                   >
                     <AlertCircle className="h-3.5 w-3.5" />
                     <span className="font-medium">
-                      Connection tool failed{toolPart.errorText ? `: ${toolPart.errorText}` : '.'}
+                      {t("connectionToolFailed")}{toolPart.errorText ? `: ${toolPart.errorText}` : '.'}
                     </span>
                   </div>
                 );
@@ -721,7 +832,7 @@ export function PlaygroundChat({
               </div>
               <div className="w-full max-w-xs">
                 <p className="mb-2 px-1 text-[10px] font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
-                  Quick Actions
+                  {t("quickActions")}
                 </p>
                 <div className="space-y-1">
                 {mobileStarterPrompts.map((item) => (
@@ -749,7 +860,7 @@ export function PlaygroundChat({
               <div className="px-1">
                 {isReadOnly ? (
                   <div className="w-full text-center p-3 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
-                    This is a read-only shared chat
+                    {t("readOnlySharedChat")}
                   </div>
                   ) : (
                 <ChatInput
@@ -768,16 +879,18 @@ export function PlaygroundChat({
             <div className="w-full max-w-3xl space-y-8">
             <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
                 <h1 className="text-5xl md:text-7xl tracking-tight text-foreground mb-10 leading-tight">
-                  Let&apos;s figure it out together
+                  {t("chatHeroTitle")}
                 </h1>
               </div>
 
               {isReadOnly ? (
                 <div className="w-full text-center p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
-                  This is a read-only shared chat
+                  {t("readOnlySharedChat")}
                 </div>
               ) : (
                 <ChatInput
+                  input={chatInput}
+                  onInputChange={setChatInput}
                   onSend={sendChatInput}
                   onStop={stop}
                   status={status}
@@ -788,7 +901,7 @@ export function PlaygroundChat({
 
               <div className="px-4">
                 <RecipeComponent
-                  onAction={(prompt) => sendChatInput({ text: prompt })}
+                  onAction={(prompt) => setChatInput(prompt)}
                 />
               </div>
             </div>
@@ -802,34 +915,19 @@ export function PlaygroundChat({
                 {messages.map((m, index) => {
                   const isLastMessage = index === messages.length - 1;
                   return (
-                    <div key={m.id} className={cn("group flex flex-col gap-3", m.role === 'user' ? "items-end" : "items-start")}>
-                      {m.role === 'user' ? (
-                        (() => {
-                          const text = m.parts
-                            .filter((p: any) => p.type === 'text')
-                            .map((p: any) => p.text)
-                            .join(' ');
-                          return (
-                            <UserMessage
-                              message={{ text }}
-                              parts={m.parts.filter((p: any) => p.type === 'file')}
-                              onEdit={(newText) => handleEditMessage(m.id, newText)}
-                            />
-                          );
-                        })()
-                      ) : (
-                        renderMessageParts(m, isLastMessage)
-                      )}
-                    </div>
+                    <MessageRow
+                      key={m.id}
+                      m={m}
+                      isLastMessage={isLastMessage}
+                      onEdit={handleEditMessage}
+                      renderParts={renderMessageParts}
+                    />
                   );
                 })}
 
                 {(status === 'streaming' || status === 'submitted') && (
                   <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="p-1"><LoadingSpinner /></div>
-                    <div className="prose prose-sm dark:prose-invert font-instrument-serif tracking-wide text-muted-foreground text-[17px] flex items-center h-8">
-                      Thinking...
-                    </div>
                   </div>
                 )}
 
@@ -849,7 +947,7 @@ export function PlaygroundChat({
             <div className={chatContentWidthClass}>
               {isReadOnly ? (
                 <div className="w-full text-center p-3 sm:p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm shadow-sm max-w-2xl mx-auto">
-                  This is a read-only shared chat
+                  {t("readOnlySharedChat")}
                 </div>
               ) : (
                   <ChatInput

@@ -1,10 +1,16 @@
 "use client";
 
 import { PlaygroundSidebar } from "@/components/chat/PlaygroundSidebar";
+import { SettingsSidebar } from "@/components/settings/SettingsSidebar";
+import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 import type { PropsWithChildren } from "react";
 import { Toaster } from "react-hot-toast";
 
 export default function PlaygroundAppLayout({ children }: PropsWithChildren) {
+  const pathname = usePathname();
+  const showSettingsSidebar = pathname?.startsWith("/settings");
+
   return (
     <div className="fixed inset-0 z-50 bg-background">
         <Toaster
@@ -22,7 +28,15 @@ export default function PlaygroundAppLayout({ children }: PropsWithChildren) {
         />
         <div className="flex h-[100dvh] min-h-[100dvh] flex-col md:flex-row bg-background text-foreground">
           <PlaygroundSidebar />
-          <main className="flex-1 min-h-0 flex flex-col relative overflow-hidden">
+          {showSettingsSidebar ? <SettingsSidebar /> : null}
+          <main
+            className={cn(
+              "flex-1 min-h-0 flex flex-col relative",
+              showSettingsSidebar
+                ? "overflow-y-auto px-3 py-4 md:px-6 md:py-10"
+                : "overflow-hidden"
+            )}
+          >
             {children}
           </main>
         </div>

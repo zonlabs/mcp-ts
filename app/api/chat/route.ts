@@ -17,6 +17,8 @@ import type { GatewayServerSelection } from '@/lib/gateway-access';
 import { NextResponse } from 'next/server';
 import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
 import { getModelFromConfig, getTitleModel } from '@/lib/llm';
+import type { AgentPreferences } from '@/lib/agent-preferences';
+import { normalizeMessagesForModel } from '@/lib/chat-message-normalization';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -44,6 +46,7 @@ interface ChatRequestBody {
     model?: string;
     baseUrl?: string;
   };
+  agentPreferences?: Partial<AgentPreferences>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -325,98 +328,15 @@ export async function POST(req: Request) {
   const { agent, cleanup } = await createMcpAgent({
     userId: userId,
     gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : undefined,
+    agentPreferences: body.agentPreferences,
   });
   // Ensure tool connections are properly cleaned up if the client disconnects
   req.signal.addEventListener('abort', cleanup, { once: true });
 
   // ── History Normalization ───────────────────────────────────────────────────
-  // The AI SDK expects all tool states to be in a "completed" form.
-  // We map our custom MCP approval states (approval-responded, output-available)
-  // to the SDK-compatible "result" state before sending the history to the model.
-  const normalizedMessages = messages.map(msg => {
-    const newMsg = { ...msg };
-
-    // 1. Handle legacy toolInvocations array format
-    if (Array.isArray((newMsg as any).toolInvocations)) {
-      (newMsg as any).toolInvocations = (newMsg as any).toolInvocations.map((ti: any) => {
-        if (
-          ti.state !== 'result' &&
-          ti.state !== 'output-available' &&
-          ti.toolName.startsWith('MCPASSISTANT_')
-        ) {
-          return {
-            ...ti,
-            state: 'result',
-            result: ti.output || { success: true, message: 'Action verified by user.' },
-          };
-        }
-        return ti;
-      });
-    }
-
-    // 2. Handle parts-based format (newer AI SDK)
-    if (Array.isArray(newMsg.parts)) {
-      newMsg.parts = newMsg.parts.map((p: any) => {
-        // Map INITIATE_CONNECTION tool-invocation parts to a completed state
-        if (
-          p.type === 'tool-invocation' &&
-          p.toolInvocation &&
-          p.toolInvocation.state !== 'result' &&
-          p.toolInvocation.toolName === 'MCPASSISTANT_INITIATE_CONNECTION'
-        ) {
-          const denied = p.toolInvocation?.approval?.approved === false;
-          return {
-            ...p,
-            toolInvocation: {
-              ...p.toolInvocation,
-              state: 'result',
-              result: denied
-                ? {
-                    success: false,
-                    message:
-                      p.toolInvocation?.approval?.reason ||
-                      'Connection request denied by user.',
-                  }
-                : { success: true, message: 'Connection verified actively by user.' },
-            },
-          };
-        }
-
-        // Map custom MCPASSISTANT approval-flow parts to output-available
-        if (
-          typeof p.type === 'string' &&
-          p.type.startsWith('tool-MCPASSISTANT_') &&
-          (p.state === 'approval-responded' || p.state === 'output-available' || p.state === 'ready')
-        ) {
-          const denied = p.approval?.approved === false;
-          return {
-            ...p,
-            state: 'output-available',
-            output: p.output || (denied
-              ? {
-                  success: false,
-                  message: p.approval?.reason || 'Connection request denied by user.',
-                }
-              : { success: true, message: 'Action verified by user.' }),
-          };
-        }
-
-        return p;
-      });
-
-      // Deduplicate tool parts with the same toolCallId (keep first occurrence)
-      const seenToolCallIds = new Set<string>();
-      newMsg.parts = newMsg.parts.filter((p: any) => {
-        const toolCallId = p.toolCallId || p.toolInvocation?.toolCallId;
-        if (!toolCallId) return true;
-        if (seenToolCallIds.has(toolCallId)) return false;
-        seenToolCallIds.add(toolCallId);
-        return true;
-      });
-    }
-
-    return newMsg;
-  });
+  // Normalize custom MCP assistant history while preserving SDK approval states
+  // that must be resumed, such as approved mcp_execute_tool calls.
+  const normalizedMessages = normalizeMessagesForModel(messages);
 
   // ── Stream Setup ────────────────────────────────────────────────────────────
   // If the last message is an assistant message (partial/interrupted stream),
@@ -433,6 +353,7 @@ export async function POST(req: Request) {
     options: {
       userId: userId,
       llmConfig: body.llmConfig,
+      agentPreferences: body.agentPreferences,
       gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : [],
     },
   });
@@ -442,6 +363,7 @@ export async function POST(req: Request) {
 
   // Response Stream
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({
+    originalMessages: normalizedMessages,
     // Reuse the existing ID for resumed streams; generate a fresh one otherwise
     generateMessageId: () => {
       if (resumeId) {

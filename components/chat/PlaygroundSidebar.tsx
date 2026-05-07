@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
-  Settings,
   LogOut,
   SquarePen,
   PanelLeftOpen,
@@ -21,6 +20,13 @@ import {
   ArrowUpRight,
   Link,
   User,
+  SlidersHorizontal,
+  ExternalLink,
+  Pin,
+  PinOff,
+  History,
+  HelpCircle,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -42,31 +48,51 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { getAppUrl } from "@/lib/url";
+import { useI18n } from "@/lib/web-i18n";
+import { signOutAndRedirect } from "@/components/common/SignOutButton";
+
+type SidebarChat = {
+  id: string;
+  title: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+  visibility?: string | null;
+  is_pinned?: boolean | null;
+};
+
+type ChatGroup = {
+  key: string;
+  label: string;
+  chats: SidebarChat[];
+};
 
 export const PlaygroundSidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [chats, setChats] = useState<{ id: string; title: string | null; updated_at: string | null; created_at: string | null; visibility?: string | null }[]>([]);
+  const [chats, setChats] = useState<SidebarChat[]>([]);
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [chatQuery, setChatQuery] = useState("");
   const [activeChatMenuId, setActiveChatMenuId] = useState<string | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareChatId, setShareChatId] = useState<string | null>(null);
   const [shareVisibility, setShareVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE');
   const [isSavingShare, setIsSavingShare] = useState(false);
   const [shareCopyMessage, setShareCopyMessage] = useState<string | null>(null);
   const { userSession } = useAuth();
+  const { t, language } = useI18n();
   const user = userSession?.user;
   const router = useRouter();
   const pathname = usePathname();
 
   const settingsLinks = [
-    { label: "Account", href: "/settings", icon: User },
-    { label: "API Keys", href: "/settings/api-keys", icon: KeyRound },
-    { label: "Connectors", href: "/settings/connectors", icon: Plug },
+    { label: t("account"), href: "/settings/account", icon: User },
+    { label: t("preferences"), href: "/settings/preferences", icon: SlidersHorizontal },
+    { label: t("apiKeys"), href: "/settings/api-keys", icon: KeyRound },
+    { label: t("connectors"), href: "/settings/connectors", icon: Plug },
   ];
 
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Guest';
@@ -76,6 +102,33 @@ export const PlaygroundSidebar = () => {
   const navigateTo = (path: string) => {
     router.push(path);
     setIsMobileMenuOpen(false);
+  };
+
+  const moveChatToTop = (detail: {
+    chatId: string;
+    title?: string | null;
+    visibility?: string | null;
+    isPinned?: boolean | null;
+    updatedAt?: string;
+    createdAt?: string;
+  }) => {
+    const timestamp = detail.updatedAt ?? new Date().toISOString();
+    setChats((prev) => {
+      const existing = prev.find((chat) => chat.id === detail.chatId);
+      const nextChat: SidebarChat = {
+        id: detail.chatId,
+        title: detail.title ?? existing?.title ?? "New Chat",
+        updated_at: timestamp,
+        created_at: existing?.created_at ?? detail.createdAt ?? timestamp,
+        visibility: detail.visibility ?? existing?.visibility,
+        is_pinned: detail.isPinned ?? existing?.is_pinned ?? false,
+      };
+
+      return [
+        nextChat,
+        ...prev.filter((chat) => chat.id !== detail.chatId),
+      ];
+    });
   };
 
   useEffect(() => {
@@ -90,11 +143,26 @@ export const PlaygroundSidebar = () => {
       try {
         const { data, error } = await supabase
           .from("chats")
-          .select("id, title, updated_at, created_at, visibility")
+          .select("id, title, updated_at, created_at, visibility, is_pinned")
           .eq("user_id", user.id)
+          .order("is_pinned", { ascending: false })
           .order("updated_at", { ascending: false });
         if (!isActive) return;
         if (error) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("chats")
+            .select("id, title, updated_at, created_at, visibility")
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false });
+          if (!isActive) return;
+          if (!fallbackError) {
+            setChats(
+              Array.isArray(fallbackData)
+                ? fallbackData.map((chat) => ({ ...chat, is_pinned: false }))
+                : []
+            );
+            return;
+          }
           console.error("[PlaygroundSidebar] failed to load chats:", error);
           setChats([]);
           return;
@@ -113,13 +181,7 @@ export const PlaygroundSidebar = () => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ chatId: string; title: string }>).detail;
       if (!detail?.chatId || !detail?.title) return;
-      setChats((prev) =>
-        prev.map((chat) =>
-          chat.id === detail.chatId
-            ? { ...chat, title: detail.title }
-            : chat
-        )
-      );
+      moveChatToTop(detail);
     };
     window.addEventListener('chat:title', handler as EventListener);
     return () => window.removeEventListener('chat:title', handler as EventListener);
@@ -127,28 +189,140 @@ export const PlaygroundSidebar = () => {
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ chatId: string }>).detail;
+      const detail = (event as CustomEvent<{
+        chatId: string;
+        title?: string | null;
+        visibility?: string | null;
+        isPinned?: boolean | null;
+        updatedAt?: string;
+        createdAt?: string;
+      }>).detail;
       if (!detail?.chatId) return;
-      setChats((prev) => [
-        { id: detail.chatId, title: 'New Chat', updated_at: new Date().toISOString(), created_at: new Date().toISOString() },
-        ...prev,
-      ]);
+      moveChatToTop(detail);
     };
     window.addEventListener('chat:created', handler as EventListener);
     return () => window.removeEventListener('chat:created', handler as EventListener);
   }, []);
 
-  const filteredChats = useMemo(() => {
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        chatId: string;
+        title?: string | null;
+        visibility?: string | null;
+        isPinned?: boolean | null;
+        updatedAt?: string;
+      }>).detail;
+      if (!detail?.chatId) return;
+      moveChatToTop(detail);
+    };
+    window.addEventListener('chat:updated', handler as EventListener);
+    return () => window.removeEventListener('chat:updated', handler as EventListener);
+  }, []);
+
+  const getChatTimestamp = (chat: SidebarChat) => {
+    const value = Date.parse(chat.updated_at || chat.created_at || "");
+    return Number.isNaN(value) ? 0 : value;
+  };
+
+  const getAgeLabel = (chat: SidebarChat) => {
+    const timestamp = getChatTimestamp(chat);
+    if (!timestamp) return "";
+
+    const diffMs = timestamp - Date.now();
+    const absMs = Math.abs(diffMs);
+    if (absMs < 60_000) return t("justNow");
+
+    const formatter = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
+    if (absMs < 60 * 60_000) {
+      return formatter.format(Math.round(diffMs / 60_000), "minute");
+    }
+    if (absMs < 24 * 60 * 60_000) {
+      return formatter.format(Math.round(diffMs / (60 * 60_000)), "hour");
+    }
+    if (absMs < 30 * 24 * 60 * 60_000) {
+      return formatter.format(Math.round(diffMs / (24 * 60 * 60_000)), "day");
+    }
+
+    const date = new Date(timestamp);
+    return date.toLocaleDateString(language, {
+      month: "short",
+      day: "numeric",
+      ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+    });
+  };
+
+  const getRecencyGroupKey = (chat: SidebarChat) => {
+    const timestamp = getChatTimestamp(chat);
+    if (!timestamp) return "older";
+
+    const date = new Date(timestamp);
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const startOfChatDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const daysAgo = Math.floor((startOfToday - startOfChatDay) / 86_400_000);
+
+    if (daysAgo <= 0) return "today";
+    if (daysAgo === 1) return "yesterday";
+    if (daysAgo <= 7) return "previous7";
+    if (daysAgo <= 30) return "previous30";
+    return "older";
+  };
+
+  const { pinnedChatGroups, unpinnedChatGroups, hasVisibleChats } = useMemo(() => {
     const query = chatQuery.trim().toLowerCase();
-    if (!query) return chats;
-    return chats.filter((chat) => (chat.title || "").toLowerCase().includes(query));
-  }, [chats, chatQuery]);
+    const filtered = query
+      ? chats.filter((chat) => (chat.title || "").toLowerCase().includes(query))
+      : chats;
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (Boolean(a.is_pinned) !== Boolean(b.is_pinned)) {
+        return Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned));
+      }
+      return getChatTimestamp(b) - getChatTimestamp(a);
+    });
+
+    const labels: Record<string, string> = {
+      pinned: t("pinnedChats"),
+      today: t("todayChats"),
+      yesterday: t("yesterdayChats"),
+      previous7: t("previous7Days"),
+      previous30: t("previous30Days"),
+      older: t("olderChats"),
+    };
+    const order = ["pinned", "today", "yesterday", "previous7", "previous30", "older"];
+
+    const toGroups = (items: SidebarChat[]) => {
+      const groups = new Map<string, SidebarChat[]>();
+      for (const chat of items) {
+        const key = chat.is_pinned ? "pinned" : getRecencyGroupKey(chat);
+        groups.set(key, [...(groups.get(key) ?? []), chat]);
+      }
+      return order
+        .map((key) => ({ key, label: labels[key], chats: groups.get(key) ?? [] }))
+        .filter((group) => group.chats.length > 0);
+    };
+
+    const pinned = sorted.filter((chat) => chat.is_pinned);
+    const unpinned = sorted.filter((chat) => !chat.is_pinned);
+
+    const pinnedChatGroups = toGroups(pinned);
+    const unpinnedChatGroups = toGroups(unpinned);
+
+    return {
+      pinnedChatGroups,
+      unpinnedChatGroups,
+      hasVisibleChats:
+        pinnedChatGroups.length > 0 ||
+        unpinnedChatGroups.length > 0,
+    };
+  }, [chats, chatQuery, language, t]);
 
   const formatChatTitle = (title: string | null) => {
     const normalized = (title || "").trim();
-    if (!normalized) return "New Chat";
-    if (normalized.toLowerCase() === "anonymous chat") return "New Chat";
-    if (normalized.toLowerCase() === "new chat") return "New Chat";
+    if (!normalized) return t("newChat");
+    if (normalized.toLowerCase() === "anonymous chat") return t("newChat");
+    if (normalized.toLowerCase() === "new chat") return t("newChat");
     return normalized;
   };
 
@@ -159,10 +333,10 @@ export const PlaygroundSidebar = () => {
   }, [pathname]);
 
   const activeChatTitle = useMemo(() => {
-    if (!activeChatId) return "New Chat";
+    if (!activeChatId) return t("newChat");
     const activeChat = chats.find((chat) => chat.id === activeChatId);
     return formatChatTitle(activeChat?.title ?? null);
-  }, [activeChatId, chats]);
+  }, [activeChatId, chats, t]);
 
   const handleRenameChat = (chatId: string) => {
     const current = chats.find((c) => c.id === chatId);
@@ -176,11 +350,12 @@ export const PlaygroundSidebar = () => {
     setEditingChatId(null);
     if (!trimmed) return;
 
-    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, title: trimmed } : c)));
+    const updatedAt = new Date().toISOString();
+    moveChatToTop({ chatId, title: trimmed, updatedAt });
     const supabase = createClient();
     const { error } = await supabase
       .from("chats")
-      .update({ title: trimmed, updated_at: new Date().toISOString() })
+      .update({ title: trimmed, updated_at: updatedAt })
       .eq("id", chatId);
     if (error) {
       console.error("[PlaygroundSidebar] failed to rename chat:", error);
@@ -207,7 +382,7 @@ export const PlaygroundSidebar = () => {
     if (pathname === `/chat/${chatId}`) {
       router.push("/chat");
     }
-    toast.success("Chat deleted successfully");
+    toast.success(t("chatDeletedSuccessfully"));
   };
 
   const handleOpenShare = (chatId: string) => {
@@ -216,6 +391,40 @@ export const PlaygroundSidebar = () => {
     setShareChatId(chatId);
     setShareVisibility(nextVisibility);
     setIsShareOpen(true);
+  };
+
+  const handleOpenChatInNewTab = (chatId: string) => {
+    window.open(`/chat/${chatId}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleTogglePinChat = async (chatId: string, isPinned: boolean) => {
+    const chat = chats.find((c) => c.id === chatId);
+    const nextPinned = !isPinned;
+    const updatedAt = new Date().toISOString();
+    moveChatToTop({
+      chatId,
+      title: chat?.title,
+      visibility: chat?.visibility,
+      isPinned: nextPinned,
+      updatedAt,
+    });
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("chats")
+      .update({ is_pinned: nextPinned, updated_at: updatedAt })
+      .eq("id", chatId);
+
+    if (error) {
+      console.error("[PlaygroundSidebar] failed to update pin:", error);
+      moveChatToTop({
+        chatId,
+        title: chat?.title,
+        visibility: chat?.visibility,
+        isPinned,
+        updatedAt: chat?.updated_at ?? updatedAt,
+      });
+    }
   };
 
   const handleSaveShare = async (nextVisibility?: 'PRIVATE' | 'PUBLIC') => {
@@ -229,20 +438,20 @@ export const PlaygroundSidebar = () => {
       .eq("id", shareChatId);
     if (error) {
       console.error("[PlaygroundSidebar] failed to update share settings:", error);
-      toast.error("Failed to update sharing");
+      toast.error(t("failedToUpdateSharing"));
       setIsSavingShare(false);
       return;
     }
     setShareVisibility(targetVisibility);
-    setChats((prev) => prev.map((c) => (c.id === shareChatId ? { ...c, visibility: targetVisibility } : c)));
+    moveChatToTop({ chatId: shareChatId, visibility: targetVisibility, updatedAt: new Date().toISOString() });
     setIsSavingShare(false);
-    toast.success("Share settings updated");
+    toast.success(t("shareSettingsUpdated"));
   };
 
   const handleCopyShareLink = async () => {
     if (!shareChatId) return;
     if (shareVisibility !== 'PUBLIC') {
-      setShareCopyMessage("Set chat to Public to enable sharing.");
+      setShareCopyMessage(t("setPublicToShare"));
       setTimeout(() => setShareCopyMessage(null), 2000);
       return;
     }
@@ -250,46 +459,290 @@ export const PlaygroundSidebar = () => {
     const shareUrl = `${baseUrl}/share/${shareChatId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      setShareCopyMessage("Link copied");
+      setShareCopyMessage(t("linkCopied"));
       setTimeout(() => setShareCopyMessage(null), 2000);
     } catch {
-      setShareCopyMessage("Failed to copy link");
+      setShareCopyMessage(t("failedToCopyLink"));
       setTimeout(() => setShareCopyMessage(null), 2000);
     }
   };
 
-  const renderSettingsLinks = (onNavigate: (path: string) => void, itemClassName: string) => (
-    <>
-      {settingsLinks.map((link) => {
-        const Icon = link.icon;
-        return (
-          <button
-            key={link.href}
-            onClick={() => onNavigate(link.href)}
-            className={cn(
-              itemClassName,
-              pathname === link.href
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-            )}
-          >
-            <Icon className="w-4 h-4" />
-            <span>{link.label}</span>
-          </button>
-        );
-      })}
-    </>
+  const handleFeedbackClick = () => {
+    window.open("https://github.com/zonlabs/mcp-assistant/issues", "_blank", "noopener,noreferrer");
+  };
+
+  const renderProfileDropdown = (
+    expanded: boolean,
+    onNavigate: (path: string) => void,
+    menuSide: "top" | "right",
+    menuAlign: "start" | "end"
+  ) => (
+    <DropdownMenu onOpenChange={(open) => {
+      if (!open) setIsProfileSettingsOpen(false);
+    }}>
+      <DropdownMenuTrigger asChild>
+        <button
+          title={!expanded ? t("account") : undefined}
+          className={cn(
+            "w-full rounded-md transition-colors cursor-pointer hover:bg-accent",
+            expanded ? "flex items-center gap-3 p-2" : "flex items-center justify-center p-2"
+          )}
+        >
+          {userImage ? (
+            <Image
+              src={userImage}
+              alt={userName}
+              width={expanded ? 40 : 32}
+              height={expanded ? 40 : 32}
+              className="rounded-full flex-shrink-0"
+            />
+          ) : (
+            <div
+              className={cn(
+                "bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold",
+                expanded ? "w-10 h-10" : "w-8 h-8 text-sm"
+              )}
+            >
+              {userName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          {expanded && (
+            <>
+              <div className="flex flex-col items-start overflow-hidden flex-1">
+                <span className="text-sm font-medium truncate w-full">{userName}</span>
+                {user?.email && (
+                  <span className="text-xs text-muted-foreground truncate w-full">
+                    {user.email}
+                  </span>
+                )}
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            </>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align={menuAlign}
+        side={menuSide}
+        sideOffset={8}
+        collisionPadding={12}
+        className="w-56 max-w-[calc(100vw-1rem)] rounded-xl p-2"
+      >
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault();
+            setIsProfileSettingsOpen((prev) => !prev);
+          }}
+          className="gap-2 rounded-md"
+        >
+            <SlidersHorizontal className="h-4 w-4" />
+          <span>{t("settings")}</span>
+          <ChevronRight className={cn("ml-auto h-4 w-4 transition-transform", isProfileSettingsOpen ? "rotate-90" : "")} />
+        </DropdownMenuItem>
+
+        {isProfileSettingsOpen && (
+          <div className="mb-1 ml-2 border-l border-border/60 pl-2">
+            {settingsLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <DropdownMenuItem
+                  key={link.href}
+                  onClick={() => {
+                    setIsProfileSettingsOpen(false);
+                    onNavigate(link.href);
+                  }}
+                  className="gap-2 rounded-md"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{link.label}</span>
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+        )}
+
+        <DropdownMenuItem onClick={() => onNavigate("/faq")} className="gap-2 rounded-md">
+          <HelpCircle className="h-4 w-4" />
+          <span>Help</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={handleFeedbackClick} className="gap-2 rounded-md">
+          <MessageSquareText className="h-4 w-4" />
+          <span>Feedback</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={() => void signOutAndRedirect()}
+          className="gap-2 rounded-md"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Logout</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
-  const renderChatItems = (onNavigate: (path: string) => void) => (
+  const renderSidebarContent = (
+    expanded: boolean,
+    onNavigate: (path: string) => void,
+    onToggleSidebar: () => void,
+    toggleLabel: string,
+    profileMenuSide: "top" | "right",
+    profileMenuAlign: "start" | "end"
+  ) => (
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-background">
+      <div
+        className={cn(
+          "flex items-center pt-3 px-3 pb-3 flex-shrink-0",
+          expanded ? "justify-start" : "justify-center"
+        )}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onToggleSidebar}
+              className="flex items-center rounded-md p-2 hover:bg-accent/50 transition-colors cursor-pointer group"
+              aria-label={toggleLabel}
+            >
+              {expanded ? (
+                <PanelLeftClose className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
+              ) : (
+                <PanelLeftOpen className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
+              )}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {toggleLabel}
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+
+      <div
+        className={cn(
+          "pb-3 space-y-2 flex-shrink-0",
+          expanded ? "px-2" : "px-1"
+        )}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onNavigate('/mcp')}
+              className={cn(
+                "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                expanded ? "gap-3 px-3" : "justify-center px-0",
+                pathname === "/mcp"
+                  ? "text-primary hover:text-primary/80"
+                  : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LayoutGrid className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="truncate text-[16px]">{t("apps")}</span>}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {t("apps")}
+            </TooltipContent>
+          )}
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onNavigate('/chat')}
+              className={cn(
+                "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                expanded ? "gap-3 px-3" : "justify-center px-0",
+                pathname === "/chat"
+                  ? "text-primary hover:text-primary/80"
+                  : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <SquarePen className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="truncate text-[16px]">{t("newChat")}</span>}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {t("newChat")}
+            </TooltipContent>
+          )}
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => {
+                if (!expanded) {
+                  setIsOpen(true);
+                  setIsHistoryOpen(true);
+                } else {
+                  setIsHistoryOpen((prev) => !prev);
+                }
+              }}
+              className={cn(
+                "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+                expanded ? "gap-3 px-3" : "justify-center px-0"
+              )}
+            >
+              <History className="w-5 h-5 flex-shrink-0" />
+              {expanded && (
+                <>
+                  <span className="truncate flex-1 text-left text-[16px]">{t("chatHistory")}</span>
+                  <ChevronRight className={cn("w-4 h-4 transition-transform", isHistoryOpen ? "rotate-90" : "")} />
+                </>
+              )}
+            </button>
+          </TooltipTrigger>
+          {!expanded && (
+            <TooltipContent side="right" sideOffset={8}>
+              {t("chatHistory")}
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        {expanded && (
+          <div className="px-3 pb-3">
+            {renderChatSearch("", "", t("yourChats"))}
+          </div>
+        )}
+        {expanded && (
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pb-2 space-y-1">
+            {renderChatHistory(onNavigate)}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border/60 p-3 flex-shrink-0 bg-background">
+        {renderProfileDropdown(
+          expanded,
+          onNavigate,
+          profileMenuSide,
+          profileMenuAlign
+        )}
+      </div>
+    </div>
+  );
+
+  const renderChatGroups = (
+    groups: ChatGroup[],
+    onNavigate: (path: string) => void
+  ) => (
     <>
-      {isLoadingChats && (
-        <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
-      )}
-      {!isLoadingChats && filteredChats.length === 0 && (
-        <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
-      )}
-      {filteredChats.map((chat) => (
+      {groups.map((group) => (
+        <div key={group.key} className="space-y-1">
+          <div className="px-2 pt-3 pb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
+            {group.label}
+          </div>
+          {group.chats.map((chat) => (
         <div
           key={chat.id}
           className={cn(
@@ -323,7 +776,13 @@ export const PlaygroundSidebar = () => {
                 onClick={() => onNavigate(`/chat/${chat.id}`)}
                 className="w-full text-left"
               >
-                <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
+                <span className="flex items-center gap-1.5">
+                  {chat.is_pinned && <Pin className="h-3 w-3 shrink-0 fill-current" />}
+                  <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/70">
+                  {getAgeLabel(chat)}
+                </span>
               </button>
             )}
           </div>
@@ -334,19 +793,27 @@ export const PlaygroundSidebar = () => {
                   "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
                   activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                 )}
-                aria-label="Chat actions"
+                aria-label={t("chatActions")}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+            <DropdownMenuContent align="end" className="w-48 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+              <DropdownMenuItem onClick={() => handleTogglePinChat(chat.id, Boolean(chat.is_pinned))} className="gap-2 rounded-md px-2 py-2 text-sm">
+                {chat.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                {chat.is_pinned ? t("unpinChat") : t("pinChat")}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                 <SquarePen className="h-4 w-4" />
-                Rename
+                {t("rename")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenChatInNewTab(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                <ExternalLink className="h-4 w-4" />
+                {t("openInNewTab")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                 <ArrowUpRight className="h-4 w-4" />
-                Share
+                {t("share")}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="my-1" />
               <DropdownMenuItem
@@ -354,12 +821,35 @@ export const PlaygroundSidebar = () => {
                 className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
               >
                 <X className="h-4 w-4" />
-                Delete
+                {t("delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+          ))}
+        </div>
       ))}
+    </>
+  );
+
+  const renderChatHistory = (onNavigate: (path: string) => void) => (
+    <>
+      {isLoadingChats && (
+        <div className="px-2 py-2 text-xs text-muted-foreground">{t("loadingChats")}</div>
+      )}
+      {!isLoadingChats && !hasVisibleChats && (
+        <div className="px-2 py-2 text-xs text-muted-foreground">{t("noChatsYet")}</div>
+      )}
+      {hasVisibleChats && (
+        <>
+          {isHistoryOpen && (
+            <>
+              {renderChatGroups(pinnedChatGroups, onNavigate)}
+              {renderChatGroups(unpinnedChatGroups, onNavigate)}
+            </>
+          )}
+        </>
+      )}
     </>
   );
 
@@ -377,7 +867,7 @@ export const PlaygroundSidebar = () => {
         <input
           value={chatQuery}
           onChange={(e) => setChatQuery(e.target.value)}
-          placeholder="Search chats"
+          placeholder={t("searchChats")}
           className="w-full rounded-md border border-border/60 bg-background/60 pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
       </div>
@@ -391,7 +881,7 @@ export const PlaygroundSidebar = () => {
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-          aria-label="Open navigation menu"
+          aria-label={t("openNavigationMenu")}
         >
           <PanelLeftOpen className="w-5 h-5 text-foreground" />
         </button>
@@ -404,7 +894,7 @@ export const PlaygroundSidebar = () => {
         <button
           onClick={() => router.push("/chat")}
           className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-          aria-label="New chat"
+          aria-label={t("newChat")}
         >
           <SquarePen className="w-5 h-5 text-foreground" />
         </button>
@@ -412,137 +902,39 @@ export const PlaygroundSidebar = () => {
 
       {/* Mobile Drawer */}
       <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-        <DialogContent className="md:hidden p-0 rounded-none max-w-[85vw] w-72 h-full left-0 top-0 translate-x-0 translate-y-0 border-y-0 border-l-0 border-r border-border/60" showCloseButton={false}>
-          <div className="h-full flex flex-col bg-background">
-            <div className="h-14 border-b border-border/60 px-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logo-mark-red.svg"
-                  alt="MCP Assistant"
-                  width={20}
-                  height={20}
-                  className="opacity-90"
-                />
-                <span className="text-sm font-medium font-sans-original">MCP Assistant</span>
-              </div>
-              <button
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-                aria-label="Close navigation menu"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="px-3 py-4 space-y-2">
-              <button
-                onClick={() => navigateTo('/mcp')}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  pathname === "/mcp"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <LayoutGrid className="w-5 h-5" />
-                <span className="font-instrument-serif text-[16px] tracking-wide">Apps</span>
-              </button>
-              <button
-                onClick={() => navigateTo('/chat')}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  pathname === "/chat"
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <SquarePen className="w-5 h-5" />
-                  <span className="font-instrument-serif text-[16px] tracking-wide">New Chat</span>
-              </button>
-              <button
-                onClick={() => setIsSettingsOpen((prev) => !prev)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  pathname.startsWith("/settings")
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-                aria-expanded={isSettingsOpen}
-              >
-                <Settings className="w-5 h-5" />
-                <span className="flex-1 text-left">Settings</span>
-                <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
-              </button>
-              {isSettingsOpen && (
-                <div className="pl-4 pr-1 space-y-1">
-                  {renderSettingsLinks(navigateTo, "w-full flex items-center gap-2 rounded-md pl-4 pr-2 py-2 text-sm transition-colors")}
-                </div>
-              )}
-
-              <div className="pt-3">
-                {renderChatSearch("mt-2", "px-3", "Your Chats")}
-                <div className="mt-2 space-y-1 max-h-[45vh] overflow-y-auto pr-1">
-                  {renderChatItems(navigateTo)}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-auto border-t border-border/60 p-3">
-              <div className="flex items-center gap-3">
-                {userImage ? (
-                  <Image
-                    src={userImage}
-                    alt={userName}
-                    width={34}
-                    height={34}
-                    className="rounded-full flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-8.5 h-8.5 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
-                    {userName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-instrument-serif tracking-wide truncate">{userName}</p>
-                  {user?.email && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {user.email}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => navigateTo('/settings')}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>Account</span>
-                </button>
-              </div>
-            </div>
-          </div>
+        <DialogContent className="md:hidden block overflow-hidden p-0 rounded-none max-w-[85vw] w-80 h-[100dvh] left-0 top-0 translate-x-0 translate-y-0 border-y-0 border-l-0 border-r border-border/60" showCloseButton={false}>
+          {renderSidebarContent(
+            true,
+            navigateTo,
+            () => setIsMobileMenuOpen(false),
+            t("closeNavigationMenu"),
+            "top",
+            "start"
+          )}
         </DialogContent>
       </Dialog>
 
       {/* Share Dialog */}
       <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
-        <DialogContent className="w-[calc(100vw-2.5rem)] max-w-sm md:max-w-xs max-h-[85vh] overflow-y-auto bg-background text-foreground p-4 sm:p-5">
-          <div className="space-y-4">
-            <DialogHeader className="space-y-0">
-              <DialogTitle className="text-base font-semibold">Share this conversation</DialogTitle>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-xs max-h-[85vh] overflow-y-auto border-border/70 bg-background p-5 text-foreground shadow-2xl sm:max-w-sm">
+          <div className="space-y-5">
+            <DialogHeader className="space-y-1 pr-6">
+              <DialogTitle className="text-lg font-semibold leading-none">{t("shareConversation")}</DialogTitle>
             </DialogHeader>
-            <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300 px-3 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md">
-                <AlertTriangle className="h-4.5 w-4.5" />
+
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-3 text-amber-700 dark:text-amber-300">
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4" />
               </div>
-              <p className="text-xs leading-relaxed">
-                This may contain personal information. Please review before sharing.
+              <p className="text-xs font-medium leading-5">
+                {t("shareWarning")}
               </p>
             </div>
 
             <div className="space-y-2">
               {([
-                { value: 'PRIVATE', label: 'Private', description: 'Only you have access' },
-                { value: 'PUBLIC', label: 'Public access', description: 'Anyone with the link can view' },
+                { value: 'PRIVATE', label: t("private"), description: t("onlyYouAccess") },
+                { value: 'PUBLIC', label: t("publicAccess"), description: t("anyoneWithLink") },
               ] as const).map((option) => (
                 <button
                   key={option.value}
@@ -552,346 +944,85 @@ export const PlaygroundSidebar = () => {
                     await handleSaveShare(option.value);
                   }}
                   className={cn(
-                    "w-full text-left rounded-lg px-2 py-1.5 transition-colors border",
+                    "group w-full rounded-lg border px-3 py-3 text-left transition-colors",
                     shareVisibility === option.value
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border/70 hover:bg-accent/40"
+                      ? "border-primary/45 bg-primary/10"
+                      : "border-border/70 bg-muted/15 hover:bg-accent/35"
                   )}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3.5">
                     <div className={cn(
-                      "h-8 w-8 rounded-md flex items-center justify-center",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors",
                       shareVisibility === option.value
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary/15 text-primary"
                         : "bg-muted/40 text-muted-foreground"
                     )}>
                       {option.value === 'PRIVATE' ? (
-                        <Lock className="h-5 w-5" />
+                        <Lock className="h-4.5 w-4.5" />
                       ) : (
-                        <Globe className="h-5 w-5" />
+                        <Globe className="h-4.5 w-4.5" />
                       )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold">{option.label}</span>
-                        {shareVisibility === option.value ? (
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-emerald-500/70 bg-emerald-500/10 text-emerald-500 text-xs">
-                            ✓
-                          </span>
-                        ) : (
-                          <span className="inline-flex h-5 w-5 rounded-full border border-muted-foreground/30" />
-                        )}
+                        <span className="ml-auto inline-flex h-4.5 w-4.5 items-center justify-center rounded-full border border-muted-foreground/25">
+                          {shareVisibility === option.value ? (
+                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
+                          ) : null}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{option.description}</p>
                     </div>
                   </div>
                 </button>
               ))}
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between min-h-[22px]">
-                <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-                  <CheckCircle2 className={shareCopyMessage ? "h-3.5 w-3.5" : "h-3.5 w-3.5 opacity-0"} />
-                  <span className={shareCopyMessage ? "" : "opacity-0"}>
-                    {shareCopyMessage ?? "Copied"}
-                  </span>
-                </div>
-              </div>
+            <div className="space-y-2 pt-1">
               <button
                 onClick={handleCopyShareLink}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-white text-zinc-900 px-3 py-2 text-xs transition-colors hover:bg-zinc-100 cursor-pointer dark:bg-white dark:text-zinc-900"
-              >
-                <span>Copy link</span>
-                <Link className="h-4 w-4" />
-              </button>
-            </div>
-
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Desktop Sidebar */}
-      <div className="relative hidden md:flex">
-      <div
-        className={cn(
-          "transition-all duration-300 ease-in-out flex flex-col bg-background",
-          isOpen ? "w-64" : "w-16"
-        )}
-      >
-        {/* Logo Section */}
-        <div className={cn(
-          "flex items-center pt-3 px-3 pb-3 flex-shrink-0",
-          isOpen ? "justify-start" : "justify-center"
-        )}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setIsOpen(!isOpen)}
+                disabled={shareVisibility !== 'PUBLIC'}
                 className={cn(
-                  "flex items-center rounded-md hover:bg-accent/50 transition-colors cursor-pointer group",
-                  isOpen ? "p-2" : "p-2"
+                  "w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 px-3 py-2.5 text-sm font-medium transition-colors",
+                  shareVisibility === 'PUBLIC'
+                    ? "bg-foreground text-background hover:bg-foreground/90 cursor-pointer"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
                 )}
               >
-                {isOpen ? (
-                  <PanelLeftClose className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
-                ) : (
-                  <PanelLeftOpen className="w-6 h-6 text-primary group-hover:text-primary/80 transition-colors" />
-                )}
-              </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                Toggle Sidebar
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
-        {/* Navigation Buttons */}
-        <div className={cn(
-          "pb-3 space-y-2 flex-shrink-0",
-          isOpen ? "px-2" : "px-1"
-        )}>
-
-          {/* Apps Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/mcp')}
-                className={cn(
-                  "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                  isOpen ? "gap-3 px-3" : "justify-center px-0",
-                  pathname === "/mcp"
-                    ? "text-primary hover:text-primary/80"
-                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <LayoutGrid className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate text-[16px]">Apps</span>}
-              </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                Apps
-              </TooltipContent>
-            )}
-          </Tooltip>
-
-          {/* New Chat Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => router.push('/chat')}
-                className={cn(
-                  "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                  isOpen ? "gap-3 px-3" : "justify-center px-0",
-                  pathname === "/chat"
-                    ? "text-primary hover:text-primary/80"
-                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <SquarePen className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="truncate text-[16px]">New Chat</span>}
-              </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                New Chat
-              </TooltipContent>
-            )}
-          </Tooltip>
-
-          {/* Settings Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => {
-                  setIsSettingsOpen((prev) => !prev);
-                  if (!isOpen) {
-                    setIsOpen(true);
-                  }
-                }}
-                className={cn(
-                  "w-full flex items-center py-2 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                  isOpen ? "gap-3 px-3" : "justify-center px-0",
-                  pathname.startsWith("/settings")
-                    ? "text-primary hover:text-primary/80"
-                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Settings className="w-5 h-5 flex-shrink-0" />
-                {isOpen && (
+                {shareCopyMessage ? (
                   <>
-                    <span className="truncate flex-1 text-left text-[16px]">Settings</span>
-                    <ChevronRight className={cn("w-4 h-4 transition-transform", isSettingsOpen ? "rotate-90" : "")} />
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>{shareCopyMessage}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{t("copyLink")}</span>
+                    <Link className="h-4 w-4" />
                   </>
                 )}
               </button>
-            </TooltipTrigger>
-            {!isOpen && (
-              <TooltipContent side="right" sideOffset={8}>
-                Settings
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
-        {/* Chats List */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          {isOpen && isSettingsOpen && (
-            <div className="px-2 pb-2 space-y-1">
-              {renderSettingsLinks(router.push, "w-full flex items-center gap-2 rounded-md pl-5 pr-2 py-2 text-sm transition-colors")}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Desktop Sidebar */}
+      <div className="relative hidden md:flex">
+        <div
+          className={cn(
+            "h-full min-h-0 transition-all duration-300 ease-in-out bg-background",
+            isOpen ? "w-64" : "w-16"
           )}
-          {isOpen && (
-            <div className="px-3 pb-3">
-              {renderChatSearch("", "", "Your Chats")}
-            </div>
-          )}
-          {isOpen && (
-            <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
-              {isLoadingChats && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">Loading chats...</div>
-              )}
-              {!isLoadingChats && filteredChats.length === 0 && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">No chats yet</div>
-              )}
-              {filteredChats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className={cn(
-                    "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                    pathname === `/chat/${chat.id}`
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    {editingChatId === chat.id ? (
-                      <input
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleSaveRenameChat(chat.id);
-                          }
-                          if (e.key === "Escape") {
-                            e.preventDefault();
-                            handleCancelRenameChat();
-                          }
-                        }}
-                        onBlur={() => handleSaveRenameChat(chat.id)}
-                        autoFocus
-                        className="w-full bg-transparent border border-border/60 rounded-md px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => router.push(`/chat/${chat.id}`)}
-                        className="w-full text-left"
-                      >
-                        <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
-                      </button>
-                    )}
-                  </div>
-                  <DropdownMenu onOpenChange={(open) => setActiveChatMenuId(open ? chat.id : null)}>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={cn(
-                          "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
-                          activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                        )}
-                        aria-label="Chat actions"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
-                      <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
-                        <SquarePen className="h-4 w-4" />
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
-                        <ArrowUpRight className="h-4 w-4" />
-                        Share
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="my-1" />
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteChat(chat.id)}
-                        className="gap-2 rounded-md px-2 py-2 text-sm text-destructive focus:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </div>
+        >
+          {renderSidebarContent(
+            isOpen,
+            router.push,
+            () => setIsOpen((prev) => !prev),
+            t("toggleSidebar"),
+            "right",
+            isOpen ? "start" : "end"
           )}
         </div>
-
-
-        {/* Profile Action at Bottom */}
-        <div className={cn("p-3 flex-shrink-0")}>
-          {!isOpen ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => router.push('/settings')}
-                  className="w-full flex items-center justify-center p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
-                >
-                  {userImage ? (
-                    <Image
-                      src={userImage}
-                      alt={userName}
-                      width={32}
-                      height={32}
-                      className="rounded-full flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
-                      {userName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={8}>
-                Account Settings
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <button
-              onClick={() => router.push('/settings')}
-              className="w-full flex items-center gap-3 p-2 rounded-md transition-colors cursor-pointer hover:bg-accent"
-            >
-              {userImage ? (
-                <Image
-                  src={userImage}
-                  alt={userName}
-                  width={40}
-                  height={40}
-                  className="rounded-full flex-shrink-0"
-                />
-              ) : (
-                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold">
-                  {userName.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="flex flex-col items-start overflow-hidden flex-1">
-                <span className="text-sm font-medium truncate w-full">{userName}</span>
-                {user?.email && (
-                  <span className="text-xs text-muted-foreground truncate w-full">
-                    {user.email}
-                  </span>
-                )}
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            </button>
-          )}
-        </div>
-      </div>
       </div>
     </>
   );

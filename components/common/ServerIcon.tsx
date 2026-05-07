@@ -98,6 +98,7 @@ export function ServerIcon({
         alt={`${serverName} favicon`}
         className={className}
         quality={95}
+        unoptimized
         onError={(e) => {
           // console.log('Favicon failed for domain:', domain, 'URL:', serverUrl);
           setFaviconError(true);
@@ -115,6 +116,7 @@ export function ServerIcon({
         width={size}
         height={size}
         className={className}
+        unoptimized
         onError={(e) => {
           // console.log('Fallback image failed:', fallbackImage);
           setFallbackError(true);

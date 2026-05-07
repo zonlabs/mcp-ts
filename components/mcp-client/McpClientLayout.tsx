@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelLeftOpen } from "lucide-react";
 import { Toaster } from "react-hot-toast";
-import { Session } from "@supabase/supabase-js";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertDialog,
@@ -37,7 +36,7 @@ interface McpClientLayoutProps {
   userLoading: boolean;
   publicError: string | null;
   userError: string | null;
-  session: Session | null;
+  session: UserSession | null;
   userSession?: UserSession | null;
   onRefreshPublic: () => void;
   onRefreshUser: () => void;

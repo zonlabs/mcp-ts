@@ -77,7 +77,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
         <DropdownMenuSeparator className="my-1.5" />
 
         <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
-          <Link href="/settings">
+          <Link href="/settings/account">
             <Settings className="size-4 shrink-0" strokeWidth={2} />
             Settings
           </Link>

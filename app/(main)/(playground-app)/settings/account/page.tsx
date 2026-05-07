@@ -2,18 +2,19 @@
 
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
-import { ThemeSelector } from "@/components/chat/ThemeSelector";
 import { useRouter } from "next/navigation";
 import { Github, Mail } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useI18n } from "@/lib/web-i18n";
 
-export default function SettingsPage() {
+export default function AccountSettingsPage() {
   const { userSession } = useAuth();
   const user = userSession?.user;
   const router = useRouter();
+  const { t, language } = useI18n();
 
   const userName =
-    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Guest";
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || t("notAvailable");
   const userImage = user?.user_metadata?.avatar_url;
 
   const handleSignOut = async () => {
@@ -23,8 +24,8 @@ export default function SettingsPage() {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
+    if (!dateString) return t("notAvailable");
+    return new Date(dateString).toLocaleDateString(language, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -72,15 +73,15 @@ export default function SettingsPage() {
   return (
     <div className="px-1 md:px-6 pb-16">
       <div className="mb-6">
-        <h1 className="text-3xl mb-1">Account</h1>
+        <h1 className="text-3xl mb-1">{t("accountTitle")}</h1>
         <p className="text-[15px] text-muted-foreground">
-          Manage your account settings and preferences
+          {t("manageAccount")}
         </p>
       </div>
 
       <div className="space-y-8 max-w-2xl">
         <section className="space-y-4">
-          <h3 className="text-sm uppercase tracking-[0.16em] text-muted-foreground">Profile</h3>
+          <h3 className="text-sm uppercase tracking-[0.16em] text-muted-foreground">{t("profile")}</h3>
 
           <div className="flex items-center gap-4">
             {userImage ? (
@@ -110,38 +111,38 @@ export default function SettingsPage() {
 
         <section className="space-y-4">
           <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            Account Information
+            {t("accountInfo")}
           </h3>
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">User ID</p>
-                <p className="text-sm font-mono break-all">{user?.id || "N/A"}</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("userId")}</p>
+                <p className="text-sm font-mono break-all">{user?.id || t("notAvailable")}</p>
               </div>
               <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Phone</p>
-                <p className="text-[15px] font-instrument-serif tracking-wide">{user?.phone || "Not provided"}</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("phone")}</p>
+                <p className="text-[15px] font-instrument-serif tracking-wide">{user?.phone || t("notProvided")}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Member Since</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("memberSince")}</p>
                 <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.created_at)}</p>
               </div>
               <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Last Updated</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("lastUpdated")}</p>
                 <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.updated_at)}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Last Sign In</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("lastSignIn")}</p>
                 <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.last_sign_in_at)}</p>
               </div>
               <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">Email Confirmed</p>
+                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("emailConfirmed")}</p>
                 <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.email_confirmed_at)}</p>
               </div>
             </div>
@@ -154,7 +155,7 @@ export default function SettingsPage() {
           <>
             <section className="space-y-4">
               <h3 className="text-sm font-medium text-muted-foreground">
-                Connected Providers
+                {t("connectedProviders")}
               </h3>
               <div className="space-y-3">
                 {user.identities.map((identity) => (
@@ -169,13 +170,13 @@ export default function SettingsPage() {
                           {identity.provider}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Connected: {formatDate(identity.created_at)}
+                          {t("connectedOn")}: {formatDate(identity.created_at)}
                         </p>
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {identity.last_sign_in_at && (
-                        <p>Last used: {formatDate(identity.last_sign_in_at)}</p>
+                        <p>{t("lastUsed")}: {formatDate(identity.last_sign_in_at)}</p>
                       )}
                     </div>
                   </div>
@@ -186,24 +187,12 @@ export default function SettingsPage() {
           </>
         )}
 
-        <section className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Preferences
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Theme</label>
-              <ThemeSelector />
-            </div>
-          </div>
-        </section>
-
         <section>
           <button
             onClick={handleSignOut}
             className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors cursor-pointer text-sm"
           >
-            Sign Out
+            {t("signOut")}
           </button>
         </section>
       </div>

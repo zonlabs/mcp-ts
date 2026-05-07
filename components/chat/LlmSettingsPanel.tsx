@@ -8,6 +8,7 @@ import { ModelSelector } from "@/components/chat/ModelSelector";
 import { AVAILABLE_MODELS } from "@/components/chat/availableModels";
 import { LLM_PROVIDERS, getProviderIconUrl } from "@/components/chat/llmProviders";
 import { DEFAULT_LLM_CONFIG, LlmConfig, normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from "@/components/chat/llmConfig";
+import { useI18n } from "@/lib/web-i18n";
 
 const MODEL_PROVIDER_NAME_TO_ID: Record<string, string> = {
   OpenAI: "openai",
@@ -24,6 +25,7 @@ const PROVIDER_ID_TO_NAME: Record<string, string> = {
 };
 
 export function LlmSettingsPanel() {
+  const { t } = useI18n();
   const [config, setConfig] = useState<LlmConfig>(DEFAULT_LLM_CONFIG);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -54,30 +56,30 @@ export function LlmSettingsPanel() {
         ...base,
         {
           id: config.model,
-          name: config.model || "Custom",
-          description: "Custom model provided by your API",
-          provider: "Custom",
-          tag: "Custom",
+          name: config.model || t("custom"),
+          description: t("customModelDescription"),
+          provider: t("custom"),
+          tag: t("custom"),
         },
       ];
     }
 
     return base;
-  }, [config.provider, config.model]);
+  }, [config.provider, config.model, t]);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-[220px]">
           <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
-            Provider
+            {t("provider")}
           </label>
           <Select
             value={config.provider}
             onValueChange={(value) => updateConfig({ provider: value })}
           >
           <SelectTrigger className="h-9 rounded-md bg-transparent border-0 shadow-none focus:ring-0 focus:ring-offset-0 px-0 justify-start gap-1 [&>svg]:ml-1">
-            <SelectValue placeholder="Select provider" />
+            <SelectValue placeholder={t("selectProvider")} />
           </SelectTrigger>
             <SelectContent>
               {LLM_PROVIDERS.map((provider) => (
@@ -102,7 +104,7 @@ export function LlmSettingsPanel() {
 
         <div className="flex-1 min-w-[220px]">
           <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
-            Model
+            {t("model")}
           </label>
           <ModelSelector
             models={modelOptions}
@@ -123,12 +125,12 @@ export function LlmSettingsPanel() {
 
         <div className="flex-1 min-w-[260px]">
           <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
-            API Key
+            {t("apiKey")}
           </label>
           <div className="relative">
             <Input
               type={showApiKey ? "text" : "password"}
-              placeholder="Paste your API key"
+              placeholder={t("pasteApiKey")}
               value={config.apiKey || ""}
               onChange={(e) => updateConfig({ apiKey: e.target.value })}
               className="h-9 rounded-none bg-transparent border-0 border-b border-gray-200 dark:border-zinc-800 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 pr-7 font-mono text-xs px-0"
@@ -137,7 +139,7 @@ export function LlmSettingsPanel() {
               type="button"
               onClick={() => setShowApiKey((v) => !v)}
               className="absolute inset-y-0 right-1 flex items-center text-muted-foreground hover:text-foreground"
-              aria-label={showApiKey ? "Hide API key" : "Show API key"}
+              aria-label={showApiKey ? t("hideApiKey") : t("showApiKey")}
             >
               {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -155,7 +157,7 @@ export function LlmSettingsPanel() {
             />
           </span>
         ) : null}
-        <span>Your key stays in your browser and is sent only with your prompts.</span>
+        <span>{t("browserKeyPrivacy")}</span>
       </div>
     </div>
   );

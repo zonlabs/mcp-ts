@@ -31,9 +31,8 @@ function jsonHeaders(): Record<string, string> {
 async function getSubjectFromSession(): Promise<string> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!user || !session?.access_token) {
+  if (!user) {
     throw new Error("Unauthorized");
   }
   return getBridgeSubjectFromUserId(user.id);

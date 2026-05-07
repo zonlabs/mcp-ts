@@ -3,6 +3,8 @@ import "./globals.css";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
+import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "MCP Assistant",
@@ -15,24 +17,20 @@ export const metadata: Metadata = {
   },
 };
 
-import { createClient } from "@/lib/supabase/server";
-
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  // Use the verified user's session if available
-  const userSession = (user && session) ? session as any : null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <AuthProvider userSession={userSession}>
+        <AuthProvider userSession={user ? { user } : null}>
           <McpStoreProvider>
             <ThemeProvider
               attribute="class"
@@ -40,6 +38,7 @@ export default async function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
+              <WebLanguageProvider />
               {children}
             </ThemeProvider>
           </McpStoreProvider>

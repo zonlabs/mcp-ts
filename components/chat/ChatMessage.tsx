@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/web-i18n";
 
 type MessageLike = {
   role?: string;
@@ -38,15 +39,18 @@ function AssistantAvatar() {
   );
 }
 
-export function UserMessage({ message, parts, onEdit }: { 
-  message: any; 
-  parts?: any[]; 
-  onEdit?: (newContent: string) => void 
+export function UserMessage({ message, parts, onEdit }: {
+  message: any;
+  parts?: any[];
+  onEdit?: (newContent: string) => void
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
   const REGEN_PREFIX = "\u2063__regen__\n";
+  const COLLAPSE_THRESHOLD = 200;
 
   const getMessageContent = () => {
     if (typeof message === "string") return message;
@@ -65,6 +69,7 @@ export function UserMessage({ message, parts, onEdit }: {
   };
 
   const textContent = getMessageContent();
+  const isLong = textContent.length > COLLAPSE_THRESHOLD;
 
   useEffect(() => {
     if (isEditing) {
@@ -83,10 +88,10 @@ export function UserMessage({ message, parts, onEdit }: {
     try {
       await navigator.clipboard.writeText(textContent);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(t("copiedToClipboard"));
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast.error("Failed to copy");
+      toast.error(t("failedToCopy"));
     }
   };
 
@@ -96,42 +101,52 @@ export function UserMessage({ message, parts, onEdit }: {
         <div className="flex flex-col items-end gap-1 w-full max-w-[75%] sm:max-w-[640px]">
           {isEditing ? (
             <div className="flex flex-col gap-3 w-full bg-secondary/30 p-4 rounded-2xl border border-border/50 animate-in fade-in zoom-in-95 duration-200">
-               <Textarea
+              <Textarea
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 className="min-h-[100px] bg-background border-none focus-visible:ring-1 focus-visible:ring-primary/20 resize-none text-sm p-0 shadow-none leading-relaxed"
-                placeholder="Edit your message..."
+                placeholder={t("editYourMessage")}
                 autoFocus
               />
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50">
                 <div className="flex items-center gap-1.5 text-[11px] text-orange-500/90 font-medium">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Subsequent messages will be deleted</span>
+                  <span>{t("subsequentMessagesDeleted")}</span>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsEditing(false)}
                     className="h-8 px-3 text-xs hover:bg-background/80"
                   >
-                    Cancel
+                    {t("cancel")}
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={handleSave}
                     disabled={editValue.trim() === "" || editValue === textContent}
                     className="h-8 px-4 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
                   >
-                    Update & Continue
+                    {t("updateAndContinue")}
                   </Button>
                 </div>
               </div>
             </div>
           ) : (
             <>
-              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed font-instrument-serif tracking-wide whitespace-pre-wrap break-words w-fit max-w-full">
-                {textContent}
+              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed font-instrument-serif tracking-wide w-fit max-w-full">
+                <p className={`whitespace-pre-wrap break-words ${isLong && !isExpanded ? "line-clamp-3" : ""}`}>
+                  {textContent}
+                </p>
+                {isLong && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="mt-1.5 text-xs font-instrument-serif tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {isExpanded ? "Show less" : "Show more"}
+                  </button>
+                )}
               </div>
 
               <TooltipProvider>
@@ -146,7 +161,7 @@ export function UserMessage({ message, parts, onEdit }: {
                           <Pencil className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom">Edit</TooltipContent>
+                      <TooltipContent side="bottom">{t("edit")}</TooltipContent>
                     </Tooltip>
                   )}
                   <Tooltip>
@@ -162,7 +177,7 @@ export function UserMessage({ message, parts, onEdit }: {
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Copy</TooltipContent>
+                    <TooltipContent side="bottom">{t("copy")}</TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>
@@ -210,6 +225,7 @@ export function AssistantMessage({
   showActions = true,
   isStreaming = false,
 }: any) {
+  const { t } = useI18n();
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [showUsage, setShowUsage] = useState(false);
@@ -223,10 +239,10 @@ export function AssistantMessage({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(t("copiedToClipboard"));
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast.error("Failed to copy");
+      toast.error(t("failedToCopy"));
     }
   };
 
@@ -274,7 +290,7 @@ export function AssistantMessage({
                         {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Copy</TooltipContent>
+                    <TooltipContent>{t("copy")}</TooltipContent>
                   </Tooltip>
 
                   {onRegenerate && (
@@ -284,53 +300,41 @@ export function AssistantMessage({
                           <RefreshCw className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent>Regenerate</TooltipContent>
+                      <TooltipContent>{t("regenerate")}</TooltipContent>
                     </Tooltip>
                   )}
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => setShowUsage(!showUsage)}
-                        className={`p-1.5 rounded-md transition-all ${showUsage
-                            ? "bg-primary/10 text-primary"
-                            : "hover:bg-accent text-muted-foreground"
-                          }`}
-                      >
-                        <Gauge className="w-4 h-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{showUsage ? "Hide metrics" : "Show metrics"}</TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
-
-              {/* ✅ Usage Metrics */}
-              {showUsage && usage && (
-                <div className="flex flex-col gap-2 w-fit animate-in fade-in slide-in-from-top-1 duration-200">
-                  {usage.inputTokens !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Input Tokens</span>
-                      <span className="text-[11px] font-bold">{usage.inputTokens}</span>
-                    </div>
-                  )}
-
-                  {usage.outputTokens !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Output Tokens</span>
-                      <span className="text-[11px] font-bold">{usage.outputTokens}</span>
-                    </div>
-                  )}
-
-                  {usage.totalTokens !== undefined && (
-                    <div className="flex items-center gap-1.5">
-                      <Sigma className="w-3.5 h-3.5 text-blue-500" />
-                      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total Tokens</span>
-                      <span className="text-[11px] font-bold">{usage.totalTokens}</span>
-                    </div>
+                  {usage && (usage.inputTokens !== undefined || usage.outputTokens !== undefined || usage.totalTokens !== undefined) && (
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <div className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors cursor-default">
+                          <Gauge className="w-4 h-4" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="flex flex-col gap-2 p-3 bg-background border border-border/50 text-foreground shadow-md">
+                        {usage.inputTokens !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("inputTokens")}</span>
+                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.inputTokens.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {usage.outputTokens !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("outputTokens")}</span>
+                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.outputTokens.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {usage.totalTokens !== undefined && (
+                          <div className="flex items-center gap-2 border-t border-border/50 pt-2 mt-1">
+                            <Sigma className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("totalTokens")}</span>
+                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.totalTokens.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               )}

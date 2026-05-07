@@ -1,4 +1,5 @@
 import React from "react";
+import { useI18n } from "@/lib/web-i18n";
 
 const RECIPE_DATA = [
   {
@@ -47,9 +48,20 @@ interface Props {
 }
 
 export const RecipeComponent: React.FC<Props> = ({ onAction }) => {
+  const { t } = useI18n();
+
+  const localizedRecipeData = [
+    { ...RECIPE_DATA[0], title: t("recipeEmailSummary"), description: t("recipeEmailSummaryDesc") },
+    { ...RECIPE_DATA[1], title: t("recipeSemanticSearch"), description: t("recipeSemanticSearchDesc") },
+    { ...RECIPE_DATA[2], title: t("recipeGithubIssueSummary"), description: t("recipeGithubIssueSummaryDesc") },
+    { ...RECIPE_DATA[3], title: t("recipeSupabaseProject"), description: t("recipeSupabaseProjectDesc") },
+    { ...RECIPE_DATA[4], title: t("recipeNotionMeetingPrep"), description: t("recipeNotionMeetingPrepDesc") },
+    { ...RECIPE_DATA[5], title: t("recipeMarketAnalysis"), description: t("recipeMarketAnalysisDesc") },
+  ];
+
   return (
     <div className="grid sm:grid-cols-3 gap-2 max-w-4xl mx-auto">
-      {RECIPE_DATA.map((item) => (
+      {localizedRecipeData.map((item) => (
         <button
           key={item.id}
           onClick={() => onAction(item.description)}

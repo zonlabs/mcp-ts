@@ -38,7 +38,13 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes that require authentication
-  const protectedRoutes = ["/chat", "/settings"];
+  const protectedRoutes = [
+    "/chat",
+    "/settings/account",
+    "/settings/preferences",
+    "/settings/api-keys",
+    "/settings/connectors",
+  ];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
@@ -60,13 +66,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - images/ (public images)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|images/).*)",
+    "/chat/:path*",
+    "/settings/account/:path*",
+    "/settings/preferences/:path*",
+    "/settings/api-keys/:path*",
+    "/settings/connectors/:path*",
+    "/signin",
   ],
 };

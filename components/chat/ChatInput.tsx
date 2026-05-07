@@ -26,6 +26,7 @@ import {
 import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/chat/llmConfig';
 import { ModelSelector } from '@/components/chat/ModelSelector';
 import { AVAILABLE_MODELS } from '@/components/chat/availableModels';
+import { useI18n } from '@/lib/web-i18n';
 
 async function convertFilesToDataURLs(files: FileList) {
   return Promise.all(
@@ -51,6 +52,8 @@ async function convertFilesToDataURLs(files: FileList) {
 }
 
 interface ChatInputProps {
+  input?: string;
+  onInputChange?: (value: string) => void;
   onSend: (data: { text?: string; parts?: any[] }) => void;
   onStop?: () => void;
   disabled?: boolean;
@@ -67,12 +70,20 @@ interface ChatInputProps {
   };
 }
 
-export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: ChatInputProps) {
+export function ChatInput({ input: externalInput, onInputChange, onSend, onStop, disabled, status, contextUsage }: ChatInputProps) {
+  const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [files, setFiles] = useState<FileList | undefined>();
-  const [input, setInput] = useState('');
+  const [internalInput, setInternalInput] = useState('');
+  
+  const input = externalInput !== undefined ? externalInput : internalInput;
+  const setInput = (val: string) => {
+    setInternalInput(val);
+    onInputChange?.(val);
+  };
+
   const [activeModel, setActiveModel] = useState<string>('');
   const [activeProvider, setActiveProvider] = useState<string>('');
   const [modelReady, setModelReady] = useState(false);
@@ -213,7 +224,7 @@ export function ChatInput({ onSend, onStop, disabled, status, contextUsage }: Ch
             <Textarea
               ref={textareaRef}
               value={input}
-              placeholder="Type your prompt..."
+              placeholder={t("typeYourPrompt")}
               disabled={disabled}
               rows={1}
               onChange={(e) => setInput(e.target.value)}

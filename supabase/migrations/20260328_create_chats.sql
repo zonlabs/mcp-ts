@@ -5,6 +5,7 @@ create table if not exists public.chats (
   user_id uuid not null references auth.users(id) on delete cascade,
   title text,
   visibility text not null default 'PRIVATE',
+  is_pinned boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -18,6 +19,7 @@ alter table public.chats
 
 create index if not exists chats_user_id_idx on public.chats(user_id);
 create index if not exists chats_updated_at_idx on public.chats(updated_at);
+create index if not exists chats_user_pinned_updated_at_idx on public.chats(user_id, is_pinned, updated_at desc);
 
 create table if not exists public.chat_messages (
   id uuid primary key default gen_random_uuid(),

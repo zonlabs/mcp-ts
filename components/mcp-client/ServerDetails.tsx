@@ -22,13 +22,12 @@ import { ServerIcon } from "@/components/common/ServerIcon";
 import ServerManagement from "./ServerManagement";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Session } from "@supabase/supabase-js";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 
 interface ServerDetailsProps {
   server: McpServer;
-  session: Session | null;
+  session: UserSession | null;
   userSession?: UserSession | null;
   onAction: (
     server: McpServer,

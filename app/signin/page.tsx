@@ -10,19 +10,33 @@ import { MoveRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function SignInPage() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const getRedirectPath = () => {
+    const redirect = searchParams.get("redirect");
+    if (!redirect?.startsWith("/") || redirect.startsWith("//")) return "/";
+    return redirect;
+  };
+
+  const getAuthCallbackUrl = () => {
+    const callbackUrl = new URL("/auth/callback", location.origin);
+    callbackUrl.searchParams.set("next", getRedirectPath());
+    return callbackUrl.toString();
+  };
 
   const handleSocialLogin = async (provider: 'github' | 'google') => {
     try {
       await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${location.origin}/auth/callback`,
+          redirectTo: getAuthCallbackUrl(),
         },
       });
     } catch (error) {
@@ -41,7 +55,7 @@ export default function SignInPage() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${location.origin}/auth/callback`,
+          emailRedirectTo: getAuthCallbackUrl(),
         },
       });
 
