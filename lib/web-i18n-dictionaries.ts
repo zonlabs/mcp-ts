@@ -38,6 +38,7 @@ export const en = {
   loadingChats: "Loading chats...",
   noChatsYet: "No chats yet",
   rename: "Rename",
+  openInNewTab: "Open in new tab",
   share: "Share",
   delete: "Delete",
   copyLink: "Copy link",

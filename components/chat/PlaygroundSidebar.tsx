@@ -22,6 +22,7 @@ import {
   Link,
   User,
   SlidersHorizontal,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -222,6 +223,10 @@ export const PlaygroundSidebar = () => {
     setIsShareOpen(true);
   };
 
+  const handleOpenChatInNewTab = (chatId: string) => {
+    window.open(`/chat/${chatId}`, "_blank", "noopener,noreferrer");
+  };
+
   const handleSaveShare = async (nextVisibility?: 'PRIVATE' | 'PUBLIC') => {
     if (!shareChatId) return;
     setIsSavingShare(true);
@@ -343,10 +348,14 @@ export const PlaygroundSidebar = () => {
                 <MoreHorizontal className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+            <DropdownMenuContent align="end" className="w-48 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
               <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                 <SquarePen className="h-4 w-4" />
                 {t("rename")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenChatInNewTab(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                <ExternalLink className="h-4 w-4" />
+                {t("openInNewTab")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                 <ArrowUpRight className="h-4 w-4" />
@@ -811,10 +820,14 @@ export const PlaygroundSidebar = () => {
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
+                    <DropdownMenuContent align="end" className="w-48 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl">
                       <DropdownMenuItem onClick={() => handleRenameChat(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                         <SquarePen className="h-4 w-4" />
                         {t("rename")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOpenChatInNewTab(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
+                        <ExternalLink className="h-4 w-4" />
+                        {t("openInNewTab")}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleOpenShare(chat.id)} className="gap-2 rounded-md px-2 py-2 text-sm">
                         <ArrowUpRight className="h-4 w-4" />
