@@ -916,16 +916,17 @@ export const PlaygroundSidebar = () => {
 
       {/* Share Dialog */}
       <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
-        <DialogContent className="w-[calc(100vw-2.5rem)] max-w-sm md:max-w-xs max-h-[85vh] overflow-y-auto bg-background text-foreground p-4 sm:p-5">
-          <div className="space-y-4">
-            <DialogHeader className="space-y-0">
-              <DialogTitle className="text-base font-semibold">{t("shareConversation")}</DialogTitle>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-xs max-h-[85vh] overflow-y-auto border-border/70 bg-background p-5 text-foreground shadow-2xl sm:max-w-sm">
+          <div className="space-y-5">
+            <DialogHeader className="space-y-1 pr-6">
+              <DialogTitle className="text-lg font-semibold leading-none">{t("shareConversation")}</DialogTitle>
             </DialogHeader>
-            <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300 px-3 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md">
-                <AlertTriangle className="h-4.5 w-4.5" />
+
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-3 text-amber-700 dark:text-amber-300">
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4" />
               </div>
-              <p className="text-xs leading-relaxed">
+              <p className="text-xs font-medium leading-5">
                 {t("shareWarning")}
               </p>
             </div>
@@ -943,65 +944,68 @@ export const PlaygroundSidebar = () => {
                     await handleSaveShare(option.value);
                   }}
                   className={cn(
-                    "w-full text-left rounded-lg px-2 py-1.5 transition-colors border",
+                    "group w-full rounded-lg border px-3 py-3 text-left transition-colors",
                     shareVisibility === option.value
-                      ? "border-primary/50 bg-primary/10"
-                      : "border-border/70 hover:bg-accent/40"
+                      ? "border-primary/45 bg-primary/10"
+                      : "border-border/70 bg-muted/15 hover:bg-accent/35"
                   )}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3.5">
                     <div className={cn(
-                      "h-8 w-8 rounded-md flex items-center justify-center",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors",
                       shareVisibility === option.value
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary/15 text-primary"
                         : "bg-muted/40 text-muted-foreground"
                     )}>
                       {option.value === 'PRIVATE' ? (
-                        <Lock className="h-5 w-5" />
+                        <Lock className="h-4.5 w-4.5" />
                       ) : (
-                        <Globe className="h-5 w-5" />
+                        <Globe className="h-4.5 w-4.5" />
                       )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold">{option.label}</span>
-                        {shareVisibility === option.value ? (
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full border border-emerald-500/70 bg-emerald-500/10 text-emerald-500 text-xs">
-                            ✓
-                          </span>
-                        ) : (
-                          <span className="inline-flex h-5 w-5 rounded-full border border-muted-foreground/30" />
-                        )}
+                        <span className="ml-auto inline-flex h-4.5 w-4.5 items-center justify-center rounded-full border border-muted-foreground/25">
+                          {shareVisibility === option.value ? (
+                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
+                          ) : null}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{option.description}</p>
                     </div>
                   </div>
                 </button>
               ))}
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between min-h-[22px]">
-                <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-                  <CheckCircle2 className={shareCopyMessage ? "h-3.5 w-3.5" : "h-3.5 w-3.5 opacity-0"} />
-                  <span className={shareCopyMessage ? "" : "opacity-0"}>
-                    {shareCopyMessage ?? t("copied")}
-                  </span>
-                </div>
-              </div>
+            <div className="space-y-2 pt-1">
               <button
                 onClick={handleCopyShareLink}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-white text-zinc-900 px-3 py-2 text-xs transition-colors hover:bg-zinc-100 cursor-pointer dark:bg-white dark:text-zinc-900"
+                disabled={shareVisibility !== 'PUBLIC'}
+                className={cn(
+                  "w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 px-3 py-2.5 text-sm font-medium transition-colors",
+                  shareVisibility === 'PUBLIC'
+                    ? "bg-foreground text-background hover:bg-foreground/90 cursor-pointer"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
               >
-                <span>{t("copyLink")}</span>
-                <Link className="h-4 w-4" />
+                {shareCopyMessage ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>{shareCopyMessage}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{t("copyLink")}</span>
+                    <Link className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
-
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Desktop Sidebar */}
       <div className="relative hidden md:flex">
         <div
