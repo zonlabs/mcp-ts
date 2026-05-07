@@ -17,6 +17,7 @@ export function normalizeMessagesForModel<T extends MessageWithParts>(messages: 
         if (
           ti.state !== "result" &&
           ti.state !== "output-available" &&
+          ti.state !== "approval-responded" &&
           ti.toolName.startsWith("MCPASSISTANT_")
         ) {
           return {
@@ -58,9 +59,7 @@ export function normalizeMessagesForModel<T extends MessageWithParts>(messages: 
         if (
           typeof p.type === "string" &&
           p.type.startsWith("tool-MCPASSISTANT_") &&
-          (p.state === "approval-responded" ||
-            p.state === "output-available" ||
-            p.state === "ready")
+          (p.state === "output-available" || p.state === "ready")
         ) {
           const denied = p.approval?.approved === false;
           return {

@@ -204,17 +204,15 @@ export function MCPConnectionApproval({
             size="sm"
             onClick={handleConnect}
             variant="default"
-            className="cursor-pointer gap-1 sm:gap-2 h-8 px-3 text-xs sm:text-sm"
+            className="h-8 cursor-pointer justify-center gap-1.5 px-2.5 text-xs"
             disabled={isConnecting}
           >
             {isConnecting ? (
               <>
-                <span className="text-xs sm:text-sm">{t("connecting")}</span>
+                <span className="whitespace-nowrap">{t("connecting").replace(/[.…]+$/, "")}</span>
                 <svg
-                  className="animate-spin"
+                  className="size-3 shrink-0 animate-spin"
                   xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
