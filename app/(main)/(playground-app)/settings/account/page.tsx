@@ -7,7 +7,7 @@ import { Github, Mail } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useI18n } from "@/lib/web-i18n";
 
-export default function SettingsPage() {
+export default function AccountSettingsPage() {
   const { userSession } = useAuth();
   const user = userSession?.user;
   const router = useRouter();

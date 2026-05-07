@@ -89,7 +89,7 @@ export const PlaygroundSidebar = () => {
   const pathname = usePathname();
 
   const settingsLinks = [
-    { label: t("account"), href: "/settings", icon: User },
+    { label: t("account"), href: "/settings/account", icon: User },
     { label: t("preferences"), href: "/settings/preferences", icon: SlidersHorizontal },
     { label: t("apiKeys"), href: "/settings/api-keys", icon: KeyRound },
     { label: t("connectors"), href: "/settings/connectors", icon: Plug },
