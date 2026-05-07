@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/web-i18n";
 
 type MessageLike = {
   role?: string;
@@ -43,6 +44,7 @@ export function UserMessage({ message, parts, onEdit }: {
   parts?: any[]; 
   onEdit?: (newContent: string) => void 
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
@@ -83,10 +85,10 @@ export function UserMessage({ message, parts, onEdit }: {
     try {
       await navigator.clipboard.writeText(textContent);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(t("copiedToClipboard"));
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast.error("Failed to copy");
+      toast.error(t("failedToCopy"));
     }
   };
 
@@ -100,13 +102,13 @@ export function UserMessage({ message, parts, onEdit }: {
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 className="min-h-[100px] bg-background border-none focus-visible:ring-1 focus-visible:ring-primary/20 resize-none text-sm p-0 shadow-none leading-relaxed"
-                placeholder="Edit your message..."
+                placeholder={t("editYourMessage")}
                 autoFocus
               />
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50">
                 <div className="flex items-center gap-1.5 text-[11px] text-orange-500/90 font-medium">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Subsequent messages will be deleted</span>
+                  <span>{t("subsequentMessagesDeleted")}</span>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <Button 
@@ -115,7 +117,7 @@ export function UserMessage({ message, parts, onEdit }: {
                     onClick={() => setIsEditing(false)}
                     className="h-8 px-3 text-xs hover:bg-background/80"
                   >
-                    Cancel
+                    {t("cancel")}
                   </Button>
                   <Button 
                     size="sm" 
@@ -123,7 +125,7 @@ export function UserMessage({ message, parts, onEdit }: {
                     disabled={editValue.trim() === "" || editValue === textContent}
                     className="h-8 px-4 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
                   >
-                    Update & Continue
+                    {t("updateAndContinue")}
                   </Button>
                 </div>
               </div>
@@ -146,7 +148,7 @@ export function UserMessage({ message, parts, onEdit }: {
                           <Pencil className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom">Edit</TooltipContent>
+                      <TooltipContent side="bottom">{t("edit")}</TooltipContent>
                     </Tooltip>
                   )}
                   <Tooltip>
@@ -162,7 +164,7 @@ export function UserMessage({ message, parts, onEdit }: {
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Copy</TooltipContent>
+                    <TooltipContent side="bottom">{t("copy")}</TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>
@@ -210,6 +212,7 @@ export function AssistantMessage({
   showActions = true,
   isStreaming = false,
 }: any) {
+  const { t } = useI18n();
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [showUsage, setShowUsage] = useState(false);
@@ -223,10 +226,10 @@ export function AssistantMessage({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast.success("Copied to clipboard");
+      toast.success(t("copiedToClipboard"));
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast.error("Failed to copy");
+      toast.error(t("failedToCopy"));
     }
   };
 
@@ -274,7 +277,7 @@ export function AssistantMessage({
                         {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Copy</TooltipContent>
+                    <TooltipContent>{t("copy")}</TooltipContent>
                   </Tooltip>
 
                   {onRegenerate && (
@@ -284,7 +287,7 @@ export function AssistantMessage({
                           <RefreshCw className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent>Regenerate</TooltipContent>
+                      <TooltipContent>{t("regenerate")}</TooltipContent>
                     </Tooltip>
                   )}
 
@@ -299,21 +302,21 @@ export function AssistantMessage({
                         {usage.inputTokens !== undefined && (
                           <div className="flex items-center gap-2">
                             <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
-                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Input</span>
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("inputTokens")}</span>
                             <span className="text-[11px] font-bold ml-auto text-foreground">{usage.inputTokens.toLocaleString()}</span>
                           </div>
                         )}
                         {usage.outputTokens !== undefined && (
                           <div className="flex items-center gap-2">
                             <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
-                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Output</span>
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("outputTokens")}</span>
                             <span className="text-[11px] font-bold ml-auto text-foreground">{usage.outputTokens.toLocaleString()}</span>
                           </div>
                         )}
                         {usage.totalTokens !== undefined && (
                           <div className="flex items-center gap-2 border-t border-border/50 pt-2 mt-1">
                             <Sigma className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Total</span>
+                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("totalTokens")}</span>
                             <span className="text-[11px] font-bold ml-auto text-foreground">{usage.totalTokens.toLocaleString()}</span>
                           </div>
                         )}

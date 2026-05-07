@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ServerIcon } from '../common/ServerIcon';
 import { useMcpStore } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
+import { useI18n } from '@/lib/web-i18n';
 
 interface MCPConnectionApprovalProps {
   serverName: string;
@@ -30,6 +31,7 @@ export function MCPConnectionApproval({
   onApprove,
   onDeny,
 }: MCPConnectionApprovalProps) {
+  const { t } = useI18n();
   const [connectRequested, setConnectRequested] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
   const [denied, setDenied] = useState(false);
@@ -196,7 +198,7 @@ export function MCPConnectionApproval({
             disabled={false}
             className="h-8 px-3 text-xs sm:text-sm"
           >
-            Deny
+            {t("deny")}
           </Button>
           <Button
             size="sm"
@@ -207,7 +209,7 @@ export function MCPConnectionApproval({
           >
             {isConnecting ? (
               <>
-                <span className="text-xs sm:text-sm">Connecting...</span>
+                <span className="text-xs sm:text-sm">{t("connecting")}</span>
                 <svg
                   className="animate-spin"
                   xmlns="http://www.w3.org/2000/svg"
@@ -224,18 +226,18 @@ export function MCPConnectionApproval({
                 </svg>
               </>
             ) : (
-              'Connect'
+              t("connect")
             )}
           </Button>
         </div>
       </div>
 
       <p className="text-xs text-muted-foreground font-semibold">
-        Please connect to continue.
+        {t("pleaseConnectToContinue")}
       </p>
       {denied && (
         <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-          Connection request cancelled.
+          {t("connectionRequestCancelled")}
         </p>
       )}
 

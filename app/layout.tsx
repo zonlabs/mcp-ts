@@ -16,24 +16,15 @@ export const metadata: Metadata = {
   },
 };
 
-import { createClient } from "@/lib/supabase/server";
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  // Use the verified user's session if available
-  const userSession = (user && session) ? session as any : null;
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <AuthProvider userSession={userSession}>
+        <AuthProvider>
           <McpStoreProvider>
             <ThemeProvider
               attribute="class"

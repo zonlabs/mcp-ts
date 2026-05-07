@@ -2,12 +2,14 @@
 
 import { useEffect } from "react";
 import { readWebLanguageFromStorage, WEB_LANGUAGE_CHANGE_EVENT } from "@/lib/web-language";
+import { getTextDirectionForLanguage } from "@/lib/web-i18n-dictionaries";
 
 export function WebLanguageProvider() {
   useEffect(() => {
     const applyLanguage = () => {
       const language = readWebLanguageFromStorage();
       document.documentElement.lang = language;
+      document.documentElement.dir = getTextDirectionForLanguage(language);
     };
 
     applyLanguage();

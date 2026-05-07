@@ -1,19 +1,10 @@
+import { WEB_I18N_LANGUAGE_OPTIONS } from "./web-i18n-dictionaries";
+
 export const WEB_LANGUAGE_STORAGE_KEY = "mcp-assistant:web-language:v1";
 export const WEB_LANGUAGE_CHANGE_EVENT = "mcp-assistant:web-language:changed";
 export const DEFAULT_WEB_LANGUAGE = "en-US";
 
-export const WEB_LANGUAGE_OPTIONS = [
-  { value: "en-US", label: "English (US)" },
-  { value: "zh-CN", label: "Chinese (Mandarin)" },
-  { value: "hi-IN", label: "Hindi" },
-  { value: "es-ES", label: "Spanish" },
-  { value: "fr-FR", label: "French" },
-  { value: "ar-SA", label: "Arabic" },
-  { value: "ja-JP", label: "Japanese" },
-  { value: "pt-BR", label: "Portuguese" },
-  { value: "ru-RU", label: "Russian" },
-  { value: "ur-PK", label: "Urdu" },
-] as const;
+export const WEB_LANGUAGE_OPTIONS = WEB_I18N_LANGUAGE_OPTIONS;
 
 type WebLanguageOption = (typeof WEB_LANGUAGE_OPTIONS)[number]["value"];
 const WEB_LANGUAGE_VALUES = new Set<string>(WEB_LANGUAGE_OPTIONS.map((option) => option.value));
@@ -25,8 +16,8 @@ function browserLanguage(): string {
 
 export function normalizeWebLanguage(input: string | null | undefined): string {
   const value = (input || "").trim();
-  if (!value) return browserLanguage();
-  if (WEB_LANGUAGE_VALUES.has(value)) return value;
+  const candidate = value || browserLanguage();
+  if (WEB_LANGUAGE_VALUES.has(candidate)) return candidate;
   return DEFAULT_WEB_LANGUAGE;
 }
 

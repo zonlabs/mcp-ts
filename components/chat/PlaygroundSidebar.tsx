@@ -211,7 +211,7 @@ export const PlaygroundSidebar = () => {
     if (pathname === `/chat/${chatId}`) {
       router.push("/chat");
     }
-    toast.success("Chat deleted successfully");
+    toast.success(t("chatDeletedSuccessfully"));
   };
 
   const handleOpenShare = (chatId: string) => {
@@ -233,20 +233,20 @@ export const PlaygroundSidebar = () => {
       .eq("id", shareChatId);
     if (error) {
       console.error("[PlaygroundSidebar] failed to update share settings:", error);
-      toast.error("Failed to update sharing");
+      toast.error(t("failedToUpdateSharing"));
       setIsSavingShare(false);
       return;
     }
     setShareVisibility(targetVisibility);
     setChats((prev) => prev.map((c) => (c.id === shareChatId ? { ...c, visibility: targetVisibility } : c)));
     setIsSavingShare(false);
-    toast.success("Share settings updated");
+    toast.success(t("shareSettingsUpdated"));
   };
 
   const handleCopyShareLink = async () => {
     if (!shareChatId) return;
     if (shareVisibility !== 'PUBLIC') {
-      setShareCopyMessage("Set chat to Public to enable sharing.");
+      setShareCopyMessage(t("setPublicToShare"));
       setTimeout(() => setShareCopyMessage(null), 2000);
       return;
     }
@@ -254,10 +254,10 @@ export const PlaygroundSidebar = () => {
     const shareUrl = `${baseUrl}/share/${shareChatId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      setShareCopyMessage("Link copied");
+      setShareCopyMessage(t("linkCopied"));
       setTimeout(() => setShareCopyMessage(null), 2000);
     } catch {
-      setShareCopyMessage("Failed to copy link");
+      setShareCopyMessage(t("failedToCopyLink"));
       setTimeout(() => setShareCopyMessage(null), 2000);
     }
   };
@@ -338,7 +338,7 @@ export const PlaygroundSidebar = () => {
                   "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
                   activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                 )}
-                aria-label="Chat actions"
+                aria-label={t("chatActions")}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
@@ -395,7 +395,7 @@ export const PlaygroundSidebar = () => {
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-          aria-label="Open navigation menu"
+          aria-label={t("openNavigationMenu")}
         >
           <PanelLeftOpen className="w-5 h-5 text-foreground" />
         </button>
@@ -408,7 +408,7 @@ export const PlaygroundSidebar = () => {
         <button
           onClick={() => router.push("/chat")}
           className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-          aria-label="New chat"
+          aria-label={t("newChat")}
         >
           <SquarePen className="w-5 h-5 text-foreground" />
         </button>
@@ -432,7 +432,7 @@ export const PlaygroundSidebar = () => {
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="h-9 w-9 rounded-md flex items-center justify-center hover:bg-accent transition-colors"
-                aria-label="Close navigation menu"
+                aria-label={t("closeNavigationMenu")}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -539,7 +539,7 @@ export const PlaygroundSidebar = () => {
                 <AlertTriangle className="h-4.5 w-4.5" />
               </div>
               <p className="text-xs leading-relaxed">
-                This may contain personal information. Please review before sharing.
+                {t("shareWarning")}
               </p>
             </div>
 
@@ -598,7 +598,7 @@ export const PlaygroundSidebar = () => {
                 <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500">
                   <CheckCircle2 className={shareCopyMessage ? "h-3.5 w-3.5" : "h-3.5 w-3.5 opacity-0"} />
                   <span className={shareCopyMessage ? "" : "opacity-0"}>
-                    {shareCopyMessage ?? "Copied"}
+                    {shareCopyMessage ?? t("copied")}
                   </span>
                 </div>
               </div>
@@ -646,7 +646,7 @@ export const PlaygroundSidebar = () => {
             </TooltipTrigger>
             {!isOpen && (
               <TooltipContent side="right" sideOffset={8}>
-                Toggle Sidebar
+                {t("toggleSidebar")}
               </TooltipContent>
             )}
           </Tooltip>
@@ -806,7 +806,7 @@ export const PlaygroundSidebar = () => {
                           "h-6 w-6 rounded-md flex items-center justify-center hover:bg-accent/70",
                           activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                         )}
-                        aria-label="Chat actions"
+                        aria-label={t("chatActions")}
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </button>

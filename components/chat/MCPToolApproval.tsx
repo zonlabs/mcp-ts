@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { useState } from "react";
+import { useI18n } from "@/lib/web-i18n";
 
 function stringifyValue(value: unknown): string {
   try {
@@ -24,9 +25,10 @@ export function MCPToolApproval({
   onApprove: () => void;
   onDeny: () => void;
 }) {
+  const { t, format } = useI18n();
   const [isArgsExpanded, setIsArgsExpanded] = useState(false);
-  const toolName = typeof input.toolName === "string" ? input.toolName : "MCP tool";
-  const serverId = typeof input.serverId === "string" && input.serverId ? input.serverId : "Selected MCP server";
+  const toolName = typeof input.toolName === "string" ? input.toolName : t("mcpTool");
+  const serverId = typeof input.serverId === "string" && input.serverId ? input.serverId : t("selectedMcpServer");
   const args = input.args && typeof input.args === "object" ? input.args : {};
   const hasArgs = Object.keys(args).length > 0;
 
@@ -41,15 +43,18 @@ export function MCPToolApproval({
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-0.5">
               <h4 className="text-[14px] font-semibold text-foreground font-plus-jakarta leading-none">
-                Tool Execution Request
+                {t("toolExecutionRequest")}
               </h4>
               <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-none px-2 py-0.5 text-[10px] uppercase tracking-wider font-semibold font-plus-jakarta h-5">
                 <AlertTriangle className="h-3 w-3" />
-                Action Required
+                {t("actionRequired")}
               </Badge>
             </div>
             <p className="text-[13px] text-muted-foreground font-plus-jakarta leading-snug">
-              Requesting to run <strong className="font-medium text-foreground">{toolName}</strong> on <span className="font-medium text-foreground">{serverId}</span>.
+              {format("requestingToolExecution", {
+                toolName,
+                serverId,
+              })}
             </p>
           </div>
         </div>
@@ -63,7 +68,7 @@ export function MCPToolApproval({
                 className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground/80 hover:text-foreground transition-colors font-plus-jakarta"
               >
                 {isArgsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                Payload
+                {t("payload")}
               </button>
               
               {isArgsExpanded && (
@@ -87,7 +92,7 @@ export function MCPToolApproval({
             onClick={onApprove}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Approve
+            {t("approve")}
           </Button>
           <Button 
             size="sm"
@@ -96,7 +101,7 @@ export function MCPToolApproval({
             onClick={onDeny}
           >
             <XCircle className="h-3.5 w-3.5" />
-            Deny
+            {t("deny")}
           </Button>
         </div>
       </div>
@@ -111,6 +116,7 @@ export function MCPToolApprovalStatus({
   approved: boolean;
   reason?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={cn(
@@ -121,7 +127,7 @@ export function MCPToolApprovalStatus({
       )}
     >
       {approved ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-      <span>{approved ? "Tool execution approved" : reason || "Tool execution denied"}</span>
+      <span>{approved ? t("toolExecutionApproved") : reason || t("toolExecutionDenied")}</span>
     </div>
   );
 }

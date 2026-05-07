@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, XCircle, Clock, Trash2, Calendar, CheckCircle2, Globe, HardDrive, Loader2, RefreshCw, Server, Info } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Calendar, CheckCircle2, Globe, HardDrive, Loader2, RefreshCw, Server, Info } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { useMcpStore } from "@/lib/stores/mcp-store";
 import { useGatewaySelections } from "@/hooks/useGatewaySelections";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -74,7 +68,9 @@ export default function ConnectorsPage() {
     setDisconnecting(sessionId);
     try {
       await disconnect(sessionId);
-      await loadConnections();
+      setConnections((currentConnections) =>
+        currentConnections.filter((connection) => connection.sessionId !== sessionId)
+      );
     } catch (error) {
       console.error("Failed to disconnect:", error);
     } finally {
@@ -301,86 +297,78 @@ export default function ConnectorsPage() {
               </p>
             </div>
 
-            <TooltipProvider>
-              <div className="grid gap-3 lg:grid-cols-2">
-                {connections.map((conn) => (
-                  <div
-                    key={conn.sessionId}
-                    className="flex h-full flex-col gap-4 rounded-xl border border-border/60 px-3 py-3 sm:rounded-2xl sm:px-4 sm:py-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <ServerIcon
-                          serverName={getServerName(conn.serverUrl)}
-                          serverUrl={conn.serverUrl}
-                          size={40}
-                          className="rounded-xl"
-                        />
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-medium text-sm truncate">
-                              {getServerName(conn.serverUrl)}
-                            </h3>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 break-all">
-                            {getShortenedUrl(conn.serverUrl)}
-                          </p>
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))]">
+              {connections.map((conn) => (
+                <div
+                  key={conn.sessionId}
+                  className="flex h-full flex-col gap-4 rounded-xl border border-border/60 px-3 py-3 sm:rounded-2xl sm:px-4 sm:py-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <ServerIcon
+                        serverName={getServerName(conn.serverUrl)}
+                        serverUrl={conn.serverUrl}
+                        size={40}
+                        className="rounded-xl"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-medium text-sm truncate">
+                            {getServerName(conn.serverUrl)}
+                          </h3>
                         </div>
-                      </div>
-
-                      <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start sm:pl-2">
-                        {getStatusIcon(conn.connectionStatus)}
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`text-xs font-medium ${getStatusColor(conn.connectionStatus)}`}>
-                            {conn.connectionStatus}
-                          </span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => handleDisconnect(conn.sessionId)}
-                                disabled={disconnecting === conn.sessionId}
-                                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {disconnecting === conn.sessionId ? (
-                                  <Clock className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-4 h-4" />
-                                )}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{t("disconnect")}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 break-words">
+                          {getShortenedUrl(conn.serverUrl)}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <div className="flex items-start gap-1.5">
-                        <span className="text-muted-foreground/70 whitespace-nowrap">{t("sessionId")}:</span>
-                        <code className="font-mono text-[11px] break-all">{conn.sessionId}</code>
-                      </div>
-                      <div className="flex items-start gap-1.5">
-                        <Calendar className="w-3 h-3 text-muted-foreground/70 mt-0.5" />
-                        <span className="text-muted-foreground/70 whitespace-nowrap">{t("connectedAt")}:</span>
-                        <span className="break-words">
-                          {new Date(conn.createdAt).toLocaleString(language, {
-                            year: 'numeric',
-                            month: 'short',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false,
-                          })}
+                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start sm:pl-2">
+                      {getStatusIcon(conn.connectionStatus)}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`text-xs font-medium ${getStatusColor(conn.connectionStatus)}`}>
+                          {conn.connectionStatus}
                         </span>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() => handleDisconnect(conn.sessionId)}
+                          disabled={disconnecting === conn.sessionId}
+                          className="h-7 border-border/70 px-2 text-xs text-muted-foreground hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          {disconnecting === conn.sessionId ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : null}
+                          {t("disconnect")}
+                        </Button>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </TooltipProvider>
+
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-muted-foreground/70 whitespace-nowrap">{t("sessionId")}:</span>
+                      <code className="font-mono text-[11px] break-all">{conn.sessionId}</code>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Calendar className="w-3 h-3 text-muted-foreground/70 mt-0.5" />
+                      <span className="text-muted-foreground/70 whitespace-nowrap">{t("connectedAt")}:</span>
+                      <span className="break-words">
+                        {new Date(conn.createdAt).toLocaleString(language, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
         )}
       </div>

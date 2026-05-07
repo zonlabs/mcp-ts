@@ -137,6 +137,7 @@ function ToolDetailBlock({
 }
 
 function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) {
+  const { t } = useI18n();
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const hasDetails = hasToolStepDetails(step);
   const isActive = step.status === 'active';
@@ -185,13 +186,13 @@ function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) 
       {hasDetails && isDetailsOpen && (
         <div className="grid gap-2 pt-1 min-w-0">
           {step.input !== undefined && (
-            <ToolDetailBlock label="Args" value={step.input} />
+            <ToolDetailBlock label={t("args")} value={step.input} />
           )}
           {step.output !== undefined && (
-            <ToolDetailBlock label="Result" value={step.output} />
+            <ToolDetailBlock label={t("result")} value={step.output} />
           )}
           {step.errorText && (
-            <ToolDetailBlock label="Error" value={step.errorText} tone="error" />
+            <ToolDetailBlock label={t("error")} value={step.errorText} tone="error" />
           )}
         </div>
       )}
@@ -206,6 +207,7 @@ function ReasoningStepWithDuration({
   reasoningText: string;
   isStreaming: boolean;
 }) {
+  const { t } = useI18n();
   const startTimeRef = useRef<number | null>(null);
   const elapsedMsRef = useRef(0);
   const [duration, setDuration] = useState<number | undefined>(undefined);
@@ -223,15 +225,15 @@ function ReasoningStepWithDuration({
   }, [isStreaming]);
 
   const description = isStreaming
-    ? 'Thinking...'
+    ? t("thinking")
     : duration !== undefined
-      ? `Thought for ${duration}s`
+      ? `${t("thoughtFor")} ${duration}s`
       : undefined;
 
   return (
     <ChainOfThoughtStep
       icon={ReasoningAmberIcon}
-      label={<ActiveStepLabel isActive={isStreaming}>Reasoning</ActiveStepLabel>}
+      label={<ActiveStepLabel isActive={isStreaming}>{t("reasoning")}</ActiveStepLabel>}
       description={description}
       status={isStreaming ? 'active' : 'complete'}
     >
@@ -242,6 +244,7 @@ function ReasoningStepWithDuration({
   );
 }
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
+  const { t } = useI18n();
   const connections = useMcpStore(state => state.connections);
   const normalizedTargetUrl = normalizeServerUrl(input.serverUrl);
 
@@ -266,7 +269,7 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
         />
         <div className="min-w-0 flex-1">
           <span className="truncate block text-[15px] sm:text-base font-semibold text-foreground leading-tight">
-            {input.serverName || 'MCP Server'}
+            {input.serverName || t("mcpServer")}
           </span>
         </div>
         <div
@@ -279,7 +282,7 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
                 : "text-muted-foreground"
           )}
         >
-          <span>{isReady ? 'Connected' : isFailed ? 'Connection failed' : 'Connecting...'}</span>
+          <span>{isReady ? t("connected") : isFailed ? t("connectionFailed") : t("connecting")}</span>
           {isReady ? (
             <CheckCircle2 className="h-3.5 w-3.5" />
           ) : isFailed ? (
@@ -304,10 +307,10 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
       </div>
       <p className="text-xs text-muted-foreground font-semibold">
         {isReady
-          ? 'Connection is ready.'
+          ? t("connectionReady")
           : isFailed
-            ? 'Connection did not reach ready state. Please try again.'
-            : 'Waiting for connection to reach ready state.'}
+            ? t("connectionNotReady")
+            : t("waitingForConnectionReady")}
       </p>
     </div>
   );
@@ -338,12 +341,12 @@ export function PlaygroundChat({
   
   const mobileStarterPrompts = [
     {
-      label: 'GitHub Issue Summary',
+      label: t("recipeGithubIssueSummary"),
       prompt: 'Use GitHub to retrieve the latest open issues for this repository and summarize the most critical bugs.',
       icon: 'https://logos.composio.dev/api/github',
     },
     {
-      label: 'Semantic Search',
+      label: t("recipeSemanticSearch"),
       prompt: 'Search the web using Exa to find the latest research papers on LLM optimization from the past month.',
       icon: 'https://awsmp-logos.s3.amazonaws.com/seller-7s5a3z2w3unay/b6519f9126c0432087c79827b95283c6.png',
     },
@@ -353,7 +356,7 @@ export function PlaygroundChat({
       icon: 'https://logos.composio.dev/api/gmail',
     },
     {
-      label: 'Notion Meeting Prep',
+      label: t("recipeNotionMeetingPrep"),
       prompt: 'Generate a briefing document by synthesizing project notes and recent updates directly from Notion.',
       icon: 'https://api.iconify.design/logos:notion-icon.svg',
     },
@@ -551,7 +554,7 @@ export function PlaygroundChat({
       <>
         {chainOfThought.hasChainOfThought && (
           <ChainOfThought className="mb-3" defaultOpen>
-            <ChainOfThoughtHeader progress={isCoTActive}>Chain of Thought</ChainOfThoughtHeader>
+            <ChainOfThoughtHeader progress={isCoTActive}>{t("chainOfThought")}</ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {chainOfThought.reasoningText && (
                 <ReasoningStepWithDuration
@@ -628,7 +631,7 @@ export function PlaygroundChat({
                           addToolApprovalResponse?.({
                             id: approvalId,
                             approved: false,
-                            reason: "User denied the MCP tool request.",
+                            reason: t("userDeniedMcpToolRequest"),
                           });
                       }}
                     />
@@ -651,7 +654,7 @@ export function PlaygroundChat({
                   <MCPToolApprovalStatus
                     key={`tool-${index}`}
                     approved={false}
-                    reason="MCP tool request denied."
+                    reason={t("mcpToolRequestDenied")}
                   />
                 );
               }
@@ -682,7 +685,7 @@ export function PlaygroundChat({
                           addToolApprovalResponse?.({
                             id: approvalId,
                             approved: false,
-                            reason: "User denied the connection request.",
+                            reason: t("userDeniedConnectionRequest"),
                           });
                       }}
                     />
@@ -716,7 +719,7 @@ export function PlaygroundChat({
                       <line x1="12" y1="8" x2="12" y2="12" />
                       <circle cx="12" cy="16" r="1" />
                     </svg>
-                    <span className="font-medium">Connection request cancelled.</span>
+                    <span className="font-medium">{t("connectionRequestCancelled")}</span>
                   </div>
                 );
               }
@@ -733,7 +736,7 @@ export function PlaygroundChat({
                   >
                     <AlertCircle className="h-3.5 w-3.5" />
                     <span className="font-medium">
-                      Connection tool failed{toolPart.errorText ? `: ${toolPart.errorText}` : '.'}
+                      {t("connectionToolFailed")}{toolPart.errorText ? `: ${toolPart.errorText}` : '.'}
                     </span>
                   </div>
                 );

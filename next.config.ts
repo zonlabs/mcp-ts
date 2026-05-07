@@ -1,11 +1,8 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 const nextConfig: NextConfig = {
-  experimental: {
-    externalDir: true,
-  },
   turbopack: {
-    root: path.resolve(__dirname, "../.."),
+    root: path.resolve(__dirname),
   },
   transpilePackages: ['@mcp-ts/sdk'],
   serverExternalPackages: [
