@@ -16,30 +16,43 @@ function OAuthCallbackContent() {
   const { finishAuth } = useMcp({
     url: "/api/mcp",
     identity: process.env.NEXT_PUBLIC_MCP_IDENTITY!,
-    authToken: "demo-auth-token",
     autoConnect: true,
     autoInitialize: false,
+  });
+
+  useEffect(() => {
+    if (processedRef.current) {
+      return;
+    }
+    processedRef.current = true;
+
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const errorParam = searchParams.get("error");
 
     if (errorParam) {
-      setStatus("error");
-      setError(`OAuth error: ${errorParam}`);
+      queueMicrotask(() => {
+        setStatus("error");
+        setError(`OAuth error: ${errorParam}`);
+      });
       return;
     }
 
     if (!code) {
-      setStatus("error");
-      setError("No authorization code received");
+      queueMicrotask(() => {
+        setStatus("error");
+        setError("No authorization code received");
+      });
       return;
     }
 
     const sessionId = state || "";
 
     if (!sessionId) {
-      setStatus("error");
-      setError("Invalid state parameter");
+      queueMicrotask(() => {
+        setStatus("error");
+        setError("Invalid state parameter");
+      });
       return;
     }
 
