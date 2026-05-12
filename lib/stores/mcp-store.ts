@@ -672,12 +672,6 @@ export const useMcpStore = create<McpStore>()(
               activeConnectionCount: newActiveCount,
             };
           });
-
-          console.log('[MCP Store] Connection status updated:', {
-            sessionId,
-            status: normalizedStatus,
-            toolCount: tools?.length,
-          });
         },
 
         /**

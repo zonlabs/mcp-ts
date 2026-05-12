@@ -28,8 +28,6 @@ async function handleCallback(request: NextRequest) {
     return NextResponse.redirect(errorUrl);
   }
 
-  console.log('[Callback] Received state (sessionId):', sessionId);
-
   // Check if OAuth provider returned an error
   if (error) {
     const errorUrl = new URL(sourceUrl, getAppUrl());
@@ -61,22 +59,13 @@ async function handleCallback(request: NextRequest) {
 
     // Create MCP client - it will load serverId from session
     const client = new MCPClient({
-      onRedirect: (url) => {
-        console.log('[Callback] Redirect requested:', url);
-      },
       identity: userId,
       sessionId,
     });
 
 
     // Complete OAuth authorization with the code
-    console.log('[Callback] Finishing OAuth with code...');
     await client.finishAuth(code);
-    console.log('[Callback] OAuth finished successfully');
-
-    // Update session to mark as active
-    // Session is updated to active=true internally by client.finishAuth()
-    console.log('[Callback] Session updated successfully');
 
     // Redirect back to source page with success parameters
     const successUrl = new URL(sourceUrl, getAppUrl());

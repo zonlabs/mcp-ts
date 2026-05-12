@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 const FLOW_DASH_PERIOD = 24;
 /** Short–long rhythm: reads as small packets on the wire (sum = FLOW_DASH_PERIOD). */
 const FLOW_DASH_PATTERN = "4 3 4 13";
+const AUTH_CHANNEL_NAME = "mcp-auth-channel";
 
 /**
  * Flow accent colors are set on the page root via CSS variables so SVG strokes and
@@ -77,6 +78,18 @@ function LoadingBubbles() {
   );
 }
 
+function createAuthBroadcastChannel(): BroadcastChannel | null {
+  if (typeof BroadcastChannel === "undefined") {
+    return null;
+  }
+
+  try {
+    return new BroadcastChannel(AUTH_CHANNEL_NAME);
+  } catch {
+    return null;
+  }
+}
+
 function CallbackSuccessContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -98,14 +111,45 @@ function CallbackSuccessContent() {
   useEffect(() => {
     if (hasPostedResultRef.current) return;
 
-    if (code && state && window.opener) {
+    const authSessionId = state || sessionId;
+
+    if (code && !authSessionId) {
       hasPostedResultRef.current = true;
-      window.opener.postMessage(
-        { type: "MCP_AUTH_CODE", code, sessionId: state, state },
-        window.location.origin
-      );
+      setStatus("error");
+      setErrorMessage("Missing OAuth state parameter. Please try connecting again.");
+      return;
+    }
+
+    if (code && authSessionId) {
+      hasPostedResultRef.current = true;
+      const payload = { type: "MCP_AUTH_CODE", code, sessionId: authSessionId, state: authSessionId };
+
+      const postAuthCode = () => {
+        if (window.opener) {
+          window.opener.postMessage(payload, window.location.origin);
+        }
+      };
+
+      postAuthCode();
+
+      const channel = createAuthBroadcastChannel();
+      if (channel) {
+        channel.postMessage(payload);
+      } else if (!window.opener) {
+        setStatus("error");
+        setErrorMessage("Could not communicate with MCP Assistant. Please try connecting again.");
+        return;
+      }
+
       setStatus("success");
+      const retryInterval = window.setInterval(() => {
+        postAuthCode();
+        channel?.postMessage(payload);
+      }, 250);
+
       setTimeout(() => {
+        window.clearInterval(retryInterval);
+        channel?.close();
         window.close();
       }, 1000);
       return;
@@ -117,18 +161,25 @@ function CallbackSuccessContent() {
       setStatus("success");
 
       // Send message to parent window to resolve the promise
-      if (window.opener) {
-        window.opener.postMessage(
-          {
-            type: "mcp-auth-success",
-            sessionId,
-            serverName,
-            serverId,
-            serverUrl,
-          },
-          window.location.origin
-        );
+      const payload = {
+        type: "mcp-auth-success",
+        sessionId,
+        serverName,
+        serverId,
+        serverUrl,
+      };
 
+      if (window.opener) {
+        window.opener.postMessage(payload, window.location.origin);
+      }
+
+      const channel = createAuthBroadcastChannel();
+      if (channel) {
+        channel.postMessage(payload);
+        channel.close();
+      }
+
+      if (window.opener || channel) {
         // Auto-close window after 2 seconds
         setTimeout(() => {
           window.close();
@@ -140,14 +191,19 @@ function CallbackSuccessContent() {
       setErrorMessage(error || "Authentication failed");
 
       // Send error message to parent window
+      const payload = {
+        type: "mcp-auth-error",
+        error: error || "Authentication failed",
+      };
+
       if (window.opener) {
-        window.opener.postMessage(
-          {
-            type: "mcp-auth-error",
-            error: error || "Authentication failed",
-          },
-          window.location.origin
-        );
+        window.opener.postMessage(payload, window.location.origin);
+      }
+
+      const channel = createAuthBroadcastChannel();
+      if (channel) {
+        channel.postMessage(payload);
+        channel.close();
       }
     }
   }, [step, sessionId, serverName, serverId, serverUrl, error, code, state]);

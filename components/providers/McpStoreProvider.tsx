@@ -51,12 +51,12 @@ function McpStoreProviderInner({
       void (async () => {
         let state: string | null = null;
         let serverUrl: string | null = null;
+        let ownsInFlightState = false;
         try {
           const parsed = new URL(url);
           state = parsed.searchParams.get('state');
           serverUrl = parsed.searchParams.get('resource');
           if (!state) {
-            console.warn('[MCP OAuth] Ignoring redirect without state:', url);
             return;
           }
 
@@ -64,6 +64,7 @@ function McpStoreProviderInner({
             return;
           }
           authInFlightStatesRef.current.add(state);
+          ownsInFlightState = true;
 
           const authResult = await openAuthPopup({
             url,
@@ -91,7 +92,6 @@ function McpStoreProviderInner({
             );
           }
         } catch (error) {
-          console.error('[MCP OAuth] Popup flow failed:', error);
           window.dispatchEvent(
             new CustomEvent('mcp-oauth-cancelled', {
               detail: {
@@ -102,7 +102,7 @@ function McpStoreProviderInner({
             })
           );
         } finally {
-          if (state) {
+          if (state && ownsInFlightState) {
             authInFlightStatesRef.current.delete(state);
           }
         }
