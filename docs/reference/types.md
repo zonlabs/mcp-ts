@@ -1,7 +1,7 @@
 ---
-title: "Types & Errors"
+title: "TypeScript types and error classes reference"
 sidebarTitle: "Types"
-description: "Core TypeScript types and Error classes for mcp-ts."
+description: "Reference for mcp-ts connection events, tool annotations, session shapes, and OAuth error classes you import from the SDK's shared and server entrypoints."
 icon: "code"
 ---
 
@@ -52,7 +52,7 @@ interface ToolInfo {
 
 #### Tool annotations
 
-Tools can advertise hints about their behavior. Adapters and the [`ToolRouter`](/core-concepts/tool-router) read these annotations to decide things like whether a call needs human approval and how to label tools in summaries.
+Tools can advertise hints about their behavior. Adapters and the [`ToolRouter`](/core-concepts/tool-router) read these annotations to decide whether a call needs human approval and how to label tools in summaries.
 
 ```typescript
 interface ToolAnnotations {

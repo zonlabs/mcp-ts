@@ -1,7 +1,7 @@
 ---
 title: "Vercel AI SDK"
 sidebarTitle: "AI SDK"
-description: "Add MCP capabilities to your Vercel AI SDK projects."
+description: "Use MCP tools with the Vercel AI SDK's streamText, generateText, and useChat, including human-in-the-loop approvals for destructive calls."
 ---
 
 The `AIAdapter` converts MCP tools into the format expected by the [Vercel AI SDK](https://sdk.vercel.ai/docs). This allows you to use MCP tools with functions like `streamText`, `generateText`, and `useChat`.
@@ -52,7 +52,7 @@ const tools = await adapter.getTools();
 
 When `needsApproval` is not provided, the adapter falls back to the tool's [`destructiveHint`](/reference/types) annotation: tools marked destructive require approval, all others run immediately. Set `needsApproval: () => false` to opt out entirely.
 
-When you pair the adapter with a [`ToolRouter`](/core-concepts/tool-router), the same logic runs against the *target* tool resolved by `mcp_execute_tool`, so approvals respect the underlying tool's annotations rather than the meta-tool wrapper.
+When you pair the adapter with a [`ToolRouter`](/core-concepts/tool-router), the same logic runs against the *target* tool resolved by `mcp_execute_tool`. Approvals then respect the underlying tool's annotations rather than the meta-tool wrapper.
 
 ## API Reference
 

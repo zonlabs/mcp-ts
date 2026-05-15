@@ -1,7 +1,7 @@
 ---
 title: "Mastra"
 sidebarTitle: "Mastra"
-description: "High-performance MCP integration for the Mastra framework."
+description: "Expose MCP tools to Mastra agents with typed Zod schemas, automatic tool name prefixing, and graceful fallbacks when clients are disconnected."
 ---
 
 The `MastraAdapter` converts MCP tools into the format expected by the [Mastra](https://mastra.ai) framework.

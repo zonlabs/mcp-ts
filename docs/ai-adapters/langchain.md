@@ -1,7 +1,7 @@
 ---
 title: "LangChain"
 sidebarTitle: "LangChain"
-description: "Connect LangChain agents to any MCP server."
+description: "Convert MCP tools into LangChain DynamicStructuredTool format so your agents can call any MCP server with typed Zod schemas and clean errors."
 ---
 
 The `LangChainAdapter` converts MCP tools into LangChain's `DynamicStructuredTool` format.

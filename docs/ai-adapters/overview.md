@@ -1,7 +1,7 @@
 ---
-title: "Adapters Overview"
+title: "AI framework adapters for MCP tools"
 sidebarTitle: "Overview"
-description: "Seamlessly integrate MCP into your favorite AI frameworks."
+description: "Compare the Vercel AI SDK, LangChain, Mastra, and AG-UI adapters and learn shared patterns like prefixing, multi-session clients, and tool approval."
 ---
 
 Adapters transforms MCP tools into framework-specific formats for seamless integration with AI frameworks.
@@ -27,9 +27,9 @@ const adapter = new AIAdapter(client, {
 });
 ```
 
-### Tool approval (HITL)
+### Human-in-the-Loop Tool Approval
 
-Gate sensitive tool calls behind a user prompt by passing a `needsApproval` callback. The default behavior approves any tool whose schema sets the `destructiveHint` annotation.
+Gate sensitive tool calls behind a user prompt by passing a `needsApproval` callback. The default behavior requires approval for any tool whose schema sets the `destructiveHint` annotation.
 
 ```typescript
 const adapter = new AIAdapter(client, {
