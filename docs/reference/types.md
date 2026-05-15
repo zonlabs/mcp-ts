@@ -46,8 +46,40 @@ interface ToolInfo {
     properties?: Record<string, any>;
     required?: string[];
   };
+  annotations?: ToolAnnotations;
 }
 ```
+
+#### Tool annotations
+
+Tools can advertise hints about their behavior. Adapters and the [`ToolRouter`](/core-concepts/tool-router) read these annotations to decide things like whether a call needs human approval and how to label tools in summaries.
+
+```typescript
+interface ToolAnnotations {
+  /** Optional human-readable title shown in tool listings. */
+  title?: string;
+  /** Optional category label used to group tools. */
+  category?: string;
+  /** Free-form description used for richer surfaces. */
+  description?: string;
+  /** Audience tags such as ["user"] or ["agent"]. */
+  audience?: string[];
+  /** Sort priority (lower runs first). */
+  priority?: number;
+  /** Tool only reads data and has no side effects. */
+  readOnlyHint?: boolean;
+  /** Tool may delete or overwrite data — adapters require approval by default. */
+  destructiveHint?: boolean;
+  /** Calling the tool twice with the same args is safe. */
+  idempotentHint?: boolean;
+  /** Tool reaches outside the local environment (network, third-party APIs). */
+  openWorldHint?: boolean;
+  /** Additional custom hints. */
+  [key: string]: unknown;
+}
+```
+
+Set `destructiveHint: true` on any tool that mutates user data to opt into the default human-in-the-loop flow used by [`AIAdapter`](/ai-adapters/ai-sdk#human-in-the-loop-approvals).
 
 ### Session Types
 

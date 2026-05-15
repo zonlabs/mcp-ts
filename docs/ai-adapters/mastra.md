@@ -12,6 +12,16 @@ The `MastraAdapter` converts MCP tools into the format expected by the [Mastra](
 npm install @mcp-ts/sdk zod
 ```
 
+### Optional: typed tool schemas
+
+The adapter converts each tool's JSON Schema into a Zod schema using `json-schema-to-zod`. Install it to get accurate per-tool validation:
+
+```bash
+npm install json-schema-to-zod
+```
+
+Without it, the adapter falls back to a permissive `z.record(z.any())` schema and logs a one-time warning. Tools still work — you just lose argument-level type checking.
+
 ## Usage
 
 ```typescript

@@ -27,6 +27,18 @@ const adapter = new AIAdapter(client, {
 });
 ```
 
+### Tool approval (HITL)
+
+Gate sensitive tool calls behind a user prompt by passing a `needsApproval` callback. The default behavior approves any tool whose schema sets the `destructiveHint` annotation.
+
+```typescript
+const adapter = new AIAdapter(client, {
+  needsApproval: (tool, args) => tool.annotations?.destructiveHint === true,
+});
+```
+
+See the [AI SDK adapter guide](/ai-adapters/ai-sdk) for an end-to-end example.
+
 ### Single Client vs. Multi-Session
 
 Adapters work with both individual `MCPClient` instances andaggregated `MultiSessionClient`.
