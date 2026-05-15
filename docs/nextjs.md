@@ -254,7 +254,7 @@ export default function OAuthCallback() {
 }
 ```
 
-### Popup helpers
+### Popup Helpers
 
 If you want a turnkey popup flow in Next.js, the React client also exports:
 

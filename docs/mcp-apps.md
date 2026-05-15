@@ -38,7 +38,7 @@ graph TB
     McpAppUI -->|"Tool Calls (optional)"| SSEClient
 ```
 
-## Key features
+## Key Features
 
 - **Sandbox proxy** — Injected HTML loads through a dedicated proxy page; CSP can be passed via query string and applied inside the guest document.
 - **Resource preloading** — `useMcp` preloads UI resources when tools are discovered (`SSEClient.preloadToolUiResources`), so apps open faster.
@@ -46,7 +46,7 @@ graph TB
 - **Mediation hooks** — Optional `onCallTool`, `onReadResource`, `onFallbackRequest`, `onMessage`, `onOpenLink`, etc., instead of automatic forwarding.
 - **Fullscreen** — Guest `requestDisplayMode` can drive the browser Fullscreen API (handled inside `McpAppRenderer`).
 
-## Sandbox proxy
+## Sandbox Proxy
 
 Hosts must ship a static **MCP Apps sandbox proxy** page (for example copy [`examples/agents/public/sandbox.html`](https://github.com/zonlabs/mcp-ts/tree/main/examples/agents/public/sandbox.html)) that follows **`@modelcontextprotocol/ext-apps`**:
 
@@ -68,7 +68,7 @@ import { DEFAULT_MCP_APP_CSP } from "@mcp-ts/sdk/client/react";
 
 You can extend `DEFAULT_MCP_APP_CSP` (for example narrow or widen `connect-src`) per deployment.
 
-## Quick start
+## Quick Start
 
 ### 1. MCP connection
 
@@ -161,7 +161,7 @@ When the client receives tool discovery events, `useMcp` calls `SSEClient.preloa
 
 For advanced use, `AppHost` also exposes `preload(tools)` (see [API reference](/reference/client#apphost-class)).
 
-## API summary
+## API Summary
 
 ### `getMcpAppMetadata(mcpClient, toolName, input?)`
 
@@ -199,7 +199,7 @@ Returns `{ toolName, resourceUri, sessionId }` when the tool has a UI URI. Use f
 | `className` | `string?` | Container class names. |
 | `loader` | `React.ReactNode?` | Shown until the app finishes launching. |
 
-## Next steps
+## Next Steps
 
 - [React guide](/react) — Connection setup and `useMcp`.
 - [API reference](/reference/client) — Detailed technical documentation.

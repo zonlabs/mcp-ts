@@ -15,7 +15,7 @@ The documentation server is hosted at:
 https://docs.mcp-assistant.in/mcp
 ```
 
-### How to use
+### How to Use
 
 You can add this server to your preferred MCP-compatible client (such as Claude Desktop, Cursor, or VS Code). The server provides powerful tools to interact with the documentation:
 

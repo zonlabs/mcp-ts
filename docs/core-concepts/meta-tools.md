@@ -76,7 +76,7 @@ The `mcp-ts` SDK implements the following flow to minimize context usage while m
   </Step>
 </Steps>
 
-## Why use Meta-Tools?
+## Why Use Meta-Tools?
 
 1. **Context Density**: You can give an LLM access to 1,000 tools without using more than a few hundred tokens of "resting" context.
 2. **Reduced Hallucinations**: Because the LLM "finds" the tool definition right before using it, it is less likely to hallucinate parameters or use the wrong tool.

@@ -64,7 +64,7 @@ app.listen(3000, () => {
 
 You can use the `@mcp-ts/sdk/client` in any frontend application.
 
-### Using with React
+### Using With React
 
 ```typescript
 import { useMcp } from '@mcp-ts/sdk/client';
