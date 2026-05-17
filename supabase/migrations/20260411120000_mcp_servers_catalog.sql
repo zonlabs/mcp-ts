@@ -17,7 +17,7 @@ create table if not exists public.mcp_servers (
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
   description text,
-  transport text not null default 'streamable_http',
+  transport text not null default 'streamable-http',
   url text,
   icon text,
   is_verified boolean not null default false,

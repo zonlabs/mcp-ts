@@ -49,34 +49,34 @@ function extractServerUrl(server: ConnectableServer): string | null {
   return server.remoteUrl || server.url || null;
 }
 
-function extractTransport(server: ConnectableServer): "sse" | "streamable_http" {
+function extractTransport(server: ConnectableServer): "sse" | "streamable-http" {
   const raw = server.transportType || server.transport || null;
   const normalized = normalizeTransport(raw);
   const inferred = inferTransportFromUrl(extractServerUrl(server));
 
   if (inferred === "sse") return "sse";
-  if (inferred === "streamable_http") return "streamable_http";
-  return normalized ?? "streamable_http";
+  if (inferred === "streamable-http") return "streamable-http";
+  return normalized ?? "streamable-http";
 }
 
-function inferTransportFromUrl(url?: string | null): "sse" | "streamable_http" | null {
+function inferTransportFromUrl(url?: string | null): "sse" | "streamable-http" | null {
   if (!url) return null;
   const urlLower = url.toLowerCase();
   if (urlLower.includes("/sse") || urlLower.includes("transport=sse")) {
     return "sse";
   }
   if (urlLower.includes("tools=") || urlLower.includes("/mcp")) {
-    return "streamable_http";
+    return "streamable-http";
   }
   return null;
 }
 
-function normalizeTransport(value?: string | null): "sse" | "streamable_http" | null {
+function normalizeTransport(value?: string | null): "sse" | "streamable-http" | null {
   if (!value) return null;
   const normalized = value.trim().toLowerCase();
   if (normalized === "sse") return "sse";
   if (normalized === "streamable_http" || normalized === "streamable-http" || normalized === "streamablehttp") {
-    return "streamable_http";
+    return "streamable-http";
   }
   return null;
 }

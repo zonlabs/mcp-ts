@@ -13,8 +13,8 @@ export const { GET, POST } = createNextMcpHandler({
         clientName: "MCP Assistant",
         clientUri: "https://mcp-assistant.in",
     }
-    // Optional: customize how to extract identity and auth token
-    // getIdentity: (request) => new URL(request.url).searchParams.get('identity'),
+    // Optional: customize how to extract userId and auth token
+    // getUserId: (request) => new URL(request.url).searchParams.get('userId'),
     // getAuthToken: (request) => request.headers.get('authorization'),
 
 });

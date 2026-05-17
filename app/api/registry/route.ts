@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
       // Get transport type from remotes
       const transportType = server.remotes?.[0]?.type === "sse" ? "sse" :
-                           server.remotes?.[0]?.type === "streamable-http" ? "streamable_http" : null;
+                           server.remotes?.[0]?.type === "streamable-http" ? "streamable-http" : null;
 
       return {
         id: `${server.name}:${server.version}`, // Unique ID combining name and version

@@ -45,7 +45,7 @@ function McpStoreProviderInner({
     sseClient,
   } = useMcp({
     url: '/api/mcp/sse',
-    identity: userId,
+    userId,
     autoConnect: true,
     onRedirect: (url: string) => {
       void (async () => {

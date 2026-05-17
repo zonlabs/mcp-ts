@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { MCPClient, storage } from "@mcp-ts/sdk/server";
+import { MCPClient, sessions } from "@mcp-ts/sdk/server";
 import { generateText, Output } from "ai";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { z } from "zod";
@@ -83,20 +83,20 @@ interface DiscoveredTool {
 }
 
 async function discoverMcpTools(userId: string): Promise<DiscoveredTool[]> {
-  let sessions: Awaited<ReturnType<typeof storage.getIdentitySessionsData>>;
+  let userSessions: Awaited<ReturnType<typeof sessions.list>>;
   try {
-    sessions = await storage.getIdentitySessionsData(userId);
+    userSessions = await sessions.list(userId);
   } catch {
     return [];
   }
-  if (!sessions.length) return [];
+  if (!userSessions.length) return [];
 
   const allTools: DiscoveredTool[] = [];
 
   await Promise.all(
-    sessions.map(async (session) => {
+    userSessions.map(async (session) => {
       const client = new MCPClient({
-        identity: userId,
+        userId,
         sessionId: session.sessionId,
       });
       try {

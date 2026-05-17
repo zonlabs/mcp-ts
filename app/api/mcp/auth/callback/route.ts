@@ -59,7 +59,7 @@ async function handleCallback(request: NextRequest) {
 
     // Create MCP client - it will load serverId from session
     const client = new MCPClient({
-      identity: userId,
+      userId,
       sessionId,
     });
 

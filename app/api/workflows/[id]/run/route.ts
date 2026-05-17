@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { Queue } from "bullmq";
 import { createClient } from "@/lib/supabase/server";
 import { createWorkflowRedisConnection } from "@/lib/workflow-redis";
-import { storage } from "@mcp-ts/sdk/server";
+import { sessions } from "@mcp-ts/sdk/server";
 
-type SessionData = Awaited<ReturnType<typeof storage.getIdentitySessionsData>>[number];
+type SessionData = Awaited<ReturnType<typeof sessions.list>>[number];
 
 export async function POST(
   request: NextRequest,
@@ -48,8 +48,8 @@ export async function POST(
   let sessionId = body.sessionId?.trim();
   if (!sessionId) {
     try {
-      const sessions = await storage.getIdentitySessionsData(user.id);
-      const active = sessions.find((s: SessionData) => (s as unknown as Record<string, unknown>).active !== false);
+      const userSessions = await sessions.list(user.id);
+      const active = userSessions.find((s: SessionData) => (s as unknown as Record<string, unknown>).active !== false);
       if (active) sessionId = String(active.sessionId ?? "");
     } catch {
       // fall through to DB lookup

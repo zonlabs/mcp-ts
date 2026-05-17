@@ -194,12 +194,12 @@ function shortenToolKeysForProvider(tools: Record<string, any>): Record<string, 
   return out;
 }
 
-async function getLocalMcpTools(identity: string, gatewaySelections?: GatewayServerSelection[]) {
+async function getLocalMcpTools(userId: string, gatewaySelections?: GatewayServerSelection[]) {
   const normalizedSelections = normalizeGatewaySelections(gatewaySelections || []);
 
   let subject: string;
   try {
-    subject = getBridgeSubjectFromUserId(identity);
+    subject = getBridgeSubjectFromUserId(userId);
   } catch {
     return { tools: {}, toolIndex: new Map<string, string[]>() };
   }
@@ -303,11 +303,11 @@ async function getLocalMcpTools(identity: string, gatewaySelections?: GatewaySer
 }
 
 async function getRemoteMcpTools(
-  identity: string,
+  userId: string,
   client?: MultiSessionClient,
   agentPreferences: Partial<AgentPreferences> = {}
 ) {
-  const manager = client || new MultiSessionClient(identity);
+  const manager = client || new MultiSessionClient(userId);
 
   if (!client) {
     try {
@@ -344,16 +344,16 @@ async function getRemoteMcpTools(
 }
 
 export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
-  const identity = options.userId?.trim() || "demo-user-123";
+  const userId = options.userId?.trim() || "demo-user-123";
   const initialAgentPreferences = normalizeAgentPreferences(options.agentPreferences);
 
   const { tools: localTools, toolIndex: localIndex } = await getLocalMcpTools(
-    identity,
+    userId,
     options.gatewaySelections
   );
 
   const { manager, tools: remoteTools } = await getRemoteMcpTools(
-    identity,
+    userId,
     undefined,
     initialAgentPreferences
   );

@@ -63,7 +63,7 @@ export type ServerHealthInfo = {
 // MCP Config format for MultiServerMCPClient (client-side, no credentials)
 export type McpConfig = {
   [serverName: string]: {
-    transport: string; // "sse" | "websocket" | "streamable_http"
+    transport: string; // "sse" | "websocket" | "streamable-http"
     url: string;
     sessionId: string; // Session ID to fetch credentials server-side
   };
@@ -168,7 +168,7 @@ export type ParsedRegistryServer = {
   hasRemote: boolean;
   hasPackage: boolean;
   remoteUrl: string | null;
-  transportType: "streamable_http" | "sse" | null;
+  transportType: "streamable-http" | "sse" | null;
   publishedAt: string;
   updatedAt: string;
   isLatest: boolean;

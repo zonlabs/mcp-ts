@@ -1,6 +1,6 @@
-import { MCPClient, storage } from "@mcp-ts/sdk/server";
+import { MCPClient, sessions } from "@mcp-ts/sdk/server";
 
-type SessionData = Awaited<ReturnType<typeof storage.getIdentitySessionsData>>[number];
+type SessionData = Awaited<ReturnType<typeof sessions.list>>[number];
 
 export interface McpToolSummary {
   name: string;
@@ -38,7 +38,7 @@ function toConnectionRecord(
     serverId: session.serverId ?? "unknown",
     serverName: session.serverName ?? "Unknown",
     serverUrl: session.serverUrl,
-    transport: session.transportType ?? "streamable_http",
+    transport: session.transportType ?? "streamable-http",
     createdAt: session.createdAt ?? Date.now(),
     active,
     connectionStatus: active ? "READY" : "FAILED",
@@ -61,11 +61,11 @@ function getStoredConnectionStatus(session: SessionData): string {
 }
 
 export async function getStoredMcpConnectionsForIdentity(
-  identity: string
+  userId: string
 ): Promise<McpConnectionRecord[]> {
-  const sessions = await storage.getIdentitySessionsData(identity);
+  const userSessions = await sessions.list(userId);
 
-  return sessions.map((session) => {
+  return userSessions.map((session) => {
     const connectionStatus = getStoredConnectionStatus(session);
 
     return {
@@ -76,14 +76,14 @@ export async function getStoredMcpConnectionsForIdentity(
 }
 
 export async function getMcpConnectionsForIdentity(
-  identity: string
+  userId: string
 ): Promise<McpConnectionRecord[]> {
-  const sessions = await storage.getIdentitySessionsData(identity);
+  const userSessions = await sessions.list(userId);
 
   const resolved = await Promise.all(
-    sessions.map(async (session): Promise<McpConnectionRecord> => {
+    userSessions.map(async (session): Promise<McpConnectionRecord> => {
       const client = new MCPClient({
-        identity,
+        userId,
         sessionId: session.sessionId,
       });
 
@@ -107,8 +107,9 @@ export async function getMcpConnectionsForIdentity(
 }
 
 export async function getActiveMcpConnections(
-  identity: string
+  userId: string
 ): Promise<McpConnectionRecord[]> {
-  const connections = await getMcpConnectionsForIdentity(identity);
+  const connections = await getMcpConnectionsForIdentity(userId);
   return connections.filter((c) => c.active);
 }
+

@@ -46,7 +46,7 @@ const serverSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Server name is required"),
   description: z.string().optional(),
-  transport: z.enum(["sse", "streamable_http"]),
+  transport: z.enum(["sse", "streamable-http"]),
   categoryIds: z.array(z.string()).optional(),
   url: z.string().optional(),
   command: z.string().optional(),
@@ -142,7 +142,7 @@ export default function ServerForm({
   onSubmit,
   onCancel,
 }: ServerFormProps) {
-  const [transportType, setTransportType] = useState<"sse" | "streamable_http">("streamable_http");
+  const [transportType, setTransportType] = useState<"sse" | "streamable-http">("streamable-http");
   const [useCustomTransport, setUseCustomTransport] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [isValidatingBeforeSubmit, setIsValidatingBeforeSubmit] = useState(false);
@@ -193,7 +193,7 @@ export default function ServerForm({
     defaultValues: {
       name: "",
       description: "",
-      transport: "streamable_http",
+      transport: "streamable-http",
       categoryIds: [],
       url: "",
       command: "",
@@ -243,7 +243,7 @@ export default function ServerForm({
         id: server.id,
         name: server.name,
         description: server.description || "",
-        transport: server.transport as "sse" | "streamable_http",
+        transport: server.transport as "sse" | "streamable-http",
         categoryIds,
         url: server.url || "",
         command: server.command || "",
@@ -256,14 +256,14 @@ export default function ServerForm({
         isPublic: server.isPublic || false,
         headers: headerRecordToRows(server.headers),
       });
-      setTransportType(server.transport as "sse" | "streamable_http");
+      setTransportType(server.transport as "sse" | "streamable-http");
       setUseCustomTransport(true);
     } else {
       setSelectedCategoryIds([]);
       reset({
         name: "",
         description: "",
-        transport: "streamable_http",
+        transport: "streamable-http",
         categoryIds: [],
         url: "",
         command: "",
@@ -272,7 +272,7 @@ export default function ServerForm({
         isPublic: false,
         headers: [],
       });
-      setTransportType("streamable_http");
+      setTransportType("streamable-http");
       setUseCustomTransport(false);
     }
 
@@ -428,7 +428,7 @@ export default function ServerForm({
         id: url || name,
         name,
         url,
-        transportType: useCustomTransport ? transport : "streamable_http",
+        transportType: useCustomTransport ? transport : "streamable-http",
         headers: normalizeHeaderRows(form.headers),
       };
 
@@ -699,12 +699,12 @@ export default function ServerForm({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
                       <label
                         className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          transportType === "streamable_http"
+                          transportType === "streamable-http"
                             ? "border-primary bg-primary/5 shadow-sm"
                             : "border-muted hover:border-primary/50 hover:bg-muted/50"
                         }`}
                       >
-                        <input type="radio" {...register("transport")} value="streamable_http" className="sr-only" />
+                        <input type="radio" {...register("transport")} value="streamable-http" className="sr-only" />
                         <Globe className="h-5 w-5 mb-2" />
                         <span className="font-semibold text-sm">HTTP</span>
                         <span className="text-[10px] text-muted-foreground">Streamable HTTP</span>

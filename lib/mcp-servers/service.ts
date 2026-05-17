@@ -164,7 +164,7 @@ export async function saveUserMcpServer(
   const name = String(body.name || "").trim();
   if (!name) throw new Error("Server name is required");
 
-  const transport = String(body.transport || "streamable_http").trim();
+  const transport = String(body.transport || "streamable-http").trim();
   const row = {
     name,
     description: (body.description as string) || null,

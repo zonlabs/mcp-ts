@@ -10,7 +10,7 @@ export const initiateMcpConnection = tool({
     serverName: z.string().describe('Name of the MCP server'),
     serverUrl: z.string().describe('URL of the MCP server'),
     serverId: z.string().describe('Unique identifier for the server'),
-    transportType: z.enum(['sse', 'streamable_http']).describe('Transport type for MCP connection'),
+    transportType: z.enum(['sse', 'streamable-http']).describe('Transport type for MCP connection'),
   }),
   needsApproval: true, // Require user approval
   async *execute({ serverName, serverUrl, serverId, transportType }) {
