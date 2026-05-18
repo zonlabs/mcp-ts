@@ -107,7 +107,10 @@ This document compares how **`@mcp-ts/sdk`** (client `AppHost`, React `useMcpApp
 
 **`mcp-ts`’s host behavior is much closer to `mcp-ui`** in several areas: proxy sandboxing, CSP hooks, optional client with overrides, streaming/cancellation props, host context, and fullscreen display mode. The main structural difference remains **monolithic `AppHost` + thin React** versus **`AppRenderer` + `AppFrame`**, and **`mcp-ts`’s preload/cache story** is a differentiator for tool-heavy apps.
 
-When choosing: prefer **`mcp-ui`** if you want the reference React decomposition and are building only the host UI layer; prefer **`mcp-ts`** if you already use (or want) the full client/server stack and a single dependency for SSE + OAuth + apps.
+When choosing:
+
+- Prefer **`mcp-ui`** if you want the reference React decomposition and are building only the host UI layer.
+- Prefer **`mcp-ts`** if you already use (or want) the full client/server stack and a single dependency for SSE, OAuth, and apps.
 
 
 

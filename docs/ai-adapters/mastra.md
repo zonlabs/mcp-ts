@@ -31,6 +31,6 @@ const agent = new Agent({
 });
 ```
 
-## API Reference
+## API reference
 
 See the [MastraAdapter API Reference](/reference/server#adapters) for more details.

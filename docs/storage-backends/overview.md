@@ -6,7 +6,7 @@ description: "Compare the mcp-ts storage backends — in-memory, file system, SQ
 
 The library supports multiple storage backends for session persistence, allowing you to choose the best option for your deployment environment.
 
-## Automatic Backend Selection
+## Automatic backend selection
 
 The library automatically selects the appropriate storage backend using this priority:
 
@@ -48,7 +48,7 @@ graph TD
 6. **Auto-detect SQLite**: If `MCP_TS_STORAGE_SQLITE_PATH` is present, use SQLite
 7. **Default**: Fall back to In-Memory storage
 
-## Backend Comparison
+## Backend comparison
 
 | Feature | Redis | Supabase | Neon | SQLite | File System | In-Memory |
 |---------|----------|----------|----------|----------|----------------|--------------|
@@ -60,7 +60,7 @@ graph TD
 | **Serverless** | Yes | Recommended | Recommended | Limited | No | Yes |
 | **Production** | Recommended | Recommended | Recommended | Single-instance | Not recommended | Not recommended |
 
-## Custom Backend Implementation
+## Custom backend implementation
 
 You can use specific storage backends directly:
 
@@ -97,7 +97,7 @@ await neonStorage.init();
 const memoryStorage = new MemoryStorageBackend();
 ```
 
-## Session Data Structure
+## Session data structure
 
 All backends store the same session data structure:
 

@@ -50,7 +50,7 @@ const { tools } = useMcp({
 });
 ```
 
-## 3. Database Schema Migrations
+## 3. Database schema migrations
 
 If you are using a database-backed storage solution such as **Supabase**, **Neon**, **SQLite**, or any other SQL backend, the schema has changed to reflect the new `sessions` and `userId` terminology.
 

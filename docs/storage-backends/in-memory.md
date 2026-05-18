@@ -23,7 +23,7 @@ MCP_TS_STORAGE_TYPE=memory
 
 ### Usage
 
-### Option 1: Default Usage
+### Option 1: Default usage
 
 The global `sessions` proxy uses the In-Memory backend by default if no other storage environment variables are configured.
 
@@ -41,7 +41,7 @@ await sessions.create({
 });
 ```
 
-### Option 2: Manual Instantiation
+### Option 2: Manual instantiation
 
 ```typescript
 import { MemoryStorageBackend } from '@mcp-ts/sdk/server';

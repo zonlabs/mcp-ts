@@ -7,7 +7,7 @@ icon: "react"
 
 The `useMcp` hook provides a simple way to manage MCP connections in React applications.
 
-## Basic Usage
+## Basic usage
 
 ```typescript
 import { useMcp } from '@mcp-ts/sdk/client';
@@ -32,7 +32,7 @@ function MyComponent() {
 }
 ```
 
-## Configuration Options
+## Configuration options
 
 ```typescript
 useMcp({
@@ -63,7 +63,7 @@ useMcp({
 })
 ```
 
-## Return Values
+## Return values
 
 ### State
 
@@ -78,7 +78,7 @@ const {
 } = useMcp({...});
 ```
 
-### Connection Methods
+### Connection methods
 
 ```typescript
 // Connect to an MCP server
@@ -103,7 +103,7 @@ disconnectSSE();
 await finishAuth(code, state);
 ```
 
-### Tool Operations
+### Tool operations
 
 ```typescript
 // Call a tool
@@ -115,7 +115,7 @@ const result = await callTool(sessionId, 'tool_name', {
 const tools = await listTools(sessionId);
 ```
 
-### Prompt Operations
+### Prompt operations
 
 ```typescript
 // List available prompts
@@ -127,7 +127,7 @@ const prompt = await getPrompt(sessionId, 'prompt_name', {
 });
 ```
 
-### Resource Operations
+### Resource operations
 
 ```typescript
 // List available resources
@@ -137,7 +137,7 @@ const { resources } = await listResources(sessionId);
 const resource = await readResource(sessionId, 'file:///path');
 ```
 
-### Utility Methods
+### Utility methods
 
 ```typescript
 // Get connection by session ID
@@ -153,7 +153,7 @@ const isConnected = isServerConnected(serverId);
 const tools = getTools(sessionId);
 ```
 
-## Connection Object
+## Connection object
 
 Each connection has the following structure:
 
@@ -170,7 +170,7 @@ interface Connection {
 }
 ```
 
-## Connection States
+## Connection states
 
 Connections progress through these states:
 
@@ -187,7 +187,7 @@ type McpConnectionState =
   | 'FAILED';           // Connection failed
 ```
 
-## Event Handling
+## Event handling
 
 Handle connection events for custom logic:
 
@@ -224,7 +224,7 @@ const { connections } = useMcp({
 
 ## Examples
 
-### Connect and Call Tool
+### Connect and call a tool
 
 ```typescript
 function ToolCaller() {
@@ -253,7 +253,7 @@ function ToolCaller() {
 }
 ```
 
-### Display Connection Status
+### Display connection status
 
 ```typescript
 function ConnectionStatus() {
@@ -291,7 +291,7 @@ function ConnectionStatus() {
 }
 ```
 
-### Handle OAuth Redirect
+### Handle an OAuth redirect
 
 ```typescript
 function McpWithAuth() {
@@ -319,7 +319,7 @@ function McpWithAuth() {
 }
 ```
 
-## OAuth UI Patterns
+## OAuth UI patterns
 
 OAuth handling in the React client is built around two core primitives:
 
@@ -429,7 +429,7 @@ export default function OAuthCallbackPage() {
 
 Use this when you do not want popups at all and prefer a normal callback route.
 
-## TypeScript Types
+## TypeScript types
 
 Import types for better type safety:
 
@@ -441,8 +441,8 @@ import type {
 } from '@mcp-ts/sdk/shared';
 ```
 
-## Next Steps
+## Next steps
 
 - [MCP Apps](/mcp-apps) — Interactive tool UIs (`McpAppRenderer`, sandbox proxy, AppBridge)
-- [API Reference](/reference/server) - Complete API documentation
+- [API reference](/reference/server) - Complete API documentation
 - [Examples](https://github.com/zonlabs/mcp-ts/tree/main/examples) - More practical examples

@@ -8,14 +8,14 @@ When the `ToolRouter` is set to the `search` strategy, it hides your real MCP to
 
 These tools follow the "Tool Search" pattern, allowing the LLM to autonomously find, inspect, and execute relevant capabilities from a massive catalog.
 
-## The Meta-Tool Catalog
+## The meta-tool catalog
 
 ### `mcp_search_tools`
 The primary entry point for discovery. The LLM calls this with a natural language query to find tools. The backend uses an in-memory BM25 index combined with smart heuristics to rank results.
 - **Input**: `query` (string), `operation` (`"search"` or `"list"`), `serverId`/`serverName` (optional), `limit` (number), `cursor` (optional).
 - **Output**: A list of tool names, descriptions, and the servers they belong to.
 
-#### Advanced Search Features
+#### Advanced search features
 The `mcp_search_tools` meta-tool supports a powerful query syntax that helps the AI zero in on exact capabilities without context bloat:
 
 - **Direct Tool Selection (`select:<name>`)**: If the AI already knows the exact tool it wants to use (e.g., from past context), it can bypass the BM25 index entirely.
@@ -57,7 +57,7 @@ The proxy executor for all discovered tools.
 
 ---
 
-## The Discovery Lifecycle
+## The discovery lifecycle
 
 The `mcp-ts` SDK implements the following flow to minimize context usage while maintaining capability:
 
@@ -76,7 +76,7 @@ The `mcp-ts` SDK implements the following flow to minimize context usage while m
   </Step>
 </Steps>
 
-## Why use Meta-Tools?
+## Why use meta-tools?
 
 1. **Context Density**: You can give an LLM access to 1,000 tools without using more than a few hundred tokens of "resting" context.
 2. **Reduced Hallucinations**: Because the LLM "finds" the tool definition right before using it, it is less likely to hallucinate parameters or use the wrong tool.

@@ -6,7 +6,7 @@ description: "Compare the mcp-ts adapters for Vercel AI SDK, LangChain, Mastra, 
 
 Adapters transforms MCP tools into framework-specific formats for seamless integration with AI frameworks.
 
-## Available Adapters
+## Available adapters
 
 | Adapter | Framework | Import Path | Dependencies |
 |---------|-----------|-------------|--------------|
@@ -15,9 +15,9 @@ Adapters transforms MCP tools into framework-specific formats for seamless integ
 | **Mastra** | Mastra | `@mcp-ts/sdk/adapters/mastra` | `zod` |
 | **AG-UI** | AG-UI Protocol | `@mcp-ts/sdk/adapters/agui-adapter` | `@ag-ui/client`, `rxjs` |
 
-## Common Patterns
+## Common patterns
 
-### Custom Prefix
+### Custom prefix
 
 Avoid tool name collisions by adding a custom prefix to all tools from a specific adapter:
 
@@ -27,11 +27,11 @@ const adapter = new AIAdapter(client, {
 });
 ```
 
-### Single Client vs. Multi-Session
+### Single client vs. multi-session
 
 Adapters work with both individual `MCPClient` instances andaggregated `MultiSessionClient`.
 
-#### Single Client
+#### Single client
 ```typescript
 import { MCPClient } from '@mcp-ts/sdk/server';
 
@@ -46,7 +46,7 @@ await client.connect();
 const adapter = new AIAdapter(client);
 ```
 
-#### Multi-Session
+#### Multi-session
 ```typescript
 const client = new MultiSessionClient('user_123');
 
@@ -58,7 +58,7 @@ const adapter = new AIAdapter(client);
 const tools = await adapter.getTools();
 ```
 
-## Error Handling
+## Error handling
 
 All adapters handle disconnected clients gracefully:
 

@@ -7,7 +7,7 @@ icon: "vuejs"
 
 The `@mcp-ts/sdk/client/vue` package provides a composable for managing MCP connections in Vue 3 applications.
 
-## Basic Usage
+## Basic usage
 
 ```vue
 <script setup lang="ts">
@@ -30,7 +30,7 @@ const { connections, connect, status } = useMcp({
 </template>
 ```
 
-## Composable Options
+## Composable options
 
 ```typescript
 useMcp({
@@ -55,7 +55,7 @@ useMcp({
 })
 ```
 
-## Return Values
+## Return values
 
 The `useMcp` composable returns reactive references (Refs):
 
@@ -73,7 +73,7 @@ const {
 } = useMcp(...);
 ```
 
-## Example Component
+## Example component
 
 ```vue
 <script setup lang="ts">
@@ -138,7 +138,7 @@ const getWeather = async (sessionId: string) => {
 </style>
 ```
 
-## Next Steps
+## Next steps
 
-- [API Reference](/reference/server) - Complete API reference
+- [API reference](/reference/server) - Complete API reference
 - [Examples](https://github.com/zonlabs/mcp-ts/tree/main/examples) - More code examples

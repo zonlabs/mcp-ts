@@ -33,7 +33,7 @@ const result = await streamText({
 });
 ```
 
-## API Reference
+## API reference
 
 The `AIAdapter` constructor accepts the following options:
 

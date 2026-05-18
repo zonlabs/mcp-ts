@@ -7,14 +7,14 @@ icon: "gear"
 
 The MCP Gateway reads its server definitions from a simple JSON configuration file.
 
-### File Location
+### File location
 
 The configuration file is located at the following path based on your operating system:
 
 - **Windows**: `%USERPROFILE%\.mcpassistant\mcp.json`
 - **UNIX/macOS**: `~/.mcpassistant/mcp.json`
 
-### mcp.json Structure
+### mcp.json structure
 
 Add your local MCP servers to the `mcpServers` object. The Gateway will automatically discover these when you run the `/start` command.
 

@@ -14,19 +14,19 @@ The `ToolRouter` sits between your AI adapter and your MCP clients, allowing you
 
 The `ToolRouter` supports three primary strategies for tool filtering:
 
-### 1. The `all` Strategy (Default)
+### 1. The `all` strategy (default)
 In this strategy, every discovered tool is passed through to the LLM. 
 - **Pros**: Zero latency, simple configuration.
 - **Cons**: High token usage, limited by the model's context window.
 - **Best for**: Small projects with fewer than 10-15 tools.
 
-### 2. The `search` Strategy (Scalability)
+### 2. The `search` strategy (scalability)
 This is the most advanced strategy. Instead of exposing your real tools, the SDK injects 5 system **Meta-Tools**. The LLM then "searches" for the tools it needs on-demand.
 - **Pros**: Virtually unlimited scalability (1000+ tools), minimal token usage, higher accuracy.
 - **Cons**: Requires a 2-turn flow for tool discovery.
 - **Best for**: Enterprise applications and deep tool catalogs.
 
-### 3. The `groups` Strategy (Contextual)
+### 3. The `groups` strategy (contextual)
 Expose specific groups of tools based on the current application state or user intent.
 - **Pros**: Highly predictable, manageable token usage.
 - **Cons**: Requires manual group definitions.
@@ -34,7 +34,7 @@ Expose specific groups of tools based on the current application state or user i
 
 ---
 
-## Basic Usage
+## Basic usage
 
 To use the `ToolRouter`, initialize it with your `MultiSessionClient` and pass it to the `AIAdapter`.
 
@@ -62,7 +62,7 @@ export async function createMcpAgent(userId: string = "user-123") {
 }
 ```
 
-## Options Reference
+## Options reference
 
 | Property | Type | Default | Description |
 | :-- | :-- | :-- | :-- |
@@ -74,7 +74,7 @@ export async function createMcpAgent(userId: string = "user-123") {
 
 ---
 
-## Advanced: Semantic Search
+## Advanced: semantic search
 
 By default, the `search` strategy uses keyword-based BM25 matching. For even better results, you can provide an `embedFn` to enable semantic search.
 

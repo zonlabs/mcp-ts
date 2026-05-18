@@ -13,7 +13,7 @@ This guide will help you set up a basic MCP connection using `mcp-ts`.
 npm install @mcp-ts/sdk
 ```
 
-## 2. Server-Side Setup (Next.js)
+## 2. Server-side setup (Next.js)
 
 Create an API route at `app/api/mcp/route.ts` to handle MCP connections.
 
@@ -25,7 +25,7 @@ export const { GET, POST } = createNextMcpHandler({
 });
 ```
 
-## 3. Client-Side Setup
+## 3. Client-side setup
 
 Use the `useMcp` hook in your React component to connect and call tools.
 
@@ -67,7 +67,7 @@ export function McpApp() {
 }
 ```
 
-## 4. Environment Variables
+## 4. Environment variables
 
 By default, `mcp-ts` uses in-memory storage. For persistence, add a backend like Redis:
 
@@ -75,8 +75,8 @@ By default, `mcp-ts` uses in-memory storage. For persistence, add a backend like
 REDIS_URL=redis://localhost:6379
 ```
 
-## Next Steps
+## Next steps
 
-- Integrate with [AI SDK](/ai-adapters/ai-sdk)
-- Configure [Production Storage](/storage-backends/redis)
-- Explore the [API Reference](/reference/server)
+- Integrate with the [AI SDK](/ai-adapters/ai-sdk)
+- Configure [production storage](/storage-backends/redis)
+- Explore the [API reference](/reference/server)

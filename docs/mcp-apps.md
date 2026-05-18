@@ -144,7 +144,7 @@ If your agent streams tool arguments or can cancel a run, pass through:
 
 If `onCallTool` / `onReadResource` are omitted, the host forwards to `mcpClient.sseClient` using the session inferred from the tool metadata.
 
-## Tool metadata & Proxy Unwrapping
+## Tool metadata and proxy unwrapping
 
 `getMcpAppMetadata` and `McpAppRenderer` look up UI resources using the first match on the tool name. 
 Crucially, they both natively support unwrapping **ToolRouter proxies** (e.g., `mcp_execute_tool`). If a proxy wrapper is encountered, it seamlessly inspects the `input` arguments, resolves the true underlying tool name, strips any prefixes like `tool_github_...`, and returns the underlying UI.

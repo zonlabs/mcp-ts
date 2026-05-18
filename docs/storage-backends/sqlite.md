@@ -44,7 +44,7 @@ If `MCP_TS_STORAGE_TYPE` is not set, the storage layer also auto-detects SQLite 
 
 ## Usage
 
-### Option 1: Automatic Detection (Recommended)
+### Option 1: Automatic detection (recommended)
 
 When `MCP_TS_STORAGE_TYPE=sqlite` or `MCP_TS_STORAGE_SQLITE_PATH` are present in your environment, the global `sessions` proxy automatically uses the SQLite backend.
 
@@ -56,7 +56,7 @@ const sessionList = await sessions.list('user-123');
 console.log('Stored sessions:', sessionList);
 ```
 
-### Option 2: Manual Instantiation
+### Option 2: Manual instantiation
 
 If you want to manage the SQLite backend yourself:
 
@@ -79,7 +79,7 @@ Install the optional dependency in the application that uses SQLite storage:
 npm install better-sqlite3
 ```
 
-### Database Path Is Not Writable
+### Database path is not writable
 
 Make sure the parent directory exists and is writable by the process:
 

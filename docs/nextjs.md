@@ -7,9 +7,9 @@ icon: "n"
 
 Complete guide for integrating mcp-ts with Next.js applications (App Router and Pages Router).
 
-## App Router (Recommended)
+## App Router (recommended)
 
-### Step 1: Create API Route
+### Step 1: Create the API route
 
 Create an API route handler at `app/api/mcp/route.ts`:
 
@@ -36,7 +36,7 @@ export const { GET, POST } = createNextMcpHandler({
 });
 ```
 
-### Step 2: Create Client Component
+### Step 2: Create the client component
 
 Create a component at `components/McpConnections.tsx`:
 
@@ -105,7 +105,7 @@ export function McpConnections({ userId }: { userId: string }) {
 }
 ```
 
-### Step 3: Use in Page
+### Step 3: Use it in a page
 
 Use the component in your page at `app/page.tsx`:
 
@@ -168,7 +168,7 @@ For more details, see the [AI SDK Adapter documentation](/ai-adapters/ai-sdk).
 
 ## Pages Router
 
-### Step 1: Create API Route
+### Step 1: Create the API route
 
 Create `pages/api/mcp/sse.ts`:
 
@@ -195,11 +195,11 @@ export default async function handler(
 }
 ```
 
-### Step 2: Create Component
+### Step 2: Create the component
 
 Same as App Router component above.
 
-### Step 3: Use in Page
+### Step 3: Use it in a page
 
 ```typescript
 import { McpConnections } from '@/components/McpConnections';
@@ -216,7 +216,7 @@ export default function Home() {
 }
 ```
 
-## OAuth Callback Handler
+## OAuth callback handler
 
 Handle OAuth callbacks at `app/oauth/callback-popup/page.tsx` (for popups) or `app/oauth/callback/page.tsx` (for redirects):
 
@@ -310,7 +310,7 @@ These helpers are optional. If you prefer a branded popup page, pass custom
 styles/props to `McpOAuthCallbackContent`, or skip popups entirely and use a
 normal redirect callback page with `finishAuth(sessionId, code)`.
 
-## Environment Variables
+## Environment variables
 
 Add to `.env.local`:
 
@@ -322,7 +322,7 @@ REDIS_URL=redis://localhost:6379
 REDIS_URL=rediss://default:password@host.upstash.io:6379
 ```
 
-## Production Deployment
+## Production deployment
 
 ### Vercel
 
@@ -334,14 +334,14 @@ REDIS_URL=rediss://default:password@host.upstash.io:6379
 vercel deploy
 ```
 
-### Other Platforms
+### Other platforms
 
 Ensure your platform supports:
 - Node.js runtime (for API routes)
 - Environment variables
 - WebSocket/SSE connections
 
-## Complete Example
+## Complete example
 
 Here's a full working example:
 
@@ -412,8 +412,8 @@ export function McpClient({ userId }: { userId: string }) {
 }
 ```
 
-## Next Steps
+## Next steps
 
-- [React Hook API](/react) - Detailed hook documentation
-- [API Reference](/reference/server) - Complete API reference
+- [React hook API](/react) - Detailed hook documentation
+- [API reference](/reference/server) - Complete API reference
 - [Examples](https://github.com/zonlabs/mcp-ts/tree/main/examples) - More code examples

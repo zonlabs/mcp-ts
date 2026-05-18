@@ -34,11 +34,11 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 **Always use `SUPABASE_SERVICE_ROLE_KEY`** for server-side storage — not `SUPABASE_ANON_KEY`. The anon key is subject to Row Level Security (RLS) policies which will block session creation. The service_role key is designed for trusted server-to-server communication and bypasses RLS. Find it in: **Supabase Dashboard → Project Settings → API → service_role**.
 </Warning>
 
-## Database Setup
+## Database setup
 
 To use Supabase as a storage backend, you must create the `mcp_sessions` table and configure RLS policies.
 
-### Option A: Supabase CLI (Recommended)
+### Option A: Supabase CLI (recommended)
 You can easily "eject" the required migration SQL into your own project using the built-in CLI:
 
 1. Run the initialization command:
@@ -53,10 +53,10 @@ You can easily "eject" the required migration SQL into your own project using th
    npx supabase db push
    ```
 
-### Option B: SQL Editor (Manual)
+### Option B: SQL editor (manual)
 If you prefer manual setup, copy the SQL from the [migration file](https://github.com/zonlabs/mcp-ts/blob/main/migrations/supabase/20260330195700_install_mcp_sessions.sql) and run it in the Supabase Dashboard SQL Editor.
 
-### Why RLS ?
+### Why RLS?
 
 `mcp-ts` uses the `service_role` key for server-side Supabase storage, and that key bypasses RLS. Session access is still scoped by `userId` in application queries.
 
@@ -71,7 +71,7 @@ The migration also defines RLS policies for Supabase's authenticated client path
 - **Cloud-native** and serverless friendly
 - **Application-level AES-256-GCM encryption** for `tokens` and `headers`
 
-## Session Cleanup
+## Session cleanup
 
 When a client disconnects unexpectedly or a connection error occurs during setup, session data can become stale in the database. To prevent leftover data from accumulating, `mcp-ts` includes a migration that sets up automatic cleanup jobs using PostgreSQL's [`pg_cron`](https://supabase.com/docs/guides/database/extensions/pg_cron) extension.
 
@@ -79,7 +79,7 @@ When a client disconnects unexpectedly or a connection error occurs during setup
 The `pg_cron` extension is available on all Supabase plans (including Free). The cleanup migrations are included automatically when you run `npx mcp-ts supabase-init`.
 </Info>
 
-### Session Lifecycle Management
+### Session lifecycle management
 
 `mcp-ts` implements a multi-stage automated cleanup strategy to keep your database lean while preserving long-lived automation credentials:
 
@@ -99,14 +99,14 @@ A safety net for successfully established sessions (`active = true`) that have b
 DELETE FROM mcp_sessions WHERE active = true AND updated_at < now() - interval '30 days';
 ```
 
-### How It Works
+### How it works
 
 1. **Transient State**: All new sessions start with `active: false` and a restricted 10-minute TTL.
 2. **Promotion**: Upon successful handshake or OAuth completion, the session is promoted to `active: true` with a 12-hour sliding-window `expires_at`.
 3. **Persistence**: Active sessions are **explicitly excluded** from the high-frequency 5-minute sweep. This makes them safe for persistent automation and scheduled workflows.
 4. **Eviction**: If an active session is not used or refreshed for 30 consecutive days, it is considered dormant and is evicted by the daily sweep.
 
-### Customizing the Lifecycle
+### Customizing the lifecycle
 
 You can modify the cron schedules directly in your Supabase SQL editor:
 
@@ -125,7 +125,7 @@ SELECT cron.alter_job(
 );
 ```
 
-### Disabling Management
+### Disabling management
 
 To disable the automated lifecycle management entirely:
 
@@ -136,7 +136,7 @@ SELECT cron.unschedule('cleanup-dormant-sessions');
 
 ## Usage
 
-### Option 1: Automatic Detection (Recommended)
+### Option 1: Automatic detection (recommended)
 
 When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are present in your environment, the global `sessions` proxy automatically uses the Supabase backend.
 
@@ -155,7 +155,7 @@ await sessions.create({
 });
 ```
 
-### Option 2: Manual Instantiation
+### Option 2: Manual instantiation
 
 If you want to manage the Supabase client yourself or use multiple storage backends:
 
@@ -183,7 +183,7 @@ await supabaseBackend.create({
 });
 ```
 
-## Encryption at Rest
+## Encryption at rest
 
 The Supabase backend automatically encrypts sensitive session fields (`tokens` and `headers`) using **AES-256-GCM** before writing to the database. All encryption/decryption happens transparently in your Node.js application — Supabase only ever sees cipher text.
 

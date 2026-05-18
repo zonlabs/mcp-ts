@@ -42,6 +42,6 @@ const adapter = new LangChainAdapter(client, {
 });
 ```
 
-## API Reference
+## API reference
 
 See the [LangChainAdapter API Reference](/reference/server#adapters) for more details.

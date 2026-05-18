@@ -32,7 +32,7 @@ MCP_TS_STORAGE_TYPE=memory
 
 ---
 
-### Storage Methods
+### Storage methods
 
 **`generateSessionId(): string`**
 
@@ -160,7 +160,7 @@ await sessions.disconnect();
 
 ---
 
-### Custom Session Stores
+### Custom session stores
 
 You can also use specific session store backends directly:
 

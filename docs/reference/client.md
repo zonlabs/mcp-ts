@@ -93,7 +93,7 @@ interface McpAppMetadata {
 URI resolution uses `tool.mcpApp.resourceUri`, then `tool._meta?.ui?.resourceUri`, then `tool._meta?.['ui/resourceUri']`. 
 When `input` is provided, it automatically unwraps AI agent proxy calls (like `mcp_execute_tool`), resolves the true tool target, and returns the underlying UI metadata.
 
-#### `McpAppRenderer` Component
+#### `McpAppRenderer` component
 
 The standalone `<McpAppRenderer>` element is the primary engine for rendering inline MCP interactive apps inside a secure iframe Sandbox using AppBridge.
 For `ui://` / `mcp-app://` HTML (and any injected HTML path), you must pass **`sandbox`** with your hosted proxy page (see [MCP Apps](/mcp-apps)).

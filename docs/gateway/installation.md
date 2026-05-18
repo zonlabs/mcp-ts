@@ -15,7 +15,7 @@ To launch the gateway shell without a manual installation, run:
 uvx mcpassistant-gateway
 ```
 
-### Initial Setup
+### Initial setup
 
 Once the shell is open, follow these steps to initialize your bridge:
 

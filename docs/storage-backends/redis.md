@@ -40,7 +40,7 @@ REDIS_URL=rediss://default:password@host.upstash.io:6379
 
 ## Usage
 
-### Option 1: Automatic Detection (Recommended)
+### Option 1: Automatic detection (recommended)
 
 When `REDIS_URL` is present in your environment, the global `sessions` proxy automatically uses the Redis backend.
 
@@ -61,7 +61,7 @@ await sessions.create({
 });
 ```
 
-### Option 2: Manual Instantiation
+### Option 2: Manual instantiation
 
 If you want to manage the Redis client yourself or use multiple storage backends:
 
@@ -85,7 +85,7 @@ await redisBackend.create({
 
 ## Troubleshooting
 
-### Redis Connection Failed
+### Redis connection failed
 
 ```bash
 # Verify Redis is running

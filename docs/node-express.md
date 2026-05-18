@@ -7,15 +7,15 @@ icon: "node-js"
 
 The `@mcp-ts/sdk/server` package provides handlers for standard Node.js and Express applications.
 
-## Server-Side Setup
+## Server-side setup
 
-### Step 1: Install Dependencies
+### Step 1: Install dependencies
 
 ```bash
 npm install express @mcp-ts/sdk
 ```
 
-### Step 2: Create SSE Handler
+### Step 2: Create the SSE handler
 
 Create a file named `mcp-handler.ts`:
 
@@ -43,7 +43,7 @@ router.get('/sse', (req, res) => {
 export default router;
 ```
 
-### Step 3: Mount the Router
+### Step 3: Mount the router
 
 In your main `app.ts` or `index.ts`:
 
@@ -60,7 +60,7 @@ app.listen(3000, () => {
 });
 ```
 
-## Client-Side Setup
+## Client-side setup
 
 You can use the `@mcp-ts/sdk/client` in any frontend application.
 
@@ -93,7 +93,7 @@ export function McpApp() {
 }
 ```
 
-## Environment Configuration
+## Environment configuration
 
 Ensure your Express server has access to Redis or another storage backend:
 
@@ -101,8 +101,8 @@ Ensure your Express server has access to Redis or another storage backend:
 REDIS_URL=redis://localhost:6379
 ```
 
-## Next Steps
+## Next steps
 
-- [Next.js Integration](/nextjs)
-- [React Hook API](/react)
-- [Storage Overview](/storage-backends/overview)
+- [Next.js integration](/nextjs)
+- [React hook API](/react)
+- [Storage overview](/storage-backends/overview)

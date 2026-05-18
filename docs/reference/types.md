@@ -5,7 +5,7 @@ description: "Reference for core mcp-ts TypeScript types and error classes, incl
 icon: "code"
 ---
 
-### Connection Types
+### Connection types
 
 ```typescript
 import type {
@@ -33,7 +33,7 @@ type McpConnectionEvent =
   | { type: 'progress'; sessionId: string; message: string; /* ... */ };
 ```
 
-### Tool Types
+### Tool types
 
 ```typescript
 import type { ToolInfo } from '@mcp-ts/sdk/shared';
@@ -49,7 +49,7 @@ interface ToolInfo {
 }
 ```
 
-### Session Types
+### Session types
 
 ```typescript
 interface Session {
@@ -71,7 +71,7 @@ interface Session {
 }
 ```
 
-## Error Handling
+## Error handling
 
 ### UnauthorizedError
 

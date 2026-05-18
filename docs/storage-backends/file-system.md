@@ -31,7 +31,7 @@ MCP_TS_STORAGE_FILE=./sessions.json
 
 ## Usage
 
-### Option 1: Automatic Detection (Recommended)
+### Option 1: Automatic detection (recommended)
 
 When `MCP_TS_STORAGE_FILE` is present in your environment, the global `sessions` proxy automatically uses the File System backend.
 
@@ -43,7 +43,7 @@ const sessionList = await sessions.list('user-123');
 console.log('Stored sessions:', sessionList);
 ```
 
-### Option 2: Manual Instantiation
+### Option 2: Manual instantiation
 
 If you want to manage the File System backend yourself:
 
@@ -56,7 +56,7 @@ await fileBackend.init();
 const sessionList = await fileBackend.list('user-123');
 ```
 
-### File Format
+### File format
 
 ```json
 [
@@ -76,7 +76,7 @@ const sessionList = await fileBackend.list('user-123');
 
 ## Troubleshooting
 
-### File Storage Not Persisting
+### File storage not persisting
 
 ```bash
 # Check file permissions

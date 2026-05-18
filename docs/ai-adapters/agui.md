@@ -12,7 +12,7 @@ The AG-UI adapter and middleware enable seamless execution of MCP tools with rem
 npm install @mcp-ts/sdk @ag-ui/client rxjs
 ```
 
-## AG-UI Adapter
+## AG-UI adapter
 
 The `AguiAdapter` converts MCP tools into the AG-UI protocol format.
 
@@ -34,11 +34,11 @@ const toolDefinitions = await adapter.getToolDefinitions();
 
 ---
 
-## AG-UI Middleware
+## AG-UI middleware
 
 The AG-UI middleware enables server-side execution of MCP tools. This is essential when your agent runs on a separate backend but needs to execute MCP tools that require server-side access (like database or file system access).
 
-### How It Works
+### How it works
 
 ```mermaid
 sequenceDiagram
@@ -101,7 +101,7 @@ export const POST = async (req: NextRequest) => {
 };
 ```
 
-### Event Flow
+### Event flow
 
 The middleware intercepts AG-UI events and executes MCP tools:
 
@@ -113,7 +113,7 @@ The middleware intercepts AG-UI events and executes MCP tools:
 | `RUN_FINISHED` | Executes pending MCP tools, emits results, triggers new run |
 | `TOOL_CALL_RESULT` | Emitted by middleware with MCP tool results |
 
-### Configuration Options
+### Configuration options
 
 ```typescript
 createMcpMiddleware({

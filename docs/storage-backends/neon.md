@@ -108,7 +108,7 @@ EXECUTE FUNCTION public.set_current_timestamp_updated_at();
 
 ## Usage
 
-### Option 1: Automatic Detection (Recommended)
+### Option 1: Automatic detection (recommended)
 
 When `MCP_TS_STORAGE_TYPE=neon` and `NEON_DATABASE_URL` are present in your environment, the global `sessions` proxy automatically uses the Neon backend.
 
@@ -119,7 +119,7 @@ import { sessions } from '@mcp-ts/sdk/server';
 const sessionList = await sessions.list('user-123');
 ```
 
-### Option 2: Manual Instantiation
+### Option 2: Manual instantiation
 
 If you want to manage the Neon SQL client yourself or use multiple storage backends:
 
