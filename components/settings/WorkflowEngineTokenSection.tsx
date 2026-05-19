@@ -1,9 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { toast } from "react-hot-toast";
+import {
+  BookOpen,
+  Check,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Link2,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -12,27 +32,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Loader2,
-  Copy,
-  Check,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  Plus,
-  Trash2,
-  ChevronDown,
-  KeyRound,
-  BookOpen,
-} from "lucide-react";
-import Link from "next/link";
-import { toast } from "react-hot-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
 type WorkflowApiKeyRow = {
@@ -50,13 +51,11 @@ type TokenPayload = {
 };
 
 function maskToken(token: string): string {
-  if (token.length <= 24) return "•".repeat(Math.min(token.length, 24));
-  return `${token.slice(0, 12)}${"•".repeat(24)}${token.slice(-12)}`;
+  if (token.length <= 24) return "*".repeat(Math.min(token.length, 24));
+  return `${token.slice(0, 12)}${"*".repeat(24)}${token.slice(-12)}`;
 }
 
-/** Hosted workflow engine landing (connection docs, etc.). */
 const WORKFLOW_ENGINE_SITE_URL = "https://run.mcp-assistant.in";
-/** MCP endpoint URL for client configuration (streamable HTTP). */
 const WORKFLOW_MCP_HTTP_URL = `${WORKFLOW_ENGINE_SITE_URL}/api/mcp`;
 
 export function WorkflowEngineTokenSection() {
@@ -80,6 +79,7 @@ export function WorkflowEngineTokenSection() {
   const [jwtRevealed, setJwtRevealed] = useState(false);
   const [jwtCopied, setJwtCopied] = useState(false);
   const [jwtRefreshing, setJwtRefreshing] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const loadKeys = useCallback(async () => {
     setKeysLoading(true);
@@ -152,7 +152,7 @@ export function WorkflowEngineTokenSection() {
         setSecretOpen(true);
         setCreateOpen(false);
         setNewLabel("");
-        toast.success("API key created — copy it now; it will not be shown again.");
+        toast.success("API key created - copy it now; it will not be shown again.");
         void loadKeys();
       }
     } catch {
@@ -193,6 +193,17 @@ export function WorkflowEngineTokenSection() {
     }
   };
 
+  const copyServerUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(WORKFLOW_MCP_HTTP_URL);
+      setUrlCopied(true);
+      toast.success("Copied");
+      setTimeout(() => setUrlCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
   const closeSecretDialog = () => {
     setSecretOpen(false);
     setPlainApiKey(null);
@@ -214,243 +225,240 @@ export function WorkflowEngineTokenSection() {
     <section className="space-y-6">
       <div className="flex items-start gap-3">
         <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-        <div className="min-w-0 space-y-1.5">
+        <div className="min-w-0 space-y-1">
           <h2 className="text-xl font-instrument-serif font-medium tracking-wide">Workflow Automation Engine</h2>
-          <p className="text-pretty text-[15px] font-instrument-serif tracking-wide leading-relaxed text-muted-foreground">
-            Revocable API keys for MCP clients and automation. Use as{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.7rem]">
-              Authorization: Bearer
-            </code>{" "}
-            on the engine and when authorizing OAuth.{" "}
-            <a
-              href={WORKFLOW_ENGINE_SITE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-foreground underline decoration-muted-foreground underline-offset-4 transition-colors hover:decoration-foreground"
-            >
-              run.mcp-assistant.in
-            </a>
-            .
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Create revocable keys for MCP clients and automation.
           </p>
         </div>
       </div>
 
-      <div className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em]">Your API keys</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Keys start with <code className="rounded bg-muted px-1 font-mono">wfmcp_</code>
-                </p>
-              </div>
-              <Button type="button" size="sm" className="shrink-0" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Create key
-              </Button>
-            </div>
-
-            {keysLoading ? (
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-10 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading keys…
-              </div>
-            ) : keysError ? (
-              <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                {keysError}
-              </div>
-            ) : keys.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No keys yet. Create one to connect MCP clients and scripts to the engine.
-                </p>
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {keys.map((k) => (
-                  <li
-                    key={k.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/30"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-mono text-xs font-medium tracking-wide">{k.key_prefix}…</p>
-                      {k.label && (
-                        <p className="text-muted-foreground text-xs mt-0.5">{k.label}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Created {new Date(k.created_at).toLocaleDateString()}
-                        {k.last_used_at &&
-                          ` · Last used ${new Date(k.last_used_at).toLocaleDateString()}`}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => void handleRevoke(k.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                      Revoke
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-              <BookOpen className="h-4 w-4 text-muted-foreground" aria-hidden />
-              ChatGPT, Claude, and other MCP apps
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Connecting from{" "}
-              <span className="font-medium text-foreground">ChatGPT</span>,{" "}
-              <span className="font-medium text-foreground">Claude</span>,{" "}
-              <span className="font-medium text-foreground">Cursor</span>, or any client that supports{" "}
-              <span className="font-medium text-foreground">MCP</span>? Create a{" "}
-              <span className="font-medium text-foreground">workflow API key</span> above. When your
-              app opens the Workflow Automation Engine sign-in page in the browser, paste that key there
-              to complete setup (or use a short-lived session token from Advanced below). The app then
-              keeps the access token it receives and uses it to talk to the engine—no need to copy it
-              again.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">MCP server URL</span>
-            </p>
-            <code className="block break-all rounded-md bg-muted px-2 py-1.5 font-mono text-[0.7rem] text-foreground">
+      <div className="space-y-2">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Endpoint</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <code className="block rounded-md bg-muted px-2.5 py-2 font-mono text-[0.72rem] text-foreground sm:inline-block">
               {WORKFLOW_MCP_HTTP_URL}
             </code>
-            {oauthIssuer ? (
-              <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
-                <a
-                  href={`${oauthIssuer}/.well-known/oauth-authorization-server`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  OAuth server metadata
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
-            ) : null}
-            {authorizeUrl ? (
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Example authorize URL:</span>{" "}
-                <code className="mt-1 block break-all rounded-md bg-muted px-2 py-1.5 font-mono text-[0.65rem]">
-                  {authorizeUrl}
-                </code>
-              </p>
-            ) : null}
+            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" onClick={() => void copyServerUrl()}>
+              {urlCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              Copy URL
+            </Button>
           </div>
-
-          <Collapsible>
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 py-2 text-left text-sm font-medium text-foreground hover:text-foreground/80 [&[data-state=open]>svg]:rotate-180 transition-colors">
-              <span>Advanced · Session JWT (short-lived)</span>
-              <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 pt-1 pb-1">
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Same access token as your signed-in browser session. Prefer workflow API keys when
-                possible.
-              </p>
-              {jwtLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading…
-                </div>
-              ) : jwtError && !jwtPayload ? (
-                <div className="space-y-2 text-sm">
-                  <p className="text-destructive">{jwtError}</p>
-                  <Link href="/signin" className="text-sm text-primary underline">
-                    Sign in
-                  </Link>
-                </div>
-              ) : jwtPayload ? (
-                <div className="space-y-2">
-                  <Label className="text-xs">JWT</Label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      readOnly
-                      className="font-mono text-xs"
-                      value={jwtRevealed ? jwtPayload.access_token : maskToken(jwtPayload.access_token)}
-                    />
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setJwtRevealed((r) => !r)}
-                      >
-                        {jwtRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(jwtPayload.access_token);
-                            setJwtCopied(true);
-                            toast.success("Copied");
-                            setTimeout(() => setJwtCopied(false), 2000);
-                          } catch {
-                            toast.error("Could not copy");
-                          }
-                        }}
-                      >
-                        {jwtCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        disabled={jwtRefreshing}
-                        onClick={async () => {
-                          setJwtRefreshing(true);
-                          try {
-                            const res = await fetch("/api/auth/refresh-session", {
-                              method: "POST",
-                              credentials: "include",
-                            });
-                            const d = (await res.json()) as TokenPayload & { error?: string };
-                            if (!res.ok) {
-                              toast.error(d.error ?? "Refresh failed");
-                              return;
-                            }
-                            setJwtPayload({
-                              access_token: d.access_token,
-                              expires_at: d.expires_at,
-                              expires_in: d.expires_in,
-                            });
-                            setJwtRevealed(false);
-                            toast.success("Session refreshed");
-                          } catch {
-                            toast.error("Network error");
-                          } finally {
-                            setJwtRefreshing(false);
-                          }
-                        }}
-                      >
-                        {jwtRefreshing ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {jwtExpiresLabel && (
-                    <p className="text-xs text-muted-foreground">Expires: {jwtExpiresLabel}</p>
-                  )}
-                </div>
-              ) : null}
-            </CollapsibleContent>
-          </Collapsible>
+          <div className="flex flex-wrap gap-2">
+            {oauthIssuer ? (
+              <a
+                href={`${oauthIssuer}/.well-known/oauth-authorization-server`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-8 items-center gap-1.5 px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                OAuth metadata
+              </a>
+            ) : null}
+            <a
+              href={WORKFLOW_ENGINE_SITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-8 items-center gap-1.5 px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open engine
+            </a>
+          </div>
+        </div>
       </div>
+
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-medium uppercase tracking-[0.16em]">Your API keys</h4>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Keys start with <code className="rounded bg-muted px-1 font-mono">wfmcp_</code>
+            </p>
+          </div>
+          <Button type="button" size="sm" className="shrink-0" onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Create key
+          </Button>
+        </div>
+
+        {keysLoading ? (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-10 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading keys...
+          </div>
+        ) : keysError ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {keysError}
+          </div>
+        ) : keys.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No keys yet. Create one to connect MCP clients and scripts to the engine.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {keys.map((k) => (
+              <li
+                key={k.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-transparent px-3 py-2 transition-colors"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <p className="font-mono text-xs font-medium tracking-wide text-foreground">{k.key_prefix}...</p>
+                    {k.label ? <p className="text-xs text-muted-foreground">{k.label}</p> : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground/90">
+                    Created {new Date(k.created_at).toLocaleDateString()}
+                    {k.last_used_at ? ` · Last used ${new Date(k.last_used_at).toLocaleDateString()}` : ""}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 shrink-0 gap-1.5 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => void handleRevoke(k.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Separator />
+
+      <Collapsible className="rounded-xl border border-border/70 bg-card/20 px-4 py-3">
+        <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 text-left text-sm font-medium text-foreground transition-colors hover:text-foreground/80 [&[data-state=open]>svg]:rotate-180">
+          <span className="inline-flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-muted-foreground" aria-hidden />
+            How to connect to MCP clients
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 pt-3">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            For ChatGPT, Claude, Cursor, and other MCP-compatible apps: create a workflow API key,
+            then paste it into the Workflow Automation Engine sign-in page when the client opens it.
+          </p>
+          {authorizeUrl ? (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-foreground">Example authorize URL</p>
+              <code className="block break-all rounded-md bg-muted px-2 py-1.5 font-mono text-[0.65rem]">
+                {authorizeUrl}
+              </code>
+            </div>
+          ) : null}
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible className="rounded-xl border border-border/70 bg-card/20 px-4 py-3">
+        <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 text-left text-sm font-medium text-foreground transition-colors hover:text-foreground/80 [&[data-state=open]>svg]:rotate-180">
+          <span>Advanced · Session JWT</span>
+          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 pt-3">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Uses your current signed-in browser session. Prefer workflow API keys when possible.
+          </p>
+          {jwtLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading...
+            </div>
+          ) : jwtError && !jwtPayload ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-destructive">{jwtError}</p>
+              <Link href="/signin" className="text-sm text-primary underline">
+                Sign in
+              </Link>
+            </div>
+          ) : jwtPayload ? (
+            <div className="space-y-2">
+              <Label className="text-xs">JWT</Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  className="font-mono text-xs"
+                  value={jwtRevealed ? jwtPayload.access_token : maskToken(jwtPayload.access_token)}
+                />
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setJwtRevealed((r) => !r)}
+                  >
+                    {jwtRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(jwtPayload.access_token);
+                        setJwtCopied(true);
+                        toast.success("Copied");
+                        setTimeout(() => setJwtCopied(false), 2000);
+                      } catch {
+                        toast.error("Could not copy");
+                      }
+                    }}
+                  >
+                    {jwtCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    disabled={jwtRefreshing}
+                    onClick={async () => {
+                      setJwtRefreshing(true);
+                      try {
+                        const res = await fetch("/api/auth/refresh-session", {
+                          method: "POST",
+                          credentials: "include",
+                        });
+                        const d = (await res.json()) as TokenPayload & { error?: string };
+                        if (!res.ok) {
+                          toast.error(d.error ?? "Refresh failed");
+                          return;
+                        }
+                        setJwtPayload({
+                          access_token: d.access_token,
+                          expires_at: d.expires_at,
+                          expires_in: d.expires_in,
+                        });
+                        setJwtRevealed(false);
+                        toast.success("Session refreshed");
+                      } catch {
+                        toast.error("Network error");
+                      } finally {
+                        setJwtRefreshing(false);
+                      }
+                    }}
+                  >
+                    {jwtRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              {jwtExpiresLabel ? (
+                <p className="text-xs text-muted-foreground">Expires: {jwtExpiresLabel}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </CollapsibleContent>
+      </Collapsible>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -489,15 +497,15 @@ export function WorkflowEngineTokenSection() {
               Store it in a password manager. You cannot view it again after closing this dialog.
             </DialogDescription>
           </DialogHeader>
-          {plainApiKey && (
+          {plainApiKey ? (
             <div className="space-y-2">
               <Input readOnly className="font-mono text-xs" value={plainApiKey} />
               <Button type="button" variant="outline" size="sm" onClick={() => void copyPlainKey()}>
-                <Copy className="h-4 w-4 mr-2" />
+                <Copy className="mr-2 h-4 w-4" />
                 Copy to clipboard
               </Button>
             </div>
-          )}
+          ) : null}
           <DialogFooter>
             <Button type="button" onClick={closeSecretDialog}>
               I have saved it

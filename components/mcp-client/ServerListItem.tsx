@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Shield, Edit, Trash2, Link2 } from "lucide-react";
+import { Shield, Edit, Trash2 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export function ServerListItem({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className={`group relative ${showActions ? '' : 'px-3 py-3 border-b border-border last:border-b-0'}`}
+      className={`group relative ${showActions ? "" : "px-2.5 py-2 border-b border-border last:border-b-0"}`}
     >
       {/* Action Buttons (for user servers) */}
       {showActions && onEdit && onDelete && (
@@ -70,16 +70,18 @@ export function ServerListItem({
 
       <div
         className={`cursor-pointer transition-all duration-200 ${showActions
-          ? `px-3 py-2 ${isSelected
-            ? "bg-primary/10 border-l-2 border-primary rounded-lg"
-            : "border-l-2 border-transparent hover:bg-muted/50"
+          ? `p-2.5 ${isSelected
+            ? "rounded-lg border border-red-300/70 bg-red-50/60 shadow-sm dark:border-red-400/25 dark:bg-red-950/20"
+            : "rounded-lg border border-transparent hover:border-red-200/70 hover:bg-red-50/30 dark:hover:border-red-400/15 dark:hover:bg-red-950/10"
           }`
-          : `hover:rounded-lg hover:bg-muted/20 ${isSelected ? "bg-primary/5 rounded-lg" : ""
+          : `${isSelected
+            ? "rounded-lg border border-red-300/70 bg-red-50/50 px-2.5 py-2.5 dark:border-red-400/25 dark:bg-red-950/20"
+            : "rounded-lg border border-transparent px-2.5 py-2.5 hover:border-red-200/70 hover:bg-red-50/25 dark:hover:border-red-400/15 dark:hover:bg-red-950/10"
           }`
           }`}
         onClick={onClick}
       >
-        <div className={`flex items-center justify-between mb-2 ${showActions ? 'pr-8' : ''}`}>
+        <div className={`flex items-center justify-between ${showActions ? "pr-8" : ""}`}>
           <div className="flex items-center gap-2 flex-1">
             <div
               className={`w-2 h-2 rounded-full transition-all ${getStatusColor(
@@ -100,19 +102,19 @@ export function ServerListItem({
               </div>
             ) : (
               !showActions && (
-                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                <span className="text-xs font-medium text-red-600 dark:text-red-300">
                   open
                 </span>
               )
             )}
           </div>
         </div>
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
+        <div className="mt-2 space-y-1.5">
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
             {server.description || ""}
           </p>
           {server.createdAt && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground/90">
               added on:{" "}
               {new Date(server.createdAt).toLocaleDateString("en-US", {
                 month: "short",

@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
-import Link from "next/link";
-import { Server, Zap, Activity, Grid, Search, RadioTower } from "lucide-react";
-import Logo from "../common/Logo";
+import { useEffect, useState } from "react";
+import { Server, Search, Star } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ServerIcon } from "@/components/common/ServerIcon";
+import type { McpServer } from "@/types/mcp";
 
 interface ServerPlaceholderProps {
   type: "no-selection" | "no-servers";
@@ -12,6 +13,9 @@ interface ServerPlaceholderProps {
 }
 
 export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
+  const [featuredServers, setFeaturedServers] = useState<McpServer[]>([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -28,59 +32,117 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
     visible: { opacity: 1, y: 0, transition: { duration: 0.4 } }
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFeaturedServers() {
+      try {
+        setFeaturedLoading(true);
+        const params = new URLSearchParams({
+          first: "100",
+          public: "true",
+          featured: "true",
+          orderBy: "name",
+        });
+        const response = await fetch(`/api/mcp?${params.toString()}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load featured MCPs");
+        }
+
+        if (!cancelled) {
+          setFeaturedServers(Array.isArray(data.servers) ? data.servers : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setFeaturedServers([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setFeaturedLoading(false);
+        }
+      }
+    }
+
+    void loadFeaturedServers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatDescription = (description?: string | null) => {
+    if (!description) return null;
+
+    return description
+      .replace(/\*\*/g, "")
+      .replace(/`/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
   if (type === "no-selection") {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 min-h-[calc(100vh-120px)] dark:bg-transparent">
+      <div className="flex-1 p-4 sm:p-6 md:p-8 min-h-[calc(100vh-120px)] dark:bg-transparent">
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="max-w-3xl w-full"
+          className="mx-auto max-w-5xl w-full"
         >
-          {/* Hero Section */}
-          <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8">
-            <div className="relative h-12 w-12 sm:h-16 sm:w-16 mx-auto">
-              <Logo size={50} />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 my-2 tracking-tight">
-              Welcome to MCP Assistant
-            </h2>
-            <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Select a server from the sidebar to explore its capabilities, inspect tools, and monitor connections.
-            </p>
-          </motion.div>
+          {(featuredLoading || featuredServers.length > 0) && (
+            <motion.div variants={itemVariants} className="p-0">
+              <div className="mb-5">
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <h2 className="text-base font-semibold text-foreground">Popular MCPs</h2>
+                </div>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  Featured servers available in MCP Assistant.
+                </p>
+              </div>
 
-          {/* Feature Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-            <FeatureCard
-              variants={itemVariants}
-              icon={<Grid className="w-5 h-5 text-blue-500" />}
-              title="Explore Tools"
-              description="Browse and test available tools from connected servers interactively."
-            />
-            <FeatureCard
-              variants={itemVariants}
-              icon={<Activity className="w-5 h-5 text-green-500" />}
-              title="Monitor Health"
-              description="Real-time connection status validation and health checking."
-            />
-            <FeatureCard
-              variants={itemVariants}
-              icon={<Zap className="w-5 h-5 text-amber-500" />}
-              title="Execute Actions"
-              description="Run tools directly from the interface and see results instantly."
-            />
-          </div>
-
-          <motion.div variants={itemVariants} className="mt-6 sm:mt-8 flex justify-center">
-            <Link
-              href="/gateway"
-              className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-              <RadioTower className="h-4 w-4" />
-              Open Gateway Manager
-            </Link>
-          </motion.div>
+              {featuredLoading ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <FeaturedServerSkeleton />
+                  <FeaturedServerSkeleton />
+                  <FeaturedServerSkeleton />
+                  <FeaturedServerSkeleton />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {featuredServers.map((server) => (
+                    <div
+                      key={server.id}
+                      className="rounded-xl border border-red-200/70 bg-background/50 p-3 text-left transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <ServerIcon
+                          serverName={server.name}
+                          serverUrl={server.url}
+                          size={36}
+                          className="rounded-lg"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">{server.name}</p>
+                          {formatDescription(server.description) ? (
+                            <p className="mt-1 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                              {formatDescription(server.description)}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                              No description available.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
         </motion.div>
       </div>
     );
@@ -115,19 +177,19 @@ export function ServerPlaceholder({ type, tab }: ServerPlaceholderProps) {
   );
 }
 
-// Helper component for feature cards
-function FeatureCard({ icon, title, description, variants }: { icon: React.ReactNode, title: string, description: string, variants: any }) {
+function FeaturedServerSkeleton() {
   return (
-    <motion.div variants={variants}>
-      <div className="h-full p-4 sm:p-6 text-center">
-        <div className="mb-4 inline-flex p-2.5">
-          {icon}
+    <div className="rounded-xl border border-red-200/70 bg-background/50 p-3 dark:border-red-400/20">
+      <div className="flex items-start gap-2.5">
+        <Skeleton className="h-9 w-9 rounded-lg" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
         </div>
-        <h3 className="mb-2 text-sm font-semibold text-foreground/90">{title}</h3>
-        <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
-    </motion.div>
-  )
+    </div>
+  );
 }
 
 

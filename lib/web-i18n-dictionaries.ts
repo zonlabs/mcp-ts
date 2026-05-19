@@ -73,7 +73,7 @@ export const en = {
   languageWebOnly: "Used for app interface text and locale formatting.",
   mcpToolApproval: "MCP tool approval",
   askEveryTime: "Ask every time",
-  askRiskyTools: "Ask for risky tools",
+  askRiskyTools: "Ask for destructive tools",
   runAutomatically: "Run automatically",
   selectTimezone: "Select timezone",
   selectLanguage: "Select language",

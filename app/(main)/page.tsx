@@ -2,15 +2,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  Server,
-  Play,
+  Wrench,
   Code,
   Package,
   Copy,
   Check,
   ArrowUpRight,
 } from "lucide-react";
-import McpServersSection from "@/components/home/McpServersSection";
 import Footer from "@/components/home/Footer";
 import Image from "next/image";
 import { motion, Variants } from 'framer-motion';
@@ -27,7 +25,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { HeroGridPattern } from "@/components/home/hero-grid-pattern";
+import {
+  HeroGridPattern
+} from "@/components/home/hero-grid-pattern";
 import { Stack } from "@/components/stack";
 
 // -------------------------------------------------------------------
@@ -66,9 +66,6 @@ const fadeInUp: Variants = {
   }
 };
 
-// -------------------------------------------------------------------
-// Component
-// -------------------------------------------------------------------
 function VideoPlayer() {
   return (
     <div className="w-full">
@@ -200,7 +197,7 @@ export default function Home() {
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                   <NeuralButton
                     asChild
-                    className="h-auto w-full rounded-lg px-5 py-2.5 text-sm font-medium"
+                    className="h-auto w-full rounded-lg border border-white/90 bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-900 dark:border-white/80 dark:bg-zinc-950 dark:text-white dark:hover:bg-zinc-900"
                   >
                     <Link href="/mcp">
                       Explore
@@ -215,9 +212,9 @@ export default function Home() {
                     className="
         inline-flex w-full items-center justify-center
         px-5 py-2.5 rounded-lg text-sm font-medium
-        bg-black text-white
-        hover:bg-black/90
-        dark:bg-white dark:text-black dark:hover:bg-zinc-200
+        border border-red-200/80 bg-white text-red-700
+        hover:bg-red-50
+        dark:border-red-400/30 dark:bg-zinc-950 dark:text-red-100 dark:hover:bg-zinc-900
         transition
       "
                   >
@@ -231,10 +228,85 @@ export default function Home() {
         </Stack>
       </Stack>
 
+      {/* Features Section */}
+      <section className="py-16 sm:py-18 relative overflow-hidden bg-background">
+
+
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 relative">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={container}
+            className="text-center max-w-4xl mx-auto mb-14 space-y-5"
+          >
+            <motion.h2
+              variants={fadeInUp}
+              className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground"
+            >
+              Everything you need to work with MCPs
+            </motion.h2>
+            <motion.p
+              variants={fadeInUp}
+              className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed"
+            >
+              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use MCP Assistant to connect to servers, explore tools, and work with MCPs in one place.
+            </motion.p>
+          </motion.div>
+
+          <div className="max-w-5xl mx-auto">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={container}
+              className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {[
+                {
+                  icon: <Wrench className="h-5 w-5" />,
+                  title: "Connect to MCP servers",
+                  desc: "Add your remote server to connect to it."
+                },
+                {
+                  icon: <Code className="h-5 w-5" />,
+                  title: "Playground",
+                  desc: "Chat with the assistant and use tools exposed by connected servers."
+                },
+                {
+                  icon: <Package className="h-5 w-5" />,
+                  title: "Browse Featured MCPs",
+                  desc: "Find featured servers quickly and open them in the MCP workspace."
+                }
+              ].map((feature, i) => (
+                <motion.div
+                  key={i}
+                  variants={item}
+                  whileHover={{ y: -5 }}
+                  className="group flex flex-col gap-4 rounded-2xl border border-red-200/75 bg-card/30 p-8 transition-all duration-300 hover:border-red-400/70 hover:bg-card/60 dark:border-red-400/25 dark:hover:border-red-300/60"
+                >
+                  <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-600 transition-transform duration-300 group-hover:scale-110 dark:bg-red-950/40 dark:text-red-300">
+                    {feature.icon}
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-xl text-foreground/90 group-hover:text-primary transition-colors">
+                      {feature.title}
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {feature.desc}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* Gateway Section */}
       <section
         id="local-gateway-demo"
-        className="relative max-w-5xl mx-auto px-3 sm:px-6 py-12"
+        className="relative max-w-5xl mx-auto px-3 sm:px-6 py-10"
       >
         <motion.div
           initial="hidden"
@@ -303,89 +375,9 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* Recent MCP Servers Section */}
-      <div className="container mx-auto px-3 sm:px-6 py-10">
-        <McpServersSection />
-      </div>
-
-      {/* Features Section */}
-      <section className="py-24 relative overflow-hidden bg-background">
-
-
-        <div className="max-w-5xl mx-auto px-3 sm:px-6 relative">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={container}
-            className="text-center max-w-4xl mx-auto mb-20 space-y-6"
-          >
-            <motion.h2
-              variants={fadeInUp}
-              className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground"
-            >
-              Everything you need to work with MCPs
-            </motion.h2>
-            <motion.p
-              variants={fadeInUp}
-              className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-3xl mx-auto leading-relaxed"
-            >
-              The <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">Model Context Protocol (MCP)</Link> is the open standard for connecting AI agents to external tools and data. Use our client to instantly connect to remote servers, explore technical docs, or chat with agents, all for free, in your browser. Have an MCP server? <Link href="/publish" className="text-primary font-medium hover:underline inline-flex items-center gap-1">Publish it to modelcontextprotocol.io registry <ArrowUpRight className="h-3.5 w-3.5" /></Link> so others can discover and use it instantly.
-            </motion.p>
-          </motion.div>
-
-          <div className="max-w-5xl mx-auto">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={container}
-              className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
-              {[
-                {
-                  icon: <Server className="h-5 w-5" />,
-                  title: "Connect to MCP servers",
-                  desc: "Add your remote server to connect to it."
-                },
-                {
-                  icon: <Code className="h-5 w-5" />,
-                  title: "Playground",
-                  desc: "Chat with the assistant and use tools exposed by connected servers."
-                },
-                {
-                  icon: <Package className="h-5 w-5" />,
-                  title: "MCP Registry",
-                  desc: "Browse MCP servers from the official registry and connect instantly."
-                }
-              ].map((feature, i) => (
-                <motion.div
-                  key={i}
-                  variants={item}
-                  whileHover={{ y: -5 }}
-                  className="group flex flex-col gap-4 rounded-2xl border border-red-200/75 bg-card/30 p-8 transition-all duration-300 hover:border-red-400/70 hover:bg-card/60 dark:border-red-400/25 dark:hover:border-red-300/60"
-                >
-                  <div className="shrink-0 h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary group-hover:scale-110 transition-transform duration-300">
-                    {feature.icon}
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="font-semibold text-xl text-foreground/90 group-hover:text-primary transition-colors">
-                      {feature.title}
-                    </h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {feature.desc}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
 
       {/* FAQ Section */}
-      <section className="relative max-w-5xl mx-auto py-16 overflow-hidden">
+      <section className="relative max-w-5xl mx-auto py-12 overflow-hidden">
         <div className="px-3 sm:px-6">
           <motion.div
             initial="hidden"

@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import { LlmSettingsPanel } from "@/components/chat/LlmSettingsPanel";
 import { WorkflowEngineTokenSection } from "@/components/settings/WorkflowEngineTokenSection";
 import { Separator } from "@/components/ui/separator";
@@ -12,9 +10,9 @@ export default function ApiKeysPage() {
 
   return (
     <div className="px-1 md:px-6 pb-16">
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="text-3xl font-instrument-serif font-medium mb-1">{t("apiKeys")}</h1>
-        <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {t("apiKeysDescription")}
         </p>
       </div>
