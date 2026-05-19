@@ -40,6 +40,11 @@ export default function ConnectorsPage() {
     fetchGatewayServers,
   } = useGatewaySelections();
 
+  const visibleGatewayError =
+    gatewayLoadError && !gatewayLoadError.includes("REMOTE_PROXY_BASE_URL is not set")
+      ? gatewayLoadError
+      : null;
+
   useEffect(() => {
     loadConnections();
   }, []);
@@ -131,123 +136,6 @@ export default function ConnectorsPage() {
             {t("activeMcpServerConnections")}
           </p>
         </div>
-
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <HardDrive className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">
-                  {t("localMcpServers")}
-                </h3>
-                <Badge variant="outline">{t("local")}</Badge>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  <Info className="h-3 w-3" />
-                  {t("installGateway")}
-                  <code className="font-mono text-foreground">uvx mcpassistant-gateway</code>
-                </span>
-              </div>
-              <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground mt-1">
-                {t("enableLocalMcpServers")}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Badge variant="secondary" className="gap-1">
-              <Server className="w-3 h-3" />
-              {detectedSelections.length} {t("detected")}
-            </Badge>
-            <Badge variant={enabledDetectedCount > 0 ? "default" : "outline"}>
-              {enabledDetectedCount} {t("enabled")}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void fetchGatewayServers()}
-              disabled={loadingGatewayServers}
-              className="h-7 px-2 gap-1.5"
-            >
-              {loadingGatewayServers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              {t("refresh")}
-            </Button>
-          </div>
-
-          {gatewayLoadError ? (
-            <p className="text-sm text-red-600 dark:text-red-400">{gatewayLoadError}</p>
-          ) : null}
-
-          {loadingGatewayServers ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {t("detectingGatewayServers")}
-            </div>
-          ) : detectedSelections.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("noGatewayServersDetected")}
-            </p>
-          ) : (
-            <div className="grid gap-2 lg:grid-cols-2">
-              {detectedSelections.map((selection) => {
-                const key = selectionKey(selection);
-                const enabled = enabledSelectionKeys.includes(key);
-                const info = serverInfoMap[key];
-                const toolCount = info?.tools_count ?? 0;
-
-                return (
-                  <label
-                    key={key}
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-border/60 px-3 py-3 cursor-pointer transition-colors hover:border-border"
-                  >
-                    <ServerIcon
-                      serverName={info?.title || selection.mcpServer}
-                      serverUrl={selection.mcpServer}
-                      size={36}
-                      className="mt-0.5 rounded-lg shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-[15px] font-instrument-serif tracking-wide font-medium break-all">
-                          {info?.title || selection.mcpServer}
-                        </p>
-                        <Badge variant="outline" className="font-mono text-[10px]">{selection.agentId}</Badge>
-                      </div>
-                      {info?.title && info.title !== selection.mcpServer ? (
-                        <p className="mt-1 text-xs text-muted-foreground break-all">
-                          {selection.mcpServer}
-                        </p>
-                      ) : null}
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {info?.status === "connected" ? (
-                          <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="w-3 h-3" />
-                            {t("connected")}
-                          </span>
-                        ) : info?.status === "error" ? (
-                          <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
-                            <XCircle className="w-3 h-3" />
-                            {info.instructions || t("error")}
-                          </span>
-                        ) : null}
-                        <span>{toolCount} {t("tools")}</span>
-                      </div>
-                    </div>
-                    <Checkbox
-                      checked={enabled}
-                      onCheckedChange={(checked) => {
-                        const next = checked
-                          ? Array.from(new Set([...enabledSelectionKeys, key]))
-                          : enabledSelectionKeys.filter((value) => value !== key);
-                        persistSelections(next);
-                      }}
-                      className="mt-0.5 shrink-0"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </section>
 
         {loading ? (
           <section className="space-y-4">
@@ -371,6 +259,123 @@ export default function ConnectorsPage() {
             </div>
           </section>
         )}
+
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <HardDrive className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-foreground">
+                  {t("localMcpServers")}
+                </h3>
+                <Badge variant="outline">{t("local")}</Badge>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <Info className="h-3 w-3" />
+                  {t("installGateway")}
+                  <code className="font-mono text-foreground">uvx mcpassistant-gateway</code>
+                </span>
+              </div>
+              <p className="text-[15px] font-instrument-serif tracking-wide text-muted-foreground mt-1">
+                {t("enableLocalMcpServers")}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant="secondary" className="gap-1">
+              <Server className="w-3 h-3" />
+              {detectedSelections.length} {t("detected")}
+            </Badge>
+            <Badge variant={enabledDetectedCount > 0 ? "default" : "outline"}>
+              {enabledDetectedCount} {t("enabled")}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void fetchGatewayServers()}
+              disabled={loadingGatewayServers}
+              className="h-7 px-2 gap-1.5"
+            >
+              {loadingGatewayServers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              {t("refresh")}
+            </Button>
+          </div>
+
+          {visibleGatewayError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">{visibleGatewayError}</p>
+          ) : null}
+
+          {loadingGatewayServers ? (
+            <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {t("detectingGatewayServers")}
+            </div>
+          ) : detectedSelections.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("noGatewayServersDetected")}
+            </p>
+          ) : (
+            <div className="grid gap-2 lg:grid-cols-2">
+              {detectedSelections.map((selection) => {
+                const key = selectionKey(selection);
+                const enabled = enabledSelectionKeys.includes(key);
+                const info = serverInfoMap[key];
+                const toolCount = info?.tools_count ?? 0;
+
+                return (
+                  <label
+                    key={key}
+                    className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-border/60 px-3 py-3 transition-colors hover:border-border"
+                  >
+                    <ServerIcon
+                      serverName={info?.title || selection.mcpServer}
+                      serverUrl={selection.mcpServer}
+                      size={36}
+                      className="mt-0.5 shrink-0 rounded-lg"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[15px] font-instrument-serif font-medium tracking-wide break-all">
+                          {info?.title || selection.mcpServer}
+                        </p>
+                        <Badge variant="outline" className="font-mono text-[10px]">{selection.agentId}</Badge>
+                      </div>
+                      {info?.title && info.title !== selection.mcpServer ? (
+                        <p className="mt-1 break-all text-xs text-muted-foreground">
+                          {selection.mcpServer}
+                        </p>
+                      ) : null}
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {info?.status === "connected" ? (
+                          <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="w-3 h-3" />
+                            {t("connected")}
+                          </span>
+                        ) : info?.status === "error" ? (
+                          <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                            <XCircle className="w-3 h-3" />
+                            {info.instructions || t("error")}
+                          </span>
+                        ) : null}
+                        <span>{toolCount} {t("tools")}</span>
+                      </div>
+                    </div>
+                    <Checkbox
+                      checked={enabled}
+                      onCheckedChange={(checked) => {
+                        const next = checked
+                          ? Array.from(new Set([...enabledSelectionKeys, key]))
+                          : enabledSelectionKeys.filter((value) => value !== key);
+                        persistSelections(next);
+                      }}
+                      className="mt-0.5 shrink-0"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
