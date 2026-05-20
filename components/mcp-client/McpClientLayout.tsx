@@ -30,6 +30,7 @@ import { UserSession } from "@/components/providers/AuthProvider";
 interface McpClientLayoutProps {
   publicServers: McpServer[] | null;
   userServers: McpServer[] | null;
+  featuredServers?: McpServer[] | null;
   publicServersCount?: number;
   userServersCount?: number;
   publicLoading: boolean;
@@ -54,6 +55,7 @@ interface McpClientLayoutProps {
 export default function McpClientLayout({
   publicServers,
   userServers,
+  featuredServers = null,
   publicServersCount = 0,
   userServersCount = 0,
   publicLoading,
@@ -365,7 +367,10 @@ export default function McpClientLayout({
                     </div>
                   </motion.div>
                 ) : (
-                  <ServerPlaceholder type="no-selection" />
+                  <ServerPlaceholder
+                    type="no-selection"
+                    featuredServers={featuredServers ?? []}
+                  />
                 )}
               </AnimatePresence>
             </div>

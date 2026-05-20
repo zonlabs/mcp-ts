@@ -1,121 +1,78 @@
-"use client";
-import { Suspense } from "react";
-import McpClientLayout from "@/components/mcp-client/McpClientLayout";
-import { McpServer } from "@/types/mcp";
-import { useAuth } from "@/components/providers/AuthProvider";
-import {
-  usePublicServers,
-  useUserServers,
-  useServerActions,
-} from "@/hooks/use-mcp-store-hooks";
-import { useMcpConnection } from "@/hooks/useMcpConnection";
+import McpPageClient from "./McpPageClient";
+import { createClient } from "@/lib/supabase/server";
+import { listMcpServersCatalog, listUserMcpServers } from "@/lib/mcp-servers/service";
+import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
+import { UserSession } from "@/components/providers/AuthProvider";
 
-function McpPageContent() {
-  const { userSession } = useAuth();
-  const session = userSession;
-
-  // Get server data from Zustand store
+export default async function McpPage() {
+  const supabase = await createClient();
   const {
-    servers: publicServers,
-    loading: publicLoading,
-    error: publicError,
-    hasNextPage,
-    totalCount: publicServersCount,
-    loadMore: loadMorePublicServers,
-    refetch: refetchPublicServers,
-  } = usePublicServers();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const {
-    servers: userServers,
-    loading: userLoading,
-    error: userError,
-    totalCount: userServersCount,
-    refetch: fetchUserServers,
-  } = useUserServers();
+  const userSession: UserSession | null = user ? { user } : null;
 
-  // Get actions from Zustand store (toast notifications handled in store)
-  const { addServer, updateServer, deleteServer, refreshAllServers } = useServerActions();
-  const { connect, disconnect } = useMcpConnection();
+  const [publicResult, userResult, featuredResult] = await Promise.allSettled([
+    listMcpServersCatalog(supabase, {
+      first: 20,
+      orderField: "created_at",
+      orderAscending: false,
+      publicOnly: true,
+    }),
+    user ? listUserMcpServers(supabase, user.id) : Promise.resolve([]),
+    listMcpServersCatalog(supabase, {
+      first: 100,
+      orderField: "name",
+      orderAscending: true,
+      featuredOnly: true,
+      publicOnly: true,
+    }),
+  ]);
 
-  const handleServerAction = async (server: McpServer, action: 'activate' | 'deactivate') => {
-    if (action === 'activate') {
-      await connect(server);
-      return { success: true };
-    }
+  const publicServers =
+    publicResult.status === "fulfilled"
+      ? publicResult.value.edges.map((edge) => restMcpServer(edge.node))
+      : [];
+  const publicServersCount =
+    publicResult.status === "fulfilled" ? publicResult.value.totalCount : 0;
+  const publicHasNextPage =
+    publicResult.status === "fulfilled"
+      ? publicResult.value.pageInfo.hasNextPage
+      : false;
+  const publicEndCursor =
+    publicResult.status === "fulfilled"
+      ? publicResult.value.pageInfo.endCursor
+      : null;
+  const publicError =
+    publicResult.status === "rejected" ? publicResult.reason instanceof Error
+      ? publicResult.reason.message
+      : "Failed to load servers" : null;
 
-    if (action === 'deactivate') {
-      await disconnect(server);
-      return { success: true };
-    }
-  };
-
-  const handleServerAdd = async (data: Record<string, unknown>) => {
-    const newServer = await addServer(data as Partial<McpServer>);
-    if (newServer) {
-      await refreshAllServers();
-    }
-  };
-
-  const handleServerUpdate = async (data: Record<string, unknown>) => {
-    const { id, ...updates } = data;
-    if (!id || typeof id !== 'string') {
-      throw new Error('Server ID is required');
-    }
-
-    const updatedServer = await updateServer(id, updates as Partial<McpServer>);
-    if (updatedServer) {
-      await refreshAllServers();
-    }
-  };
-
-  const handleServerDelete = async (serverId: string) => {
-    const success = await deleteServer(serverId);
-    if (success) {
-      await refreshAllServers();
-    }
-  };
-
-  const handleUpdatePublicServer = () => {
-    refetchPublicServers();
-  };
-
-  const handleUpdateUserServer = () => {
-    fetchUserServers();
-  };
+  const userServers =
+    userResult.status === "fulfilled"
+      ? userResult.value.map((node) => restMcpServer(node, { includeHeaders: true }))
+      : [];
+  const userError =
+    userResult.status === "rejected" ? userResult.reason instanceof Error
+      ? userResult.reason.message
+      : "Failed to load servers" : null;
+  const featuredServers =
+    featuredResult.status === "fulfilled"
+      ? featuredResult.value.edges.map((edge) => restMcpServer(edge.node))
+      : [];
 
   return (
-    <>
-      <McpClientLayout
-        publicServers={publicServers}
-        userServers={userServers}
-        publicServersCount={publicServersCount}
-        userServersCount={userServersCount}
-        publicLoading={publicLoading}
-        userLoading={userLoading}
-        publicError={publicError}
-        userError={userError}
-        session={session}
-        userSession={userSession}
-        onRefreshPublic={refetchPublicServers}
-        onRefreshUser={fetchUserServers}
-        onServerAction={handleServerAction}
-        onServerAdd={handleServerAdd}
-        onServerUpdate={handleServerUpdate}
-        onServerDelete={handleServerDelete}
-        onUpdatePublicServer={handleUpdatePublicServer}
-        onUpdateUserServer={handleUpdateUserServer}
-        hasNextPage={hasNextPage}
-        isLoadingMore={publicLoading && (publicServers?.length ?? 0) > 0}
-        onLoadMore={loadMorePublicServers}
-      />
-    </>
-  );
-}
-
-export default function McpPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <McpPageContent />
-    </Suspense>
+    <McpPageClient
+      initialPublicServers={publicServers}
+      initialUserServers={userServers}
+      featuredServers={featuredServers}
+      initialPublicServersCount={publicServersCount}
+      initialUserServersCount={userServers.length}
+      initialHasNextPage={publicHasNextPage}
+      initialEndCursor={publicEndCursor}
+      initialPublicError={publicError}
+      initialUserError={userError}
+      userSession={userSession}
+    />
   );
 }
