@@ -1,6 +1,6 @@
 {
   "name": "mcp-assistant",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "private": true,
   "engines": {
     "node": ">=22 <23"
