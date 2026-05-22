@@ -105,6 +105,25 @@ export function hasToolStepDetails(step: ChainOfThoughtToolStep): boolean {
   return step.input !== undefined || step.output !== undefined || Boolean(step.errorText);
 }
 
+export function getThoughtSummaryLabel(durationSeconds?: number): string {
+  if (typeof durationSeconds === "number" && Number.isFinite(durationSeconds) && durationSeconds > 0) {
+    return `Chain of thought for ${durationSeconds}s`;
+  }
+
+  return "Chain of thought";
+}
+
+export function hasVisibleReasoningText(reasoningText: string): boolean {
+  return reasoningText.trim().length > 0;
+}
+
+export function getNextSelectedThoughtMessageId(
+  currentSelectedThoughtMessageId: string | null,
+  clickedMessageId: string
+): string | null {
+  return currentSelectedThoughtMessageId === clickedMessageId ? null : clickedMessageId;
+}
+
 export function buildChainOfThoughtSummary(
   parts: ChainOfThoughtPart[],
   options: BuildChainOfThoughtSummaryOptions

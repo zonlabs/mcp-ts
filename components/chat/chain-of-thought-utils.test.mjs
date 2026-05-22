@@ -7,6 +7,9 @@ import {
   getToolStepIconKey,
   getToolStepDescription,
   getToolStepStatus,
+  getThoughtSummaryLabel,
+  hasVisibleReasoningText,
+  getNextSelectedThoughtMessageId,
 } from "./chain-of-thought-utils.ts";
 
 test("builds a chain-of-thought summary from reasoning and tool parts", () => {
@@ -89,4 +92,21 @@ test("detects when a tool step has expandable details", () => {
   assert.equal(hasToolStepDetails({ key: "2", label: "search", description: "Done", status: "complete", input: {} }), true);
   assert.equal(hasToolStepDetails({ key: "3", label: "search", description: "Done", status: "complete", output: null }), true);
   assert.equal(hasToolStepDetails({ key: "4", label: "search", description: "Done", status: "complete", errorText: "failed" }), true);
+});
+
+test("formats the compact thought summary label with and without duration", () => {
+  assert.equal(getThoughtSummaryLabel(), "Chain of thought");
+  assert.equal(getThoughtSummaryLabel(45), "Chain of thought for 45s");
+});
+
+test("detects whether reasoning text should render in chat", () => {
+  assert.equal(hasVisibleReasoningText(""), false);
+  assert.equal(hasVisibleReasoningText("   "), false);
+  assert.equal(hasVisibleReasoningText("Let me get the schema first."), true);
+});
+
+test("toggles the selected thought message id", () => {
+  assert.equal(getNextSelectedThoughtMessageId(null, "message-1"), "message-1");
+  assert.equal(getNextSelectedThoughtMessageId("message-1", "message-1"), null);
+  assert.equal(getNextSelectedThoughtMessageId("message-1", "message-2"), "message-2");
 });
