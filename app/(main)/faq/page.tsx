@@ -170,7 +170,7 @@ const faqs = [
                     <a href="https://modelcontextprotocol.io" target="_blank" className="flex items-center gap-2 text-primary hover:underline">
                         <ExternalLink className="h-4 w-4" /> Ã°Å¸â€œËœ <strong>MCP Protocol Docs</strong>
                     </a>
-                    <a href="https://github.com/mcp-assistant/mcp-assistant" target="_blank" className="flex items-center gap-2 text-primary hover:underline">
+                    <a href="https://github.com/zonlabs/mcp-ts" target="_blank" className="flex items-center gap-2 text-primary hover:underline">
                         <ExternalLink className="h-4 w-4" /> Ã°Å¸â€Â§ <strong>GitHub Repository</strong>
                     </a>
                 </div>

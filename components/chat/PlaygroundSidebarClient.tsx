@@ -428,7 +428,7 @@ export function PlaygroundSidebarClient({
   };
 
   const handleFeedbackClick = () => {
-    window.open("https://github.com/zonlabs/mcp-assistant/issues", "_blank", "noopener,noreferrer");
+    window.open("https://github.com/zonlabs/mcp-ts/issues", "_blank", "noopener,noreferrer");
   };
 
   const renderSidebarContent = (
