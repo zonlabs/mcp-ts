@@ -55,8 +55,8 @@ function maskToken(token: string): string {
   return `${token.slice(0, 12)}${"*".repeat(24)}${token.slice(-12)}`;
 }
 
-const WORKFLOW_ENGINE_SITE_URL = "https://run.mcp-assistant.in";
-const WORKFLOW_MCP_HTTP_URL = `${WORKFLOW_ENGINE_SITE_URL}/api/mcp`;
+const WORKFLOW_ENGINE_SITE_URL = "https://api.mcp-assistant.in";
+const WORKFLOW_MCP_HTTP_URL = `${WORKFLOW_ENGINE_SITE_URL}/mcp`;
 
 export function WorkflowEngineTokenSection() {
   const oauthIssuer =
@@ -226,7 +226,7 @@ export function WorkflowEngineTokenSection() {
       <div className="flex items-start gap-3">
         <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0 space-y-1">
-          <h2 className="text-xl font-instrument-serif font-medium tracking-wide">Workflow Automation Engine</h2>
+          <h2 className="text-xl font-instrument-serif font-medium tracking-wide">MCP Assistant</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             Create revocable keys for MCP clients and automation.
           </p>
@@ -264,7 +264,7 @@ export function WorkflowEngineTokenSection() {
               className="inline-flex h-8 items-center gap-1.5 px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open engine
+              Open site
             </a>
           </div>
         </div>
@@ -296,7 +296,7 @@ export function WorkflowEngineTokenSection() {
         ) : keys.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">
-              No keys yet. Create one to connect MCP clients and scripts to the engine.
+              No keys yet. Create one to connect MCP clients
             </p>
           </div>
         ) : (
@@ -345,7 +345,7 @@ export function WorkflowEngineTokenSection() {
         <CollapsibleContent className="space-y-3 pt-3">
           <p className="text-sm leading-relaxed text-muted-foreground">
             For ChatGPT, Claude, Cursor, and other MCP-compatible apps: create a workflow API key,
-            then paste it into the Workflow Automation Engine sign-in page when the client opens it.
+            then paste it into the MCP sign-in page when the client opens it.
           </p>
           {authorizeUrl ? (
             <div className="space-y-1.5">

@@ -238,7 +238,7 @@ export const en = {
   chatDeletedSuccessfully: "Chat deleted successfully",
   failedToUpdateSharing: "Failed to update sharing",
   shareSettingsUpdated: "Share settings updated",
-  apiKeysDescription: "LLM provider credentials and Workflow Automation Engine access",
+  apiKeysDescription: "LLM provider credentials and MCP Assistant access",
   llmSettings: "LLM Settings",
   provider: "Provider",
   selectProvider: "Select provider",
