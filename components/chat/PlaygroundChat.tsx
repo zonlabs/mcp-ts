@@ -18,15 +18,9 @@ import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import {
   AlertCircle,
   ArrowUpRight,
-  ChevronDownIcon,
+  BrainIcon,
   CheckCircle2,
-  FileTextIcon,
-  LightbulbIcon,
-  ListIcon,
-  Loader2,
-  SearchIcon,
-  TerminalIcon,
-  Wrench,
+  ChevronDownIcon,
 } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
@@ -38,19 +32,12 @@ import {
   Conversation,
   ConversationContent,
 } from '@/components/ai-elements/conversation';
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtHeader,
-  ChainOfThoughtStep,
-} from '@/components/ai-elements/chain-of-thought';
-import { Shimmer } from '@/components/ai-elements/shimmer';
-import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
+import { ThoughtsSidebar } from '@/components/chat/ThoughtsSidebar';
 import {
   buildChainOfThoughtSummary,
-  hasToolStepDetails,
-  type ChainOfThoughtToolStep,
-  type ToolStepIconKey,
+  getNextSelectedThoughtMessageId,
+  getThoughtSummaryLabel,
+  hasVisibleReasoningText,
 } from '@/components/chat/chain-of-thought-utils';
 
 interface PlaygroundChatProps {
@@ -95,185 +82,92 @@ const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderPa
   );
 });
 
-const toolStepIcons: Record<ToolStepIconKey, typeof TerminalIcon> = {
-  execute: TerminalIcon,
-  read: FileTextIcon,
-  search: SearchIcon,
-  list: ListIcon,
-  tool: Wrench,
-};
-
-function ReasoningAmberIcon({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "relative inline-flex items-center justify-center rounded-full",
-        "bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/25",
-        "dark:bg-amber-400/15 dark:text-amber-300 dark:ring-amber-300/25",
-        className
-      )}
-    >
-      <LightbulbIcon className="size-2.5" />
-    </span>
-  );
-}
-
-function ActiveStepLabel({ children, isActive }: { children: string; isActive: boolean }) {
-  if (!isActive) {
-    return <span>{children}</span>;
-  }
-
-  return (
-    <Shimmer as="span" duration={1.6}>
-      {children}
-    </Shimmer>
-  );
-}
-
-function formatToolDetail(value: unknown): string {
-  if (typeof value === 'string') return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function ToolDetailBlock({
-  label,
-  value,
-  tone = 'default',
+function ThoughtSummaryTrigger({
+  isActive,
+  isExpanded,
+  isRunning,
+  onClick,
 }: {
-  label: string;
-  value: unknown;
-  tone?: 'default' | 'error';
+  isActive: boolean;
+  isExpanded: boolean;
+  isRunning: boolean;
+  onClick: () => void;
 }) {
-  return (
-    <div className="space-y-1">
-      <div
-        className={cn(
-          "text-[10px] font-medium uppercase tracking-[0.14em]",
-          tone === 'error' ? "text-red-500/90 dark:text-red-400/90" : "text-muted-foreground"
-        )}
-      >
-        {label}
-      </div>
-      <pre
-        className={cn(
-          "max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-md border px-3 py-2 text-xs leading-5",
-          "bg-muted/35 text-muted-foreground",
-          tone === 'error' && "border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-300"
-        )}
-      >
-        {formatToolDetail(value)}
-      </pre>
-    </div>
-  );
-}
-
-function ChainOfThoughtToolStepItem({ step }: { step: ChainOfThoughtToolStep }) {
-  const { t } = useI18n();
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const hasDetails = hasToolStepDetails(step);
-  const isActive = step.status === 'active';
-
-  const label = hasDetails ? (
-    <button
-      type="button"
-      onClick={() => setIsDetailsOpen((open) => !open)}
-      className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-left transition-colors hover:text-foreground"
-      aria-expanded={isDetailsOpen}
-    >
-      <span className="truncate">
-        <ActiveStepLabel isActive={isActive}>{step.label}</ActiveStepLabel>
-      </span>
-      <ChevronDownIcon
-        className={cn(
-          "size-3.5 shrink-0 transition-transform",
-          isDetailsOpen ? "rotate-180" : "rotate-0"
-        )}
-      />
-    </button>
-  ) : (
-    <ActiveStepLabel isActive={isActive}>{step.label}</ActiveStepLabel>
-  );
-
-  return (
-    <ChainOfThoughtStep
-      icon={step.iconKey ? toolStepIcons[step.iconKey] : undefined}
-      label={label}
-      description={
-        <div className="flex items-center gap-1.5">
-          {step.status === 'active' && (
-            <Loader2 className="size-3 animate-spin text-primary" />
-          )}
-          {step.status === 'complete' && !step.hasError && (
-            <CheckCircle2 className="size-3 text-green-500" />
-          )}
-          {step.status === 'complete' && step.hasError && (
-            <AlertCircle className="size-3 text-red-500" />
-          )}
-          <span>{step.description}</span>
-        </div>
-      }
-      status={step.status}
-    >
-      {hasDetails && isDetailsOpen && (
-        <div className="grid gap-2 pt-1 min-w-0">
-          {step.input !== undefined && (
-            <ToolDetailBlock label={t("args")} value={step.input} />
-          )}
-          {step.output !== undefined && (
-            <ToolDetailBlock label={t("result")} value={step.output} />
-          )}
-          {step.errorText && (
-            <ToolDetailBlock label={t("error")} value={step.errorText} tone="error" />
-          )}
-        </div>
-      )}
-    </ChainOfThoughtStep>
-  );
-}
-
-function ReasoningStepWithDuration({
-  reasoningText,
-  isStreaming,
-}: {
-  reasoningText: string;
-  isStreaming: boolean;
-}) {
-  const { t } = useI18n();
   const startTimeRef = useRef<number | null>(null);
   const elapsedMsRef = useRef(0);
   const [duration, setDuration] = useState<number | undefined>(undefined);
 
   useEffect(() => {
-    if (isStreaming) {
+    if (isRunning) {
       if (startTimeRef.current === null) {
         startTimeRef.current = Date.now();
       }
+      const interval = window.setInterval(() => {
+        const elapsedMs =
+          elapsedMsRef.current +
+          (startTimeRef.current === null ? 0 : Date.now() - startTimeRef.current);
+        setDuration(Math.max(1, Math.ceil(elapsedMs / 1000)));
+      }, 1000);
+
+      return () => window.clearInterval(interval);
     } else if (startTimeRef.current !== null) {
       elapsedMsRef.current += Date.now() - startTimeRef.current;
       setDuration(Math.ceil(elapsedMsRef.current / 1000));
       startTimeRef.current = null;
     }
-  }, [isStreaming]);
-
-  const description = !isStreaming && duration !== undefined
-    ? `${t("thoughtFor")} ${duration}s`
-    : undefined;
+  }, [isRunning]);
 
   return (
-    <ChainOfThoughtStep
-      icon={ReasoningAmberIcon}
-      label={<ActiveStepLabel isActive={isStreaming}>{t("reasoning")}</ActiveStepLabel>}
-      description={description}
-      status={isStreaming ? 'active' : 'complete'}
-    >
-      <div className="whitespace-pre-wrap text-muted-foreground/80 text-[14px] font-instrument-serif tracking-wide leading-relaxed">
-        {reasoningText}
-      </div>
-    </ChainOfThoughtStep>
+    <div className="mb-2 flex max-w-full items-center gap-3 text-sm">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-expanded={isExpanded}
+        className={cn(
+          'inline-flex min-w-0 items-center gap-2 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground',
+          (isExpanded || isActive) && 'text-foreground'
+        )}
+      >
+        <BrainIcon className={cn('size-4 shrink-0', (isActive || isExpanded) && 'text-primary')} />
+        <span className="truncate">{getThoughtSummaryLabel(duration, isRunning)}</span>
+        <ChevronDownIcon
+          className={cn(
+            'size-4 shrink-0 transition-transform',
+            isExpanded && 'rotate-180'
+          )}
+        />
+      </button>
+    </div>
+  );
+}
+
+function MessageThoughtSection({
+  chainOfThought,
+  isActive,
+  isStreaming,
+  isOpen,
+  onToggle,
+}: {
+  chainOfThought: ReturnType<typeof buildChainOfThoughtSummary>;
+  isActive: boolean;
+  isStreaming: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <ThoughtSummaryTrigger
+        isActive={isActive}
+        isExpanded={isOpen}
+        isRunning={isStreaming || isActive}
+        onClick={onToggle}
+      />
+      {isOpen && hasVisibleReasoningText(chainOfThought.reasoningText) && (
+        <div className="mb-3 whitespace-pre-wrap text-[15px] leading-7 text-muted-foreground/90">
+          {chainOfThought.reasoningText}
+        </div>
+      )}
+    </>
   );
 }
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
@@ -357,6 +251,7 @@ export function PlaygroundChat({
 }: PlaygroundChatProps) {
   const { t } = useI18n();
   const [chatInput, setChatInput] = useState("");
+  const [selectedThoughtMessageId, setSelectedThoughtMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
@@ -467,6 +362,28 @@ export function PlaygroundChat({
     [messages]
   );
 
+  const getChainOfThoughtForMessage = useCallback((message: McpAgentUIMessage, isLastMessage: boolean) => {
+    return buildChainOfThoughtSummary(message.parts, {
+      getToolName: (part) => {
+        const toolPart = part as any;
+        if (!isToolUIPart(toolPart)) return undefined;
+        return getToolName(toolPart as ToolUIPart<any> | DynamicToolUIPart);
+      },
+      isLastMessage,
+      status,
+    });
+  }, [status]);
+
+  const selectedThoughtSummary = useMemo(() => {
+    if (!selectedThoughtMessageId) return null;
+    const messageIndex = messages.findIndex((message) => message.id === selectedThoughtMessageId);
+    if (messageIndex === -1) return null;
+
+    const message = messages[messageIndex];
+    const summary = getChainOfThoughtForMessage(message, messageIndex === messages.length - 1);
+    return summary.hasChainOfThought ? summary : null;
+  }, [getChainOfThoughtForMessage, messages, selectedThoughtMessageId]);
+
   useEffect(() => {
     if (hasSentInitialDraft.current) return;
     const stored = sessionStorage.getItem('pending_chat_message');
@@ -499,6 +416,21 @@ export function PlaygroundChat({
     pendingDraftRef.current = null;
     sendChatInput(payload);
   }, [status]);
+
+  useEffect(() => {
+    if (!selectedThoughtMessageId) return;
+    if (messages.some((message) => message.id === selectedThoughtMessageId)) return;
+    setSelectedThoughtMessageId(null);
+  }, [messages, selectedThoughtMessageId]);
+
+  useEffect(() => {
+    if (status !== 'streaming') return;
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.role !== 'assistant') return;
+    const summary = getChainOfThoughtForMessage(lastMessage, true);
+    if (!summary.hasChainOfThought) return;
+    setSelectedThoughtMessageId((current) => current ?? lastMessage.id);
+  }, [getChainOfThoughtForMessage, messages, status]);
 
   const hasMessages = messages.length > 0;
 
@@ -574,15 +506,7 @@ export function PlaygroundChat({
 
   const renderMessageParts = (m: McpAgentUIMessage, isLastMessage: boolean) => {
     const lastPart = m.parts[m.parts.length - 1] as any | undefined;
-    const chainOfThought = buildChainOfThoughtSummary(m.parts, {
-      getToolName: (part) => {
-        const toolPart = part as any;
-        if (!isToolUIPart(toolPart)) return undefined;
-        return getToolName(toolPart as ToolUIPart<any> | DynamicToolUIPart);
-      },
-      isLastMessage,
-      status,
-    });
+    const chainOfThought = getChainOfThoughtForMessage(m, isLastMessage);
 
     const lastTextIndex = m.parts
       .map((p: any, idx: number) => (p?.type === 'text' && p.text ? idx : -1))
@@ -597,25 +521,13 @@ export function PlaygroundChat({
     return (
       <>
         {chainOfThought.hasChainOfThought && (
-          <ChainOfThought className="mb-3" defaultOpen={isCoTActive}>
-            <ChainOfThoughtHeader progress={isCoTActive}>{t("chainOfThought")}</ChainOfThoughtHeader>
-            <ChainOfThoughtContent>
-              {chainOfThought.reasoningText && (
-                <ReasoningStepWithDuration
-                  reasoningText={chainOfThought.reasoningText}
-                  isStreaming={
-                    isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning'
-                  }
-                />
-              )}
-              {chainOfThought.toolSteps.map((step) => (
-                <ChainOfThoughtToolStepItem
-                  key={step.key}
-                  step={step}
-                />
-              ))}
-            </ChainOfThoughtContent>
-          </ChainOfThought>
+          <MessageThoughtSection
+            chainOfThought={chainOfThought}
+            isActive={isCoTActive}
+            isStreaming={isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning'}
+            isOpen={selectedThoughtMessageId === m.id}
+            onToggle={() => setSelectedThoughtMessageId((current) => getNextSelectedThoughtMessageId(current, m.id))}
+          />
         )}
         {m.parts.map((part: any, index: number) => {
           if (part.type === 'reasoning') {
@@ -718,7 +630,7 @@ export function PlaygroundChat({
                       serverId={input.serverId || ''}
                       transportType={input.transportType || 'sse'}
                       approvalId={approvalId || ''}
-                      onApprove={(data) => {
+                      onApprove={() => {
                         notifyChatUpdated();
                         if (approvalId && addToolApprovalResponse) {
                           addToolApprovalResponse({
@@ -793,20 +705,7 @@ export function PlaygroundChat({
               return null;
             }
             
-            const state = toolPart.state as string;
-            const toolState = state === 'output-available' ? 'complete' 
-              : state === 'executing' || state === 'in-progress' ? 'executing'
-              : 'idle';
-            
-            return (
-              <McpAppRenderer
-                key={`tool-${index}`}
-                name={toolName || ''}
-                args={toolPart.input as Record<string, unknown> | undefined}
-                result={toolPart.state === 'output-available' ? toolPart.output : undefined}
-                status={toolState}
-              />
-            );
+            return null;
           }
 
           return null;
@@ -908,10 +807,14 @@ export function PlaygroundChat({
           </div>
         </>
       ) : (
-        <>
-          <Conversation className="flex-1 min-h-0">
-            <ConversationContent>
-              <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
+        <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
+          <div className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col",
+            selectedThoughtSummary && "lg:basis-0"
+          )}>
+            <Conversation className="flex-1 min-h-0">
+              <ConversationContent>
+                <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
                 {messages.map((m, index) => {
                   const isLastMessage = index === messages.length - 1;
                   return (
@@ -939,28 +842,53 @@ export function PlaygroundChat({
                   />
                 )}
                 <div ref={messagesEndRef} className="h-4" />
-              </div>
-            </ConversationContent>
-          </Conversation>
-
-          <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
-            <div className={chatContentWidthClass}>
-              {isReadOnly ? (
-                <div className="w-full text-center p-3 sm:p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm shadow-sm max-w-2xl mx-auto">
-                  {t("readOnlySharedChat")}
                 </div>
-              ) : (
-                  <ChatInput
-                    onSend={sendChatInput}
-                    onStop={stop}
-                    status={status}
-                    disabled={status === 'submitted' || status === 'streaming'}
-                    contextUsage={contextUsage}
-                  />
-              )}
+              </ConversationContent>
+            </Conversation>
+
+            <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
+              <div className={chatContentWidthClass}>
+                {isReadOnly ? (
+                  <div className="w-full text-center p-3 sm:p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm shadow-sm max-w-2xl mx-auto">
+                    {t("readOnlySharedChat")}
+                  </div>
+                ) : (
+                    <ChatInput
+                      onSend={sendChatInput}
+                      onStop={stop}
+                      status={status}
+                      disabled={status === 'submitted' || status === 'streaming'}
+                      contextUsage={contextUsage}
+                    />
+                )}
+              </div>
             </div>
           </div>
-        </>
+          {selectedThoughtSummary && (
+            <div className="hidden h-full w-[380px] shrink-0 lg:block">
+              <ThoughtsSidebar
+                toolSteps={selectedThoughtSummary.toolSteps}
+                onClose={() => setSelectedThoughtMessageId(null)}
+              />
+            </div>
+          )}
+          {selectedThoughtSummary && (
+            <div className="absolute inset-y-0 right-0 z-20 flex w-full justify-end bg-background/60 backdrop-blur-sm lg:hidden">
+              <button
+                type="button"
+                aria-label="Close thoughts panel"
+                className="flex-1"
+                onClick={() => setSelectedThoughtMessageId(null)}
+              />
+              <div className="w-full max-w-sm border-l border-border/70 shadow-2xl">
+                <ThoughtsSidebar
+                  toolSteps={selectedThoughtSummary.toolSteps}
+                  onClose={() => setSelectedThoughtMessageId(null)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

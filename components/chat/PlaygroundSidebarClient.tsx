@@ -580,7 +580,7 @@ export function PlaygroundSidebarClient({
         )}
       </div>
 
-      <div className="border-t border-border/60 bg-background p-3 flex-shrink-0">
+      <div className="bg-background p-3 flex-shrink-0">
         <SidebarProfileDropdown
           expanded={expanded}
           onNavigate={onNavigate}
@@ -874,10 +874,10 @@ function SidebarHistoryPanel({
             <div
               key={chat.id}
               className={cn(
-                "group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                "group flex items-center gap-2 rounded-lg border border-transparent px-2.5 py-2 text-sm transition-colors",
                 pathname === `/chat/${chat.id}`
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  ? "border-border/50 bg-accent/70 text-foreground"
+                  : "text-muted-foreground hover:border-border/40 hover:bg-muted/40 hover:text-foreground"
               )}
             >
               <div className="min-w-0 flex-1">
@@ -915,8 +915,10 @@ function SidebarHistoryPanel({
                 <DropdownMenuTrigger asChild>
                   <button
                     className={cn(
-                      "flex h-6 w-6 items-center justify-center rounded-md hover:bg-accent/70",
-                      activeChatMenuId === chat.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                      "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/80 transition-all hover:bg-background/80 hover:text-foreground",
+                      activeChatMenuId === chat.id
+                        ? "opacity-100"
+                        : "opacity-45 group-hover:opacity-100"
                     )}
                     aria-label={t("chatActions")}
                   >
