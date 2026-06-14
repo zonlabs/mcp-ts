@@ -1,10 +1,18 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import McpClientLayout from "@/components/mcp-client/McpClientLayout";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { McpServer } from "@/types/mcp";
+
+function getSignInRedirectHref(redirect: string): string {
+  const safeRedirect =
+    redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
+  const params = new URLSearchParams({ redirect: safeRedirect });
+  return `/signin?${params.toString()}`;
+}
 
 interface PublicServersResponse {
   servers: McpServer[];
@@ -46,6 +54,7 @@ export default function McpPageClient({
   initialUserError,
   userSession,
 }: McpPageClientProps) {
+  const router = useRouter();
   const [publicServers, setPublicServers] = useState<McpServer[]>(initialPublicServers);
   const [userServers, setUserServers] = useState<McpServer[]>(initialUserServers);
   const [publicServersCount, setPublicServersCount] = useState(initialPublicServersCount);
@@ -128,6 +137,10 @@ export default function McpPageClient({
   const handleServerAction = useCallback(
     async (server: McpServer, action: "activate" | "deactivate") => {
       if (action === "activate") {
+        if (!userSession?.user) {
+          router.push(getSignInRedirectHref("/mcp"));
+          return { success: false, redirected: true };
+        }
         await connect(server);
         return { success: true };
       }
@@ -135,7 +148,7 @@ export default function McpPageClient({
       await disconnect(server);
       return { success: true };
     },
-    [connect, disconnect]
+    [connect, disconnect, router, userSession]
   );
 
   const handleServerAdd = useCallback(

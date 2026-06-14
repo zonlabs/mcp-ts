@@ -12,6 +12,14 @@ import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+function getSafeRedirectPath(redirect: string | null | undefined): string {
+  if (!redirect?.startsWith("/") || redirect.startsWith("//")) {
+    return "/";
+  }
+
+  return redirect;
+}
+
 export default function SignInPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
@@ -19,11 +27,7 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  const getRedirectPath = () => {
-    const redirect = searchParams.get("redirect");
-    if (!redirect?.startsWith("/") || redirect.startsWith("//")) return "/";
-    return redirect;
-  };
+  const getRedirectPath = () => getSafeRedirectPath(searchParams.get("redirect"));
 
   const getAuthCallbackUrl = () => {
     const callbackUrl = new URL("/auth/callback", location.origin);
