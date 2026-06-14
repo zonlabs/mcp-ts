@@ -105,12 +105,17 @@ export function hasToolStepDetails(step: ChainOfThoughtToolStep): boolean {
   return step.input !== undefined || step.output !== undefined || Boolean(step.errorText);
 }
 
-export function getThoughtSummaryLabel(durationSeconds?: number): string {
-  if (typeof durationSeconds === "number" && Number.isFinite(durationSeconds) && durationSeconds > 0) {
-    return `Chain of thought for ${durationSeconds}s`;
+export function getThoughtSummaryLabel(durationSeconds?: number, isRunning = false): string {
+  if (
+    isRunning &&
+    typeof durationSeconds === "number" &&
+    Number.isFinite(durationSeconds) &&
+    durationSeconds > 0
+  ) {
+    return `Thinking ${durationSeconds}s`;
   }
 
-  return "Chain of thought";
+  return "Thoughts";
 }
 
 export function hasVisibleReasoningText(reasoningText: string): boolean {

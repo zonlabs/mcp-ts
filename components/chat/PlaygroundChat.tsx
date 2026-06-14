@@ -85,12 +85,12 @@ const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderPa
 function ThoughtSummaryTrigger({
   isActive,
   isExpanded,
-  isStreaming,
+  isRunning,
   onClick,
 }: {
   isActive: boolean;
   isExpanded: boolean;
-  isStreaming: boolean;
+  isRunning: boolean;
   onClick: () => void;
 }) {
   const startTimeRef = useRef<number | null>(null);
@@ -98,16 +98,24 @@ function ThoughtSummaryTrigger({
   const [duration, setDuration] = useState<number | undefined>(undefined);
 
   useEffect(() => {
-    if (isStreaming) {
+    if (isRunning) {
       if (startTimeRef.current === null) {
         startTimeRef.current = Date.now();
       }
+      const interval = window.setInterval(() => {
+        const elapsedMs =
+          elapsedMsRef.current +
+          (startTimeRef.current === null ? 0 : Date.now() - startTimeRef.current);
+        setDuration(Math.max(1, Math.ceil(elapsedMs / 1000)));
+      }, 1000);
+
+      return () => window.clearInterval(interval);
     } else if (startTimeRef.current !== null) {
       elapsedMsRef.current += Date.now() - startTimeRef.current;
       setDuration(Math.ceil(elapsedMsRef.current / 1000));
       startTimeRef.current = null;
     }
-  }, [isStreaming]);
+  }, [isRunning]);
 
   return (
     <div className="mb-2 flex max-w-full items-center gap-3 text-sm">
@@ -121,7 +129,7 @@ function ThoughtSummaryTrigger({
         )}
       >
         <BrainIcon className={cn('size-4 shrink-0', (isActive || isExpanded) && 'text-primary')} />
-        <span className="truncate">{getThoughtSummaryLabel(duration)}</span>
+        <span className="truncate">{getThoughtSummaryLabel(duration, isRunning)}</span>
         <ChevronDownIcon
           className={cn(
             'size-4 shrink-0 transition-transform',
@@ -151,7 +159,7 @@ function MessageThoughtSection({
       <ThoughtSummaryTrigger
         isActive={isActive}
         isExpanded={isOpen}
-        isStreaming={isStreaming}
+        isRunning={isStreaming || isActive}
         onClick={onToggle}
       />
       {isOpen && hasVisibleReasoningText(chainOfThought.reasoningText) && (

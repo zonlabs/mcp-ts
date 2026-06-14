@@ -95,8 +95,9 @@ test("detects when a tool step has expandable details", () => {
 });
 
 test("formats the compact thought summary label with and without duration", () => {
-  assert.equal(getThoughtSummaryLabel(), "Chain of thought");
-  assert.equal(getThoughtSummaryLabel(45), "Chain of thought for 45s");
+  assert.equal(getThoughtSummaryLabel(), "Thoughts");
+  assert.equal(getThoughtSummaryLabel(45, true), "Thinking 45s");
+  assert.equal(getThoughtSummaryLabel(45, false), "Thoughts");
 });
 
 test("detects whether reasoning text should render in chat", () => {
