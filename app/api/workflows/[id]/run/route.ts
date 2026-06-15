@@ -59,8 +59,8 @@ export async function POST(
     const { data: dbSession } = await supabase
       .from("mcp_sessions")
       .select("session_id")
-      .eq("identity", user.id)
-      .eq("active", true)
+      .eq("user_id", user.id)
+      .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
