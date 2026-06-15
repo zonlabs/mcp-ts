@@ -105,7 +105,7 @@ export function hasToolStepDetails(step: ChainOfThoughtToolStep): boolean {
   return step.input !== undefined || step.output !== undefined || Boolean(step.errorText);
 }
 
-export function getThoughtSummaryLabel(durationSeconds?: number, isRunning = false): string {
+export function getToolCallSummaryLabel(durationSeconds?: number, isRunning = false): string {
   if (
     isRunning &&
     typeof durationSeconds === "number" &&
@@ -115,7 +115,7 @@ export function getThoughtSummaryLabel(durationSeconds?: number, isRunning = fal
     return `Thinking ${durationSeconds}s`;
   }
 
-  return "Thoughts";
+  return "Tool calls";
 }
 
 export function hasVisibleReasoningText(reasoningText: string): boolean {

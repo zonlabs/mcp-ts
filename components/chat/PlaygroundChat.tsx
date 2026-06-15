@@ -32,11 +32,11 @@ import {
   Conversation,
   ConversationContent,
 } from '@/components/ai-elements/conversation';
-import { ThoughtsSidebar } from '@/components/chat/ThoughtsSidebar';
+import { ToolCallSidebar } from '@/components/chat/ToolCallSidebar';
 import {
   buildChainOfThoughtSummary,
   getNextSelectedThoughtMessageId,
-  getThoughtSummaryLabel,
+  getToolCallSummaryLabel,
   hasVisibleReasoningText,
 } from '@/components/chat/chain-of-thought-utils';
 
@@ -129,7 +129,7 @@ function ThoughtSummaryTrigger({
         )}
       >
         <BrainIcon className={cn('size-4 shrink-0', (isActive || isExpanded) && 'text-primary')} />
-        <span className="truncate">{getThoughtSummaryLabel(duration, isRunning)}</span>
+        <span className="truncate">{getToolCallSummaryLabel(duration, isRunning)}</span>
         <ChevronDownIcon
           className={cn(
             'size-4 shrink-0 transition-transform',
@@ -866,7 +866,7 @@ export function PlaygroundChat({
           </div>
           {selectedThoughtSummary && (
             <div className="hidden h-full w-[380px] shrink-0 lg:block">
-              <ThoughtsSidebar
+              <ToolCallSidebar
                 toolSteps={selectedThoughtSummary.toolSteps}
                 onClose={() => setSelectedThoughtMessageId(null)}
               />
@@ -881,7 +881,7 @@ export function PlaygroundChat({
                 onClick={() => setSelectedThoughtMessageId(null)}
               />
               <div className="w-full max-w-sm border-l border-border/70 shadow-2xl">
-                <ThoughtsSidebar
+                <ToolCallSidebar
                   toolSteps={selectedThoughtSummary.toolSteps}
                   onClose={() => setSelectedThoughtMessageId(null)}
                 />

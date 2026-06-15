@@ -71,7 +71,7 @@ function ToolDetailBlock({
   );
 }
 
-function ThoughtToolCallRow({ step }: { step: ChainOfThoughtToolStep }) {
+function ToolCallRow({ step }: { step: ChainOfThoughtToolStep }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const hasArgs = step.input !== undefined;
@@ -130,33 +130,33 @@ function ThoughtToolCallRow({ step }: { step: ChainOfThoughtToolStep }) {
   );
 }
 
-interface ThoughtsSidebarProps {
+interface ToolCallSidebarProps {
   onClose: () => void;
   toolSteps: ChainOfThoughtToolStep[];
 }
 
-export const ThoughtsSidebar = memo(function ThoughtsSidebar({
+export const ToolCallSidebar = memo(function ToolCallSidebar({
   onClose,
   toolSteps,
-}: ThoughtsSidebarProps) {
+}: ToolCallSidebarProps) {
   return (
     <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
       <div className="flex items-center justify-between gap-3 px-4 py-4">
-        <h2 className="text-base font-semibold text-foreground">Thoughts</h2>
+        <h2 className="text-base font-semibold text-foreground">Tool calls</h2>
         <Button
           type="button"
           variant="ghost"
           size="icon"
           className="size-8"
           onClick={onClose}
-          aria-label="Close thoughts panel"
+          aria-label="Close tool calls panel"
         >
           <X className="size-4" />
         </Button>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {toolSteps.length > 0 ? (
-          toolSteps.map((step) => <ThoughtToolCallRow key={step.key} step={step} />)
+          toolSteps.map((step) => <ToolCallRow key={step.key} step={step} />)
         ) : (
           <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
             No tool calls for this message.

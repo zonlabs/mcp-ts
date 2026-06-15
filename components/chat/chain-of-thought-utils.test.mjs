@@ -7,7 +7,7 @@ import {
   getToolStepIconKey,
   getToolStepDescription,
   getToolStepStatus,
-  getThoughtSummaryLabel,
+  getToolCallSummaryLabel,
   hasVisibleReasoningText,
   getNextSelectedThoughtMessageId,
 } from "./chain-of-thought-utils.ts";
@@ -95,9 +95,9 @@ test("detects when a tool step has expandable details", () => {
 });
 
 test("formats the compact thought summary label with and without duration", () => {
-  assert.equal(getThoughtSummaryLabel(), "Thoughts");
-  assert.equal(getThoughtSummaryLabel(45, true), "Thinking 45s");
-  assert.equal(getThoughtSummaryLabel(45, false), "Thoughts");
+  assert.equal(getToolCallSummaryLabel(), "Tool calls");
+  assert.equal(getToolCallSummaryLabel(45, true), "Thinking 45s");
+  assert.equal(getToolCallSummaryLabel(45, false), "Tool calls");
 });
 
 test("detects whether reasoning text should render in chat", () => {
