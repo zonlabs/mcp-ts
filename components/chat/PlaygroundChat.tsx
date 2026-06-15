@@ -36,7 +36,7 @@ import { ToolCallSidebar } from '@/components/chat/ToolCallSidebar';
 import {
   buildChainOfThoughtSummary,
   getNextSelectedThoughtMessageId,
-  getToolCallSummaryLabel,
+  getThoughtSummaryLabel,
   hasVisibleReasoningText,
 } from '@/components/chat/chain-of-thought-utils';
 
@@ -129,7 +129,7 @@ function ThoughtSummaryTrigger({
         )}
       >
         <BrainIcon className={cn('size-4 shrink-0', (isActive || isExpanded) && 'text-primary')} />
-        <span className="truncate">{getToolCallSummaryLabel(duration, isRunning)}</span>
+        <span className="truncate">{getThoughtSummaryLabel(duration, isRunning)}</span>
         <ChevronDownIcon
           className={cn(
             'size-4 shrink-0 transition-transform',
