@@ -30,10 +30,9 @@ function sanitizeTools(tools: any[] = []): McpToolSummary[] {
 
 function toConnectionRecord(
   session: SessionData,
-  connectionStatus: string,
+  active: boolean,
   // tools: McpToolSummary[] = []
 ): McpConnectionRecord {
-  const normalizedStatus = connectionStatus.trim().toUpperCase();
   return {
     sessionId: session.sessionId,
     serverId: session.serverId ?? "unknown",
@@ -41,21 +40,14 @@ function toConnectionRecord(
     serverUrl: session.serverUrl,
     transport: session.transportType ?? "streamable-http",
     createdAt: session.createdAt ?? Date.now(),
-    active: normalizedStatus === "READY" || normalizedStatus === "CONNECTED",
-    connectionStatus: normalizedStatus,
+    active,
+    connectionStatus: active ? "READY" : "FAILED",
     // tools,
   };
 }
 
 function getStoredConnectionStatus(session: SessionData): string {
   const sessionRecord = session as unknown as Record<string, unknown>;
-  const status = sessionRecord.status;
-
-  if (typeof status === "string") {
-    const normalized = status.trim().toLowerCase();
-    if (normalized === "active") return "READY";
-    if (normalized === "pending") return "CONNECTING";
-  }
 
   if (typeof sessionRecord.active === "boolean") {
     return sessionRecord.active ? "READY" : "DISCONNECTED";
@@ -76,7 +68,10 @@ export async function getStoredMcpConnectionsForIdentity(
   return userSessions.map((session) => {
     const connectionStatus = getStoredConnectionStatus(session);
 
-    return toConnectionRecord(session, connectionStatus);
+    return {
+      ...toConnectionRecord(session, connectionStatus === "READY"),
+      connectionStatus,
+    };
   });
 }
 
@@ -98,9 +93,9 @@ export async function getMcpConnectionsForIdentity(
         const tools = sanitizeTools(
           Array.isArray(toolsResult?.tools) ? toolsResult.tools : []
         );
-        return toConnectionRecord(session, "READY");
+        return toConnectionRecord(session, true);
       } catch {
-        return toConnectionRecord(session, getStoredConnectionStatus(session));
+        return toConnectionRecord(session, false);
       } finally {
         client.disconnect("mcp-connections-check");
         client.dispose();
@@ -114,7 +109,7 @@ export async function getMcpConnectionsForIdentity(
 export async function getActiveMcpConnections(
   userId: string
 ): Promise<McpConnectionRecord[]> {
-  const connections = await getStoredMcpConnectionsForIdentity(userId);
+  const connections = await getMcpConnectionsForIdentity(userId);
   return connections.filter((c) => c.active);
 }
 
