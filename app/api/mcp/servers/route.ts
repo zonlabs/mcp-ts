@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { deleteUserMcpServer, saveUserMcpServer } from "@/lib/mcp-servers/service";
 import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
-import { storeServerEmbeddings, deleteServerEmbeddings } from "@/lib/ai/embedding";
+// Embeddings are disabled until the optional mcp_server_embeddings table is part of the deployed schema.
+// import { storeServerEmbeddings, deleteServerEmbeddings } from "@/lib/ai/embedding";
 
 async function getSessionUser() {
   const supabase = await createClient();
@@ -11,25 +12,25 @@ async function getSessionUser() {
   return { supabase, user };
 }
 
-async function handleEmbeddings(saved: { id: string; name: string; description: string | null; url: string | null; transport: string }, userId: string) {
-  try {
-    const embeddingContent = [saved.name, saved.description].filter(Boolean).join(". ");
-    await storeServerEmbeddings(
-      saved.id,
-      embeddingContent,
-      {
-        name: saved.name,
-        url: saved.url ?? undefined,
-        remoteUrl: saved.url ?? undefined,
-        transport: saved.transport,
-        description: saved.description ?? undefined,
-      },
-      userId
-    );
-  } catch (err) {
-    console.error("Background Embedding Error:", err);
-  }
-}
+// async function handleEmbeddings(saved: { id: string; name: string; description: string | null; url: string | null; transport: string }, userId: string) {
+//   try {
+//     const embeddingContent = [saved.name, saved.description].filter(Boolean).join(". ");
+//     await storeServerEmbeddings(
+//       saved.id,
+//       embeddingContent,
+//       {
+//         name: saved.name,
+//         url: saved.url ?? undefined,
+//         remoteUrl: saved.url ?? undefined,
+//         transport: saved.transport,
+//         description: saved.description ?? undefined,
+//       },
+//       userId
+//     );
+//   } catch (err) {
+//     console.error("Background Embedding Error:", err);
+//   }
+// }
 
 /** POST /api/mcp/servers — create or update (REST body = form payload). */
 export async function POST(request: NextRequest) {
@@ -39,16 +40,16 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as Record<string, unknown>;
     const saved = await saveUserMcpServer(ctx.supabase, ctx.user.id, body);
-    await handleEmbeddings(
-      {
-        id: saved.id,
-        name: saved.name,
-        description: saved.description,
-        url: saved.url,
-        transport: saved.transport,
-      },
-      ctx.user.id
-    );
+    // await handleEmbeddings(
+    //   {
+    //     id: saved.id,
+    //     name: saved.name,
+    //     description: saved.description,
+    //     url: saved.url,
+    //     transport: saved.transport,
+    //   },
+    //   ctx.user.id
+    // );
 
     return NextResponse.json({ server: restMcpServer(saved, { includeHeaders: true }) });
   } catch (error: unknown) {
@@ -74,14 +75,14 @@ export async function DELETE(request: NextRequest) {
     let ok: boolean;
     if (serverId) {
       ok = await deleteUserMcpServer(ctx.supabase, ctx.user.id, { id: serverId });
-      if (ok) {
-        await deleteServerEmbeddings({ serverId });
-      }
+      // if (ok) {
+      //   await deleteServerEmbeddings({ serverId });
+      // }
     } else {
       ok = await deleteUserMcpServer(ctx.supabase, ctx.user.id, { name: serverName });
-      if (ok) {
-        await deleteServerEmbeddings({ serverName });
-      }
+      // if (ok) {
+      //   await deleteServerEmbeddings({ serverName });
+      // }
     }
 
     return NextResponse.json({ ok });
