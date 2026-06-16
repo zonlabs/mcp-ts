@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowRight, CheckCircle2, Clock3, XCircle } from "lucide-react";
+import { Activity, CheckCircle2, Clock3, KeyRound, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
 import type { McpToolCallEventRow, McpUsageConnectionLike } from "@/lib/mcp-usage";
@@ -32,7 +32,7 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
       <section id="usage" className="space-y-4 scroll-mt-24">
         <UsageHeader />
 
-        <div className="rounded-2xl border border-border/70 bg-background p-6">
+        <div className="rounded-2xl border border-red-500/20 bg-background p-6 dark:border-red-400/20">
           <p className="text-sm font-medium text-foreground">No tool calls yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Once you use a connected MCP server, the activity panel will show up here.
@@ -60,7 +60,7 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
     <section id="usage" className="space-y-4 scroll-mt-24">
       <UsageHeader />
 
-      <div className="rounded-2xl border border-border/70 bg-background p-6">
+      <div className="rounded-2xl border border-red-500/20 bg-background p-4 dark:border-red-400/20 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-foreground">All tool calls</p>
@@ -70,8 +70,8 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
           </div>
         </div>
 
-        <div className="overflow-visible pb-1">
-          <div className="grid grid-flow-col grid-rows-7 justify-start gap-[5px]">
+        <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-visible sm:px-0">
+          <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[5px]">
             {heatmap.map((day) => {
               const tooltipItems = day.apps.slice(0, 3);
               const otherApps = day.apps.slice(tooltipItems.length);
@@ -81,9 +81,9 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
               return (
                 <div key={day.date} className="group relative">
                   <div className={cn("h-[13px] w-[13px] rounded-[3px]", getHeatmapClassName(day.level))} />
-                  <div className="pointer-events-none absolute left-1/2 bottom-full z-30 mb-2 w-64 -translate-x-1/2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                    <div className="rounded-md border border-border/70 bg-background px-3 py-2 shadow-lg shadow-black/10">
-                      <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-1.5 text-xs">
+                  <div className="hidden sm:pointer-events-none sm:absolute sm:left-1/2 sm:bottom-full sm:z-30 sm:mb-2 sm:block sm:w-64 sm:-translate-x-1/2 sm:opacity-0 sm:transition-opacity sm:duration-150 sm:group-hover:opacity-100">
+                    <div className="rounded-md border border-red-500/20 bg-background px-3 py-2 shadow-lg shadow-black/10 dark:border-red-400/20">
+                      <div className="flex items-center justify-between gap-3 border-b border-red-500/20 pb-1.5 text-xs dark:border-red-400/20">
                         <span className="font-medium text-foreground">{formatTooltipDate(day.date)}</span>
                         <span className="text-muted-foreground">{day.count}</span>
                       </div>
@@ -124,7 +124,7 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-end gap-x-12 gap-y-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <UsageMetric label="Tool Calls" value={summary.toolCallsTotal.toLocaleString()} />
           <UsageMetric
             label="MCP Assistant"
@@ -146,14 +146,14 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
           <h3 className="text-sm font-semibold">Recent Activity</h3>
         </div>
 
-        <div className="space-y-5 rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+        <div className="space-y-5 rounded-2xl border border-red-500/20 bg-background p-3 dark:border-red-400/20 sm:p-5">
         <div className="space-y-4">
           {recentEventGroups.map((group) => (
             <section key={group.dateKey} className="space-y-2">
               <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 {group.label}
               </div>
-              <div className="divide-y divide-border/70">
+              <div className="space-y-2 sm:divide-y sm:divide-red-500/20 sm:space-y-0 dark:sm:divide-red-400/20">
                 {group.events.map((event) => (
                   <RecentActivityRow
                     key={event.id}
@@ -166,17 +166,17 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
           ))}
         </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-4 py-3">
+          <div className="flex flex-col gap-3 border-t border-red-500/20 px-1 py-3 dark:border-red-400/20 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <p className="text-xs text-muted-foreground">
               Showing {events.length === 0 ? 0 : recentEventsStart + 1}-{Math.min(
                 recentEventsStart + RECENT_ACTIVITY_PAGE_SIZE,
                 events.length
               )} of {events.length}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
               <button
                 type="button"
-                className="inline-flex h-9 items-center justify-center rounded-md border border-border/70 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-9 min-w-full items-center justify-center rounded-md border border-red-500/20 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 sm:min-w-0"
                 onClick={() => setRecentActivityPage((current) => Math.max(0, current - 1))}
                 disabled={safeRecentActivityPage === 0}
               >
@@ -184,7 +184,7 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
               </button>
               <button
                 type="button"
-                className="inline-flex h-9 items-center justify-center rounded-md border border-border/70 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-9 min-w-full items-center justify-center rounded-md border border-red-500/20 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 sm:min-w-0"
                 onClick={() =>
                   setRecentActivityPage((current) => Math.min(recentActivityPageCount - 1, current + 1))
                 }
@@ -203,18 +203,18 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
 function UsageHeader() {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-tight">Usage</h2>
+      <div className="space-y-1 pl-4 sm:pl-0">
+        <h2 className="text-xl font-semibold tracking-tight">Activity</h2>
         <p className="max-w-2xl text-sm text-muted-foreground">
           All MCP tool calls through MCP Assistant.
         </p>
       </div>
       <Link
         href="/settings/api-keys"
-        className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        className="inline-flex w-fit items-center gap-2 rounded-full border border-red-500/20 bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted dark:border-red-400/20"
       >
         Manage API keys
-        <ArrowRight className="h-4 w-4" />
+        <KeyRound className="h-4 w-4" />
       </Link>
     </div>
   );
@@ -258,13 +258,13 @@ function UsageMetric({
   serverUrl?: string;
 }) {
   return (
-    <div className="min-w-20">
+    <div className="min-w-0 rounded-xl border border-red-500/20 bg-muted/10 p-3 dark:border-red-400/20 sm:border-0 sm:bg-transparent sm:p-0">
       <p className="mb-1 text-sm text-muted-foreground">{label}</p>
       <div className="flex items-center gap-2">
         {serverUrl ? (
           <ServerIcon serverName={value} serverUrl={serverUrl} size={20} className="shrink-0" />
         ) : null}
-        <p className="max-w-[20rem] truncate text-2xl font-semibold tracking-tight">
+        <p className="min-w-0 max-w-[20rem] truncate text-xl font-semibold tracking-tight sm:text-2xl">
           {value}
         </p>
       </div>
@@ -284,27 +284,27 @@ function RecentActivityRow({
   const isSuccess = event.status === "success";
 
   return (
-    <div className="grid gap-3 px-4 py-3 text-sm sm:grid-cols-[8rem_10rem_minmax(0,1fr)_7rem_5rem] sm:items-center">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[8rem_10rem_minmax(0,1fr)_7rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-4 sm:py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Clock3 className="h-4 w-4" />
         <span>{formatTime(event.started_at)}</span>
       </div>
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
         <ServerIcon serverName={appName} serverUrl={serverUrl} size={28} className="shrink-0 rounded-lg" />
         <span className="max-w-[14rem] truncate">
           {appName}
         </span>
       </div>
-      <div className="min-w-0">
+      <div className="col-span-2 min-w-0 sm:col-span-1">
         <p className="truncate font-mono text-xs tracking-tight sm:text-sm">{event.tool_name}</p>
         {!isSuccess && event.error_preview ? (
-          <p className="mt-1 truncate text-xs text-muted-foreground">{event.error_preview}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:truncate">{event.error_preview}</p>
         ) : null}
       </div>
-      <div className="text-xs text-muted-foreground">{formatDuration(event.duration_ms)}</div>
+      <div className="col-span-2 text-xs text-muted-foreground sm:col-span-1">{formatDuration(event.duration_ms)}</div>
       <div
         className={cn(
-          "flex items-center gap-1.5 text-xs font-medium",
+          "row-start-1 flex items-center justify-end gap-1.5 text-xs font-medium sm:row-auto sm:justify-start",
           isSuccess ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
         )}
       >
