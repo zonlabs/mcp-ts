@@ -44,6 +44,18 @@ type WorkflowApiKeyRow = {
   last_used_at: string | null;
 };
 
+type WorkflowOAuthGrantRow = {
+  id: string;
+  client_id: string;
+  client_name: string | null;
+  redirect_uri: string;
+  scope: string;
+  token_prefix: string;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+};
+
 type TokenPayload = {
   access_token: string;
   expires_at: number | null;
@@ -65,6 +77,9 @@ export function WorkflowEngineTokenSection() {
   const [keys, setKeys] = useState<WorkflowApiKeyRow[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
   const [keysError, setKeysError] = useState<string | null>(null);
+  const [grants, setGrants] = useState<WorkflowOAuthGrantRow[]>([]);
+  const [grantsLoading, setGrantsLoading] = useState(true);
+  const [grantsError, setGrantsError] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -104,6 +119,30 @@ export function WorkflowEngineTokenSection() {
   useEffect(() => {
     void loadKeys();
   }, [loadKeys]);
+
+  const loadGrants = useCallback(async () => {
+    setGrantsLoading(true);
+    setGrantsError(null);
+    try {
+      const res = await fetch("/api/workflow-oauth/grants", { credentials: "include" });
+      const data = (await res.json()) as { grants?: WorkflowOAuthGrantRow[]; error?: string };
+      if (!res.ok) {
+        setGrants([]);
+        setGrantsError(data.error ?? "Could not load connected clients");
+        return;
+      }
+      setGrants(data.grants ?? []);
+    } catch {
+      setGrants([]);
+      setGrantsError("Network error");
+    } finally {
+      setGrantsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadGrants();
+  }, [loadGrants]);
 
   const loadJwt = useCallback(async () => {
     setJwtLoading(true);
@@ -178,6 +217,27 @@ export function WorkflowEngineTokenSection() {
       }
       toast.success("Key revoked");
       void loadKeys();
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleRevokeGrant = async (id: string) => {
+    if (!confirm("Revoke this connected MCP client? It will need to authorize again.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/workflow-oauth/grants/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const j = (await res.json()) as { error?: string };
+        toast.error(j.error ?? "Revoke failed");
+        return;
+      }
+      toast.success("Client revoked");
+      void loadGrants();
     } catch {
       toast.error("Network error");
     }
@@ -328,6 +388,69 @@ export function WorkflowEngineTokenSection() {
                 </Button>
               </li>
             ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <h4 className="text-sm font-medium uppercase tracking-[0.16em]">Connected MCP clients</h4>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            OAuth clients authorized from the consent screen.
+          </p>
+        </div>
+
+        {grantsLoading ? (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-10 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading connected clients...
+          </div>
+        ) : grantsError ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {grantsError}
+          </div>
+        ) : grants.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No OAuth clients connected yet.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {grants.map((grant) => {
+              const expiresLabel = grant.expires_at
+                ? new Date(grant.expires_at).toLocaleDateString()
+                : "Never";
+              return (
+                <li
+                  key={grant.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-transparent px-3 py-2 transition-colors"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <p className="text-sm font-medium text-foreground">
+                        {grant.client_name || grant.client_id}
+                      </p>
+                      <p className="font-mono text-xs text-muted-foreground">{grant.token_prefix}...</p>
+                    </div>
+                    <p className="break-all text-xs text-muted-foreground/90">
+                      Expires {expiresLabel}
+                      {grant.last_used_at ? ` - Last used ${new Date(grant.last_used_at).toLocaleDateString()}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1.5 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => void handleRevokeGrant(grant.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Revoke
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

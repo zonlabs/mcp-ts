@@ -47,6 +47,8 @@ export async function POST(request: NextRequest) {
     state: params.state ?? "",
     code_challenge: params.code_challenge ?? "",
     code_challenge_method: params.code_challenge_method ?? "S256",
+    scope: params.scope ?? "workflow",
+    grant_duration: params.grant_duration ?? "1y",
     user_access_token: session.access_token,
   });
 

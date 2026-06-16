@@ -8,6 +8,7 @@ export type WorkflowOAuthConsentParams = {
   code_challenge?: string;
   code_challenge_method?: string;
   scope?: string;
+  grant_duration?: "7d" | "1y" | "never";
 };
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;
@@ -42,6 +43,7 @@ export function isAllowedWorkflowOAuthIssuer(issuer: string): boolean {
 }
 
 export function parseConsentSearchParams(params: SearchParamRecord): WorkflowOAuthConsentParams {
+  const grantDuration = firstString(params.grant_duration);
   return {
     issuer: firstString(params.issuer),
     client_id: firstString(params.client_id),
@@ -52,6 +54,8 @@ export function parseConsentSearchParams(params: SearchParamRecord): WorkflowOAu
     code_challenge: firstString(params.code_challenge) || undefined,
     code_challenge_method: firstString(params.code_challenge_method) || "S256",
     scope: firstString(params.scope) || "workflow",
+    grant_duration:
+      grantDuration === "7d" || grantDuration === "never" ? grantDuration : "1y",
   };
 }
 
@@ -61,6 +65,7 @@ export function parseConsentFormData(form: FormData): WorkflowOAuthConsentParams
     return typeof value === "string" ? value : "";
   };
 
+  const grantDuration = get("grant_duration");
   return {
     issuer: get("issuer"),
     client_id: get("client_id"),
@@ -71,6 +76,8 @@ export function parseConsentFormData(form: FormData): WorkflowOAuthConsentParams
     code_challenge: get("code_challenge") || undefined,
     code_challenge_method: get("code_challenge_method") || "S256",
     scope: get("scope") || "workflow",
+    grant_duration:
+      grantDuration === "7d" || grantDuration === "never" ? grantDuration : "1y",
   };
 }
 
@@ -91,6 +98,7 @@ export function buildConsentPath(params: WorkflowOAuthConsentParams, error?: str
   search.set("redirect_uri", params.redirect_uri);
   search.set("code_challenge_method", params.code_challenge_method || "S256");
   search.set("scope", params.scope || "workflow");
+  search.set("grant_duration", params.grant_duration || "1y");
   if (params.client_name) search.set("client_name", params.client_name);
   if (params.logo_uri) search.set("logo_uri", params.logo_uri);
   if (params.state) search.set("state", params.state);

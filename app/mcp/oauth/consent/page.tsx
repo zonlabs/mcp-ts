@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ShieldCheck, X } from "lucide-react";
+import { Clock, ShieldCheck, X } from "lucide-react";
 import Logo from "@/components/common/Logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,13 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-function HiddenConsentFields({ params }: { params: ReturnType<typeof parseConsentSearchParams> }) {
+function HiddenConsentFields({
+  params,
+  includeGrantDuration = true,
+}: {
+  params: ReturnType<typeof parseConsentSearchParams>;
+  includeGrantDuration?: boolean;
+}) {
   return (
     <>
       <input type="hidden" name="issuer" value={params.issuer} />
@@ -28,6 +34,9 @@ function HiddenConsentFields({ params }: { params: ReturnType<typeof parseConsen
       <input type="hidden" name="code_challenge" value={params.code_challenge ?? ""} />
       <input type="hidden" name="code_challenge_method" value={params.code_challenge_method ?? "S256"} />
       <input type="hidden" name="scope" value={params.scope ?? "workflow"} />
+      {includeGrantDuration ? (
+        <input type="hidden" name="grant_duration" value={params.grant_duration ?? "1y"} />
+      ) : null}
     </>
   );
 }
@@ -89,22 +98,40 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <form action="/api/workflow-oauth/deny" method="post">
-                  <HiddenConsentFields params={params} />
-                  <Button className="w-full" type="submit" variant="outline">
+              <form action="/api/workflow-oauth/approve" className="space-y-3 pt-2" method="post">
+                <HiddenConsentFields params={params} includeGrantDuration={false} />
+                <label className="block space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+                    <span className="flex items-center gap-2 font-medium text-foreground">
+                      <Clock className="h-4 w-4" />
+                      Access expires
+                    </span>
+                    <select
+                      className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      defaultValue={params.grant_duration ?? "1y"}
+                      name="grant_duration"
+                    >
+                      <option value="7d">7 days</option>
+                      <option value="1y">1 year</option>
+                      <option value="never">Never</option>
+                    </select>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    className="w-full"
+                    formAction="/api/workflow-oauth/deny"
+                    formMethod="post"
+                    type="submit"
+                    variant="outline"
+                  >
                     <X className="h-4 w-4" />
                     Deny
                   </Button>
-                </form>
-                <form action="/api/workflow-oauth/approve" method="post">
-                  <HiddenConsentFields params={params} />
                   <Button className="w-full" type="submit">
                     <ShieldCheck className="h-4 w-4" />
                     Allow
                   </Button>
-                </form>
-              </div>
+                </div>
+              </form>
             </>
           )}
         </div>
