@@ -115,7 +115,7 @@ export function summarizeMcpUsage(
   const orchestrationCallsTotal = toolCallsTotal - connectedEvents.length;
 
   for (const event of events) {
-    activeDates.add(getUtcDateKey(event.started_at));
+    activeDates.add(getLocalDateKey(event.started_at));
   }
 
   for (const event of connectedEvents) {
@@ -165,7 +165,7 @@ export function buildMcpUsageHeatmap(
   const countsByDate = new Map<string, number>();
   const connectedAppCountsByDate = new Map<string, Map<string, McpUsageHeatmapApp>>();
   for (const event of events) {
-    const dateKey = getUtcDateKey(event.started_at);
+    const dateKey = getLocalDateKey(event.started_at);
     countsByDate.set(dateKey, (countsByDate.get(dateKey) ?? 0) + 1);
 
     const appKey =
@@ -186,10 +186,13 @@ export function buildMcpUsageHeatmap(
     connectedAppCountsByDate.set(dateKey, appCounts);
   }
 
-  const todayStart = getUtcDayStart(now).getTime();
   return Array.from({ length: safeDays }, (_, index) => {
-    const date = new Date(todayStart - (safeDays - index - 1) * DAY_MS);
-    const dateKey = getUtcDateKey(date);
+    const date = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - (safeDays - index - 1)
+    );
+    const dateKey = getLocalDateKey(date);
     const count = countsByDate.get(dateKey) ?? 0;
     const apps = [...(connectedAppCountsByDate.get(dateKey)?.values() ?? [])].sort((a, b) => {
       const countDelta = b.count - a.count;
@@ -244,11 +247,11 @@ export function filterConnectedMcpUsageEvents(events: McpToolCallEventRow[]) {
 
 function countActiveDayStreak(activeDates: Set<string>, now: Date) {
   let streak = 0;
-  let cursor = getUtcDayStart(now).getTime();
+  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  while (activeDates.has(getUtcDateKey(new Date(cursor)))) {
+  while (activeDates.has(getLocalDateKey(cursor))) {
     streak += 1;
-    cursor -= DAY_MS;
+    cursor.setDate(cursor.getDate() - 1);
   }
 
   return streak;
@@ -262,13 +265,12 @@ function getHeatmapLevel(count: number) {
   return 4;
 }
 
-function getUtcDateKey(value: string | Date) {
+export function getLocalDateKey(value: string | Date) {
   const date = typeof value === "string" ? new Date(value) : value;
-  return date.toISOString().slice(0, 10);
-}
-
-function getUtcDayStart(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeAppKey(value: string | null | undefined) {

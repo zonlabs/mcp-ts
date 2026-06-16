@@ -9,6 +9,7 @@ import type { McpToolCallEventRow, McpUsageConnectionLike } from "@/lib/mcp-usag
 import {
   buildMcpUsageHeatmap,
   getMcpAppDisplayName,
+  getLocalDateKey,
   resolveMcpUsageServerUrl,
   summarizeMcpUsage,
 } from "@/lib/mcp-usage";
@@ -392,13 +393,7 @@ function formatRecentActivityDateLabel(value: string) {
   }).format(date);
 }
 
-function getLocalDateKey(value: string | Date) {
-  const date = typeof value === "string" ? new Date(value) : value;
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+
 
 function getUsageEventKey(event: Pick<McpToolCallEventRow, "app_key" | "server_id" | "server_name">) {
   return normalizeValue(event.app_key) || normalizeValue(event.server_id) || normalizeValue(event.server_name) || "mcp_server";
