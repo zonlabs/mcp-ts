@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo } from "react";
 import { Activity, CheckCircle2, Clock3, KeyRound, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
@@ -13,22 +13,36 @@ import {
   summarizeMcpUsage,
 } from "@/lib/mcp-usage";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
 interface McpUsageOverviewProps {
   events: McpToolCallEventRow[];
   connections: McpUsageConnectionLike[];
+  metricsEvents: McpToolCallEventRow[];
+  totalCount: number;
+  currentPage: number;
 }
 
-export function McpUsageOverview({ events, connections }: McpUsageOverviewProps) {
-  const [recentActivityPage, setRecentActivityPage] = useState(0);
+export function McpUsageOverview({
+  events,
+  connections,
+  metricsEvents,
+  totalCount,
+  currentPage,
+}: McpUsageOverviewProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    setRecentActivityPage(0);
-  }, [events]);
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("page", newPage.toString());
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
-  if (events.length === 0) {
+  if (metricsEvents.length === 0) {
     return (
       <section id="usage" className="space-y-4 scroll-mt-24">
         <UsageHeader />
@@ -43,15 +57,11 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
     );
   }
 
-  const summary = summarizeMcpUsage(events);
-  const heatmap = buildMcpUsageHeatmap(events, 365, new Date(), connections);
-  const recentActivityPageCount = Math.max(1, Math.ceil(events.length / RECENT_ACTIVITY_PAGE_SIZE));
-  const safeRecentActivityPage = Math.min(recentActivityPage, recentActivityPageCount - 1);
-  const recentEventsStart = safeRecentActivityPage * RECENT_ACTIVITY_PAGE_SIZE;
-  const recentEvents = events.slice(recentEventsStart, recentEventsStart + RECENT_ACTIVITY_PAGE_SIZE);
-  const recentEventGroups = useMemo(() => groupRecentEventsByDate(recentEvents), [recentEvents]);
+  const summary = summarizeMcpUsage(metricsEvents);
+  const heatmap = buildMcpUsageHeatmap(metricsEvents, 365, new Date(), connections);
+  const recentEventGroups = useMemo(() => groupRecentEventsByDate(events), [events]);
   const mostUsedAppEvent = summary.mostUsedApp
-    ? events.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
+    ? metricsEvents.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
     : undefined;
   const mostUsedAppServerUrl = mostUsedAppEvent
     ? resolveMcpUsageServerUrl(mostUsedAppEvent, connections) ?? undefined
@@ -169,27 +179,25 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
 
           <div className="flex flex-col gap-3 border-t border-red-500/20 px-1 py-3 dark:border-red-400/20 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <p className="text-xs text-muted-foreground">
-              Showing {events.length === 0 ? 0 : recentEventsStart + 1}-{Math.min(
-                recentEventsStart + RECENT_ACTIVITY_PAGE_SIZE,
-                events.length
-              )} of {events.length}
+              Showing {events.length === 0 ? 0 : (currentPage - 1) * RECENT_ACTIVITY_PAGE_SIZE + 1}-{Math.min(
+                currentPage * RECENT_ACTIVITY_PAGE_SIZE,
+                totalCount
+              )} of {totalCount}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
               <button
                 type="button"
                 className="inline-flex h-9 min-w-full items-center justify-center rounded-md border border-red-500/20 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 sm:min-w-0"
-                onClick={() => setRecentActivityPage((current) => Math.max(0, current - 1))}
-                disabled={safeRecentActivityPage === 0}
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
               >
                 Previous
               </button>
               <button
                 type="button"
                 className="inline-flex h-9 min-w-full items-center justify-center rounded-md border border-red-500/20 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 sm:min-w-0"
-                onClick={() =>
-                  setRecentActivityPage((current) => Math.min(recentActivityPageCount - 1, current + 1))
-                }
-                disabled={safeRecentActivityPage >= recentActivityPageCount - 1}
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage * RECENT_ACTIVITY_PAGE_SIZE >= totalCount}
               >
                 Next
               </button>
