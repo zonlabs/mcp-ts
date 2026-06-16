@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Home, Server, MessageSquare, Package, BookOpen, GitFork } from "lucide-react";
+import { Menu, X, Home, Hammer, MessageSquare, Package, BookOpen, GitFork } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ export function MobileNav() {
 
   const navLinks = [
     { href: "/", label: "Home", icon: Home },
-    { href: "/mcp", label: "MCP", icon: Server },
+    { href: "/mcp", label: "MCP", icon: Hammer },
     { href: "/registry", label: "Registry", icon: Package },
     { href: "/workflows", label: "Workflows", icon: GitFork },
     { href: "/chat", label: "Chat", icon: MessageSquare },
@@ -49,7 +49,7 @@ export function MobileNav() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
-              className="fixed inset-y-0 left-0 z-[211] bg-background p-6 shadow-xl"
+              className="font-sans-original fixed inset-y-0 left-0 z-[211] w-[min(20rem,calc(100vw-2rem))] bg-background p-6 tracking-normal shadow-xl"
             >
               <div className="mb-8 flex items-center justify-between">
                 <Button variant="ghost" size="icon" onClick={toggleMenu}>

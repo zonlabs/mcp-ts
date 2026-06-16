@@ -26,6 +26,7 @@ export const en = {
   preferences: "Preferences",
   apiKeys: "API Keys",
   connectors: "Connectors",
+  usage: "Usage",
   apps: "Apps",
   home: "Home",
   registry: "Registry",
