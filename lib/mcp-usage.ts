@@ -76,17 +76,21 @@ export function getMcpAppDisplayName(
   if (normalizedKey && KNOWN_APP_NAMES[normalizedKey]) {
     return KNOWN_APP_NAMES[normalizedKey];
   }
+
+  const displayName = serverName?.trim();
+  if (displayName) {
+    const normalizedDisplay = normalizeAppKey(displayName);
+    if (normalizedDisplay === "workflow_automation_engine" || normalizedKey === "workflow_automation_engine") {
+      return "MCP Assistant";
+    }
+    return displayName;
+  }
+
   if (normalizedKey) {
     return titleCase(normalizedKey.replace(/[_-]+/g, " "));
   }
-  const displayName = serverName?.trim();
-  if (!displayName) {
-    return "MCP Server";
-  }
-  if (normalizeAppKey(displayName) === "workflow_automation_engine") {
-    return "MCP Assistant";
-  }
-  return displayName;
+
+  return "MCP Server";
 }
 
 export function summarizeMcpUsage(

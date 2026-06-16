@@ -12,8 +12,9 @@ import {
   resolveMcpUsageServerUrl,
   summarizeMcpUsage,
 } from "@/lib/mcp-usage";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const RECENT_ACTIVITY_PAGE_SIZE = 6;
+const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
 interface McpUsageOverviewProps {
   events: McpToolCallEventRow[];
@@ -153,7 +154,7 @@ export function McpUsageOverview({ events, connections }: McpUsageOverviewProps)
               <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 {group.label}
               </div>
-              <div className="space-y-2 sm:divide-y sm:divide-red-500/20 sm:space-y-0 dark:sm:divide-red-400/20">
+              <div className="space-y-2 sm:space-y-0">
                 {group.events.map((event) => (
                   <RecentActivityRow
                     key={event.id}
@@ -238,7 +239,7 @@ function groupRecentEventsByDate(events: McpToolCallEventRow[]) {
 
     groups.push({
       dateKey,
-      label: dateKey === todayKey ? "Today" : formatRecentActivityDateLabel(dateKey),
+      label: dateKey === todayKey ? "TODAY" : formatRecentActivityDateLabel(dateKey).toUpperCase(),
       events: [event],
     });
   }
@@ -284,16 +285,36 @@ function RecentActivityRow({
   const isSuccess = event.status === "success";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[8rem_10rem_minmax(0,1fr)_7rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-4 sm:py-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[8rem_10rem_minmax(0,1fr)_7rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-x-0 sm:border-b-0 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Clock3 className="h-4 w-4" />
         <span>{formatTime(event.started_at)}</span>
       </div>
       <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
         <ServerIcon serverName={appName} serverUrl={serverUrl} size={28} className="shrink-0 rounded-lg" />
-        <span className="max-w-[14rem] truncate">
-          {appName}
-        </span>
+        {event.server_id || serverUrl ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="max-w-[14rem] truncate cursor-help">
+                {appName}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <div className="space-y-1 text-xs">
+                {event.server_id && (
+                  <p className="font-mono"><span className="text-muted-foreground">Server ID: </span>{event.server_id}</p>
+                )}
+                {serverUrl && (
+                  <p className="font-mono"><span className="text-muted-foreground">Server URL: </span>{serverUrl}</p>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="max-w-[14rem] truncate">
+            {appName}
+          </span>
+        )}
       </div>
       <div className="col-span-2 min-w-0 sm:col-span-1">
         <p className="truncate font-mono text-xs tracking-tight sm:text-sm">{event.tool_name}</p>
@@ -332,13 +353,13 @@ function getHeatmapClassName(level: number) {
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   }).format(new Date(value));
 }
 
+// Format duration
 function formatDuration(durationMs: number) {
   if (durationMs <= 0) return "<1ms";
   if (durationMs < 1000) return `${durationMs}ms`;
@@ -354,11 +375,13 @@ function formatTooltipDate(value: string) {
 }
 
 function formatRecentActivityDateLabel(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
   return new Intl.DateTimeFormat("en", {
-    month: "short",
+    month: "long",
     day: "numeric",
     year: "numeric",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function getLocalDateKey(value: string | Date) {
