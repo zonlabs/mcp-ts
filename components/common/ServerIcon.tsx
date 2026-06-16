@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useState } from 'react';
 
 interface ServerIconProps {
@@ -88,19 +87,19 @@ export function ServerIcon({
 
   // If we have a domain and no error, show the favicon
   if (domain && !faviconError) {
-    // Use higher resolution for better quality (256 for retina displays)
     const faviconSize = Math.max(256, size * 4);
+    const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=${faviconSize}`;
     return (
-      <Image
-        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=${faviconSize}`}
-        width={size}
-        height={size}
+      <img
+        src={faviconUrl}
         alt={`${serverName} favicon`}
         className={className}
-        quality={95}
-        unoptimized
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
         onError={(e) => {
-          // console.log('Favicon failed for domain:', domain, 'URL:', serverUrl);
           setFaviconError(true);
         }}
       />
@@ -110,15 +109,16 @@ export function ServerIcon({
   // If custom fallback image is provided, use it (when favicon fails or no domain)
   if (fallbackImage && showFallback && !fallbackError) {
     return (
-      <Image
+      <img
         src={fallbackImage}
         alt={`${serverName} icon`}
         width={size}
         height={size}
         className={className}
-        unoptimized
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
         onError={(e) => {
-          // console.log('Fallback image failed:', fallbackImage);
           setFallbackError(true);
         }}
       />
@@ -130,7 +130,12 @@ export function ServerIcon({
     return (
       <div
         className={`${getColorFromName(serverName)} ${className} flex items-center justify-center text-white font-semibold border-0`}
-        style={{ width: size, height: size, fontSize: size * 0.5, borderRadius: className.includes('rounded') ? undefined : '0.5rem' }}
+        style={{
+          width: size,
+          height: size,
+          fontSize: size * 0.5,
+          borderRadius: className.includes('rounded') ? undefined : '0.5rem',
+        }}
       >
         {firstLetter}
       </div>

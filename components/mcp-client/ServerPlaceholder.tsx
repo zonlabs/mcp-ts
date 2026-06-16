@@ -1,7 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Server, Search, Star } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { ArrowRight, Check, Copy, Search, Server, Star, Hammer } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import type { McpServer } from "@/types/mcp";
 
@@ -11,11 +14,32 @@ interface ServerPlaceholderProps {
   featuredServers?: McpServer[];
 }
 
+const MCP_ASSISTANT_URL = "https://api.mcp-assistant.in/mcp";
+const MCP_CLIENT_ICONS = [
+  {
+    name: "VS Code",
+    url: "https://code.visualstudio.com",
+    fallbackImage: "https://api.iconify.design/logos:visual-studio-code.svg",
+  },
+  {
+    name: "Cursor",
+    url: "https://cursor.com",
+    fallbackImage: "https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/light/cursor.png",
+  },
+  {
+    name: "Notion",
+    url: "https://www.notion.so",
+    fallbackImage: "https://api.iconify.design/logos:notion-icon.svg",
+  },
+] as const;
+
 export function ServerPlaceholder({
   type,
   tab,
   featuredServers = [],
 }: ServerPlaceholderProps) {
+  const [urlCopied, setUrlCopied] = useState(false);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -42,6 +66,20 @@ export function ServerPlaceholder({
       .trim();
   };
 
+  const handleCopyAssistantUrl = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      await navigator.clipboard.writeText(MCP_ASSISTANT_URL);
+      setUrlCopied(true);
+      toast.success("Copied MCP endpoint");
+      window.setTimeout(() => setUrlCopied(false), 1600);
+    } catch {
+      toast.error("Could not copy MCP endpoint");
+    }
+  };
+
   if (type === "no-selection") {
     return (
       <div className="flex-1 p-4 sm:p-6 md:p-8 min-h-[calc(100vh-120px)] dark:bg-transparent">
@@ -51,6 +89,76 @@ export function ServerPlaceholder({
           animate="visible"
           className="mx-auto max-w-5xl w-full"
         >
+          <motion.div variants={itemVariants} className="mb-5">
+            <div className="flex items-center gap-2">
+              <Hammer className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Our Remote MCP</h2>
+            </div>
+            <Link
+              href="/remote-mcp"
+              className="mt-1 block rounded-lg border border-red-200/70 bg-background px-4 py-4 transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                    <ServerIcon
+                      serverName="MCP Assistant"
+                      serverUrl={MCP_ASSISTANT_URL}
+                      size={28}
+                      className="rounded-md"
+                    />
+                  </div>
+                  <p className="text-[1.35rem] font-semibold tracking-tight text-foreground">MCP Assistant</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                      {MCP_CLIENT_ICONS.map((client) => (
+                        <div
+                          key={client.name}
+                          className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background"
+                        >
+                          <img
+                            src={client.fallbackImage}
+                            alt={`${client.name} icon`}
+                            width={16}
+                            height={16}
+                            className="rounded-sm"
+                            loading="lazy"
+                            decoding="async"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      ))}
+                    </div>
+              </div>
+
+              <div className="mt-4 rounded-sm bg-red-50/80 px-4 py-3 dark:bg-red-950/20">
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500/80">
+                  URL
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <code className="truncate text-sm text-red-700 dark:text-red-300">
+                    {MCP_ASSISTANT_URL}
+                  </code>
+                  <button
+                    type="button"
+                    aria-label="Copy MCP endpoint"
+                    onClick={handleCopyAssistantUrl}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-900/40"
+                  >
+                    {urlCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80">
+                  Open usage
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
+            </Link>
+          </motion.div>
+
           {featuredServers.length > 0 && (
             <motion.div variants={itemVariants} className="p-0">
               <div className="mb-5">
@@ -127,5 +235,3 @@ export function ServerPlaceholder({
     </div>
   );
 }
-
-
