@@ -27,6 +27,11 @@ const MCP_CLIENT_ICONS = [
     fallbackImage: "https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/light/cursor.png",
   },
   {
+    name: "ChatGPT",
+    url: "https://chatgpt.com",
+    fallbackImage: "https://api.iconify.design/simple-icons:openai.svg",
+  },
+  {
     name: "Notion",
     url: "https://www.notion.so",
     fallbackImage: "https://api.iconify.design/logos:notion-icon.svg",
@@ -121,7 +126,7 @@ export function ServerPlaceholder({
                             alt={`${client.name} icon`}
                             width={16}
                             height={16}
-                            className="rounded-sm"
+                            className={`rounded-sm ${client.name === 'Cursor' || client.name === 'ChatGPT' ? 'dark:invert' : ''}`}
                             loading="lazy"
                             decoding="async"
                             referrerPolicy="no-referrer"
