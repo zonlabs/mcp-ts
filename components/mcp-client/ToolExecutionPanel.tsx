@@ -206,21 +206,9 @@ export default function ToolExecutionPanel({
     >
       {/* Header */}
       <div className="flex-shrink-0 border-b border-border">
-        {/* Top Bar - Server Info and Close Button */}
+        {/* Top Bar - Server Info */}
         <div className="p-4 pb-0 flex items-center justify-between gap-3">
-          {/* <div className="flex-1 min-w-0 flex items-center gap-2"> */}
-          {/* <p className="text-xs text-muted-foreground uppercase tracking-wide flex-shrink-0">Server:</p> */}
           <h2 className="text-sm font-semibold text-foreground truncate">{server.name}</h2>
-          {/* </div> */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="h-8 w-8 p-0 hover:bg-muted cursor-pointer flex-shrink-0"
-            title="Close tool tester"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </div>
 
         {/* Tool Selector Section */}

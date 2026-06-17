@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { Fragment, useMemo } from "react";
-import { Activity, CheckCircle2, Clock3, KeyRound, XCircle } from "lucide-react";
+import { Fragment, useMemo, useState, useEffect, useRef } from "react";
+import { Activity, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
 import type { McpToolCallEventRow, McpUsageConnectionLike } from "@/lib/mcp-usage";
@@ -13,7 +12,12 @@ import {
   resolveMcpUsageServerUrl,
   summarizeMcpUsage,
 } from "@/lib/mcp-usage";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
@@ -24,6 +28,8 @@ interface McpUsageOverviewProps {
   metricsEvents: McpToolCallEventRow[];
   totalCount: number;
   currentPage: number;
+  onPageChange?: (newPage: number) => void;
+  days?: number;
 }
 
 export function McpUsageOverview({
@@ -32,12 +38,43 @@ export function McpUsageOverview({
   metricsEvents,
   totalCount,
   currentPage,
+  onPageChange,
+  days,
 }: McpUsageOverviewProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const daysToShow = useMemo(() => {
+    if (days !== undefined) {
+      return days;
+    }
+    if (containerWidth <= 0) return 90; // Fallback before measurement
+    const availableWidth = containerWidth - 8; // Safety margin
+    const columns = Math.floor((availableWidth + 5) / 18);
+    const calculatedDays = Math.max(7, columns * 7);
+    return Math.min(365, calculatedDays);
+  }, [containerWidth, days]);
+
   const handlePageChange = (newPage: number) => {
+    if (onPageChange) {
+      onPageChange(newPage);
+      return;
+    }
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", newPage.toString());
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
@@ -46,8 +83,6 @@ export function McpUsageOverview({
   if (metricsEvents.length === 0) {
     return (
       <section id="usage" className="space-y-4 scroll-mt-24">
-        <UsageHeader />
-
         <div className="rounded-2xl border border-red-500/20 bg-background p-6 dark:border-red-400/20">
           <p className="text-sm font-medium text-foreground">No tool calls yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -59,7 +94,9 @@ export function McpUsageOverview({
   }
 
   const summary = summarizeMcpUsage(metricsEvents);
-  const heatmap = buildMcpUsageHeatmap(metricsEvents, 365, new Date(), connections);
+  const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date(), connections);
+  // Compute max count for relative color scaling
+  const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
   const recentEventGroups = useMemo(() => groupRecentEventsByDate(events), [events]);
   const mostUsedAppEvent = summary.mostUsedApp
     ? metricsEvents.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
@@ -70,8 +107,6 @@ export function McpUsageOverview({
 
   return (
     <section id="usage" className="space-y-4 scroll-mt-24">
-      <UsageHeader />
-
       <div className="rounded-2xl border border-red-500/20 bg-background p-4 dark:border-red-400/20 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -82,7 +117,8 @@ export function McpUsageOverview({
           </div>
         </div>
 
-        <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-visible sm:px-0">
+        <div ref={containerRef} className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-x-auto sm:px-0 scrollbar-minimal">
+          <TooltipProvider delayDuration={100}>
           <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[5px]">
             {heatmap.map((day) => {
               const tooltipItems = day.apps.slice(0, 3);
@@ -91,13 +127,26 @@ export function McpUsageOverview({
               const otherToolCalls = otherApps.reduce((total, app) => total + app.count, 0);
 
               return (
-                <div key={day.date} className="group relative">
-                  <div className={cn("h-[13px] w-[13px] rounded-[3px]", getHeatmapClassName(day.level))} />
-                  <div className="hidden sm:pointer-events-none sm:absolute sm:left-1/2 sm:bottom-full sm:z-30 sm:mb-2 sm:block sm:w-64 sm:-translate-x-1/2 sm:opacity-0 sm:transition-opacity sm:duration-150 sm:group-hover:opacity-100">
-                    <div className="rounded-md border border-red-500/20 bg-background px-3 py-2 shadow-lg shadow-black/10 dark:border-red-400/20">
-                      <div className="flex items-center justify-between gap-3 border-b border-red-500/20 pb-1.5 text-xs dark:border-red-400/20">
-                        <span className="font-medium text-foreground">{formatTooltipDate(day.date)}</span>
-                        <span className="text-muted-foreground">{day.count}</span>
+                <Tooltip key={day.date}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn(
+                        "h-[13px] w-[13px] rounded-[3px] cursor-default",
+                        getHeatmapColorClass(day.count, maxCount)
+                      )}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    sideOffset={6}
+                    className="z-[300] w-56 p-0 overflow-hidden bg-popover text-popover-foreground border border-border shadow-lg"
+                    avoidCollisions={true}
+                    collisionPadding={8}
+                  >
+                    <div className="px-3 py-2">
+                      <div className="flex items-center justify-between gap-3 border-b border-border pb-1.5 text-xs">
+                        <span className="font-medium">{formatTooltipDate(day.date)}</span>
+                        <span className="text-muted-foreground">{day.count} calls</span>
                       </div>
                       <div className="mt-2 space-y-1">
                         {tooltipItems.length > 0 ? (
@@ -110,30 +159,31 @@ export function McpUsageOverview({
                                   size={16}
                                   className="shrink-0 rounded-sm"
                                 />
-                                <span className="min-w-0 flex-1 truncate text-foreground">{app.name}</span>
+                                <span className="min-w-0 flex-1 truncate">{app.name}</span>
                                 <span className="shrink-0 text-muted-foreground">{app.count}</span>
                               </div>
                             ))}
                             {otherCount > 0 ? (
                               <div className="flex items-center gap-2 text-xs">
-                                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted/50 text-[9px] font-semibold text-muted-foreground">
+                                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
                                   +
                                 </div>
-                                <span className="min-w-0 flex-1 truncate text-foreground">
+                                <span className="min-w-0 flex-1 truncate">
                                   {otherCount} other{otherCount === 1 ? "" : "s"}
                                 </span>
                                 <span className="shrink-0 text-muted-foreground">{otherToolCalls}</span>
                               </div>
                             ) : null}
                           </>
-                        ) : <p className="text-xs text-muted-foreground">No app breakdown</p>}
+                        ) : <p className="text-xs text-muted-foreground">No tool calls</p>}
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </TooltipContent>
+                </Tooltip>
               );
             })}
           </div>
+          </TooltipProvider>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -210,25 +260,7 @@ export function McpUsageOverview({
   );
 }
 
-function UsageHeader() {
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-1 pl-4 sm:pl-0">
-        <h2 className="text-xl font-semibold tracking-tight">Activity</h2>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          All MCP tool calls through MCP Assistant.
-        </p>
-      </div>
-      <Link
-        href="/settings/api-keys"
-        className="inline-flex w-fit items-center gap-2 rounded-full border border-red-500/20 bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted dark:border-red-400/20"
-      >
-        Manage API keys
-        <KeyRound className="h-4 w-4" />
-      </Link>
-    </div>
-  );
-}
+
 
 function groupRecentEventsByDate(events: McpToolCallEventRow[]) {
   const todayKey = getLocalDateKey(new Date());
@@ -294,7 +326,7 @@ function RecentActivityRow({
   const isSuccess = event.status === "success";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[8rem_10rem_minmax(0,1fr)_7rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-x-0 sm:border-b-0 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-x-0 sm:border-b-0 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Clock3 className="h-4 w-4" />
         <span>{formatTime(event.started_at)}</span>
@@ -304,7 +336,7 @@ function RecentActivityRow({
         {event.server_id || serverUrl ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="max-w-[14rem] truncate cursor-help">
+              <span className="truncate cursor-help">
                 {appName}
               </span>
             </TooltipTrigger>
@@ -320,13 +352,19 @@ function RecentActivityRow({
             </TooltipContent>
           </Tooltip>
         ) : (
-          <span className="max-w-[14rem] truncate">
+          <span className="truncate">
             {appName}
           </span>
         )}
       </div>
       <div className="col-span-2 min-w-0 sm:col-span-1">
-        <p className="truncate font-mono text-xs tracking-tight sm:text-sm">{event.tool_name}</p>
+        <p
+          className="break-all whitespace-normal font-mono text-xs tracking-tight sm:text-sm text-foreground"
+          style={{ wordBreak: "break-all", whiteSpace: "normal" }}
+          title={event.tool_name}
+        >
+          {event.tool_name}
+        </p>
         {!isSuccess && event.error_preview ? (
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:truncate">{event.error_preview}</p>
         ) : null}
@@ -345,19 +383,14 @@ function RecentActivityRow({
   );
 }
 
-function getHeatmapClassName(level: number) {
-  switch (level) {
-    case 1:
-      return "bg-emerald-200 dark:bg-emerald-950";
-    case 2:
-      return "bg-emerald-300 dark:bg-emerald-800";
-    case 3:
-      return "bg-emerald-400 dark:bg-emerald-600";
-    case 4:
-      return "bg-emerald-600 dark:bg-emerald-400";
-    default:
-      return "bg-muted/60";
-  }
+function getHeatmapColorClass(count: number, maxCount: number): string {
+  if (count <= 0 || maxCount <= 0) return "bg-muted/60";
+  // Use relative percentile of max so colors always span the full range
+  const ratio = count / maxCount;
+  if (ratio <= 0.25) return "bg-emerald-200 dark:bg-emerald-950";
+  if (ratio <= 0.5)  return "bg-emerald-300 dark:bg-emerald-800";
+  if (ratio <= 0.75) return "bg-emerald-500 dark:bg-emerald-600";
+  return "bg-emerald-700 dark:bg-emerald-400";
 }
 
 function formatTime(value: string) {

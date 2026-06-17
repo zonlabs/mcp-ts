@@ -1,8 +1,6 @@
 "use client";
 
 import { LlmSettingsPanel } from "@/components/chat/LlmSettingsPanel";
-import { WorkflowEngineTokenSection } from "@/components/settings/WorkflowEngineTokenSection";
-import { Separator } from "@/components/ui/separator";
 import { useI18n } from "@/lib/web-i18n";
 
 export default function ApiKeysPage() {
@@ -22,10 +20,6 @@ export default function ApiKeysPage() {
           <h3 className="text-sm font-medium text-muted-foreground">{t("llmSettings")}</h3>
           <LlmSettingsPanel />
         </section>
-
-        <Separator />
-
-        <WorkflowEngineTokenSection />
       </div>
     </div>
   );
