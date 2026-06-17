@@ -332,9 +332,9 @@ export function ServerSidebar({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="right" sideOffset={10} className="z-[230]">
-                      <p className="font-semibold text-xs text-foreground">{server.name}</p>
+                      <p className="font-semibold text-xs">{server.name}</p>
                       {server.description && (
-                        <p className="text-[10px] text-muted-foreground max-w-xs line-clamp-2 mt-0.5">{server.description}</p>
+                        <p className="text-[10px] opacity-70 max-w-xs line-clamp-2 mt-0.5">{server.description}</p>
                       )}
                     </TooltipContent>
                   </Tooltip>
