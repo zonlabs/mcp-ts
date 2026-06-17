@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PanelLeftOpen } from "lucide-react";
+
 import { Toaster } from "react-hot-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -288,24 +288,6 @@ export default function McpClientLayout({
           },
         }}
       />
-
-      {/* Mobile Sidebar Toggle Header */}
-      {!sidebarOpen && (
-        <div className="sticky top-16 z-[70] border-b border-border bg-background/90 p-3 backdrop-blur lg:hidden flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(true)}
-            className="flex items-center gap-2 cursor-pointer"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-            Show Servers
-          </Button>
-          <span className="text-xs font-semibold text-muted-foreground mr-2">
-            {remoteMcpOpen ? "Remote MCP" : toolTesterOpen ? "Tool Execution" : "Servers"}
-          </span>
-        </div>
-      )}
 
       <div className="flex flex-1 min-h-0 relative">
         {/* Left Sidebar */}

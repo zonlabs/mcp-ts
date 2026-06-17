@@ -101,7 +101,7 @@ export function ServerPlaceholder({
             </div>
             <Link
               href="/mcp?remote-mcp=activity"
-              className="mt-1 block rounded-lg border border-red-200/70 bg-background px-4 py-4 transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
+              className="group mt-1 block rounded-lg border border-red-200/70 bg-background px-4 py-4 transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
@@ -136,7 +136,7 @@ export function ServerPlaceholder({
                     </div>
               </div>
 
-              <div className="mt-4 rounded-sm bg-red-50/80 px-4 py-3 dark:bg-red-950/20">
+              <div className="mt-4 rounded-sm bg-red-50/80 px-4 py-3 dark:bg-red-950/20 group-hover:bg-muted/50 dark:group-hover:bg-muted/50">
                 <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500/80">
                   URL
                 </div>

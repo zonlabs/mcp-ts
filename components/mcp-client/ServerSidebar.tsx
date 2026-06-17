@@ -210,7 +210,7 @@ export function ServerSidebar({
     return (
       <TooltipProvider>
         <div
-          className="border-r border-border flex flex-col bg-background transition-all duration-300 sticky top-16 h-[calc(100vh-4rem)] z-40 w-16 hidden lg:flex"
+          className="border-r border-border flex flex-col bg-background transition-all duration-300 sticky top-16 h-[calc(100vh-4rem)] z-40 w-16"
         >
           {/* Top Header with Expand Button */}
           <div className="p-4 border-b border-border flex flex-col items-center flex-shrink-0">
