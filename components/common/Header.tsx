@@ -5,7 +5,6 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import Logo from "@/components/common/Logo";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { NavigationLinks } from "@/components/common/NavigationLinks";
-import { MobileNav } from "@/components/common/MobileNav";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -29,18 +28,12 @@ export default function Header() {
       )}>
 
         <div className="relative flex items-center justify-between">
-          {/* Left: Mobile menu, Logo */}
+          {/* Left: Logo */}
           <div className="flex items-center gap-2">
-            {/* Mobile */}
-            <div className="lg:hidden">
-              <MobileNav />
-            </div>
- 
-            {/* Logo */}
-            <Link href="/" className="hidden lg:flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <Logo size={34} />
               {(!isDashboard || sidebarOpen) && (
-                <span className="text-sm font-semibold text-foreground hidden sm:inline-block font-sans-original">
+                <span className="text-sm font-semibold text-foreground inline-block font-sans-original">
                   MCP Assistant
                 </span>
               )}

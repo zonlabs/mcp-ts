@@ -1,8 +1,9 @@
 "use client";
 
-import { User, ChevronDown, Settings, LogOut } from "lucide-react";
+import { User, ChevronDown, Settings, LogOut, Home, Hammer, Package, GitFork, MessageSquare, BookOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +28,17 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
     "Account";
   const image = user.user_metadata?.avatar_url;
   const email = user.email;
+  const pathname = usePathname();
   const menuLabel = name || email || "Account menu";
+
+  const mobileNavLinks = [
+    { href: "/", label: "Home", icon: Home },
+    { href: "/mcp", label: "MCP", icon: Hammer },
+    { href: "/registry", label: "Registry", icon: Package },
+    { href: "/workflows", label: "Workflows", icon: GitFork },
+    { href: "/chat", label: "Chat", icon: MessageSquare },
+    { href: "https://docs.mcp-assistant.in/", label: "Docs", icon: BookOpen, external: true },
+  ];
 
   return (
     <DropdownMenu>
@@ -74,7 +85,27 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
           ) : null}
         </DropdownMenuLabel>
 
-        <DropdownMenuSeparator className="my-1.5" />
+        {/* Mobile nav links — hidden on desktop */}
+        <div className="lg:hidden">
+          {mobileNavLinks.map((link) => {
+            const Icon = link.icon;
+            const isActive = !link.external && pathname === link.href;
+            return (
+              <DropdownMenuItem key={link.href} asChild className="cursor-pointer gap-2 rounded-md">
+                <Link
+                  href={link.href}
+                  target={link.external ? "_blank" : undefined}
+                  rel={link.external ? "noopener noreferrer" : undefined}
+                  className={isActive ? "font-medium" : ""}
+                >
+                  <Icon className="size-4 shrink-0" strokeWidth={2} />
+                  {link.label}
+                </Link>
+              </DropdownMenuItem>
+            );
+          })}
+          <DropdownMenuSeparator className="my-1.5" />
+        </div>
 
         <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
           <Link href="/settings/account">

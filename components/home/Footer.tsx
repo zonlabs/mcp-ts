@@ -97,10 +97,10 @@ export default function Footer() {
               <p className="text-sm text-muted-foreground">Himanshu Mehta</p>
               <a
                 href="mailto:himanshu.mehta.sde@gmail.com"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                className="flex items-start gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
               >
-                <Mail className="h-4 w-4 flex-shrink-0" />
-                himanshu.mehta.sde@gmail.com
+                <Mail className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span className="break-all">himanshu.mehta.sde@gmail.com</span>
               </a>
             </div>
           </div>

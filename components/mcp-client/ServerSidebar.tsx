@@ -365,8 +365,8 @@ export function ServerSidebar({
           "border-r border-border flex flex-col bg-background transition-all duration-300",
           // Desktop: sticky in-flow
           "lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:z-40 lg:w-80 lg:inset-auto lg:translate-x-0",
-          // Mobile: fixed overlay
-          "fixed inset-y-0 left-0 z-[80] w-80 h-full",
+          // Mobile: fixed overlay below header
+          "fixed top-16 left-0 z-[80] w-80 h-[calc(100vh-4rem)]",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
