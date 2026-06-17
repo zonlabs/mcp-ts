@@ -187,7 +187,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
                 aria-label={clientLabel}
                 className="flex h-9 w-9 items-center justify-center rounded-lg shadow-sm"
                 style={{
-                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  background: "#64748b",
                   color: "#fff",
                   fontWeight: 700,
                   fontSize: "1.1rem",
