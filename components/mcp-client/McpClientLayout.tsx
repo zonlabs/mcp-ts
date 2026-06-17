@@ -265,14 +265,9 @@ export default function McpClientLayout({
     }
   };
 
-  const mainVariants = {
-    hidden: { opacity: 0, x: 20 },
-    visible: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: 20 }
-  };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex-1 flex flex-col bg-background min-h-0">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -305,7 +300,7 @@ export default function McpClientLayout({
         </div>
       )}
 
-      <div className="flex h-full relative">
+      <div className="flex flex-1 min-h-0 relative">
         {/* Left Sidebar */}
         <ServerSidebar
           publicServers={mergedPublicServers}
@@ -351,16 +346,10 @@ export default function McpClientLayout({
         </AnimatePresence>
 
         {/* Main Content Area with Right Panel */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={mainVariants}
-          transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
-          className="flex-1 flex transition-all duration-300 min-w-0"
-        >
+        <div className="flex-1 flex min-w-0 min-h-0 overflow-y-auto">
           {/* Left Side - Main Content - Hidden when tool tester or remote MCP is open */}
           {!toolTesterOpen && !remoteMcpOpen && (
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 min-h-0">
               <AnimatePresence mode="wait">
                 {viewMode === 'add' ? (
                   <motion.div
@@ -488,7 +477,7 @@ export default function McpClientLayout({
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
       </div>
 
       {/* Delete Confirmation Dialog */}

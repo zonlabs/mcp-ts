@@ -12,7 +12,12 @@ import {
   resolveMcpUsageServerUrl,
   summarizeMcpUsage,
 } from "@/lib/mcp-usage";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
@@ -90,6 +95,8 @@ export function McpUsageOverview({
 
   const summary = summarizeMcpUsage(metricsEvents);
   const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date(), connections);
+  // Compute max count for relative color scaling
+  const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
   const recentEventGroups = useMemo(() => groupRecentEventsByDate(events), [events]);
   const mostUsedAppEvent = summary.mostUsedApp
     ? metricsEvents.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
@@ -111,6 +118,7 @@ export function McpUsageOverview({
         </div>
 
         <div ref={containerRef} className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-x-auto sm:px-0 scrollbar-minimal">
+          <TooltipProvider delayDuration={100}>
           <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[5px]">
             {heatmap.map((day) => {
               const tooltipItems = day.apps.slice(0, 3);
@@ -119,13 +127,26 @@ export function McpUsageOverview({
               const otherToolCalls = otherApps.reduce((total, app) => total + app.count, 0);
 
               return (
-                <div key={day.date} className="group relative">
-                  <div className={cn("h-[13px] w-[13px] rounded-[3px]", getHeatmapClassName(day.level))} />
-                  <div className="hidden sm:pointer-events-none sm:absolute sm:left-1/2 sm:bottom-full sm:z-30 sm:mb-2 sm:block sm:w-64 sm:-translate-x-1/2 sm:opacity-0 sm:transition-opacity sm:duration-150 sm:group-hover:opacity-100">
-                    <div className="rounded-md border border-red-500/20 bg-background px-3 py-2 shadow-lg shadow-black/10 dark:border-red-400/20">
-                      <div className="flex items-center justify-between gap-3 border-b border-red-500/20 pb-1.5 text-xs dark:border-red-400/20">
-                        <span className="font-medium text-foreground">{formatTooltipDate(day.date)}</span>
-                        <span className="text-muted-foreground">{day.count}</span>
+                <Tooltip key={day.date}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn(
+                        "h-[13px] w-[13px] rounded-[3px] cursor-default",
+                        getHeatmapColorClass(day.count, maxCount)
+                      )}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    sideOffset={6}
+                    className="z-[300] w-56 p-0 overflow-hidden bg-popover text-popover-foreground border border-border shadow-lg"
+                    avoidCollisions={true}
+                    collisionPadding={8}
+                  >
+                    <div className="px-3 py-2">
+                      <div className="flex items-center justify-between gap-3 border-b border-border pb-1.5 text-xs">
+                        <span className="font-medium">{formatTooltipDate(day.date)}</span>
+                        <span className="text-muted-foreground">{day.count} calls</span>
                       </div>
                       <div className="mt-2 space-y-1">
                         {tooltipItems.length > 0 ? (
@@ -138,30 +159,31 @@ export function McpUsageOverview({
                                   size={16}
                                   className="shrink-0 rounded-sm"
                                 />
-                                <span className="min-w-0 flex-1 truncate text-foreground">{app.name}</span>
+                                <span className="min-w-0 flex-1 truncate">{app.name}</span>
                                 <span className="shrink-0 text-muted-foreground">{app.count}</span>
                               </div>
                             ))}
                             {otherCount > 0 ? (
                               <div className="flex items-center gap-2 text-xs">
-                                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted/50 text-[9px] font-semibold text-muted-foreground">
+                                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
                                   +
                                 </div>
-                                <span className="min-w-0 flex-1 truncate text-foreground">
+                                <span className="min-w-0 flex-1 truncate">
                                   {otherCount} other{otherCount === 1 ? "" : "s"}
                                 </span>
                                 <span className="shrink-0 text-muted-foreground">{otherToolCalls}</span>
                               </div>
                             ) : null}
                           </>
-                        ) : <p className="text-xs text-muted-foreground">No app breakdown</p>}
+                        ) : <p className="text-xs text-muted-foreground">No tool calls</p>}
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </TooltipContent>
+                </Tooltip>
               );
             })}
           </div>
+          </TooltipProvider>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -361,19 +383,14 @@ function RecentActivityRow({
   );
 }
 
-function getHeatmapClassName(level: number) {
-  switch (level) {
-    case 1:
-      return "bg-emerald-200 dark:bg-emerald-950";
-    case 2:
-      return "bg-emerald-300 dark:bg-emerald-800";
-    case 3:
-      return "bg-emerald-400 dark:bg-emerald-600";
-    case 4:
-      return "bg-emerald-600 dark:bg-emerald-400";
-    default:
-      return "bg-muted/60";
-  }
+function getHeatmapColorClass(count: number, maxCount: number): string {
+  if (count <= 0 || maxCount <= 0) return "bg-muted/60";
+  // Use relative percentile of max so colors always span the full range
+  const ratio = count / maxCount;
+  if (ratio <= 0.25) return "bg-emerald-200 dark:bg-emerald-950";
+  if (ratio <= 0.5)  return "bg-emerald-300 dark:bg-emerald-800";
+  if (ratio <= 0.75) return "bg-emerald-500 dark:bg-emerald-600";
+  return "bg-emerald-700 dark:bg-emerald-400";
 }
 
 function formatTime(value: string) {
