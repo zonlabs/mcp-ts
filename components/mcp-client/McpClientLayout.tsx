@@ -142,6 +142,13 @@ export default function McpClientLayout({
     setSelectedServer(null);
   };
 
+  const handleShowPopular = () => {
+    setSelectedServer(null);
+    setViewMode('browse');
+    setRemoteMcpOpen(false);
+    setToolTesterOpen(false);
+  };
+
   // Merge connection state into server lists using the shared utility
   const mergedPublicServers = useMemo(() =>
     publicServers ? mergeWithStoredState(publicServers) : publicServers,
@@ -328,6 +335,7 @@ export default function McpClientLayout({
           session={session}
           userSession={userSession}
           onOpenRemoteMcp={handleOpenRemoteMcp}
+          onShowPopular={handleShowPopular}
           sidebarOpen={sidebarOpen}
         />
 

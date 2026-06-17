@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ServerCog, ShieldCheck, Activity, Loader2 } from "lucide-react";
+import { Hammer, KeyRound, Activity, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectedClientsCard, type WorkflowOAuthGrantRow } from "./ConnectedClientsCard";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
@@ -49,7 +49,7 @@ export default function RemoteMcpPanel({
       <div className="flex-shrink-0 border-b border-border px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted">
-            <ServerCog className="h-4.5 w-4.5 text-foreground" />
+            <Hammer className="h-4 w-4 text-foreground" />
           </div>
           <h2 className="text-sm font-semibold text-foreground">Remote MCP Access</h2>
         </div>
@@ -65,7 +65,7 @@ export default function RemoteMcpPanel({
               Activity
             </TabsTrigger>
             <TabsTrigger value="revoke" className="flex items-center gap-2 text-xs">
-              <ShieldCheck className="h-3.5 w-3.5" />
+              <KeyRound className="h-3.5 w-3.5" />
               Revoke Access
             </TabsTrigger>
           </TabsList>

@@ -15,8 +15,8 @@ import {
   Loader2,
   ChevronDown,
   ServerCog,
-  Activity,
-  ShieldCheck,
+  Hammer,
+  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,7 @@ interface ServerSidebarProps {
   session: UserSession | null;
   userSession?: UserSession | null;
   onOpenRemoteMcp: () => void;
+  onShowPopular: () => void;
   sidebarOpen?: boolean;
 }
 
@@ -96,6 +97,7 @@ export function ServerSidebar({
   session,
   userSession,
   onOpenRemoteMcp,
+  onShowPopular,
   sidebarOpen = true,
 }: ServerSidebarProps) {
   const router = useRouter();
@@ -251,6 +253,13 @@ export function ServerSidebar({
                 </TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="start" className="z-[220] w-56">
+                <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    Popular MCP
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
                   <span className="flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
@@ -258,9 +267,10 @@ export function ServerSidebar({
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onOpenRemoteMcp} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <ServerCog className="h-3.5 w-3.5 text-red-500" />
-                    Remote MCP Access
+                  <span className="flex items-center gap-2 w-full">
+                    <Hammer className="h-3.5 w-3.5 text-red-500" />
+                    <span className="flex-1">Remote MCP Access</span>
+                    <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
@@ -417,6 +427,13 @@ export function ServerSidebar({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="z-[220] w-56">
+              <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  Popular MCP
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
                 <span className="flex items-center gap-2">
                   <Plus className="h-3.5 w-3.5 text-muted-foreground" />
@@ -424,9 +441,10 @@ export function ServerSidebar({
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onOpenRemoteMcp} className="cursor-pointer">
-                <span className="flex items-center gap-2">
-                  <ServerCog className="h-3.5 w-3.5 text-red-500" />
-                  Remote MCP Access
+                <span className="flex items-center gap-2 w-full">
+                  <Hammer className="h-3.5 w-3.5 text-red-500" />
+                  <span className="flex-1">Remote MCP Access</span>
+                  <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">

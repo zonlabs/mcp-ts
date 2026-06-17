@@ -53,7 +53,7 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
   };
 
   return (
-    <section id="clients" className="scroll-mt-24 space-y-4 rounded-2xl border bg-background p-4 shadow-sm">
+    <section id="clients" className="scroll-mt-24 space-y-4 bg-background p-4 shadow-sm">
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Connected MCP clients</h2>
         <p className="mt-1 text-sm text-muted-foreground">
