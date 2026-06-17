@@ -150,7 +150,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
             {/* Left: MCP Assistant (our platform) logo */}
             <div
               aria-label="MCP Platform"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-background shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border"
             >
               <Image
                 alt=""
