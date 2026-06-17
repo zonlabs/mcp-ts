@@ -147,8 +147,9 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
           <h1 className="text-xl font-semibold tracking-tight">Authorize MCP access</h1>
 
           <div className="mt-4 flex items-center justify-center gap-3">
+            {/* Left: MCP Assistant (our platform) logo */}
             <div
-              aria-label={clientLabel}
+              aria-label="MCP Platform"
               className="flex h-9 w-9 items-center justify-center rounded-lg bg-background shadow-sm"
             >
               <Image
@@ -166,7 +167,37 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
               <span className="oauth-flow-line oauth-flow-line-in" />
             </div>
 
-            <Logo size={36} />
+            {/* Right: Requesting client logo or letter avatar */}
+            {params.logo_uri ? (
+              <div
+                aria-label={clientLabel}
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-background shadow-sm"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt={clientLabel}
+                  height={36}
+                  src={params.logo_uri}
+                  width={36}
+                  style={{ objectFit: "contain" }}
+                />
+              </div>
+            ) : (
+              <div
+                aria-label={clientLabel}
+                className="flex h-9 w-9 items-center justify-center rounded-lg shadow-sm"
+                style={{
+                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "1.1rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {(params.client_name || params.client_id || "?").charAt(0)}
+              </div>
+            )}
           </div>
 
           <p className="mt-3 text-sm">
