@@ -95,7 +95,7 @@ export function ServerPlaceholder({
               <h2 className="text-base font-semibold text-foreground">Our Remote MCP</h2>
             </div>
             <Link
-              href="/remote-mcp"
+              href="/mcp?remote-mcp=activity"
               className="mt-1 block rounded-lg border border-red-200/70 bg-background px-4 py-4 transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
             >
               <div className="flex items-start justify-between gap-4">

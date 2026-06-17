@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { Fragment, useMemo } from "react";
-import { Activity, CheckCircle2, Clock3, KeyRound, XCircle } from "lucide-react";
+import { Fragment, useMemo, useState, useEffect, useRef } from "react";
+import { Activity, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
 import type { McpToolCallEventRow, McpUsageConnectionLike } from "@/lib/mcp-usage";
@@ -24,6 +23,8 @@ interface McpUsageOverviewProps {
   metricsEvents: McpToolCallEventRow[];
   totalCount: number;
   currentPage: number;
+  onPageChange?: (newPage: number) => void;
+  days?: number;
 }
 
 export function McpUsageOverview({
@@ -32,12 +33,43 @@ export function McpUsageOverview({
   metricsEvents,
   totalCount,
   currentPage,
+  onPageChange,
+  days,
 }: McpUsageOverviewProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const daysToShow = useMemo(() => {
+    if (days !== undefined) {
+      return days;
+    }
+    if (containerWidth <= 0) return 90; // Fallback before measurement
+    const availableWidth = containerWidth - 8; // Safety margin
+    const columns = Math.floor((availableWidth + 5) / 18);
+    const calculatedDays = Math.max(7, columns * 7);
+    return Math.min(365, calculatedDays);
+  }, [containerWidth, days]);
+
   const handlePageChange = (newPage: number) => {
+    if (onPageChange) {
+      onPageChange(newPage);
+      return;
+    }
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("page", newPage.toString());
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
@@ -46,8 +78,6 @@ export function McpUsageOverview({
   if (metricsEvents.length === 0) {
     return (
       <section id="usage" className="space-y-4 scroll-mt-24">
-        <UsageHeader />
-
         <div className="rounded-2xl border border-red-500/20 bg-background p-6 dark:border-red-400/20">
           <p className="text-sm font-medium text-foreground">No tool calls yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -59,7 +89,7 @@ export function McpUsageOverview({
   }
 
   const summary = summarizeMcpUsage(metricsEvents);
-  const heatmap = buildMcpUsageHeatmap(metricsEvents, 365, new Date(), connections);
+  const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date(), connections);
   const recentEventGroups = useMemo(() => groupRecentEventsByDate(events), [events]);
   const mostUsedAppEvent = summary.mostUsedApp
     ? metricsEvents.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
@@ -70,8 +100,6 @@ export function McpUsageOverview({
 
   return (
     <section id="usage" className="space-y-4 scroll-mt-24">
-      <UsageHeader />
-
       <div className="rounded-2xl border border-red-500/20 bg-background p-4 dark:border-red-400/20 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -82,7 +110,7 @@ export function McpUsageOverview({
           </div>
         </div>
 
-        <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-visible sm:px-0">
+        <div ref={containerRef} className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-x-auto sm:px-0 scrollbar-minimal">
           <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[5px]">
             {heatmap.map((day) => {
               const tooltipItems = day.apps.slice(0, 3);
@@ -210,25 +238,7 @@ export function McpUsageOverview({
   );
 }
 
-function UsageHeader() {
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-1 pl-4 sm:pl-0">
-        <h2 className="text-xl font-semibold tracking-tight">Activity</h2>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          All MCP tool calls through MCP Assistant.
-        </p>
-      </div>
-      <Link
-        href="/settings/api-keys"
-        className="inline-flex w-fit items-center gap-2 rounded-full border border-red-500/20 bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted dark:border-red-400/20"
-      >
-        Manage API keys
-        <KeyRound className="h-4 w-4" />
-      </Link>
-    </div>
-  );
-}
+
 
 function groupRecentEventsByDate(events: McpToolCallEventRow[]) {
   const todayKey = getLocalDateKey(new Date());
@@ -294,7 +304,7 @@ function RecentActivityRow({
   const isSuccess = event.status === "success";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[8rem_10rem_minmax(0,1fr)_7rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-x-0 sm:border-b-0 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-x-0 sm:border-b-0 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Clock3 className="h-4 w-4" />
         <span>{formatTime(event.started_at)}</span>
@@ -304,7 +314,7 @@ function RecentActivityRow({
         {event.server_id || serverUrl ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="max-w-[14rem] truncate cursor-help">
+              <span className="truncate cursor-help">
                 {appName}
               </span>
             </TooltipTrigger>
@@ -320,13 +330,19 @@ function RecentActivityRow({
             </TooltipContent>
           </Tooltip>
         ) : (
-          <span className="max-w-[14rem] truncate">
+          <span className="truncate">
             {appName}
           </span>
         )}
       </div>
       <div className="col-span-2 min-w-0 sm:col-span-1">
-        <p className="truncate font-mono text-xs tracking-tight sm:text-sm">{event.tool_name}</p>
+        <p
+          className="break-all whitespace-normal font-mono text-xs tracking-tight sm:text-sm text-foreground"
+          style={{ wordBreak: "break-all", whiteSpace: "normal" }}
+          title={event.tool_name}
+        >
+          {event.tool_name}
+        </p>
         {!isSuccess && event.error_preview ? (
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:truncate">{event.error_preview}</p>
         ) : null}

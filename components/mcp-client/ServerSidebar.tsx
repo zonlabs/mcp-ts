@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
   PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   RefreshCw,
   Filter,
@@ -13,6 +14,9 @@ import {
   User as UserIcon,
   Loader2,
   ChevronDown,
+  ServerCog,
+  Activity,
+  ShieldCheck,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -33,6 +37,9 @@ import { ServerListItem } from "./ServerListItem";
 import { ServerPlaceholder } from "./ServerPlaceholder";
 import { useMcpServersFiltered } from "@/hooks/useMcpServersFiltered";
 import { UserSession } from "@/components/providers/AuthProvider";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { ServerIcon } from "@/components/common/ServerIcon";
+import { cn } from "@/lib/utils";
 
 interface ServerSidebarProps {
   publicServers: McpServer[] | null;
@@ -59,6 +66,8 @@ interface ServerSidebarProps {
   onCategoryChange: (category: string) => void;
   session: UserSession | null;
   userSession?: UserSession | null;
+  onOpenRemoteMcp: () => void;
+  sidebarOpen?: boolean;
 }
 
 export function ServerSidebar({
@@ -86,6 +95,8 @@ export function ServerSidebar({
   onCategoryChange,
   session,
   userSession,
+  onOpenRemoteMcp,
+  sidebarOpen = true,
 }: ServerSidebarProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -193,15 +204,162 @@ export function ServerSidebar({
     exit: { x: -320, opacity: 0 },
   };
 
+  if (!sidebarOpen) {
+    return (
+      <TooltipProvider>
+        <div
+          className="border-r border-border flex flex-col bg-background transition-all duration-300 sticky top-16 h-[calc(100vh-4rem)] z-40 w-16 hidden lg:flex"
+        >
+          {/* Top Header with Expand Button */}
+          <div className="p-4 border-b border-border flex flex-col items-center flex-shrink-0">
+            <Tooltip delayDuration={100}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="h-8 w-8 p-0 hover:bg-muted cursor-pointer"
+                >
+                  <PanelLeftOpen className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10} className="z-[230]">
+                <p className="text-xs">Expand sidebar</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Action Buttons: Manage cog dropdown and Refresh */}
+          <div className="p-2 border-b border-border flex flex-col items-center gap-2.5 flex-shrink-0">
+            <DropdownMenu>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <span>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 flex items-center justify-center cursor-pointer"
+                      >
+                        <ServerCog className="h-4.5 w-4.5 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10} className="z-[230]">
+                  <p className="text-xs">Manage Remote MCP</p>
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start" className="z-[220] w-56">
+                <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    Add Remote MCP
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onOpenRemoteMcp} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <ServerCog className="h-3.5 w-3.5 text-red-500" />
+                    Remote MCP Access
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    Add Gateway
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Tooltip delayDuration={100}>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => {
+                    if (activeTab === "public") {
+                      onRefreshPublic();
+                    } else {
+                      onRefreshUser();
+                    }
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  disabled={activeTab === "public" ? publicLoading : userLoading}
+                  className="h-8 w-8 p-0 flex items-center justify-center cursor-pointer"
+                >
+                  <RefreshCw
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground",
+                      (activeTab === "public" ? publicLoading : userLoading) ? "animate-spin" : ""
+                    )}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10} className="z-[230]">
+                <p className="text-xs">Refresh list</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Server List (Only Icons with tooltips) */}
+          <div className="flex-1 overflow-y-auto scrollbar-minimal py-3 flex flex-col items-center gap-3 w-full">
+            {displayLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-8 rounded-full" />
+              ))
+            ) : displayServers && displayServers.length > 0 ? (
+              displayServers.map((server) => {
+                const isSelected = selectedServer?.name === server.name;
+                return (
+                  <Tooltip key={server.name} delayDuration={100}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onServerSelect(server)}
+                        className={cn(
+                          "relative h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-muted cursor-pointer",
+                          isSelected ? "bg-muted ring-1 ring-red-500/30" : ""
+                        )}
+                      >
+                        {isSelected && (
+                          <div className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-red-500 rounded-r" />
+                        )}
+                        <ServerIcon
+                          serverName={server.name}
+                          serverUrl={server.url ?? undefined}
+                          size={22}
+                          className="rounded-md"
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={10} className="z-[230]">
+                      <p className="font-semibold text-xs text-foreground">{server.name}</p>
+                      {server.description && (
+                        <p className="text-[10px] text-muted-foreground max-w-xs line-clamp-2 mt-0.5">{server.description}</p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })
+            ) : (
+              <p className="text-[10px] text-muted-foreground text-center px-1">None</p>
+            )}
+          </div>
+        </div>
+      </TooltipProvider>
+    );
+  }
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      variants={sidebarVariants}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="w-80 border-r border-border flex flex-col fixed h-screen z-[80] bg-background"
-    >
+    <TooltipProvider>
+      <div
+        className={cn(
+          "border-r border-border flex flex-col bg-background transition-all duration-300",
+          // Desktop: sticky in-flow
+          "lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:z-40 lg:w-80 lg:inset-auto lg:translate-x-0",
+          // Mobile: fixed overlay
+          "fixed inset-y-0 left-0 z-[80] w-80 h-full",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
       {/* Header */}
       <div className="p-4 border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -249,18 +407,34 @@ export function ServerSidebar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex items-center justify-between gap-1 flex-1"
+                className="flex items-center justify-between gap-1 flex-1 cursor-pointer"
               >
-                <span className="flex items-center gap-1">
-                  <Plus className="h-4 w-4" />
-                  <span className="text-xs">Add</span>
+                <span className="flex items-center gap-1.5">
+                  <ServerCog className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold">Manage</span>
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-[220] w-52">
-              <DropdownMenuItem onClick={onAddServer}>Add Remote MCP</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/gateway")}>Add Gateway</DropdownMenuItem>
+            <DropdownMenuContent align="start" className="z-[220] w-56">
+              <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
+                <span className="flex items-center gap-2">
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                  Add Remote MCP
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onOpenRemoteMcp} className="cursor-pointer">
+                <span className="flex items-center gap-2">
+                  <ServerCog className="h-3.5 w-3.5 text-red-500" />
+                  Remote MCP Access
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
+                <span className="flex items-center gap-2">
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                  Add Gateway
+                </span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
@@ -481,7 +655,8 @@ export function ServerSidebar({
           </div>
         </Tabs>
       </div>
-    </motion.div>
+    </div>
+    </TooltipProvider>
   );
 }
 

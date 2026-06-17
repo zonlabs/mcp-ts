@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelLeftOpen } from "lucide-react";
 import { Toaster } from "react-hot-toast";
@@ -26,6 +26,7 @@ import ToolExecutionPanel from "./ToolExecutionPanel";
 import { useMcpStore, type McpStore } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { UserSession } from "@/components/providers/AuthProvider";
+import RemoteMcpPanel from "@/components/remote-mcp/RemoteMcpPanel";
 
 interface McpClientLayoutProps {
   publicServers: McpServer[] | null;
@@ -78,6 +79,33 @@ export default function McpClientLayout({
   const [toolTesterOpen, setToolTesterOpen] = useState(false);
   const [selectedToolName, setSelectedToolName] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [remoteMcpOpen, setRemoteMcpOpen] = useState(false);
+
+  const [remoteMcpData, setRemoteMcpData] = useState<any | null>(null);
+  const [remoteMcpLoading, setRemoteMcpLoading] = useState(true);
+  const [remoteMcpError, setRemoteMcpError] = useState<string | null>(null);
+
+  const fetchRemoteMcpData = useCallback(async (page: number) => {
+    setRemoteMcpLoading(true);
+    try {
+      const res = await fetch(`/api/remote-mcp/usage?page=${page}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to load remote MCP details");
+      }
+      const json = await res.json();
+      setRemoteMcpData(json);
+      setRemoteMcpError(null);
+    } catch (err) {
+      setRemoteMcpError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setRemoteMcpLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRemoteMcpData(1);
+  }, [fetchRemoteMcpData]);
 
   // View State Management
   const [viewMode, setViewMode] = useState<'browse' | 'add' | 'edit'>('browse');
@@ -100,6 +128,19 @@ export default function McpClientLayout({
   useEffect(() => {
     setSelectedCategory(categorySlug);
   }, [categorySlug]);
+
+  useEffect(() => {
+    const val = searchParams.get("remote-mcp");
+    if (val === "true" || val === "activity" || val === "revoke") {
+      handleOpenRemoteMcp();
+    }
+  }, [searchParams]);
+
+  const handleOpenRemoteMcp = () => {
+    setRemoteMcpOpen(true);
+    setToolTesterOpen(false);
+    setSelectedServer(null);
+  };
 
   // Merge connection state into server lists using the shared utility
   const mergedPublicServers = useMemo(() =>
@@ -155,11 +196,13 @@ export default function McpClientLayout({
     setViewMode('add');
     setSelectedServer(null); // Deselect to show form clearly? Or keep selection? 
     setEditingServer(null);
+    setRemoteMcpOpen(false);
   };
 
   const handleEditServer = (server: McpServer) => {
     setViewMode('edit');
     setEditingServer(server);
+    setRemoteMcpOpen(false);
   };
 
   const handleDeleteServer = (serverId: string) => {
@@ -216,6 +259,7 @@ export default function McpClientLayout({
   const handleServerSelect = (server: McpServer) => {
     setSelectedServer(server);
     setViewMode('browse'); // Switch back to details view if selecting a server
+    setRemoteMcpOpen(false);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
       setSidebarOpen(false);
     }
@@ -243,35 +287,65 @@ export default function McpClientLayout({
         }}
       />
 
-      <div className="flex h-full">
+      {/* Mobile Sidebar Toggle Header */}
+      {!sidebarOpen && (
+        <div className="sticky top-16 z-[70] border-b border-border bg-background/90 p-3 backdrop-blur lg:hidden flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSidebarOpen(true)}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            Show Servers
+          </Button>
+          <span className="text-xs font-semibold text-muted-foreground mr-2">
+            {remoteMcpOpen ? "Remote MCP" : toolTesterOpen ? "Tool Execution" : "Servers"}
+          </span>
+        </div>
+      )}
+
+      <div className="flex h-full relative">
         {/* Left Sidebar */}
+        <ServerSidebar
+          publicServers={mergedPublicServers}
+          userServers={mergedUserServers}
+          publicServersCount={publicServersCount}
+          userServersCount={userServersCount}
+          publicLoading={publicLoading}
+          userLoading={userLoading}
+          activeServersCount={activeServersCount}
+          selectedServer={selectedServer}
+          onServerSelect={handleServerSelect}
+          onAddServer={handleAddServer}
+          onEditServer={handleEditServer}
+          onDeleteServer={handleDeleteServer}
+          onRefreshPublic={onRefreshPublic}
+          onRefreshUser={onRefreshUser}
+          onClose={() => setSidebarOpen(prev => !prev)}
+          hasNextPage={hasNextPage}
+          isLoadingMore={isLoadingMore}
+          onLoadMore={onLoadMore}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          selectedCategory={selectedCategory}
+          onCategoryChange={handleCategorySelect}
+          session={session}
+          userSession={userSession}
+          onOpenRemoteMcp={handleOpenRemoteMcp}
+          sidebarOpen={sidebarOpen}
+        />
+
+        {/* Backdrop for Mobile */}
         <AnimatePresence>
           {sidebarOpen && (
-            <ServerSidebar
-              publicServers={mergedPublicServers}
-              userServers={mergedUserServers}
-              publicServersCount={publicServersCount}
-              userServersCount={userServersCount}
-              publicLoading={publicLoading}
-              userLoading={userLoading}
-              activeServersCount={activeServersCount}
-              selectedServer={selectedServer}
-              onServerSelect={handleServerSelect}
-              onAddServer={handleAddServer}
-              onEditServer={handleEditServer}
-              onDeleteServer={handleDeleteServer}
-              onRefreshPublic={onRefreshPublic}
-              onRefreshUser={onRefreshUser}
-              onClose={() => setSidebarOpen(false)}
-              hasNextPage={hasNextPage}
-              isLoadingMore={isLoadingMore}
-              onLoadMore={onLoadMore}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              selectedCategory={selectedCategory}
-              onCategoryChange={handleCategorySelect}
-              session={session}
-              userSession={userSession}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black z-[75] lg:hidden cursor-pointer"
+              onClick={() => setSidebarOpen(false)}
             />
           )}
         </AnimatePresence>
@@ -282,26 +356,11 @@ export default function McpClientLayout({
           animate="visible"
           variants={mainVariants}
           transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
-          className={`flex-1 flex transition-all duration-300 ${sidebarOpen ? 'ml-0 lg:ml-80' : 'ml-0'}`}
+          className="flex-1 flex transition-all duration-300 min-w-0"
         >
-          {/* Left Side - Main Content - Hidden when tool tester is open */}
-          {!toolTesterOpen && (
+          {/* Left Side - Main Content - Hidden when tool tester or remote MCP is open */}
+          {!toolTesterOpen && !remoteMcpOpen && (
             <div className="flex-1 flex flex-col min-w-0">
-              {/* Show Sidebar Button - Only when sidebar is closed */}
-              {!sidebarOpen && (
-                <div className="sticky top-0 z-[70] border-b border-border bg-background/90 p-4 backdrop-blur">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSidebarOpen(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <PanelLeftOpen className="h-4 w-4" />
-                    Show Servers
-                  </Button>
-                </div>
-              )}
-
               <AnimatePresence mode="wait">
                 {viewMode === 'add' ? (
                   <motion.div
@@ -384,7 +443,7 @@ export default function McpClientLayout({
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 320 }}
                 transition={{ duration: 0.3 }}
-                className="flex-1"
+                className="flex-1 max-w-4xl mx-auto w-full"
               >
                 <ToolExecutionPanel
                   server={selectedServer}
@@ -394,6 +453,37 @@ export default function McpClientLayout({
                     setSelectedToolName(null);
                   }}
                   initialToolName={selectedToolName}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Right Panel - Remote MCP - Full width when visible */}
+          <AnimatePresence>
+            {remoteMcpOpen && (
+              <motion.div
+                initial={{ opacity: 0, x: 320 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 320 }}
+                transition={{ duration: 0.3 }}
+                className="flex-1 max-w-4xl mx-auto w-full"
+              >
+                <RemoteMcpPanel
+                  data={remoteMcpData}
+                  loading={remoteMcpLoading}
+                  error={remoteMcpError}
+                  onPageChange={fetchRemoteMcpData}
+                  initialTab={searchParams.get("remote-mcp") === "revoke" ? "revoke" : "activity"}
+                  onClose={() => {
+                    setRemoteMcpOpen(false);
+                    // Remove remote-mcp query parameter from URL
+                    const params = new URLSearchParams(searchParams.toString());
+                    if (params.get("remote-mcp")) {
+                      params.delete("remote-mcp");
+                      const qs = params.toString();
+                      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+                    }
+                  }}
                 />
               </motion.div>
             )}
