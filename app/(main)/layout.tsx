@@ -18,7 +18,7 @@ export default function MainLayout({
     const sidebarOpen = useMcpStore((state) => state.sidebarOpen);
 
     return (
-        <div className="h-screen flex flex-col overflow-hidden">
+        <div className="h-screen flex flex-col overflow-y-auto scrollbar-minimal">
             <MainHeader />
             <div className={cn(
                 "mx-auto w-full flex-1 flex flex-col min-h-0 transition-all duration-300",
@@ -26,7 +26,7 @@ export default function MainLayout({
             )}>
                 <main className={cn(
                     "flex-1 flex flex-col min-h-0",
-                    isDashboard ? "overflow-hidden" : "overflow-y-auto"
+                    isDashboard && "overflow-hidden"
                 )}>{children}</main>
             </div>
         </div>

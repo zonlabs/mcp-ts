@@ -209,6 +209,15 @@ export default function ToolExecutionPanel({
         {/* Top Bar - Server Info */}
         <div className="p-4 pb-0 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-foreground truncate">{server.name}</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
+            className="cursor-pointer shrink-0"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Tool Selector Section */}

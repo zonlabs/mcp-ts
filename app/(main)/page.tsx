@@ -113,7 +113,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative max-w-5xl mx-auto min-h-screen overflow-hidden">
+    <div className="relative max-w-5xl mx-auto min-h-0">
       {/* Hero Section */}
       <Stack
         dir="column"
