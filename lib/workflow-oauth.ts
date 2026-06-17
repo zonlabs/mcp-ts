@@ -8,8 +8,10 @@ export type WorkflowOAuthConsentParams = {
   code_challenge?: string;
   code_challenge_method?: string;
   scope?: string;
-  grant_duration?: "7d" | "1y" | "never";
+  grant_duration?: WorkflowOAuthGrantDuration;
 };
+
+export type WorkflowOAuthGrantDuration = "1d" | "7d" | "30d" | "1y" | "never";
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;
 
@@ -54,8 +56,7 @@ export function parseConsentSearchParams(params: SearchParamRecord): WorkflowOAu
     code_challenge: firstString(params.code_challenge) || undefined,
     code_challenge_method: firstString(params.code_challenge_method) || "S256",
     scope: firstString(params.scope) || "workflow",
-    grant_duration:
-      grantDuration === "7d" || grantDuration === "never" ? grantDuration : "1y",
+    grant_duration: normalizeGrantDuration(grantDuration),
   };
 }
 
@@ -76,9 +77,12 @@ export function parseConsentFormData(form: FormData): WorkflowOAuthConsentParams
     code_challenge: get("code_challenge") || undefined,
     code_challenge_method: get("code_challenge_method") || "S256",
     scope: get("scope") || "workflow",
-    grant_duration:
-      grantDuration === "7d" || grantDuration === "never" ? grantDuration : "1y",
+    grant_duration: normalizeGrantDuration(grantDuration),
   };
+}
+
+export function normalizeGrantDuration(value: string): WorkflowOAuthGrantDuration {
+  return value === "1d" || value === "7d" || value === "30d" || value === "never" ? value : "1y";
 }
 
 export function validateConsentParams(params: WorkflowOAuthConsentParams): string | null {

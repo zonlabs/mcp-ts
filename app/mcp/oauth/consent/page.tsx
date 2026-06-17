@@ -1,16 +1,32 @@
 import { redirect } from "next/navigation";
-import { Clock, ShieldCheck, X } from "lucide-react";
+import Image from "next/image";
+import { Clock } from "lucide-react";
 import Logo from "@/components/common/Logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildConsentPath,
   parseConsentSearchParams,
   validateConsentParams,
 } from "@/lib/workflow-oauth";
+import { ConsentActions } from "./ConsentActions";
 
 export const dynamic = "force-dynamic";
+
+const GRANT_DURATION_OPTIONS = [
+  { value: "1d", label: "1 day" },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "1y", label: "1 year" },
+  { value: "never", label: "Never" },
+] as const;
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -61,76 +77,148 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
   const accountLabel = user?.email ?? "your MCP Assistant account";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <section className="w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2">
-            <Logo />
-            <span className="text-lg font-semibold text-foreground">MCP Assistant</span>
-          </div>
+    <main className="flex min-h-screen items-start justify-center bg-muted p-3 pt-6 text-foreground sm:items-center sm:pt-3">
+      <style>
+        {`
+          .oauth-flow-lines {
+            width: clamp(44px, 10vw, 72px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
+          }
+
+          .oauth-flow-line {
+            position: relative;
+            width: 100%;
+            height: 2px;
+            border-radius: 999px;
+            background: transparent;
+            overflow: hidden;
+          }
+
+          .oauth-flow-line::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.95;
+            background-repeat: no-repeat;
+          }
+
+          .oauth-flow-line-out::before {
+            background-image: linear-gradient(
+              90deg,
+              rgba(37, 99, 235, 0) 0%,
+              rgba(37, 99, 235, 0.96) 18%,
+              rgba(37, 99, 235, 0.96) 82%,
+              rgba(37, 99, 235, 0) 100%
+            );
+            background-size: 52px 100%;
+            filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.28));
+            animation: oauth-flow-single-ltr 1.35s linear infinite;
+          }
+
+          .oauth-flow-line-in::before {
+            background-image: linear-gradient(
+              90deg,
+              rgba(22, 163, 74, 0) 0%,
+              rgba(22, 163, 74, 0.96) 18%,
+              rgba(22, 163, 74, 0.96) 82%,
+              rgba(22, 163, 74, 0) 100%
+            );
+            background-size: 52px 100%;
+            filter: drop-shadow(0 0 8px rgba(22, 163, 74, 0.28));
+            animation: oauth-flow-single-rtl 1.35s linear infinite;
+          }
+
+          @keyframes oauth-flow-single-ltr {
+            from { background-position-x: -60px; }
+            to { background-position-x: 130px; }
+          }
+
+          @keyframes oauth-flow-single-rtl {
+            from { background-position-x: 130px; }
+            to { background-position-x: -60px; }
+          }
+        `}
+      </style>
+      <section className="w-full max-w-[420px] rounded-xl border bg-background px-5 py-6 shadow-sm sm:px-7">
+        <div className="text-center">
           <h1 className="text-xl font-semibold tracking-tight">Authorize MCP access</h1>
-          <p className="text-sm text-muted-foreground">
-            Review this request before connecting an external MCP client.
+
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <div
+              aria-label={clientLabel}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-background shadow-sm"
+            >
+              <Image
+                alt=""
+                aria-hidden="true"
+                height={28}
+                priority
+                src="/logo-mark-red.svg"
+                width={28}
+              />
+            </div>
+
+            <div className="oauth-flow-lines" aria-hidden="true">
+              <span className="oauth-flow-line oauth-flow-line-out" />
+              <span className="oauth-flow-line oauth-flow-line-in" />
+            </div>
+
+            <Logo size={36} />
+          </div>
+
+          <p className="mt-3 text-sm">
+            <strong>{clientLabel}</strong> is requesting access to your account.
           </p>
         </div>
 
-        <div className="space-y-4 rounded-lg border bg-background p-5 shadow-sm">
+        <div className="mt-5">
           {validationError || requestError ? (
             <Alert variant="destructive">
               <AlertDescription>{validationError || requestError}</AlertDescription>
             </Alert>
           ) : (
             <>
-              <div className="space-y-3">
+              <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Application</p>
-                  <p className="mt-1 break-words text-base font-semibold text-foreground">{clientLabel}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Signed in as</p>
+                  <p className="mt-0.5 break-words text-sm font-semibold">{accountLabel}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Signed in as</p>
-                  <p className="mt-1 break-words text-base font-semibold text-foreground">{accountLabel}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Access requested</p>
-                  <p className="mt-1 text-sm text-foreground">
-                    Read and run your MCP Assistant workflows through the remote MCP server.
+                  <p className="text-xs font-medium text-muted-foreground">Access requested</p>
+                  <p className="mt-0.5 text-sm font-semibold leading-5">
+                    Read and use <strong>MCP Assistant APIs</strong> through the{" "}
+                    <strong>MCP server</strong>.
                   </p>
                 </div>
               </div>
 
               <form action="/api/workflow-oauth/approve" className="space-y-3 pt-2" method="post">
                 <HiddenConsentFields params={params} includeGrantDuration={false} />
-                <label className="block space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
-                    <span className="flex items-center gap-2 font-medium text-foreground">
-                      <Clock className="h-4 w-4" />
-                      Access expires
-                    </span>
-                    <select
-                      className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                      defaultValue={params.grant_duration ?? "1y"}
-                      name="grant_duration"
-                    >
-                      <option value="7d">7 days</option>
-                      <option value="1y">1 year</option>
-                      <option value="never">Never</option>
-                    </select>
+                <label className="block space-y-2 rounded-lg border p-3 text-sm">
+                  <span className="flex items-center gap-2 font-medium">
+                    <Clock className="h-4 w-4" />
+                    Access expires
+                  </span>
+                  <Select defaultValue={params.grant_duration ?? "1y"} name="grant_duration">
+                    <SelectTrigger className="h-10 w-full bg-background font-medium shadow-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      {GRANT_DURATION_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="block text-xs text-muted-foreground">
+                    Shorter durations are safer. You can revoke this client anytime from connected MCP clients.
+                  </span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    className="w-full"
-                    formAction="/api/workflow-oauth/deny"
-                    formMethod="post"
-                    type="submit"
-                    variant="outline"
-                  >
-                    <X className="h-4 w-4" />
-                    Deny
-                  </Button>
-                  <Button className="w-full" type="submit">
-                    <ShieldCheck className="h-4 w-4" />
-                    Allow
-                  </Button>
-                </div>
+                <ConsentActions />
               </form>
             </>
           )}
