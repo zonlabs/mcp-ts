@@ -1,60 +1,19 @@
 import { redirect } from "next/navigation";
 import Image from "next/image";
-import { Clock } from "lucide-react";
 import Logo from "@/components/common/Logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/server";
 import {
   buildConsentPath,
   parseConsentSearchParams,
   validateConsentParams,
 } from "@/lib/mcp-oauth";
-import { ConsentActions } from "./ConsentActions";
+import { ConsentForm } from "./ConsentForm";
 
 export const dynamic = "force-dynamic";
 
-const GRANT_DURATION_OPTIONS = [
-  { value: "1d", label: "1 day" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "1y", label: "1 year" },
-  { value: "never", label: "Never" },
-] as const;
-
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
-function HiddenConsentFields({
-  params,
-  includeGrantDuration = true,
-}: {
-  params: ReturnType<typeof parseConsentSearchParams>;
-  includeGrantDuration?: boolean;
-}) {
-  return (
-    <>
-      <input type="hidden" name="issuer" value={params.issuer} />
-      <input type="hidden" name="client_id" value={params.client_id} />
-      <input type="hidden" name="redirect_uri" value={params.redirect_uri} />
-      <input type="hidden" name="client_name" value={params.client_name ?? ""} />
-      <input type="hidden" name="logo_uri" value={params.logo_uri ?? ""} />
-      <input type="hidden" name="state" value={params.state ?? ""} />
-      <input type="hidden" name="code_challenge" value={params.code_challenge ?? ""} />
-      <input type="hidden" name="code_challenge_method" value={params.code_challenge_method ?? "S256"} />
-      <input type="hidden" name="scope" value={params.scope ?? "workflow"} />
-      {includeGrantDuration ? (
-        <input type="hidden" name="grant_duration" value={params.grant_duration ?? "1y"} />
-      ) : null}
-    </>
-  );
 }
 
 export default async function WorkflowOAuthConsentPage({ searchParams }: PageProps) {
@@ -75,6 +34,10 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
 
   const clientLabel = params.client_name || params.client_id || "MCP client";
   const accountLabel = user?.email ?? "your MCP Assistant account";
+
+  const scopesList = (params.scope ?? "openid email mcp:tools:read mcp:tools:execute")
+    .split(/\s+/)
+    .filter(Boolean);
 
   return (
     <main className="flex min-h-screen items-start justify-center bg-muted p-3 pt-6 text-foreground sm:items-center sm:pt-3">
@@ -150,7 +113,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
             {/* Left: MCP Assistant (our platform) logo */}
             <div
               aria-label="MCP Platform"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border border-border"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border-2 border-zinc-300 dark:border-zinc-600 shadow-sm"
             >
               <Image
                 alt=""
@@ -171,7 +134,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
             {params.logo_uri ? (
               <div
                 aria-label={clientLabel}
-                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-background shadow-sm"
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-background border-2 border-zinc-300 dark:border-zinc-600 shadow-sm"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -185,7 +148,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
             ) : (
               <div
                 aria-label={clientLabel}
-                className="flex h-9 w-9 items-center justify-center rounded-lg shadow-sm"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-zinc-300 dark:border-zinc-600 shadow-sm"
                 style={{
                   background: "#64748b",
                   color: "#fff",
@@ -211,47 +174,11 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
               <AlertDescription>{validationError || requestError}</AlertDescription>
             </Alert>
           ) : (
-            <>
-              <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">Signed in as</p>
-                  <p className="mt-0.5 break-words text-sm font-semibold">{accountLabel}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">Access requested</p>
-                  <p className="mt-0.5 text-sm font-semibold leading-5">
-                    Read and use <strong>MCP Assistant APIs</strong> through the{" "}
-                    <strong>MCP server</strong>.
-                  </p>
-                </div>
-              </div>
-
-              <form action="/api/mcp-oauth/approve" className="space-y-3 pt-2" method="post">
-                <HiddenConsentFields params={params} includeGrantDuration={false} />
-                <label className="block space-y-2 rounded-lg border p-3 text-sm">
-                  <span className="flex items-center gap-2 font-medium">
-                    <Clock className="h-4 w-4" />
-                    Access expires
-                  </span>
-                  <Select defaultValue={params.grant_duration ?? "1y"} name="grant_duration">
-                    <SelectTrigger className="h-10 w-full bg-background font-medium shadow-none">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                      {GRANT_DURATION_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="block text-xs text-muted-foreground">
-                    Shorter durations are safer. You can revoke this client anytime from connected MCP clients.
-                  </span>
-                </label>
-                <ConsentActions />
-              </form>
-            </>
+            <ConsentForm
+              params={params}
+              accountLabel={accountLabel}
+              scopesList={scopesList}
+            />
           )}
         </div>
       </section>

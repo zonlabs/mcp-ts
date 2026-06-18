@@ -39,7 +39,7 @@ export function ConsentActions() {
     <div className="space-y-3">
       <Button
         aria-disabled={isPending}
-        className="h-10 w-full rounded-none bg-foreground text-background hover:bg-foreground/90 aria-disabled:pointer-events-none aria-disabled:opacity-55"
+        className="h-10 w-full rounded-md bg-foreground text-background hover:bg-foreground/90 aria-disabled:pointer-events-none aria-disabled:opacity-55"
         onClick={() => setPendingAction("allow")}
         type="submit"
       >
@@ -47,7 +47,7 @@ export function ConsentActions() {
       </Button>
       <Button
         aria-disabled={isPending}
-        className="h-10 w-full rounded-none border-border bg-transparent aria-disabled:pointer-events-none aria-disabled:opacity-55"
+        className="h-10 w-full rounded-md border-border bg-transparent aria-disabled:pointer-events-none aria-disabled:opacity-55"
         formAction="/api/mcp-oauth/deny"
         formMethod="post"
         onClick={() => setPendingAction("cancel")}

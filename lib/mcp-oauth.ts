@@ -53,7 +53,7 @@ export function parseConsentSearchParams(params: SearchParamRecord): McpOAuthCon
     state: firstString(params.state) || undefined,
     code_challenge: firstString(params.code_challenge) || undefined,
     code_challenge_method: firstString(params.code_challenge_method) || "S256",
-    scope: firstString(params.scope) || "openid email workflow",
+    scope: firstString(params.scope) || "openid email mcp:tools:read mcp:tools:execute",
     grant_duration: normalizeGrantDuration(grantDuration),
   };
 }
@@ -74,7 +74,7 @@ export function parseConsentFormData(form: FormData): McpOAuthConsentParams {
     state: get("state") || undefined,
     code_challenge: get("code_challenge") || undefined,
     code_challenge_method: get("code_challenge_method") || "S256",
-    scope: get("scope") || "openid email workflow",
+    scope: get("scope") || "openid email mcp:tools:read mcp:tools:execute",
     grant_duration: normalizeGrantDuration(grantDuration),
   };
 }
@@ -99,7 +99,7 @@ export function buildConsentPath(params: McpOAuthConsentParams, error?: string):
   search.set("response_type", "code");
   search.set("client_id", params.client_id);
   search.set("redirect_uri", params.redirect_uri);
-  search.set("scope", params.scope || "openid email workflow");
+  search.set("scope", params.scope || "openid email mcp:tools:read mcp:tools:execute");
   search.set("code_challenge_method", params.code_challenge_method || "S256");
   search.set("prompt", "consent");
   search.set("grant_duration", params.grant_duration || "1y");
