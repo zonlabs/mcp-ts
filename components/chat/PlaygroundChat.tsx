@@ -10,6 +10,7 @@ import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToo
 import { ServerIcon } from '@/components/common/ServerIcon';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
+import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
 import { cn } from '@/lib/utils';
 import { useMcpStore } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
@@ -613,6 +614,54 @@ export function PlaygroundChat({
                     key={`tool-${index}`}
                     approved={false}
                     reason={t("mcpToolRequestDenied")}
+                  />
+                );
+              }
+
+              // Find if there is a corresponding result part in the message to avoid duplicate renders
+              const hasResultPart = toolPart.toolCallId && m.parts.some(
+                (p: any) => p.toolCallId === toolPart.toolCallId && p.state === 'output-available'
+              );
+
+              // 1. If this is the call part (input-streaming / input-available)
+              const isCallPart = toolPart.state === 'input-streaming' || toolPart.state === 'input-available';
+              if (isCallPart) {
+                // If the execution is already complete, let the output part render it.
+                if (hasResultPart) {
+                  return null;
+                }
+
+                const actualToolName = typeof input?.toolName === 'string' ? input.toolName : '';
+                const actualArgs = input?.args && typeof input.args === 'object' ? (input.args as Record<string, unknown>) : undefined;
+                return (
+                  <McpAppRenderer
+                    key={`mcp-app-${index}`}
+                    name={actualToolName}
+                    args={actualArgs}
+                    result={undefined}
+                    status="executing"
+                  />
+                );
+              }
+
+              // 2. If this is the result part (output-available)
+              const isResultPart = toolPart.state === 'output-available';
+              if (isResultPart) {
+                // Look up the input from the matching call part
+                const callPart = toolPart.toolCallId
+                  ? (m.parts.find((p: any) => p.toolCallId === toolPart.toolCallId && p.input) as any)
+                  : undefined;
+                const callInput = callPart?.input;
+                const actualToolName = typeof callInput?.toolName === 'string' ? callInput.toolName : '';
+                const actualArgs = callInput?.args && typeof callInput.args === 'object' ? (callInput.args as Record<string, unknown>) : undefined;
+
+                return (
+                  <McpAppRenderer
+                    key={`mcp-app-${index}`}
+                    name={actualToolName}
+                    args={actualArgs}
+                    result={toolPart.output}
+                    status="complete"
                   />
                 );
               }
