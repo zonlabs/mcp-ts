@@ -22,6 +22,8 @@ import {
   BrainIcon,
   CheckCircle2,
   ChevronDownIcon,
+  X,
+  Maximize2,
 } from 'lucide-react';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
@@ -252,6 +254,13 @@ export function PlaygroundChat({
 }: PlaygroundChatProps) {
   const { t } = useI18n();
   const [chatInput, setChatInput] = useState("");
+  const [activeMcpApp, setActiveMcpApp] = useState<{
+    name: string;
+    args: Record<string, unknown> | undefined;
+    result: unknown;
+    status: 'complete' | 'executing';
+  } | null>(null);
+  const [lastAutoOpenedCallId, setLastAutoOpenedCallId] = useState<string | null>(null);
   const [selectedThoughtMessageId, setSelectedThoughtMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
@@ -432,6 +441,49 @@ export function PlaygroundChat({
     if (!summary.hasChainOfThought) return;
     setSelectedThoughtMessageId((current) => current ?? lastMessage.id);
   }, [getChainOfThoughtForMessage, messages, status]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role !== 'assistant') return;
+
+    const mcpToolPart = [...lastMessage.parts].reverse().find(
+      (p: any) => p.type === 'tool-mcp_execute_tool' || (p.type === 'tool' && p.toolName === 'mcp_execute_tool')
+    ) as any;
+
+    if (mcpToolPart && mcpToolPart.toolCallId) {
+      if (lastAutoOpenedCallId !== mcpToolPart.toolCallId) {
+        const isExecuting = mcpToolPart.state === 'input-streaming' || mcpToolPart.state === 'input-available';
+        const isComplete = mcpToolPart.state === 'output-available';
+
+        if (isExecuting || isComplete) {
+          const input = mcpToolPart.input;
+          const actualToolName = typeof input?.toolName === 'string' ? input.toolName : '';
+          const actualArgs = input?.args && typeof input.args === 'object' ? (input.args as Record<string, unknown>) : undefined;
+
+          setActiveMcpApp({
+            name: actualToolName,
+            args: actualArgs,
+            result: isComplete ? mcpToolPart.output : undefined,
+            status: isComplete ? 'complete' : 'executing',
+          });
+          setLastAutoOpenedCallId(mcpToolPart.toolCallId);
+        }
+      } else {
+        const isComplete = mcpToolPart.state === 'output-available';
+        if (isComplete && activeMcpApp && activeMcpApp.status !== 'complete') {
+          setActiveMcpApp((current) => {
+            if (!current) return null;
+            return {
+              ...current,
+              status: 'complete',
+              result: mcpToolPart.output,
+            };
+          });
+        }
+      }
+    }
+  }, [messages, lastAutoOpenedCallId, activeMcpApp]);
 
   const hasMessages = messages.length > 0;
 
@@ -634,13 +686,28 @@ export function PlaygroundChat({
                 const actualToolName = typeof input?.toolName === 'string' ? input.toolName : '';
                 const actualArgs = input?.args && typeof input.args === 'object' ? (input.args as Record<string, unknown>) : undefined;
                 return (
-                  <McpAppRenderer
-                    key={`mcp-app-${index}`}
-                    name={actualToolName}
-                    args={actualArgs}
-                    result={undefined}
-                    status="executing"
-                  />
+                  <div className="relative group/app w-full my-2">
+                    <McpAppRenderer
+                      key={`mcp-app-${index}`}
+                      name={actualToolName}
+                      args={actualArgs}
+                      result={undefined}
+                      status="executing"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setActiveMcpApp({
+                        name: actualToolName,
+                        args: actualArgs,
+                        result: undefined,
+                        status: 'executing',
+                      })}
+                      className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in"
+                      title="Expand to full view"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 );
               }
 
@@ -656,13 +723,28 @@ export function PlaygroundChat({
                 const actualArgs = callInput?.args && typeof callInput.args === 'object' ? (callInput.args as Record<string, unknown>) : undefined;
 
                 return (
-                  <McpAppRenderer
-                    key={`mcp-app-${index}`}
-                    name={actualToolName}
-                    args={actualArgs}
-                    result={toolPart.output}
-                    status="complete"
-                  />
+                  <div className="relative group/app w-full my-2">
+                    <McpAppRenderer
+                      key={`mcp-app-${index}`}
+                      name={actualToolName}
+                      args={actualArgs}
+                      result={toolPart.output}
+                      status="complete"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setActiveMcpApp({
+                        name: actualToolName,
+                        args: actualArgs,
+                        result: toolPart.output,
+                        status: 'complete',
+                      })}
+                      className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in"
+                      title="Expand to full view"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 );
               }
             }
@@ -858,42 +940,62 @@ export function PlaygroundChat({
       ) : (
         <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
           <div className={cn(
-            "flex min-h-0 min-w-0 flex-1 flex-col",
+            "flex min-h-0 min-w-0 flex-1 flex-col relative",
             selectedThoughtSummary && "lg:basis-0"
           )}>
-            <Conversation className="flex-1 min-h-0">
-              <ConversationContent>
-                <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
-                {messages.map((m, index) => {
-                  const isLastMessage = index === messages.length - 1;
-                  return (
-                    <MessageRow
-                      key={m.id}
-                      m={m}
-                      isLastMessage={isLastMessage}
-                      onEdit={handleEditMessage}
-                      renderParts={renderMessageParts}
+            {activeMcpApp ? (
+              <div className="flex-1 min-h-0 w-full relative bg-background z-10 flex flex-col items-center justify-center p-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveMcpApp(null)}
+                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors z-20"
+                  aria-label="Minimize app"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+                <McpAppRenderer
+                  name={activeMcpApp.name}
+                  args={activeMcpApp.args}
+                  result={activeMcpApp.result}
+                  status={activeMcpApp.status}
+                  className="w-full h-full !border-0 !my-0 !rounded-none !bg-background"
+                />
+              </div>
+            ) : (
+              <Conversation className="flex-1 min-h-0">
+                <ConversationContent>
+                  <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
+                  {messages.map((m, index) => {
+                    const isLastMessage = index === messages.length - 1;
+                    return (
+                      <MessageRow
+                        key={m.id}
+                        m={m}
+                        isLastMessage={isLastMessage}
+                        onEdit={handleEditMessage}
+                        renderParts={renderMessageParts}
+                      />
+                    );
+                  })}
+
+                  {(status === 'streaming' || status === 'submitted') && (
+                    <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div className="p-1"><LoadingSpinner /></div>
+                    </div>
+                  )}
+
+                  {error && (
+                    <AssistantMessage
+                      text={formatErrorMessage(error)}
+                      parts={[]}
+                      onRegenerate={handleRegenerate}
                     />
-                  );
-                })}
-
-                {(status === 'streaming' || status === 'submitted') && (
-                  <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="p-1"><LoadingSpinner /></div>
+                  )}
+                  <div ref={messagesEndRef} className="h-4" />
                   </div>
-                )}
-
-                {error && (
-                  <AssistantMessage
-                    text={formatErrorMessage(error)}
-                    parts={[]}
-                    onRegenerate={handleRegenerate}
-                  />
-                )}
-                <div ref={messagesEndRef} className="h-4" />
-                </div>
-              </ConversationContent>
-            </Conversation>
+                </ConversationContent>
+              </Conversation>
+            )}
 
             <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
               <div className={chatContentWidthClass}>

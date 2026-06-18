@@ -13,9 +13,10 @@ interface ToolCallRendererProps {
   args: Record<string, unknown> | undefined;
   result: unknown;
   status: 'executing' | 'inProgress' | 'complete' | 'idle';
+  className?: string;
 }
 
-export function McpAppRenderer({ name, args, result, status }: ToolCallRendererProps) {
+export function McpAppRenderer({ name, args, result, status, className }: ToolCallRendererProps) {
   const mcpClient = useSyncExternalStore(
     subscribeToMcpClient,
     getMcpClient,
@@ -60,6 +61,7 @@ export function McpAppRenderer({ name, args, result, status }: ToolCallRendererP
         url: "/sandbox.html",
         csp: DEFAULT_MCP_APP_CSP,
       }}
+      className={className}
     />
   );
 }
