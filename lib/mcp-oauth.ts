@@ -1,4 +1,4 @@
-export type WorkflowOAuthConsentParams = {
+export type McpOAuthConsentParams = {
   issuer: string;
   client_id: string;
   redirect_uri: string;
@@ -8,10 +8,10 @@ export type WorkflowOAuthConsentParams = {
   code_challenge?: string;
   code_challenge_method?: string;
   scope?: string;
-  grant_duration?: WorkflowOAuthGrantDuration;
+  grant_duration?: McpOAuthGrantDuration;
 };
 
-export type WorkflowOAuthGrantDuration = "1d" | "7d" | "30d" | "1y" | "never";
+export type McpOAuthGrantDuration = "1d" | "7d" | "30d" | "1y" | "never";
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;
 
@@ -28,23 +28,21 @@ function normalizeBaseUrl(value: string): string | null {
   }
 }
 
-export function getWorkflowOAuthIssuer(): string {
+export function getMcpOAuthIssuer(): string {
   const configured =
-    process.env.WORKFLOW_OAUTH_ISSUER ||
-    process.env.NEXT_PUBLIC_WORKFLOW_OAUTH_ISSUER ||
-    process.env.WORKFLOW_MCP_URL ||
-    process.env.NEXT_PUBLIC_WORKFLOW_MCP_URL ||
+    process.env.MCP_OAUTH_ISSUER ||
+    process.env.NEXT_PUBLIC_MCP_OAUTH_ISSUER ||
     "http://localhost:3002";
 
   return normalizeBaseUrl(configured) ?? "http://localhost:3002";
 }
 
-export function isAllowedWorkflowOAuthIssuer(issuer: string): boolean {
+export function isAllowedMcpOAuthIssuer(issuer: string): boolean {
   const normalizedIssuer = normalizeBaseUrl(issuer);
-  return normalizedIssuer !== null && normalizedIssuer === getWorkflowOAuthIssuer();
+  return normalizedIssuer !== null && normalizedIssuer === getMcpOAuthIssuer();
 }
 
-export function parseConsentSearchParams(params: SearchParamRecord): WorkflowOAuthConsentParams {
+export function parseConsentSearchParams(params: SearchParamRecord): McpOAuthConsentParams {
   const grantDuration = firstString(params.grant_duration);
   return {
     issuer: firstString(params.issuer),
@@ -55,12 +53,12 @@ export function parseConsentSearchParams(params: SearchParamRecord): WorkflowOAu
     state: firstString(params.state) || undefined,
     code_challenge: firstString(params.code_challenge) || undefined,
     code_challenge_method: firstString(params.code_challenge_method) || "S256",
-    scope: firstString(params.scope) || "workflow",
+    scope: firstString(params.scope) || "openid email workflow",
     grant_duration: normalizeGrantDuration(grantDuration),
   };
 }
 
-export function parseConsentFormData(form: FormData): WorkflowOAuthConsentParams {
+export function parseConsentFormData(form: FormData): McpOAuthConsentParams {
   const get = (key: string) => {
     const value = form.get(key);
     return typeof value === "string" ? value : "";
@@ -76,18 +74,18 @@ export function parseConsentFormData(form: FormData): WorkflowOAuthConsentParams
     state: get("state") || undefined,
     code_challenge: get("code_challenge") || undefined,
     code_challenge_method: get("code_challenge_method") || "S256",
-    scope: get("scope") || "workflow",
+    scope: get("scope") || "openid email workflow",
     grant_duration: normalizeGrantDuration(grantDuration),
   };
 }
 
-export function normalizeGrantDuration(value: string): WorkflowOAuthGrantDuration {
+export function normalizeGrantDuration(value: string): McpOAuthGrantDuration {
   return value === "1d" || value === "7d" || value === "30d" || value === "never" ? value : "1y";
 }
 
-export function validateConsentParams(params: WorkflowOAuthConsentParams): string | null {
-  if (!params.issuer || !isAllowedWorkflowOAuthIssuer(params.issuer)) {
-    return "This OAuth request came from an unrecognized workflow server.";
+export function validateConsentParams(params: McpOAuthConsentParams): string | null {
+  if (!params.issuer || !isAllowedMcpOAuthIssuer(params.issuer)) {
+    return "This OAuth request came from an unrecognized MCP server.";
   }
   if (!params.client_id || !params.redirect_uri) {
     return "This OAuth request is missing required client details.";
@@ -95,13 +93,15 @@ export function validateConsentParams(params: WorkflowOAuthConsentParams): strin
   return null;
 }
 
-export function buildConsentPath(params: WorkflowOAuthConsentParams, error?: string): string {
+export function buildConsentPath(params: McpOAuthConsentParams, error?: string): string {
   const search = new URLSearchParams();
   search.set("issuer", params.issuer);
+  search.set("response_type", "code");
   search.set("client_id", params.client_id);
   search.set("redirect_uri", params.redirect_uri);
+  search.set("scope", params.scope || "openid email workflow");
   search.set("code_challenge_method", params.code_challenge_method || "S256");
-  search.set("scope", params.scope || "workflow");
+  search.set("prompt", "consent");
   search.set("grant_duration", params.grant_duration || "1y");
   if (params.client_name) search.set("client_name", params.client_name);
   if (params.logo_uri) search.set("logo_uri", params.logo_uri);
@@ -111,6 +111,6 @@ export function buildConsentPath(params: WorkflowOAuthConsentParams, error?: str
   return `/mcp/oauth/consent?${search.toString()}`;
 }
 
-export function workflowOAuthEndpoint(issuer: string, path: string): string {
+export function mcpOAuthEndpoint(issuer: string, path: string): string {
   return new URL(path, issuer).toString();
 }

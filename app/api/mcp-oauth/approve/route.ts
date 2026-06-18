@@ -4,8 +4,8 @@ import {
   buildConsentPath,
   parseConsentFormData,
   validateConsentParams,
-  workflowOAuthEndpoint,
-} from "@/lib/workflow-oauth";
+  mcpOAuthEndpoint,
+} from "@/lib/mcp-oauth";
 
 function redirectToConsent(request: NextRequest, path: string) {
   return NextResponse.redirect(new URL(path, request.url));
@@ -47,12 +47,12 @@ export async function POST(request: NextRequest) {
     state: params.state ?? "",
     code_challenge: params.code_challenge ?? "",
     code_challenge_method: params.code_challenge_method ?? "S256",
-    scope: params.scope ?? "workflow",
+    scope: params.scope ?? "openid email workflow",
     grant_duration: params.grant_duration ?? "1y",
     user_access_token: session.access_token,
   });
 
-  const response = await fetch(workflowOAuthEndpoint(params.issuer, "/oauth/authorize"), {
+  const response = await fetch(mcpOAuthEndpoint(params.issuer, "/oauth/authorize"), {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -68,6 +68,6 @@ export async function POST(request: NextRequest) {
   const text = await response.text().catch(() => "");
   return redirectToConsent(
     request,
-    buildConsentPath(params, text || "Could not complete workflow authorization.")
+    buildConsentPath(params, text || "Could not complete MCP authorization.")
   );
 }

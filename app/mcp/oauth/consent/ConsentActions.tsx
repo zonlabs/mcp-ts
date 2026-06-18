@@ -48,7 +48,7 @@ export function ConsentActions() {
       <Button
         aria-disabled={isPending}
         className="h-10 w-full rounded-none border-border bg-transparent aria-disabled:pointer-events-none aria-disabled:opacity-55"
-        formAction="/api/workflow-oauth/deny"
+        formAction="/api/mcp-oauth/deny"
         formMethod="post"
         onClick={() => setPendingAction("cancel")}
         type="submit"

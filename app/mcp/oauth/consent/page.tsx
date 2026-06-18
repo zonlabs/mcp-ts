@@ -15,7 +15,7 @@ import {
   buildConsentPath,
   parseConsentSearchParams,
   validateConsentParams,
-} from "@/lib/workflow-oauth";
+} from "@/lib/mcp-oauth";
 import { ConsentActions } from "./ConsentActions";
 
 export const dynamic = "force-dynamic";
@@ -226,7 +226,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
                 </div>
               </div>
 
-              <form action="/api/workflow-oauth/approve" className="space-y-3 pt-2" method="post">
+              <form action="/api/mcp-oauth/approve" className="space-y-3 pt-2" method="post">
                 <HiddenConsentFields params={params} includeGrantDuration={false} />
                 <label className="block space-y-2 rounded-lg border p-3 text-sm">
                   <span className="flex items-center gap-2 font-medium">

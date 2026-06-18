@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react";
 import { Hammer, KeyRound, Activity, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ConnectedClientsCard, type WorkflowOAuthGrantRow } from "./ConnectedClientsCard";
+import { ConnectedClientsCard, type McpOAuthGrantRow } from "./ConnectedClientsCard";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
 import type { McpToolCallEventRow, McpUsageConnectionLike } from "@/lib/mcp-usage";
-import { getWorkflowOAuthIssuer } from "@/lib/workflow-oauth";
+import { getMcpOAuthIssuer } from "@/lib/mcp-oauth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface RemoteMcpPanelProps {
   data: {
     connections: (McpUsageConnectionLike & { active?: boolean })[];
-    grants: WorkflowOAuthGrantRow[];
+    grants: McpOAuthGrantRow[];
     events: McpToolCallEventRow[];
     metricsEvents: McpToolCallEventRow[];
     totalCount: number;
@@ -37,7 +37,7 @@ export default function RemoteMcpPanel({
 
   useEffect(() => {
     try {
-      setOauthIssuer(getWorkflowOAuthIssuer());
+      setOauthIssuer(getMcpOAuthIssuer());
     } catch {
       setOauthIssuer("https://api.mcp-assistant.in/oauth");
     }

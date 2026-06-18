@@ -5,7 +5,7 @@ import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 
-export type WorkflowOAuthGrantRow = {
+export type McpOAuthGrantRow = {
   id: string;
   client_id: string;
   client_name: string | null;
@@ -18,12 +18,12 @@ export type WorkflowOAuthGrantRow = {
 };
 
 type ConnectedClientsCardProps = {
-  grants: WorkflowOAuthGrantRow[];
+  grants: McpOAuthGrantRow[];
 };
 
 export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [items, setItems] = useState(grants);
+  const [items, setItems] = useState<McpOAuthGrantRow[]>(grants);
 
   const handleRevoke = async (id: string) => {
     if (!confirm("Revoke this connected MCP client? It will need to authorize again.")) {
@@ -32,7 +32,7 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
 
     setPendingId(id);
     try {
-      const res = await fetch(`/api/workflow-oauth/grants/${id}`, {
+      const res = await fetch(`/api/mcp-oauth/grants/${id}`, {
         method: "DELETE",
         credentials: "include",
       });

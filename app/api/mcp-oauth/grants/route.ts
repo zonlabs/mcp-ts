@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-type WorkflowOAuthGrantRow = {
+export type McpOAuthGrantRow = {
   id: string;
   client_id: string;
   client_name: string | null;
@@ -40,5 +40,5 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ grants: (data ?? []) as WorkflowOAuthGrantRow[] });
+  return NextResponse.json({ grants: (data ?? []) as McpOAuthGrantRow[] });
 }

@@ -3,8 +3,8 @@ import {
   buildConsentPath,
   parseConsentFormData,
   validateConsentParams,
-  workflowOAuthEndpoint,
-} from "@/lib/workflow-oauth";
+  mcpOAuthEndpoint,
+} from "@/lib/mcp-oauth";
 
 function redirectToConsent(request: NextRequest, path: string) {
   return NextResponse.redirect(new URL(path, request.url));
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     state: params.state ?? "",
   });
 
-  const response = await fetch(workflowOAuthEndpoint(params.issuer, "/oauth/authorize/deny"), {
+  const response = await fetch(mcpOAuthEndpoint(params.issuer, "/oauth/authorize/deny"), {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -41,6 +41,6 @@ export async function POST(request: NextRequest) {
   const text = await response.text().catch(() => "");
   return redirectToConsent(
     request,
-    buildConsentPath(params, text || "Could not deny workflow authorization.")
+    buildConsentPath(params, text || "Could not deny MCP authorization.")
   );
 }
