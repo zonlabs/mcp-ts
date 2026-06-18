@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   const location = response.headers.get("location");
   if (response.status >= 300 && response.status < 400 && location) {
-    return NextResponse.redirect(location);
+    return NextResponse.redirect(location, { status: 303 });
   }
 
   const text = await response.text().catch(() => "");
