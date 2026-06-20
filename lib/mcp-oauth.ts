@@ -45,7 +45,7 @@ export function isAllowedMcpOAuthIssuer(issuer: string): boolean {
 export function parseConsentSearchParams(params: SearchParamRecord): McpOAuthConsentParams {
   const grantDuration = firstString(params.grant_duration);
   return {
-    issuer: firstString(params.issuer),
+    issuer: firstString(params.iss),
     client_id: firstString(params.client_id),
     redirect_uri: firstString(params.redirect_uri),
     client_name: firstString(params.client_name) || undefined,
@@ -66,7 +66,7 @@ export function parseConsentFormData(form: FormData): McpOAuthConsentParams {
 
   const grantDuration = get("grant_duration");
   return {
-    issuer: get("issuer"),
+    issuer: get("iss"),
     client_id: get("client_id"),
     redirect_uri: get("redirect_uri"),
     client_name: get("client_name") || undefined,
@@ -95,7 +95,6 @@ export function validateConsentParams(params: McpOAuthConsentParams): string | n
 
 export function buildConsentPath(params: McpOAuthConsentParams, error?: string): string {
   const search = new URLSearchParams();
-  search.set("issuer", params.issuer);
   search.set("response_type", "code");
   search.set("client_id", params.client_id);
   search.set("redirect_uri", params.redirect_uri);
@@ -103,6 +102,7 @@ export function buildConsentPath(params: McpOAuthConsentParams, error?: string):
   search.set("code_challenge_method", params.code_challenge_method || "S256");
   search.set("prompt", "consent");
   search.set("grant_duration", params.grant_duration || "1y");
+  search.set("iss", params.issuer);
   if (params.client_name) search.set("client_name", params.client_name);
   if (params.logo_uri) search.set("logo_uri", params.logo_uri);
   if (params.state) search.set("state", params.state);

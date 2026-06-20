@@ -53,7 +53,7 @@ export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormPro
   return (
     <form action="/api/mcp-oauth/approve" className="space-y-4 pt-2" method="post">
       {/* Hidden Fields */}
-      <input type="hidden" name="issuer" value={params.issuer} />
+      <input type="hidden" name="iss" value={params.issuer} />
       <input type="hidden" name="client_id" value={params.client_id} />
       <input type="hidden" name="redirect_uri" value={params.redirect_uri} />
       <input type="hidden" name="client_name" value={params.client_name ?? ""} />
@@ -74,11 +74,11 @@ export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormPro
           <p className="text-xs font-medium text-muted-foreground">Access requested</p>
           <div className="space-y-3">
             {scopesList.includes("mcp:tools:read") && (
-              <label className="flex items-start gap-3 cursor-pointer select-none">
+              <label className="flex items-start gap-3 cursor-not-allowed select-none">
                 <Checkbox
                   id="scope-read"
-                  checked={readChecked}
-                  onCheckedChange={(v) => setReadChecked(v === true)}
+                  checked={true}
+                  disabled={true}
                   className="mt-[3px]"
                 />
                 <div className="space-y-0.5">

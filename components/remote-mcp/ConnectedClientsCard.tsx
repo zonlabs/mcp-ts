@@ -4,6 +4,16 @@ import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export type McpOAuthGrantRow = {
   id: string;
@@ -24,12 +34,9 @@ type ConnectedClientsCardProps = {
 export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [items, setItems] = useState<McpOAuthGrantRow[]>(grants);
+  const [revokeId, setRevokeId] = useState<string | null>(null);
 
   const handleRevoke = async (id: string) => {
-    if (!confirm("Revoke this connected MCP client? It will need to authorize again.")) {
-      return;
-    }
-
     setPendingId(id);
     try {
       const res = await fetch(`/api/mcp-oauth/grants/${id}`, {
@@ -51,6 +58,9 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
       setPendingId(null);
     }
   };
+
+  const revokeTarget = items.find((item) => item.id === revokeId);
+  const targetClientName = revokeTarget ? (revokeTarget.client_name || revokeTarget.client_id) : "this client";
 
   return (
     <section id="clients" className="scroll-mt-24 space-y-4 bg-background p-4 shadow-sm">
@@ -93,7 +103,7 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
                   size="sm"
                   className="h-8 shrink-0 gap-1.5 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
                   disabled={pendingId === grant.id}
-                  onClick={() => void handleRevoke(grant.id)}
+                  onClick={() => setRevokeId(grant.id)}
                 >
                   {pendingId === grant.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -107,6 +117,31 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
           })}
         </ul>
       )}
+
+      <AlertDialog open={revokeId !== null} onOpenChange={(open) => { if (!open) setRevokeId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke {targetClientName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to revoke access for &ldquo;{targetClientName}&rdquo;? It will need to authorize again to access your MCP servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => {
+                if (revokeId) {
+                  void handleRevoke(revokeId);
+                  setRevokeId(null);
+                }
+              }}
+            >
+              Revoke
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

@@ -121,7 +121,7 @@ export default function RemoteMcpPanel({
                       <>
                         <span className="text-[8px] text-muted-foreground/45">•</span>
                         <span className="text-[9px] text-muted-foreground leading-none" title={`Uptime: ${healthData.uptime_seconds} seconds`}>
-                          up {formatUptime(healthData.uptime_seconds)}
+                          uptime {formatUptime(healthData.uptime_seconds)}
                         </span>
                       </>
                     )}

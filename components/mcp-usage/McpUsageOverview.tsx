@@ -50,8 +50,6 @@ export function McpUsageOverview({
   currentPage,
   onPageChange,
   days,
-  healthStatus,
-  healthData = null,
 }: McpUsageOverviewProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -131,70 +129,70 @@ export function McpUsageOverview({
 
         <div ref={containerRef} className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-x-auto sm:px-0 scrollbar-minimal">
           <TooltipProvider delayDuration={100}>
-          <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[5px]">
-            {heatmap.map((day) => {
-              const tooltipItems = day.apps.slice(0, 3);
-              const otherApps = day.apps.slice(tooltipItems.length);
-              const otherCount = otherApps.length;
-              const otherToolCalls = otherApps.reduce((total, app) => total + app.count, 0);
+            <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[5px]">
+              {heatmap.map((day) => {
+                const tooltipItems = day.apps.slice(0, 3);
+                const otherApps = day.apps.slice(tooltipItems.length);
+                const otherCount = otherApps.length;
+                const otherToolCalls = otherApps.reduce((total, app) => total + app.count, 0);
 
-              return (
-                <Tooltip key={day.date}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        "h-[13px] w-[13px] rounded-[3px] cursor-default",
-                        getHeatmapColorClass(day.count, maxCount)
-                      )}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    sideOffset={6}
-                    className="z-[300] w-56 p-0 overflow-hidden bg-popover text-popover-foreground border border-border shadow-lg"
-                    avoidCollisions={true}
-                    collisionPadding={8}
-                  >
-                    <div className="px-3 py-2">
-                      <div className="flex items-center justify-between gap-3 border-b border-border pb-1.5 text-xs">
-                        <span className="font-medium">{formatTooltipDate(day.date)}</span>
-                        <span className="text-muted-foreground">{day.count} calls</span>
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        {tooltipItems.length > 0 ? (
-                          <>
-                            {tooltipItems.map((app) => (
-                              <div key={`${day.date}-${app.key}`} className="flex items-center gap-2 text-xs">
-                                <ServerIcon
-                                  serverName={app.name}
-                                  serverUrl={app.serverUrl ?? undefined}
-                                  size={16}
-                                  className="shrink-0 rounded-sm"
-                                />
-                                <span className="min-w-0 flex-1 truncate">{app.name}</span>
-                                <span className="shrink-0 text-muted-foreground">{app.count}</span>
-                              </div>
-                            ))}
-                            {otherCount > 0 ? (
-                              <div className="flex items-center gap-2 text-xs">
-                                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
-                                  +
+                return (
+                  <Tooltip key={day.date}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          "h-[13px] w-[13px] rounded-[3px] cursor-default",
+                          getHeatmapColorClass(day.count, maxCount)
+                        )}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      sideOffset={6}
+                      className="z-[300] w-56 p-0 overflow-hidden bg-popover text-popover-foreground border border-border shadow-lg"
+                      avoidCollisions={true}
+                      collisionPadding={8}
+                    >
+                      <div className="px-3 py-2">
+                        <div className="flex items-center justify-between gap-3 border-b border-border pb-1.5 text-xs">
+                          <span className="font-medium">{formatTooltipDate(day.date)}</span>
+                          <span className="text-muted-foreground">{day.count} calls</span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {tooltipItems.length > 0 ? (
+                            <>
+                              {tooltipItems.map((app) => (
+                                <div key={`${day.date}-${app.key}`} className="flex items-center gap-2 text-xs">
+                                  <ServerIcon
+                                    serverName={app.name}
+                                    serverUrl={app.serverUrl ?? undefined}
+                                    size={16}
+                                    className="shrink-0 rounded-sm"
+                                  />
+                                  <span className="min-w-0 flex-1 truncate">{app.name}</span>
+                                  <span className="shrink-0 text-muted-foreground">{app.count}</span>
                                 </div>
-                                <span className="min-w-0 flex-1 truncate">
-                                  {otherCount} other{otherCount === 1 ? "" : "s"}
-                                </span>
-                                <span className="shrink-0 text-muted-foreground">{otherToolCalls}</span>
-                              </div>
-                            ) : null}
-                          </>
-                        ) : <p className="text-xs text-muted-foreground">No tool calls</p>}
+                              ))}
+                              {otherCount > 0 ? (
+                                <div className="flex items-center gap-2 text-xs">
+                                  <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold text-muted-foreground">
+                                    +
+                                  </div>
+                                  <span className="min-w-0 flex-1 truncate">
+                                    {otherCount} other{otherCount === 1 ? "" : "s"}
+                                  </span>
+                                  <span className="shrink-0 text-muted-foreground">{otherToolCalls}</span>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : <p className="text-xs text-muted-foreground">No tool calls</p>}
+                        </div>
                       </div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
           </TooltipProvider>
         </div>
 
@@ -203,7 +201,7 @@ export function McpUsageOverview({
           <UsageMetric
             label="MCP Assistant"
             value={summary.orchestrationCallsTotal.toLocaleString()}
-            // subtitle="Orchestrator"
+          // subtitle="Orchestrator"
           />
           <UsageMetric label="Streak" value={`${summary.streakDays} Days`} />
           <UsageMetric
@@ -221,24 +219,24 @@ export function McpUsageOverview({
         </div>
 
         <div className="space-y-5 rounded-2xl border border-red-500/20 bg-background p-3 dark:border-red-400/20 sm:p-5">
-        <div className="space-y-4">
-          {recentEventGroups.map((group) => (
-            <section key={group.dateKey} className="space-y-2">
-              <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                {group.label}
-              </div>
-              <div className="space-y-2 sm:space-y-0">
-                {group.events.map((event) => (
-                  <RecentActivityRow
-                    key={event.id}
-                    event={event}
-                    serverUrl={resolveMcpUsageServerUrl(event, connections) ?? undefined}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+          <div className="space-y-4">
+            {recentEventGroups.map((group) => (
+              <section key={group.dateKey} className="space-y-2">
+                <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  {group.label}
+                </div>
+                <div className="space-y-2 sm:space-y-0">
+                  {group.events.map((event) => (
+                    <RecentActivityRow
+                      key={event.id}
+                      event={event}
+                      serverUrl={resolveMcpUsageServerUrl(event, connections) ?? undefined}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
 
           <div className="flex flex-col gap-3 border-t border-red-500/20 px-1 py-3 dark:border-red-400/20 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <p className="text-xs text-muted-foreground">
@@ -406,7 +404,7 @@ function getHeatmapColorClass(count: number, maxCount: number): string {
   // Use relative percentile of max so colors always span the full range
   const ratio = count / maxCount;
   if (ratio <= 0.25) return "bg-emerald-200 dark:bg-emerald-950";
-  if (ratio <= 0.5)  return "bg-emerald-300 dark:bg-emerald-800";
+  if (ratio <= 0.5) return "bg-emerald-300 dark:bg-emerald-800";
   if (ratio <= 0.75) return "bg-emerald-500 dark:bg-emerald-600";
   return "bg-emerald-700 dark:bg-emerald-400";
 }
