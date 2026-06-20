@@ -6,6 +6,7 @@ import { Check, ChevronDown, ChevronRight, Copy, Download, Loader2, Play, Refres
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const REMOTE_PROXY_BASE_URL = process.env.NEXT_PUBLIC_REMOTE_PROXY_BASE_URL || "";
 const GATEWAY_INSTALL_COMMAND = "uvx mcpassistant-gateway";
@@ -468,20 +469,26 @@ export default function GatewayPage() {
                   <span className="text-muted-foreground">
                     {remoteProxyStatus === "ok" ? "ok" : remoteProxyStatus === "down" ? "down" : "checking"}
                   </span>
-                  <Button
-                    onClick={refreshAll}
-                    disabled={loadingAgents || loadingAllInfo}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                    title={loadingAgents || loadingAllInfo ? "Refreshing..." : "Refresh"}
-                  >
-                    {loadingAgents || loadingAllInfo ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
+                  <Tooltip delayDuration={100}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={refreshAll}
+                        disabled={loadingAgents || loadingAllInfo}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                      >
+                        {loadingAgents || loadingAllInfo ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {loadingAgents || loadingAllInfo ? "Refreshing..." : "Refresh"}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 <div className="inline-flex items-center gap-2">
                   <span className={localAgentConnected ? "h-2 w-2 rounded-full bg-emerald-500" : "h-2 w-2 rounded-full bg-red-500"} />
@@ -698,20 +705,24 @@ export default function GatewayPage() {
                                     <Button variant="ghost" size="sm" onClick={() => copyText(url, "Invoke URL", `url:${key}`)} className="h-7 px-2">
                                       {copiedKey === `url:${key}` ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        setExpandedTools((prev) => ({
-                                          ...prev,
-                                          [key]: !prev[key],
-                                        }))
-                                      }
-                                      className="h-7 px-2 font-mono text-xs"
-                                      title="Toggle tools info"
-                                    >
-                                      {toolsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                    </Button>
+                                    <Tooltip delayDuration={100}>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                            setExpandedTools((prev) => ({
+                                              ...prev,
+                                              [key]: !prev[key],
+                                            }))
+                                          }
+                                          className="h-7 px-2 font-mono text-xs"
+                                        >
+                                          {toolsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">Toggle tools info</TooltipContent>
+                                    </Tooltip>
                                   </div>
                                 </div>
                                 <code className="mt-2 block w-full overflow-x-auto whitespace-nowrap text-[11px] text-foreground/90">

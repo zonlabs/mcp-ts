@@ -87,7 +87,7 @@ export function ServerPlaceholder({
 
   if (type === "no-selection") {
     return (
-      <div className="flex-1 p-4 sm:p-6 md:p-8 min-h-[calc(100vh-120px)] dark:bg-transparent">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 py-4 min-h-[calc(100vh-120px)] dark:bg-transparent">
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -95,71 +95,79 @@ export function ServerPlaceholder({
           className="mx-auto max-w-5xl w-full"
         >
           <motion.div variants={itemVariants} className="mb-5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-2.5">
               <Hammer className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-base font-semibold text-foreground">Our Remote MCP</h2>
             </div>
             <Link
-              href="/mcp?remote-mcp=activity"
-              className="group mt-1 block rounded-lg border border-red-200/70 bg-background px-4 py-4 transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
+              href="/mcp?view=activity"
+              className="group block rounded-xl border border-red-200/70 bg-background/50 p-4 text-left transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+              {/* Row 1: Logo, Name, and Icons */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center">
                     <ServerIcon
                       serverName="MCP Assistant"
                       serverUrl={MCP_ASSISTANT_URL}
-                      size={28}
-                      className="rounded-md"
+                      size={36}
+                      className="rounded-lg"
                     />
                   </div>
-                  <p className="text-[1.35rem] font-semibold tracking-tight text-foreground">MCP Assistant</p>
+                  <p className="text-sm font-semibold text-foreground truncate">MCP Assistant</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                      {MCP_CLIENT_ICONS.map((client) => (
-                        <div
-                          key={client.name}
-                          className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background"
-                        >
-                          <img
-                            src={client.fallbackImage}
-                            alt={`${client.name} icon`}
-                            width={16}
-                            height={16}
-                            className={`rounded-sm ${client.name === 'Cursor' || client.name === 'ChatGPT' ? 'dark:invert' : ''}`}
-                            loading="lazy"
-                            decoding="async"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      ))}
+                
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {MCP_CLIENT_ICONS.map((client) => (
+                    <div
+                      key={client.name}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background"
+                      title={client.name}
+                    >
+                      <img
+                        src={client.fallbackImage}
+                        alt={`${client.name} icon`}
+                        width={15}
+                        height={15}
+                        className={`rounded-sm ${client.name === 'Cursor' || client.name === 'ChatGPT' ? 'dark:invert' : ''}`}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="mt-4 rounded-sm bg-red-50/80 px-4 py-3 dark:bg-red-950/20 group-hover:bg-muted/50 dark:group-hover:bg-muted/50">
-                <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-500/80">
-                  URL
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <code className="truncate text-sm text-red-700 dark:text-red-300">
-                    {MCP_ASSISTANT_URL}
-                  </code>
+              {/* Row 2: Description & URL & Action */}
+              <div className="mt-3.5 space-y-3.5">
+                <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                  Access 100+ MCP servers (GitHub, Notion, Zapier, Supabase, etc.) via dynamic discovery meta-tools and a secure CodeMode sandbox for programmatic tool calling.
+                </p>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5 hover:bg-muted/40 transition-colors">
+                  <div className="min-w-0 flex-1 flex items-center gap-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">URL</span>
+                    <code className="truncate text-xs text-muted-foreground font-mono">
+                      {MCP_ASSISTANT_URL}
+                    </code>
+                  </div>
                   <button
                     type="button"
                     aria-label="Copy MCP endpoint"
                     onClick={handleCopyAssistantUrl}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-red-600 transition-colors hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-900/40"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-colors"
                   >
-                    {urlCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {urlCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
                   </button>
                 </div>
-              </div>
 
-              <div className="mt-3 flex justify-end">
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80">
-                  Open usage
-                  <ArrowRight className="h-4 w-4" />
-                </span>
+                <div className="flex items-center justify-end pt-1">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-foreground/80 group-hover:text-primary transition-colors">
+                    Open usage
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </div>
               </div>
             </Link>
           </motion.div>

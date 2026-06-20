@@ -1,10 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Shield, Edit, Trash2 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ServerListItemProps {
   server: McpServer;
@@ -34,11 +34,8 @@ export function ServerListItem({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className={`group relative ${showActions ? "" : "px-2.5 py-2 border-b border-border last:border-b-0"}`}
+    <div
+      className={`group relative ${showActions ? "" : "px-1 py-0.5 border-b border-border last:border-b-0"}`}
     >
       {/* Action Buttons (for user servers) */}
       {showActions && onEdit && onDelete && (
@@ -70,25 +67,31 @@ export function ServerListItem({
 
       <div
         className={`cursor-pointer transition-all duration-200 ${showActions
-          ? `p-2.5 ${isSelected
+          ? `p-2 ${isSelected
             ? "rounded-lg border border-red-300/70 bg-red-50/60 shadow-sm dark:border-red-400/25 dark:bg-red-950/20"
             : "rounded-lg border border-transparent hover:border-red-200/70 hover:bg-red-50/30 dark:hover:border-red-400/15 dark:hover:bg-red-950/10"
           }`
           : `${isSelected
-            ? "rounded-lg border border-red-300/70 bg-red-50/50 px-2.5 py-2.5 dark:border-red-400/25 dark:bg-red-950/20"
-            : "rounded-lg border border-transparent px-2.5 py-2.5 hover:border-red-200/70 hover:bg-red-50/25 dark:hover:border-red-400/15 dark:hover:bg-red-950/10"
+            ? "rounded-lg border border-red-300/70 bg-red-50/50 px-2.5 py-2 dark:border-red-400/25 dark:bg-red-950/20"
+            : "rounded-lg border border-transparent px-2.5 py-2 hover:border-red-200/70 hover:bg-red-50/25 dark:hover:border-red-400/15 dark:hover:bg-red-950/10"
           }`
           }`}
         onClick={onClick}
       >
         <div className={`flex items-center justify-between ${showActions ? "pr-8" : ""}`}>
           <div className="flex items-center gap-2 flex-1">
-            <div
-              className={`w-2 h-2 rounded-full transition-all ${getStatusColor(
-                server.connectionStatus
-              )}`}
-              title={`Status: ${server.connectionStatus || "Unknown"}`}
-            />
+            <Tooltip delayDuration={100}>
+              <TooltipTrigger asChild>
+                <div
+                  className={`w-2 h-2 rounded-full transition-all ${getStatusColor(
+                    server.connectionStatus
+                  )}`}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {`Status: ${server.connectionStatus || "Unknown"}`}
+              </TooltipContent>
+            </Tooltip>
             <ServerIcon
               serverName={server.name}
               serverUrl={server.url}
@@ -97,9 +100,14 @@ export function ServerListItem({
             />
             <span className="font-medium text-sm truncate">{server.name}</span>
             {server.requiresOauth2 ? (
-              <div title="OAuth2 Required">
-                <Shield className="h-3 w-3 text-amber-500 flex-shrink-0" />
-              </div>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Shield className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top">OAuth2 Required</TooltipContent>
+              </Tooltip>
             ) : (
               !showActions && (
                 <span className="text-xs font-medium text-red-600 dark:text-red-300">
@@ -125,6 +133,6 @@ export function ServerListItem({
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

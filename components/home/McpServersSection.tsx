@@ -10,6 +10,7 @@ import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { useRegistryRecentServers } from "@/hooks/useRegistryRecentServers";
 import { RegistryServerCard } from "@/components/registry/RegistryServerCard";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 function ServerItemSkeleton() {
   return (
@@ -65,18 +66,24 @@ function ServerCard({ server }: { server: McpServer }) {
         )}
 
         {server.url && (
-          <button
-            onClick={handleCopyUrl}
-            title={server.url}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors group/url cursor-pointer w-full min-w-0"
-          >
-            <span className="truncate min-w-0">{server.url}</span>
-            {copied ? (
-              <Check className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
-            ) : (
-              <Copy className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover/url:opacity-100 transition-opacity" />
-            )}
-          </button>
+          <Tooltip delayDuration={100}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleCopyUrl}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors group/url cursor-pointer w-full min-w-0"
+              >
+                <span className="truncate min-w-0">{server.url}</span>
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover/url:opacity-100 transition-opacity" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs break-all">
+              {server.url}
+            </TooltipContent>
+          </Tooltip>
         )}
 
         {server.createdAt && (

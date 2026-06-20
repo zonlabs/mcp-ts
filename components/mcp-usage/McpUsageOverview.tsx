@@ -30,6 +30,16 @@ interface McpUsageOverviewProps {
   currentPage: number;
   onPageChange?: (newPage: number) => void;
   days?: number;
+  healthStatus?: string;
+  healthData?: {
+    version?: string;
+    uptime_seconds?: number;
+    avg_latency_ms?: number;
+    resources?: {
+      memory_mb?: number;
+      cpu_percent?: number;
+    };
+  } | null;
 }
 
 export function McpUsageOverview({
@@ -40,6 +50,8 @@ export function McpUsageOverview({
   currentPage,
   onPageChange,
   days,
+  healthStatus,
+  healthData = null,
 }: McpUsageOverviewProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -358,13 +370,19 @@ function RecentActivityRow({
         )}
       </div>
       <div className="col-span-2 min-w-0 sm:col-span-1">
-        <p
-          className="break-all whitespace-normal font-mono text-xs tracking-tight sm:text-sm text-foreground"
-          style={{ wordBreak: "break-all", whiteSpace: "normal" }}
-          title={event.tool_name}
-        >
-          {event.tool_name}
-        </p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <p
+              className="break-all whitespace-normal font-mono text-xs tracking-tight sm:text-sm text-foreground"
+              style={{ wordBreak: "break-all", whiteSpace: "normal" }}
+            >
+              {event.tool_name}
+            </p>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs break-all">
+            {event.tool_name}
+          </TooltipContent>
+        </Tooltip>
         {!isSuccess && event.error_preview ? (
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:truncate">{event.error_preview}</p>
         ) : null}

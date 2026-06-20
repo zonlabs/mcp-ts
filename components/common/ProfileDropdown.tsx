@@ -108,9 +108,39 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
         </div>
 
         <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
+          <Link href="/mcp">
+            <Hammer className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+            MCP Servers
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
+          <Link href="/registry">
+            <Package className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+            Registry
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
+          <Link href="/chat">
+            <MessageSquare className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+            Chat Playground
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
+          <a href="https://docs.mcp-assistant.in/" target="_blank" rel="noopener noreferrer">
+            <BookOpen className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+            Docs
+          </a>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator className="my-1.5" />
+
+        <DropdownMenuItem asChild className="cursor-pointer gap-2 rounded-md">
           <Link href="/settings/account">
-            <Settings className="size-4 shrink-0" strokeWidth={2} />
-            Settings
+            <User className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} />
+            Accounts
           </Link>
         </DropdownMenuItem>
 

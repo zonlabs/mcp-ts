@@ -33,6 +33,7 @@ export interface StoredConnection {
   connectionStatus: ConnectionStatus;
   tools: ToolInfo[];
   connectedAt: string;
+  error?: string;
 }
 
 function normalizeConnectionStatus(
@@ -570,6 +571,7 @@ export const useMcpStore = create<McpStore>()(
                 connectionStatus: normalizedStatus,
                 tools: val.tools || [],
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available
+                error: val.error,
               };
               return acc;
             }, {} as Record<string, StoredConnection>),

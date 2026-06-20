@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decodeOffsetCursor, encodeOffsetCursor } from "./cursor";
 import { mapServerRow, normalizeHeaderRecord, type CategoryRow, type McpServerRow, type McpServersConnection, type McpServerNode } from "./types";
 
-const SERVER_SELECT = `
+export const SERVER_SELECT = `
   *,
   mcp_server_categories (
     category_id,

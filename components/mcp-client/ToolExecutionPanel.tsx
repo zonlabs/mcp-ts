@@ -9,7 +9,6 @@ import { toast } from "react-hot-toast";
 import { AlertCircle, CheckCircle, Loader, X, ChevronDown } from "lucide-react";
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
-import { motion, AnimatePresence } from "framer-motion";
 import { useMcpStore } from "@/lib/stores/mcp-store";
 import {
   DropdownMenu,
@@ -17,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ToolExecutionPanelProps {
   server: McpServer;
@@ -197,13 +197,7 @@ export default function ToolExecutionPanel({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 320 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 320 }}
-      transition={{ duration: 0.3 }}
-      className="h-full flex flex-col bg-background"
-    >
+    <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="flex-shrink-0 border-b border-border">
         {/* Top Bar - Server Info */}
@@ -327,23 +321,29 @@ export default function ToolExecutionPanel({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium">Tool Input (JSON)</label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const fixed = fixWindowsPaths(inputJson);
-                      if (fixed !== inputJson) {
-                        setInputJson(fixed);
-                        toast.success("Windows paths escaped");
-                      } else {
-                        toast("No paths to fix");
-                      }
-                    }}
-                    className="h-7 text-xs cursor-pointer"
-                    title="Automatically escape Windows backslashes in paths"
-                  >
-                    Fix Paths
-                  </Button>
+                  <Tooltip delayDuration={100}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const fixed = fixWindowsPaths(inputJson);
+                          if (fixed !== inputJson) {
+                            setInputJson(fixed);
+                            toast.success("Windows paths escaped");
+                          } else {
+                            toast("No paths to fix");
+                          }
+                        }}
+                        className="h-7 text-xs cursor-pointer"
+                      >
+                        Fix Paths
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      Automatically escape Windows backslashes in paths
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 <textarea
                   value={inputJson}
@@ -357,57 +357,50 @@ export default function ToolExecutionPanel({
               </div>
 
               {/* Result - Only show when there's a result */}
-              <AnimatePresence>
-                {showResult && result && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-2"
-                  >
-                    <label className="text-sm font-medium">Result</label>
-                    {result.success ? (
-                      <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-700">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <AlertDescription className="text-green-800 dark:text-green-200">
-                          {result.message}
-                        </AlertDescription>
-                      </Alert>
-                    ) : (
-                      <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        <AlertDescription className="text-red-800 dark:text-red-200">
-                          {result.message}
-                          {result.error && <div className="text-xs mt-2">{result.error}</div>}
-                        </AlertDescription>
-                      </Alert>
-                    )}
+              {showResult && result && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Result</label>
+                  {result.success ? (
+                    <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-700">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-green-800 dark:text-green-200">
+                        {result.message}
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-700">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <AlertDescription className="text-red-800 dark:text-red-200">
+                        {result.message}
+                        {result.error && <div className="text-xs mt-2">{result.error}</div>}
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
-                    {result.result ? (
-                      <div className="mt-2 rounded-md border border-slate-700 w-full min-w-0 overflow-hidden">
-                        <p className="text-xs font-semibold text-gray-300 dark:text-gray-400 px-3 pt-3">Response:</p>
-                        <div className="max-h-96 overflow-x-auto overflow-y-auto scrollbar-minimal w-2xl">
-                          <SyntaxHighlighter
-                            language="json"
-                            style={atomOneDark}
-                            customStyle={{
-                              margin: 0,
-                              padding: '12px',
-                              fontSize: '11px',
-                              whiteSpace: 'pre',
-                              minWidth: 'min-content'
-                            }}
-                          >
-                            {typeof result.result === 'string'
-                              ? result.result
-                              : JSON.stringify(result.result, null, 2)}
-                          </SyntaxHighlighter>
-                        </div>
+                  {result.result ? (
+                    <div className="mt-2 rounded-md border border-slate-700 w-full min-w-0 overflow-hidden">
+                      <p className="text-xs font-semibold text-gray-300 dark:text-gray-400 px-3 pt-3">Response:</p>
+                      <div className="max-h-96 overflow-x-auto overflow-y-auto scrollbar-minimal w-2xl">
+                        <SyntaxHighlighter
+                          language="json"
+                          style={atomOneDark}
+                          customStyle={{
+                            margin: 0,
+                            padding: '12px',
+                            fontSize: '11px',
+                            whiteSpace: 'pre',
+                            minWidth: 'min-content'
+                          }}
+                        >
+                          {typeof result.result === 'string'
+                            ? result.result
+                            : JSON.stringify(result.result, null, 2)}
+                        </SyntaxHighlighter>
                       </div>
-                    ) : null}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -426,6 +419,6 @@ export default function ToolExecutionPanel({
           </Button>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

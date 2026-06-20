@@ -240,7 +240,7 @@ export function MCPConnectionApproval({
       )}
 
       {showUrl && (
-        <p className="pl-[42px] sm:pl-[46px] text-[10px] sm:text-xs text-muted-foreground break-all" title={serverUrl}>
+        <p className="pl-[42px] sm:pl-[46px] text-[10px] sm:text-xs text-muted-foreground break-all">
           {serverUrl}
         </p>
       )}

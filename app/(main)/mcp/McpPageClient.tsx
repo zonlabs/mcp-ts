@@ -40,6 +40,7 @@ interface McpPageClientProps {
   initialPublicError: string | null;
   initialUserError: string | null;
   userSession: UserSession | null;
+  initialSelectedServer?: McpServer | null;
 }
 
 export default function McpPageClient({
@@ -53,6 +54,7 @@ export default function McpPageClient({
   initialPublicError,
   initialUserError,
   userSession,
+  initialSelectedServer = null,
 }: McpPageClientProps) {
   const router = useRouter();
   const [publicServers, setPublicServers] = useState<McpServer[]>(initialPublicServers);
@@ -239,6 +241,7 @@ export default function McpPageClient({
       hasNextPage={hasNextPage}
       isLoadingMore={isLoadingMore}
       onLoadMore={handleLoadMore}
+      initialSelectedServer={initialSelectedServer}
     />
   );
 }

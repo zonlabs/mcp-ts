@@ -206,7 +206,7 @@ export function UserMessage({ message, parts, onEdit }: {
               src={part.url}
               width={400}
               height={500}
-              title={`pdf-${index}`}
+              aria-label={`pdf-${index}`}
               className="rounded-lg border"
             />
           );
@@ -363,7 +363,7 @@ export function AssistantMessage({
               src={part.url}
               width={500}
               height={600}
-              title={`pdf-${index}`}
+              aria-label={`pdf-${index}`}
               className="rounded-lg border"
             />
           );

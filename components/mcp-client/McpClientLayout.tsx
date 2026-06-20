@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import Link from "next/link";
+import { PanelLeftOpen, Server, Plug, Wrench, ChevronRight, LayoutDashboard, Activity, Search } from "lucide-react";
 
 import { Toaster } from "react-hot-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -16,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { McpServer } from "@/types/mcp";
 import ServerForm from "./ServerForm";
 import { ServerSidebar } from "./ServerSidebar";
@@ -27,6 +29,10 @@ import { useMcpStore, type McpStore } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { UserSession } from "@/components/providers/AuthProvider";
 import RemoteMcpPanel from "@/components/remote-mcp/RemoteMcpPanel";
+import Logo from "@/components/common/Logo";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { ProfileDropdown } from "@/components/common/ProfileDropdown";
+import { ServerIcon } from "@/components/common/ServerIcon";
 
 interface McpClientLayoutProps {
   publicServers: McpServer[] | null;
@@ -51,6 +57,7 @@ interface McpClientLayoutProps {
   hasNextPage: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
+  initialSelectedServer?: McpServer | null;
 }
 
 export default function McpClientLayout({
@@ -73,13 +80,12 @@ export default function McpClientLayout({
   onServerDelete,
   hasNextPage,
   isLoadingMore,
-  onLoadMore
+  onLoadMore,
+  initialSelectedServer = null,
 }: McpClientLayoutProps) {
-  const [selectedServer, setSelectedServer] = useState<McpServer | null>(null);
   const [toolTesterOpen, setToolTesterOpen] = useState(false);
   const [selectedToolName, setSelectedToolName] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [remoteMcpOpen, setRemoteMcpOpen] = useState(false);
 
   const [remoteMcpData, setRemoteMcpData] = useState<any | null>(null);
   const [remoteMcpLoading, setRemoteMcpLoading] = useState(true);
@@ -108,14 +114,17 @@ export default function McpClientLayout({
   }, [fetchRemoteMcpData]);
 
   // View State Management
-  const [viewMode, setViewMode] = useState<'browse' | 'add' | 'edit'>('browse');
-  const [editingServer, setEditingServer] = useState<McpServer | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serverToDelete, setServerToDelete] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'public' | 'user'>('public');
 
   const activeServersCount = useMcpStore((state: McpStore) => state.activeConnectionCount);
+  const connections = useMcpStore((state: McpStore) => state.connections);
+  const totalAvailableTools = useMemo(() =>
+    Object.values(connections).reduce((sum, c) => sum + (c.tools?.length || 0), 0),
+    [connections]
+  );
   const getConnectionByServerId = useMcpStore((state: McpStore) => state.getConnectionByServerId);
   const { mergeWithStoredState } = useMcpConnection();
 
@@ -129,24 +138,22 @@ export default function McpClientLayout({
     setSelectedCategory(categorySlug);
   }, [categorySlug]);
 
-  useEffect(() => {
-    const val = searchParams.get("remote-mcp");
-    if (val === "true" || val === "activity" || val === "revoke") {
-      handleOpenRemoteMcp();
-    }
-  }, [searchParams]);
-
-  const handleOpenRemoteMcp = () => {
-    setRemoteMcpOpen(true);
-    setToolTesterOpen(false);
-    setSelectedServer(null);
+  const handleOpenRemoteMcp = (tab: "mcp-server" | "revoke" = "mcp-server") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "activity");
+    params.set("tab", tab);
+    params.delete("server");
+    params.delete("remote-mcp");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const handleShowPopular = () => {
-    setSelectedServer(null);
-    setViewMode('browse');
-    setRemoteMcpOpen(false);
-    setToolTesterOpen(false);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "popular");
+    params.delete("server");
+    params.delete("remote-mcp");
+    params.delete("tab");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   // Merge connection state into server lists using the shared utility
@@ -163,53 +170,78 @@ export default function McpClientLayout({
   // Get current servers and error based on active tab
   const currentServers = activeTab === 'public' ? mergedPublicServers : mergedUserServers;
 
-  // Update selected server when servers list changes
-  useEffect(() => {
-    if (selectedServer) {
-      const updatedServer = currentServers?.find(server => server.name === selectedServer.name);
+  const viewParam = searchParams.get("view");
+  const serverParam = searchParams.get("server");
+  const hasRemoteMcp =
+    viewParam === "activity" ||
+    searchParams.has("remote-mcp") ||
+    viewParam === "remote-mcp";
 
-      if (updatedServer) {
-        setSelectedServer(updatedServer);
-      } else {
-        const storedConnection =
-          getConnectionByServerId(selectedServer.id) ||
-          (selectedServer.url ? getConnectionByServerId(selectedServer.url) : undefined);
-        if (storedConnection) {
-          setSelectedServer(prev => prev ? ({
-            ...prev,
-            connectionStatus: storedConnection.connectionStatus,
-            tools: storedConnection.tools || [],
-            transport: storedConnection.transport || prev.transport,
-            url: storedConnection.url || prev.url,
-          }) : null);
-        } else {
-          setSelectedServer(prev => prev ? ({
-            ...prev,
-            connectionStatus: 'DISCONNECTED',
-            tools: [],
-          }) : null);
-        }
+  const viewMode = useMemo(() => {
+    if (viewParam === "add") return "add";
+    if (viewParam === "edit") return "edit";
+    return "browse";
+  }, [viewParam]);
+
+  const selectedServer = useMemo(() => {
+    if (hasRemoteMcp) return null;
+    if (!serverParam) return null;
+
+    const found =
+      mergedPublicServers?.find((s) => s.id === serverParam) ||
+      mergedUserServers?.find((s) => s.id === serverParam);
+    if (found) return found;
+
+    if (initialSelectedServer && initialSelectedServer.id === serverParam) {
+      const storedConnection =
+        getConnectionByServerId(initialSelectedServer.id) ||
+        (initialSelectedServer.url ? getConnectionByServerId(initialSelectedServer.url) : undefined);
+      if (storedConnection) {
+        return {
+          ...initialSelectedServer,
+          connectionStatus: storedConnection.connectionStatus,
+          tools: storedConnection.tools || [],
+          transport: storedConnection.transport || initialSelectedServer.transport,
+          url: storedConnection.url || initialSelectedServer.url,
+        };
       }
+      return initialSelectedServer;
     }
-  }, [currentServers, selectedServer?.name]);
+    return null;
+  }, [serverParam, hasRemoteMcp, mergedPublicServers, mergedUserServers, initialSelectedServer, getConnectionByServerId]);
 
-  // Close tool tester when server selection changes
+  const editingServer = useMemo(() => {
+    if (viewMode !== "edit" || !serverParam) return null;
+    return (
+      mergedPublicServers?.find((s) => s.id === serverParam) ||
+      mergedUserServers?.find((s) => s.id === serverParam) ||
+      null
+    );
+  }, [viewMode, serverParam, mergedPublicServers, mergedUserServers]);
+
+  // Update selected server reference dynamically but keep standard updates handled reactively
+  // Close tool tester when server selection or view changes
   useEffect(() => {
     setToolTesterOpen(false);
     setSelectedToolName(null);
-  }, [selectedServer?.id]);
+  }, [selectedServer?.id, hasRemoteMcp]);
 
   const handleAddServer = () => {
-    setViewMode('add');
-    setSelectedServer(null); // Deselect to show form clearly? Or keep selection? 
-    setEditingServer(null);
-    setRemoteMcpOpen(false);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "add");
+    params.delete("server");
+    params.delete("remote-mcp");
+    params.delete("tab");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const handleEditServer = (server: McpServer) => {
-    setViewMode('edit');
-    setEditingServer(server);
-    setRemoteMcpOpen(false);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", "edit");
+    params.set("server", server.id);
+    params.delete("remote-mcp");
+    params.delete("tab");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   const handleDeleteServer = (serverId: string) => {
@@ -231,8 +263,7 @@ export default function McpClientLayout({
     try {
       await onServerDelete(serverToDelete);
       if (selectedServer?.id === serverToDelete) {
-        setSelectedServer(null);
-        setViewMode('browse');
+        handleShowPopular();
       }
       setDeleteDialogOpen(false);
       setServerToDelete(null);
@@ -241,13 +272,23 @@ export default function McpClientLayout({
     }
   };
 
+  const handleCancelForm = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("view");
+    params.delete("server");
+    router.push(pathname, { scroll: false });
+  };
+
   const handleFormSubmit = async (data: Record<string, unknown>) => {
     if (viewMode === 'add') {
       await onServerAdd(data);
     } else {
       await onServerUpdate(data);
     }
-    setViewMode('browse');
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("view");
+    params.delete("server");
+    router.push(pathname, { scroll: false });
   };
 
   const handleCategorySelect = (slug: string) => {
@@ -263,18 +304,220 @@ export default function McpClientLayout({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
-  const handleServerSelect = (server: McpServer) => {
-    setSelectedServer(server);
-    setViewMode('browse'); // Switch back to details view if selecting a server
-    setRemoteMcpOpen(false);
+  const handleServerSelect = (server: McpServer | null) => {
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
       setSidebarOpen(false);
     }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("view");
+    params.delete("remote-mcp");
+    params.delete("tab");
+    if (server) {
+      params.set("server", server.id);
+    } else {
+      params.delete("server");
+    }
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
+
+  // Header Search Input State
+  const [headerSearchQuery, setHeaderSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const [headerSearchResults, setHeaderSearchResults] = useState<McpServer[]>([]);
+  const [headerSearchLoading, setHeaderSearchLoading] = useState(false);
+
+  useEffect(() => {
+    if (!headerSearchQuery.trim()) {
+      setHeaderSearchResults([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    setHeaderSearchLoading(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const query = encodeURIComponent(headerSearchQuery.trim());
+        const res = await fetch(`/api/mcp?first=10&public=true&search=${query}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("Search failed");
+        const json = await res.json();
+        
+        // Merge user servers manually to search local user servers as well
+        const localMatches = (mergedUserServers || []).filter(
+          (s) =>
+            s.name.toLowerCase().includes(headerSearchQuery.toLowerCase()) ||
+            (s.description && s.description.toLowerCase().includes(headerSearchQuery.toLowerCase()))
+        );
+
+        const apiServers = Array.isArray(json.servers) ? json.servers : [];
+        const combined = [...localMatches, ...apiServers];
+        const seen = new Set();
+        const unique = combined.filter((s) => {
+          const key = s.id || s.name;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        setHeaderSearchResults(unique.slice(0, 8));
+      } catch (err) {
+        if (err instanceof Error && err.name !== "AbortError") {
+          console.error(err);
+        }
+      } finally {
+        setHeaderSearchLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [headerSearchQuery, mergedUserServers]);
+
+
 
 
   return (
     <div className="flex-1 flex flex-col bg-background min-h-0">
+      {/* Premium Dashboard Top Bar */}
+      <div className="relative flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 bg-background/80 backdrop-blur-xl border-b border-border/40 flex-shrink-0 z-50">
+        <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
+          {/* Mobile sidebar toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(prev => !prev)}
+            className="lg:hidden h-8 w-8 shrink-0"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </Button>
+
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+            <div className="relative">
+              <Logo size={28} />
+            </div>
+            <span className="text-sm font-semibold text-foreground leading-none">MCP Assistant</span>
+          </Link>
+
+          {/* Breadcrumb when server selected */}
+          {selectedServer && (
+            <div className="hidden xl:flex items-center gap-1.5 ml-2 min-w-0">
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground shrink-0">Servers</span>
+              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span className="text-sm font-medium text-foreground truncate">{selectedServer.name}</span>
+            </div>
+          )}
+
+          {/* Search bar inside Dashboard Header */}
+          <div ref={searchContainerRef} className="relative max-w-sm w-full ml-4 hidden md:block">
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search MCP servers..."
+                value={headerSearchQuery}
+                onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                className="h-9 pl-9 pr-4 text-xs w-full bg-muted/40 border-border/60 focus-visible:bg-background transition-all duration-200"
+              />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            </div>
+
+              {isSearchFocused && headerSearchQuery.trim() && (
+                <div
+                  className="absolute left-0 right-0 mt-2 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl z-[9999] overflow-hidden max-h-80 flex flex-col isolation-auto"
+                  style={{ zIndex: 9999 }}
+                >
+                  <div className="p-2 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase px-2">
+                      Search Results
+                    </span>
+                    {headerSearchLoading && (
+                      <span className="text-[9px] text-muted-foreground animate-pulse pr-2">Searching...</span>
+                    )}
+                  </div>
+                  <div className="overflow-y-auto p-1.5 space-y-0.5">
+                    {headerSearchResults.length > 0 ? (
+                      headerSearchResults.map((server) => (
+                        <button
+                          key={server.id || server.name}
+                          onClick={() => {
+                            handleServerSelect(server);
+                            setIsSearchFocused(false);
+                            setHeaderSearchQuery("");
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg hover:bg-muted/80 transition-colors duration-150 group"
+                        >
+                          <ServerIcon
+                            serverName={server.name}
+                            serverUrl={server.url ?? undefined}
+                            size={20}
+                            className="rounded-md shrink-0 border border-border/30"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold text-foreground truncate group-hover:text-red-500 transition-colors duration-150">
+                                {server.name}
+                              </span>
+                              {server.isPublic ? (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded border border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-400">Public</span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded border border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400">My Server</span>
+                              )}
+                            </div>
+                            {server.description && (
+                              <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                                {server.description}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center">
+                        <p className="text-xs text-muted-foreground">
+                          {headerSearchLoading ? "Loading matches..." : `No servers found for "${headerSearchQuery}"`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <ThemeToggle />
+          {session?.user ? (
+            <ProfileDropdown user={session.user} />
+          ) : (
+            <Link
+              href="/signin"
+              className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
+              Sign in
+            </Link>
+          )}
+        </div>
+      </div>
+
       <Toaster
         position="top-right"
         toastOptions={{
@@ -322,65 +565,39 @@ export default function McpClientLayout({
         />
 
         {/* Backdrop for Mobile */}
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.4 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black z-[75] lg:hidden cursor-pointer"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-        </AnimatePresence>
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/40 z-[75] lg:hidden cursor-pointer"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
         {/* Main Content Area with Right Panel */}
         <div className="flex-1 flex min-w-0 min-h-0 overflow-y-auto">
           {/* Left Side - Main Content - Hidden when tool tester or remote MCP is open */}
-          {!toolTesterOpen && !remoteMcpOpen && (
+          {!toolTesterOpen && !hasRemoteMcp && (
             <div className="flex-1 flex flex-col min-w-0 min-h-0">
-              <AnimatePresence mode="wait">
                 {viewMode === 'add' ? (
-                  <motion.div
-                    key="add-form"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="flex-1 h-full"
-                  >
+                  <div className="flex-1 h-full">
                     <ServerForm
                       mode="add"
                       session={session}
                       onSubmit={handleFormSubmit}
-                      onCancel={() => setViewMode('browse')}
+                      onCancel={handleCancelForm}
                     />
-                  </motion.div>
+                  </div>
                 ) : viewMode === 'edit' && editingServer ? (
-                  <motion.div
-                    key="edit-form"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="flex-1 h-full"
-                  >
+                  <div className="flex-1 h-full">
                     <ServerForm
                       mode="edit"
                       server={editingServer}
                       session={session}
                       onSubmit={handleFormSubmit}
-                      onCancel={() => setViewMode('browse')}
+                      onCancel={handleCancelForm}
                     />
-                  </motion.div>
+                  </div>
                 ) : selectedServer ? (
-                  <motion.div
-                    key={selectedServer.name}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex-1 flex flex-col"
-                  >
+                  <div className="flex-1 flex flex-col">
                     {/* Server Header & Details */}
                     <ServerDetails
                       server={selectedServer}
@@ -403,70 +620,107 @@ export default function McpClientLayout({
                         }}
                       />
                     </div>
-                  </motion.div>
+                  </div>
                 ) : (
-                  <ServerPlaceholder
-                    type="no-selection"
-                    featuredServers={featuredServers ?? []}
-                  />
+                  <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-minimal">
+                    {/* Stats Overview */}
+                    <div className="px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-2 animate-in fade-in duration-300">
+                      <div className="flex items-center gap-2 mb-4">
+                        <LayoutDashboard className="h-4 w-4 text-primary" />
+                        <h2 className="text-sm font-semibold text-foreground">Overview</h2>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                          {
+                            icon: Server,
+                            label: "Total Servers",
+                            value: publicServersCount + userServersCount,
+                          },
+                          {
+                            icon: Plug,
+                            label: "Active Connections",
+                            value: activeServersCount,
+                          },
+                          {
+                            icon: Wrench,
+                            label: "Available Tools",
+                            value: totalAvailableTools,
+                          },
+                        ].map((stat) => {
+                          const Icon = stat.icon;
+                          return (
+                            <div
+                              key={stat.label}
+                              className="group relative overflow-hidden rounded-xl border border-red-200/70 dark:border-red-400/20 bg-card/50 backdrop-blur-sm p-4 shadow-sm hover:shadow-md hover:border-red-400 dark:hover:border-red-500/40 transition-all duration-300 ease-out"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{stat.label}</p>
+                                  <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none mt-1">{stat.value}</p>
+                                </div>
+                                <div className="rounded-lg border border-red-200/30 dark:border-red-400/10 bg-muted/30 p-2.5 transition-all duration-300 group-hover:scale-105 group-hover:border-red-500/30">
+                                  <Icon className="h-4.5 w-4.5 text-muted-foreground group-hover:text-red-500 transition-colors" strokeWidth={2.5} />
+                                </div>
+                              </div>
+                              {/* Decorative corner glow */}
+                              <div className="absolute top-0 right-0 w-2 h-2 rounded-bl-full bg-red-500/10 shadow-[0_0_12px_rgba(239,68,68,0.35)] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <ServerPlaceholder
+                      type="no-selection"
+                      featuredServers={featuredServers ?? []}
+                    />
+                  </div>
                 )}
-              </AnimatePresence>
             </div>
           )}
 
           {/* Right Panel - Tool Execution - Full width when visible */}
-          <AnimatePresence>
-            {toolTesterOpen && selectedServer && (
-              <motion.div
-                initial={{ opacity: 0, x: 320 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 320 }}
-                transition={{ duration: 0.3 }}
-                className="flex-1 max-w-4xl mx-auto w-full"
-              >
-                <ToolExecutionPanel
-                  server={selectedServer}
-                  tools={Array.isArray(selectedServer.tools) ? selectedServer.tools : []}
-                  onClose={() => {
-                    setToolTesterOpen(false);
-                    setSelectedToolName(null);
-                  }}
-                  initialToolName={selectedToolName}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {toolTesterOpen && selectedServer && (
+            <div className="flex-1 max-w-4xl mx-auto w-full">
+              <ToolExecutionPanel
+                server={selectedServer}
+                tools={Array.isArray(selectedServer.tools) ? selectedServer.tools : []}
+                onClose={() => {
+                  setToolTesterOpen(false);
+                  setSelectedToolName(null);
+                }}
+                initialToolName={selectedToolName}
+              />
+            </div>
+          )}
 
           {/* Right Panel - Remote MCP - Full width when visible */}
-          <AnimatePresence>
-            {remoteMcpOpen && (
-              <motion.div
-                initial={{ opacity: 0, x: 320 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 320 }}
-                transition={{ duration: 0.3 }}
-                className="flex-1 max-w-4xl mx-auto w-full"
-              >
-                <RemoteMcpPanel
-                  data={remoteMcpData}
-                  loading={remoteMcpLoading}
-                  error={remoteMcpError}
-                  onPageChange={fetchRemoteMcpData}
-                  initialTab={searchParams.get("remote-mcp") === "revoke" ? "revoke" : "activity"}
-                  onClose={() => {
-                    setRemoteMcpOpen(false);
-                    // Remove remote-mcp query parameter from URL
-                    const params = new URLSearchParams(searchParams.toString());
-                    if (params.get("remote-mcp")) {
-                      params.delete("remote-mcp");
-                      const qs = params.toString();
-                      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-                    }
-                  }}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {hasRemoteMcp && (
+            <div className="flex-1 max-w-4xl mx-auto w-full">
+              <RemoteMcpPanel
+                data={remoteMcpData}
+                loading={remoteMcpLoading}
+                error={remoteMcpError}
+                onPageChange={fetchRemoteMcpData}
+                initialTab={
+                  searchParams.get("tab") === "revoke" ||
+                  searchParams.has("revoke") ||
+                  searchParams.get("remote-mcp") === "revoke"
+                    ? "revoke"
+                    : "mcp-server"
+                }
+                onClose={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete("remote-mcp");
+                  params.delete("view");
+                  params.delete("tab");
+                  params.delete("revoke");
+                  params.delete("activity");
+                  const qs = params.toString();
+                  router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

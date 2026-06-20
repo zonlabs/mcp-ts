@@ -37,6 +37,7 @@ export type McpServer = {
   tools: ToolInfo[];
   updated_at: string;
   createdAt?: string;
+  error?: string | null;
 };
 
 export type ConnectionResult = {

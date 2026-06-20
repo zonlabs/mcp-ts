@@ -14,9 +14,10 @@ import {
   User as UserIcon,
   Loader2,
   ChevronDown,
-  ServerCog,
+  Settings,
   Hammer,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,7 @@ interface ServerSidebarProps {
   onCategoryChange: (category: string) => void;
   session: UserSession | null;
   userSession?: UserSession | null;
-  onOpenRemoteMcp: () => void;
+  onOpenRemoteMcp: (tab: "mcp-server" | "revoke") => void;
   onShowPopular: () => void;
   sidebarOpen?: boolean;
 }
@@ -101,7 +102,6 @@ export function ServerSidebar({
   sidebarOpen = true,
 }: ServerSidebarProps) {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -129,7 +129,7 @@ export function ServerSidebar({
     };
   }, []);
 
-  // Use filtered servers hook when search or category is active
+  // Category selection hook logic
   const {
     servers: filteredServers,
     loading: filterLoading,
@@ -139,7 +139,7 @@ export function ServerSidebar({
     loadMore: loadMoreFiltered,
   } = useMcpServersFiltered(
     {
-      searchQuery,
+      searchQuery: "",
       categorySlug: selectedCategory || undefined,
       categories,
     },
@@ -210,7 +210,7 @@ export function ServerSidebar({
     return (
       <TooltipProvider>
         <div
-          className="border-r border-border flex flex-col bg-background transition-all duration-300 sticky top-16 h-[calc(100vh-4rem)] z-40 w-16"
+          className="border-r border-border flex flex-col bg-background transition-all duration-300 sticky top-14 h-[calc(100vh-3.5rem)] z-40 w-16"
         >
           {/* Top Header with Expand Button */}
           <div className="p-4 border-b border-border flex flex-col items-center flex-shrink-0">
@@ -243,7 +243,7 @@ export function ServerSidebar({
                         size="sm"
                         className="h-8 w-8 p-0 flex items-center justify-center cursor-pointer"
                       >
-                        <ServerCog className="h-4.5 w-4.5 text-muted-foreground" />
+                        <Settings className="h-4.5 w-4.5 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
                   </span>
@@ -260,17 +260,45 @@ export function ServerSidebar({
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (activeTab === "public") {
+                      onRefreshPublic();
+                    } else {
+                      onRefreshUser();
+                    }
+                  }}
+                  className="cursor-pointer"
+                  disabled={activeTab === "public" ? publicLoading : userLoading}
+                >
+                  <span className="flex items-center gap-2 w-full">
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 text-muted-foreground ${(activeTab === "public" ? publicLoading : userLoading)
+                        ? "animate-spin"
+                        : ""
+                        }`}
+                    />
+                    <span className="flex-1">Refresh list</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
                   <span className="flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                     Add Remote MCP
                   </span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onOpenRemoteMcp} className="cursor-pointer">
+                <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
                   <span className="flex items-center gap-2 w-full">
                     <Hammer className="h-3.5 w-3.5 text-red-500" />
-                    <span className="flex-1">Remote MCP Access</span>
+                    <span className="flex-1">Remote MCP Activity</span>
                     <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenRemoteMcp("revoke")} className="cursor-pointer">
+                  <span className="flex items-center gap-2 w-full">
+                    <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="flex-1">Revoke Access</span>
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
@@ -285,28 +313,16 @@ export function ServerSidebar({
             <Tooltip delayDuration={100}>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => {
-                    if (activeTab === "public") {
-                      onRefreshPublic();
-                    } else {
-                      onRefreshUser();
-                    }
-                  }}
+                  onClick={onClose}
                   variant="ghost"
                   size="sm"
-                  disabled={activeTab === "public" ? publicLoading : userLoading}
                   className="h-8 w-8 p-0 flex items-center justify-center cursor-pointer"
                 >
-                  <RefreshCw
-                    className={cn(
-                      "h-4 w-4 text-muted-foreground",
-                      (activeTab === "public" ? publicLoading : userLoading) ? "animate-spin" : ""
-                    )}
-                  />
+                  <Search className="h-4.5 w-4.5 text-muted-foreground" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={10} className="z-[230]">
-                <p className="text-xs">Refresh list</p>
+                <p className="text-xs">Search servers</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -364,15 +380,14 @@ export function ServerSidebar({
         className={cn(
           "border-r border-border flex flex-col bg-background transition-all duration-300",
           // Desktop: sticky in-flow
-          "lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:z-40 lg:w-80 lg:inset-auto lg:translate-x-0",
-          // Mobile: fixed overlay below header
-          "fixed top-16 left-0 z-[80] w-80 h-[calc(100vh-4rem)]",
+          "lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:z-40 lg:w-80 lg:inset-auto lg:translate-x-0",
+          // Mobile: fixed overlay below dashboard bar
+          "fixed top-14 left-0 z-[80] w-80 h-[calc(100vh-3.5rem)]",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
-      >
-      {/* Header */}
-      <div className="p-4 border-b border-border flex-shrink-0">
-        <div className="flex items-center justify-between mb-2">
+      >      {/* Header */}
+      <div className="p-3 border-b border-border flex-shrink-0">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative h-5 w-5">
               <Image
@@ -400,145 +415,152 @@ export function ServerSidebar({
               </div>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="flex items-center gap-1"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </Button>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex items-center justify-between gap-1 flex-1 cursor-pointer"
-              >
-                <span className="flex items-center gap-1.5">
-                  <ServerCog className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-semibold">Manage</span>
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-[220] w-56">
-              <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  Popular MCP
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
-                <span className="flex items-center gap-2">
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                  Add Remote MCP
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenRemoteMcp} className="cursor-pointer">
-                <span className="flex items-center gap-2 w-full">
-                  <Hammer className="h-3.5 w-3.5 text-red-500" />
-                  <span className="flex-1">Remote MCP Access</span>
-                  <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
-                <span className="flex items-center gap-2">
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                  Add Gateway
-                </span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            onClick={() => {
-              if (activeTab === "public") {
-                onRefreshPublic();
-              } else {
-                onRefreshUser();
-              }
-            }}
-            variant="ghost"
-            size="sm"
-            disabled={activeTab === "public" ? publicLoading : userLoading}
-            className="flex items-center gap-1 flex-1"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${(activeTab === "public" ? publicLoading : userLoading)
-                ? "animate-spin"
-                : ""
-                }`}
-            />
-            <span className="text-xs">Refresh</span>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex items-center gap-1 flex-1"
-                disabled={categoriesLoading}
-              >
-                <Filter className="h-4 w-4" />
-                <span className="text-xs max-w-[120px] truncate">
-                  {selectedCategory
-                    ? truncateText(
-                      categories.find((c) => c.slug === selectedCategory)?.name ||
-                        selectedCategory,
-                      17
-                    )
-                    : "Filter"}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
+          <div className="flex items-center gap-0.5">
+            <DropdownMenu>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="z-[230]">
+                  <p className="text-xs font-semibold">Manage Remote MCP</p>
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" className="z-[220] w-56">
+                <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    Popular MCP
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (activeTab === "public") {
+                      onRefreshPublic();
+                    } else {
+                      onRefreshUser();
+                    }
+                  }}
+                  className="cursor-pointer"
+                  disabled={activeTab === "public" ? publicLoading : userLoading}
+                >
+                  <span className="flex items-center gap-2 w-full">
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 text-muted-foreground ${(activeTab === "public" ? publicLoading : userLoading)
+                        ? "animate-spin"
+                        : ""
+                        }`}
+                    />
+                    <span className="flex-1">Refresh list</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    Add Remote MCP
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
+                  <span className="flex items-center gap-2 w-full">
+                    <Hammer className="h-3.5 w-3.5 text-red-500" />
+                    <span className="flex-1">Remote MCP Activity</span>
+                    <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenRemoteMcp("revoke")} className="cursor-pointer">
+                  <span className="flex items-center gap-2 w-full">
+                    <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="flex-1">Revoke Access</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    Add Gateway
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <DropdownMenuContent align="end" className="z-[220] w-48">
-              <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {categoriesLoading ? (
-                <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
-              ) : (
-                <>
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      onCategoryChange("");
-                    }}
-                  >
-                    All Categories
-                  </DropdownMenuItem>
-                  {categories.map((node) => (
+            <DropdownMenu>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 relative flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                      disabled={categoriesLoading}
+                    >
+                      <Filter className="h-4 w-4" />
+                      {selectedCategory && (
+                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="z-[230]">
+                  <p className="text-xs font-semibold">
+                    {selectedCategory
+                      ? `Filtered: ${
+                        categories.find((c) => c.slug === selectedCategory)?.name ||
+                        selectedCategory
+                        }`
+                      : "Filter by Category"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+
+              <DropdownMenuContent align="end" className="z-[220] w-48">
+                <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {categoriesLoading ? (
+                  <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
+                ) : (
+                  <>
                     <DropdownMenuItem
-                      key={node.id}
                       onSelect={(e) => {
                         e.preventDefault();
-                        onCategoryChange(node?.slug || "");
+                        onCategoryChange("");
                       }}
                     >
-                      {node.name}
+                      All Categories
                     </DropdownMenuItem>
-                  ))}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                    {categories.map((node) => (
+                      <DropdownMenuItem
+                        key={node.id}
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          onCategoryChange(node?.slug || "");
+                        }}
+                      >
+                        {node.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-        {/* Search bar */}
-        <div className="mt-2 relative">
-          <Input
-            type="text"
-            placeholder="Search by server name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 pl-8 text-sm"
-          />
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -550,7 +572,7 @@ export function ServerSidebar({
           className="flex-1 flex flex-col min-h-0"
         >
           {/* Tabs Header */}
-          <div className="px-4 flex-shrink-0">
+          <div className="px-3 flex-shrink-0">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger
                 value="public"
@@ -576,11 +598,11 @@ export function ServerSidebar({
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide py-4">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide py-2">
             {/* Public Servers */}
             <TabsContent
               value="public"
-              className="px-4 pb-6 m-0 flex flex-col gap-1"
+              className="px-3 pb-3 m-0 flex flex-col gap-1"
             >
               {displayLoading ? (
                 [...Array(8)].map((_, i) => (
@@ -627,7 +649,7 @@ export function ServerSidebar({
             </TabsContent>
 
             {/* User Servers */}
-            <TabsContent value="user" className="px-4 pb-6 m-0 flex flex-col gap-1">
+            <TabsContent value="user" className="px-3 pb-3 m-0 flex flex-col gap-1">
               {userLoading ? (
                 <div className="space-y-0">
                   {[...Array(8)].map((_, i) => (

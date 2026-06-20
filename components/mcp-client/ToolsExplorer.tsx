@@ -1,18 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Wrench,
   Search,
   Grid3X3,
-  List
+  List,
+  Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { McpServer, ToolInfo } from "@/types/mcp";
-import { Zap } from "lucide-react";
+import { McpServer } from "@/types/mcp";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ToolsExplorerProps {
   server: McpServer;
@@ -33,7 +33,6 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
     return matchesSearch;
   });
   const isConnected = server.connectionStatus === 'READY';
-
 
   const getToolCategory = (toolName: string) => {
     // Simple categorization based on tool name patterns
@@ -69,15 +68,13 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
 
     return (
       <div className="p-6">
-        {/* <Card> */}
-          <CardContent className="p-12 text-center">
-            <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Tools Available</h3>
-            <p className="text-muted-foreground">
-              {getNoToolsMessage()}
-            </p>
-          </CardContent>
-        {/* </Card> */}
+        <CardContent className="p-12 text-center">
+          <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">No Tools Available</h3>
+          <p className="text-muted-foreground">
+            {getNoToolsMessage()}
+          </p>
+        </CardContent>
       </div>
     );
   }
@@ -141,111 +138,93 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
       </div>
 
       {/* Tools Grid/List */}
-      <AnimatePresence mode="wait">
-        {viewMode === 'grid' ? (
-          <motion.div
-            key="grid"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full"
-          >
-            {filteredTools.map((tool, index) => {
-              const category = getToolCategory(tool.name);
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          {filteredTools.map((tool) => {
+            const category = getToolCategory(tool.name);
 
-              return (
-                <motion.div
-                  key={tool.name}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
+            return (
+              <div key={tool.name}>
+                <Card
+                  className="h-full hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer"
+                  onClick={() => isConnected && onOpenToolTester?.(tool.name)}
                 >
-                  <Card
-                    className="h-full hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer"
-                    onClick={() => isConnected && onOpenToolTester?.(tool.name)}
-                  >
-                    <CardHeader>
-                      <div className="flex flex-col gap-2 min-w-0">
-                        <div className="flex items-center gap-2 min-w-0 w-full">
-                          <Wrench className="h-4 w-4 text-primary flex-shrink-0" />
-                          <CardTitle
-                            className="text-sm text-truncate min-w-0 flex-1"
-                            title={tool.name}
-                          >
-                            {tool.name}
-                          </CardTitle>
-                        </div>
-                        <Badge variant={getCategoryColor(category)} className="text-xs w-fit">
-                          {category}
-                        </Badge>
+                  <CardHeader>
+                    <div className="flex flex-col gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 w-full">
+                        <Wrench className="h-4 w-4 text-primary flex-shrink-0" />
+                        <Tooltip delayDuration={100}>
+                          <TooltipTrigger asChild>
+                            <CardTitle className="text-sm text-truncate min-w-0 flex-1">
+                              {tool.name}
+                            </CardTitle>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">{tool.name}</TooltipContent>
+                        </Tooltip>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0 min-w-0">
-                      <p className="text-xs text-muted-foreground mb-3 line-clamp-3 break-words" title={tool.description}>
+                      <Badge variant={getCategoryColor(category)} className="text-xs w-fit">
+                        {category}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0 min-w-0">
+                    <Tooltip delayDuration={100}>
+                      <TooltipTrigger asChild>
+                        <p className="text-xs text-muted-foreground mb-3 line-clamp-3 break-words">
+                          {tool.description}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
                         {tool.description}
-                      </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredTools.map((tool) => {
+            const category = getToolCategory(tool.name);
 
-                      {/* Call Tool button removed - card is now clickable */}
-                      {/* Schema view removed - already shown in ToolCallDialog */}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="list"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-3"
-          >
-            {filteredTools.map((tool, index) => {
-              const category = getToolCategory(tool.name);
-
-              return (
-                <motion.div
-                  key={tool.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
+            return (
+              <div key={tool.name}>
+                <Card
+                  className="hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                  onClick={() => isConnected && onOpenToolTester?.(tool.name)}
                 >
-                  <Card
-                    className="hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                    onClick={() => isConnected && onOpenToolTester?.(tool.name)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2 min-w-0">
-                            <Wrench className="h-4 w-4 text-primary flex-shrink-0" />
-                            <h4 className="font-medium text-truncate min-w-0 flex-1" title={tool.name}>{tool.name}</h4>
-                            <Badge variant={getCategoryColor(category)} className="text-xs flex-shrink-0">
-                              {category}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            {tool.description}
-                          </p>
-
-                          {/* Call Tool button removed - card is now clickable */}
-                          {/* Schema view removed - already shown in ToolCallDialog */}
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2 min-w-0">
+                          <Wrench className="h-4 w-4 text-primary flex-shrink-0" />
+                          <Tooltip delayDuration={100}>
+                            <TooltipTrigger asChild>
+                              <h4 className="font-medium text-truncate min-w-0 flex-1">{tool.name}</h4>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">{tool.name}</TooltipContent>
+                          </Tooltip>
+                          <Badge variant={getCategoryColor(category)} className="text-xs flex-shrink-0">
+                            {category}
+                          </Badge>
                         </div>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {tool.description}
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {filteredTools.length === 0 && (
-        <Card>
+        <Card className="mt-4">
           <CardContent className="p-12 text-center">
             <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No Tools Found</h3>
@@ -255,7 +234,6 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }

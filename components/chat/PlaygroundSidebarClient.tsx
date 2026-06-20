@@ -704,43 +704,51 @@ function SidebarProfileDropdown({
         if (!open) onProfileSettingsOpenChange(false);
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <button
-          title={!expanded ? t("account") : undefined}
-          className={cn(
-            "w-full cursor-pointer rounded-md transition-colors hover:bg-accent",
-            expanded ? "flex items-center gap-3 p-2" : "flex items-center justify-center p-2"
-          )}
-        >
-          {userImage ? (
-            <Image
-              src={userImage}
-              alt={userName}
-              width={expanded ? 40 : 32}
-              height={expanded ? 40 : 32}
-              className="rounded-full flex-shrink-0"
-            />
-          ) : (
-            <div
+      <Tooltip>
+        <DropdownMenuTrigger asChild>
+          <TooltipTrigger asChild>
+            <button
               className={cn(
-                "flex flex-shrink-0 items-center justify-center rounded-full bg-orange-500 font-semibold text-white",
-                expanded ? "h-10 w-10" : "h-8 w-8 text-sm"
+                "w-full cursor-pointer rounded-md transition-colors hover:bg-accent",
+                expanded ? "flex items-center gap-3 p-2" : "flex items-center justify-center p-2"
               )}
             >
-              {userName.charAt(0).toUpperCase()}
-            </div>
-          )}
-          {expanded && (
-            <>
-              <div className="flex flex-1 flex-col items-start overflow-hidden">
-                <span className="w-full truncate text-sm font-medium">{userName}</span>
-                {userEmail && <span className="w-full truncate text-xs text-muted-foreground">{userEmail}</span>}
-              </div>
-              <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-            </>
-          )}
-        </button>
-      </DropdownMenuTrigger>
+              {userImage ? (
+                <Image
+                  src={userImage}
+                  alt={userName}
+                  width={expanded ? 40 : 32}
+                  height={expanded ? 40 : 32}
+                  className="rounded-full flex-shrink-0"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "flex flex-shrink-0 items-center justify-center rounded-full bg-orange-500 font-semibold text-white",
+                    expanded ? "h-10 w-10" : "h-8 w-8 text-sm"
+                  )}
+                >
+                  {userName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              {expanded && (
+                <>
+                  <div className="flex flex-1 flex-col items-start overflow-hidden">
+                    <span className="w-full truncate text-sm font-medium">{userName}</span>
+                    {userEmail && <span className="w-full truncate text-xs text-muted-foreground">{userEmail}</span>}
+                  </div>
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                </>
+              )}
+            </button>
+          </TooltipTrigger>
+        </DropdownMenuTrigger>
+        {!expanded && (
+          <TooltipContent side="right" sideOffset={8}>
+            {t("account")}
+          </TooltipContent>
+        )}
+      </Tooltip>
 
       <DropdownMenuContent
         align={menuAlign}

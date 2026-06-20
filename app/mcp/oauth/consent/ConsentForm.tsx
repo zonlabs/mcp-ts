@@ -43,13 +43,11 @@ export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormPro
   // Checkboxes state
   const [readChecked, setReadChecked] = useState(true);
   const [executeChecked, setExecuteChecked] = useState(true);
-  const [workflowChecked, setWorkflowChecked] = useState(true);
 
   // Build the dynamic scope string submitted to /approve
   const finalScopes = ["openid", "email"];
   if (readChecked && scopesList.includes("mcp:tools:read")) finalScopes.push("mcp:tools:read");
   if (executeChecked && scopesList.includes("mcp:tools:execute")) finalScopes.push("mcp:tools:execute");
-  if (workflowChecked && scopesList.includes("workflow")) finalScopes.push("workflow");
   const finalScopeString = finalScopes.join(" ");
 
   return (
@@ -105,22 +103,7 @@ export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormPro
               </label>
             )}
 
-            {scopesList.includes("workflow") && (
-              <label className="flex items-start gap-3 cursor-pointer select-none">
-                <Checkbox
-                  id="scope-workflow"
-                  checked={workflowChecked}
-                  onCheckedChange={(v) => setWorkflowChecked(v === true)}
-                  className="mt-[3px]"
-                />
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium leading-none">Legacy workflow access</p>
-                  <p className="text-xs text-muted-foreground leading-normal">Retrieve, create, and trigger automated workflows.</p>
-                </div>
-              </label>
-            )}
-
-            {!scopesList.includes("mcp:tools:read") && !scopesList.includes("mcp:tools:execute") && !scopesList.includes("workflow") && (
+            {!scopesList.includes("mcp:tools:read") && !scopesList.includes("mcp:tools:execute") && (
               <div className="flex items-start gap-2 text-sm leading-5">
                 <span className="text-muted-foreground mt-0.5">✓</span>
                 <span className="text-xs text-muted-foreground">Basic profile information (openid, email).</span>

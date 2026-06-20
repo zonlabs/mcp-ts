@@ -7,7 +7,7 @@ import { Toaster } from "react-hot-toast";
 export default function MainHeader() {
   const pathname = usePathname();
 
-  if (pathname.startsWith("/chat") || pathname.startsWith("/settings")) {
+  if (pathname.startsWith("/chat") || pathname.startsWith("/settings") || pathname.startsWith("/mcp")) {
     return null;
   }
 

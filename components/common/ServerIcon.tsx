@@ -1,5 +1,6 @@
-'use client';
+"use client";
 
+import * as React from 'react';
 import { useState } from 'react';
 
 interface ServerIconProps {
@@ -21,6 +22,12 @@ export function ServerIcon({
 }: ServerIconProps) {
   const [faviconError, setFaviconError] = useState(false);
   const [fallbackError, setFallbackError] = useState(false);
+
+  // Reset error states when serverUrl changes to avoid carrying over 404 state to other servers
+  React.useEffect(() => {
+    setFaviconError(false);
+    setFallbackError(false);
+  }, [serverUrl, serverName]);
 
   // Extract root domain from URL (e.g., mcp.supabase.com -> supabase.com)
   const getDomainFromUrl = (url?: string | null): string | null => {
@@ -86,6 +93,7 @@ export function ServerIcon({
   };
 
   // If we have a domain and no error, show the favicon
+  // Note: we listen to onError to trigger fallback letter view when Google Favicon service fails.
   if (domain && !faviconError) {
     const faviconSize = Math.max(256, size * 4);
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=${faviconSize}`;
@@ -99,8 +107,15 @@ export function ServerIcon({
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
-        onError={(e) => {
+        onError={() => {
           setFaviconError(true);
+        }}
+        onLoad={(e) => {
+          // If the loaded image is the default google fallback (usually 16x16 or naturalWidth <= 16), trigger fallback
+          const img = e.currentTarget;
+          if (img.naturalWidth > 0 && img.naturalWidth <= 16) {
+            setFaviconError(true);
+          }
         }}
       />
     );

@@ -14,6 +14,7 @@ import {
   Box,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const TOOLKIT_MAP: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
   github: { icon: Github, color: "text-gray-900 dark:text-gray-100", bg: "bg-gray-100 dark:bg-gray-800" },
@@ -58,16 +59,20 @@ export function ToolkitBadge({
 
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)}>
-      <span
-        className={cn(
-          "rounded-lg flex items-center justify-center flex-shrink-0",
-          sizeClasses[size],
-          config.bg
-        )}
-        title={toolkit}
-      >
-        <Icon className={cn(iconSizes[size], config.color)} />
-      </span>
+      <Tooltip delayDuration={100}>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              "rounded-lg flex items-center justify-center flex-shrink-0",
+              sizeClasses[size],
+              config.bg
+            )}
+          >
+            <Icon className={cn(iconSizes[size], config.color)} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">{toolkit}</TooltipContent>
+      </Tooltip>
       {showLabel && (
         <span className="text-xs text-muted-foreground capitalize">{toolkit}</span>
       )}

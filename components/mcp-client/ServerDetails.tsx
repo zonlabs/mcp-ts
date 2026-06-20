@@ -22,6 +22,7 @@ import { ServerIcon } from "@/components/common/ServerIcon";
 import ServerManagement from "./ServerManagement";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 
@@ -56,6 +57,24 @@ export function ServerDetails({
   const connectionStatus =
     stored?.connectionStatus ?? server.connectionStatus ?? "DISCONNECTED";
   const isConnected = connectionStatus?.toUpperCase() === "READY";
+  const lastConnectedLabel = stored?.connectedAt
+    ? new Date(stored.connectedAt).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
+  const statusTooltipText = stored?.error || server.error
+    ? stored?.error || server.error
+    : [
+        `Status: ${connectionStatus}`,
+        server.url ? `Target: ${server.url}` : null,
+        lastConnectedLabel ? `Last connected: ${lastConnectedLabel}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
 
   const addedAtSource = server.createdAt || server.updated_at;
 
@@ -120,17 +139,6 @@ export function ServerDetails({
                 <span className="font-medium">Transport:</span>
                 <span className="text-muted-foreground">{server.transport}</span>
               </div>
-              {server.id && (
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-medium whitespace-nowrap">ID:</span>
-                  <code
-                    className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono truncate flex-1 min-w-0"
-                    title={server.id}
-                  >
-                    {server.id}
-                  </code>
-                </div>
-              )}
 
               <div className="flex items-center gap-2 text-xs">
                 {server.requiresOauth2 ? (
@@ -162,16 +170,21 @@ export function ServerDetails({
               <div className="flex items-center gap-2 text-xs">
                 <Activity className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="font-medium">Status:</span>
-                <Badge
-                  variant={
-                    isConnected
-                      ? "default"
-                      : "secondary"
-                  }
-                  className="text-[10px] px-1.5 py-0"
-                >
-                  {connectionStatus}
-                </Badge>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Badge
+                        variant={isConnected ? "default" : "secondary"}
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        {connectionStatus}
+                      </Badge>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap break-words">
+                    {statusTooltipText}
+                  </TooltipContent>
+                </Tooltip>
               </div>
               {server.url && (
                 <div className="flex items-center gap-2 text-xs">
@@ -179,12 +192,16 @@ export function ServerDetails({
                     className="h-3.5 w-3.5 text-muted-foreground shrink-0"
                     aria-hidden
                   />
-                  <code
-                    className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono truncate flex-1 min-w-0"
-                    title={server.url}
-                  >
-                    {server.url}
-                  </code>
+                  <Tooltip delayDuration={100}>
+                    <TooltipTrigger asChild>
+                      <code className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono truncate flex-1 min-w-0">
+                        {server.url}
+                      </code>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs break-all">
+                      {server.url}
+                    </TooltipContent>
+                  </Tooltip>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -200,21 +217,17 @@ export function ServerDetails({
                 </div>
               )}
               {stored?.connectedAt && (
-                <div
-                  className="flex items-center gap-2 text-muted-foreground"
-                  title={`Last connected ${new Date(stored.connectedAt).toLocaleString()}`}
-                >
-                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  <span className="text-xs">
-                    {new Date(stored.connectedAt).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span className="text-xs">{lastConnectedLabel}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {`Last connected ${lastConnectedLabel}`}
+                  </TooltipContent>
+                </Tooltip>
               )}
               {isConnected && !stored?.connectedAt && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
