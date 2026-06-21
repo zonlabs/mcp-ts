@@ -1,39 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Hammer, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ConnectedClientsCard, type McpOAuthGrantRow } from "./ConnectedClientsCard";
+import { ConnectedClientsCard } from "./ConnectedClientsCard";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
-import type { McpToolCallEventRow, McpUsageConnectionLike } from "@/lib/mcp-usage";
 import { getMcpOAuthIssuer } from "@/lib/mcp-oauth";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
+import { useMcpUsage } from "@/hooks/useMcpUsage";
 
 interface RemoteMcpPanelProps {
-  data: {
-    connections: (McpUsageConnectionLike & { active?: boolean })[];
-    grants: McpOAuthGrantRow[];
-    events: McpToolCallEventRow[];
-    metricsEvents: McpToolCallEventRow[];
-    totalCount: number;
-    currentPage: number;
-  } | null;
-  loading: boolean;
-  error: string | null;
-  onPageChange: (page: number) => void;
   onClose: () => void;
   initialTab?: string;
 }
 
 export default function RemoteMcpPanel({
-  data,
-  loading,
-  error,
-  onPageChange,
   onClose,
   initialTab = "mcp-server",
 }: RemoteMcpPanelProps) {
+  const [page, setPage] = useState(1);
+  const { data, isLoading, error } = useMcpUsage(page);
   const [oauthIssuer, setOauthIssuer] = useState<string>("");
   const [healthStatus, setHealthStatus] = useState<"loading" | "healthy" | "unhealthy">("loading");
   const [healthData, setHealthData] = useState<{
@@ -80,7 +67,7 @@ export default function RemoteMcpPanel({
   return (
     <div className="h-full flex flex-col bg-background select-none md:select-text">
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-border px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+      <div className="flex-shrink-0 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center">
             <ServerIcon
@@ -95,32 +82,32 @@ export default function RemoteMcpPanel({
               {initialTab === "revoke" ? "Revoke Client Access" : "MCP Usage"}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <p className="text-[10px] text-muted-foreground font-mono truncate leading-none">
+              <p className="text-xs text-muted-foreground font-mono truncate leading-none">
                 api.mcp-assistant.in/mcp
               </p>
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-[8px] text-muted-foreground/45">•</span>
+                <span className="text-[10px] text-muted-foreground/45">•</span>
                 <span className={cn(
                   "w-1.5 h-1.5 rounded-full",
                   healthStatus === "loading" ? "bg-muted-foreground/40 animate-pulse" :
                   healthStatus === "healthy" ? "bg-green-500 animate-pulse" :
                   "bg-destructive"
                 )} />
-                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground leading-none">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground leading-none">
                   {healthStatus === "loading" ? "checking..." :
                    healthStatus === "healthy" ? "online" :
                    "offline"}
                 </span>
                 {healthStatus === "healthy" && healthData && (
                   <>
-                    <span className="text-[8px] text-muted-foreground/45">•</span>
-                    <span className="text-[9px] text-muted-foreground leading-none">
+                    <span className="text-[10px] text-muted-foreground/45">•</span>
+                    <span className="text-xs text-muted-foreground leading-none">
                       v{healthData.version || "1.0.0"}
                     </span>
                     {healthData.uptime_seconds !== undefined && (
                       <>
-                        <span className="text-[8px] text-muted-foreground/45">•</span>
-                        <span className="text-[9px] text-muted-foreground leading-none" title={`Uptime: ${healthData.uptime_seconds} seconds`}>
+                        <span className="text-[10px] text-muted-foreground/45">•</span>
+                        <span className="text-xs text-muted-foreground leading-none" title={`Uptime: ${healthData.uptime_seconds} seconds`}>
                           uptime {formatUptime(healthData.uptime_seconds)}
                         </span>
                       </>
@@ -135,7 +122,7 @@ export default function RemoteMcpPanel({
 
       {/* Scrollable Contents */}
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
-        {loading && !data ? (
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             <p className="text-xs text-muted-foreground">Loading details...</p>
@@ -143,8 +130,8 @@ export default function RemoteMcpPanel({
         ) : error ? (
           <div className="p-6 m-4 rounded-xl border border-destructive/20 bg-destructive/5 text-sm text-destructive">
             <h4 className="font-semibold mb-1">Could not load Remote MCP details</h4>
-            <p className="text-xs text-muted-foreground mb-4">{error}</p>
-            <Button variant="outline" size="sm" onClick={() => onPageChange(1)}>
+            <p className="text-xs text-muted-foreground mb-4">{error.message}</p>
+            <Button variant="outline" size="sm" onClick={() => setPage(1)}>
               Retry
             </Button>
           </div>
@@ -159,7 +146,7 @@ export default function RemoteMcpPanel({
                 metricsEvents={data.metricsEvents}
                 totalCount={data.totalCount}
                 currentPage={data.currentPage || 1}
-                onPageChange={onPageChange}
+                onPageChange={setPage}
                 healthStatus={healthStatus}
                 healthData={healthData}
               />

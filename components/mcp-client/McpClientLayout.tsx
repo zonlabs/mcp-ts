@@ -33,7 +33,7 @@ import Logo from "@/components/common/Logo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { ServerIcon } from "@/components/common/ServerIcon";
-import { useMcpUsage } from "@/hooks/useMcpUsage";
+
 
 interface McpClientLayoutProps {
   publicServers: McpServer[] | null;
@@ -113,10 +113,6 @@ export default function McpClientLayout({
     document.addEventListener("mousemove", doDrag);
     document.addEventListener("mouseup", stopDrag);
   }, [panelWidth]);
-
-  const [remoteMcpPage, setRemoteMcpPage] = useState(1);
-  const { data: remoteMcpData, loading: remoteMcpLoading, error: remoteMcpError } = useMcpUsage(remoteMcpPage);
-
 
   // View State Management
 
@@ -715,10 +711,6 @@ export default function McpClientLayout({
           {hasRemoteMcp && (
             <div className="flex-1 max-w-4xl mx-auto w-full">
               <RemoteMcpPanel
-                data={remoteMcpData}
-                loading={remoteMcpLoading}
-                error={remoteMcpError}
-                onPageChange={setRemoteMcpPage}
                 initialTab={
                   searchParams.get("tab") === "revoke" ||
                   searchParams.has("revoke") ||

@@ -93,7 +93,7 @@ export function McpUsageOverview({
   if (metricsEvents.length === 0) {
     return (
       <section id="usage" className="space-y-4 scroll-mt-24">
-        <div className="rounded-2xl border border-red-500/20 bg-background p-6 dark:border-red-400/20">
+        <div className="rounded-2xl bg-background p-6">
           <p className="text-sm font-medium text-foreground">No tool calls yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Once you use a connected MCP server, the activity panel will show up here.
@@ -117,7 +117,7 @@ export function McpUsageOverview({
 
   return (
     <section id="usage" className="space-y-4 scroll-mt-24">
-      <div className="rounded-2xl border border-red-500/20 bg-background p-4 dark:border-red-400/20 sm:p-6">
+      <div className="rounded-2xl bg-background p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-foreground">All tool calls</p>
@@ -218,7 +218,7 @@ export function McpUsageOverview({
           <h3 className="text-sm font-semibold">Recent Activity</h3>
         </div>
 
-        <div className="space-y-5 rounded-2xl border border-red-500/20 bg-background p-3 dark:border-red-400/20 sm:p-5">
+        <div className="space-y-5 rounded-2xl bg-background p-3 sm:p-5">
           <div className="space-y-4">
             {recentEventGroups.map((group) => (
               <section key={group.dateKey} className="space-y-2">
@@ -310,13 +310,13 @@ function UsageMetric({
   serverUrl?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-red-500/20 bg-muted/10 p-3 dark:border-red-400/20 sm:border-0 sm:bg-transparent sm:p-0">
+    <div className="min-w-0 rounded-xl bg-muted/10 p-3 sm:bg-transparent sm:p-0">
       <p className="mb-1 text-sm text-muted-foreground">{label}</p>
       <div className="flex items-center gap-2">
         {serverUrl ? (
           <ServerIcon serverName={value} serverUrl={serverUrl} size={20} className="shrink-0" />
         ) : null}
-        <p className="min-w-0 max-w-[20rem] truncate text-xl font-semibold tracking-tight sm:text-2xl">
+        <p className="min-w-0 max-w-[20rem] truncate text-lg font-semibold tracking-tight sm:text-xl">
           {value}
         </p>
       </div>
@@ -336,7 +336,7 @@ function RecentActivityRow({
   const isSuccess = event.status === "success";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl border border-red-500/20 bg-muted/10 p-3 text-sm dark:border-red-400/20 sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:rounded-none sm:border-x-0 sm:border-b-0 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 bg-muted/10 p-3 text-sm sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Clock3 className="h-4 w-4" />
         <span>{formatTime(event.started_at)}</span>
