@@ -66,18 +66,22 @@ export function ServerListItem({
       )}
 
       <div
-        className={`cursor-pointer transition-all duration-200 ${showActions
+        className={`cursor-pointer transition-all duration-200 relative ${showActions
           ? `p-2 ${isSelected
-            ? "rounded-lg border border-red-300/70 bg-red-50/60 shadow-sm dark:border-red-400/25 dark:bg-red-950/20"
-            : "rounded-lg border border-transparent hover:border-red-200/70 hover:bg-red-50/30 dark:hover:border-red-400/15 dark:hover:bg-red-950/10"
+            ? "rounded-lg border border-border bg-muted/65 dark:bg-muted/30 shadow-xs"
+            : "rounded-lg border border-transparent hover:bg-muted/30 dark:hover:bg-muted/15"
           }`
           : `${isSelected
-            ? "rounded-lg border border-red-300/70 bg-red-50/50 px-2.5 py-2 dark:border-red-400/25 dark:bg-red-950/20"
-            : "rounded-lg border border-transparent px-2.5 py-2 hover:border-red-200/70 hover:bg-red-50/25 dark:hover:border-red-400/15 dark:hover:bg-red-950/10"
+            ? "rounded-lg border border-border bg-muted/50 px-2.5 py-2 dark:bg-muted/30 shadow-xs"
+            : "rounded-lg border border-transparent px-2.5 py-2 hover:bg-muted/25 dark:hover:bg-muted/15"
           }`
           }`}
         onClick={onClick}
       >
+        {/* Left Side Active Indicator Bar */}
+        {isSelected && (
+          <div className="absolute left-0 top-2.5 bottom-2.5 w-[3px] bg-red-500 rounded-r" />
+        )}
         <div className={`flex items-center justify-between ${showActions ? "pr-8" : ""}`}>
           <div className="flex items-center gap-2 flex-1">
             <Tooltip delayDuration={100}>

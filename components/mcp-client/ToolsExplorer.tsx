@@ -96,7 +96,7 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
             {tools.length > 0 && (
               <Button
                 onClick={() => onOpenToolTester?.()}
-                className="cursor-pointer bg-amber-500 hover:bg-amber-600 text-white"
+                className="cursor-pointer bg-red-600 hover:bg-red-500 text-white"
               >
                 <Zap className="h-4 w-4 mr-2" />
                 Test Tools

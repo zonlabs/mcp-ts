@@ -16,6 +16,7 @@ import {
   Check,
   Clock,
   Link2,
+  Wrench,
 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
@@ -36,6 +37,8 @@ interface ServerDetailsProps {
   ) => Promise<unknown>;
   onEdit?: (server: McpServer) => void;
   onDelete?: (serverId: string) => void;
+  toolTesterOpen?: boolean;
+  onToggleTools?: () => void;
 }
 
 export function ServerDetails({
@@ -45,6 +48,8 @@ export function ServerDetails({
   onAction,
   onEdit,
   onDelete,
+  toolTesterOpen,
+  onToggleTools,
 }: ServerDetailsProps) {
   const [urlCopied, setUrlCopied] = useState(false);
 
@@ -108,6 +113,17 @@ export function ServerDetails({
           </div>
 
           <div className="flex items-center gap-2">
+            {isConnected && onToggleTools && (
+              <Button
+                onClick={onToggleTools}
+                variant={toolTesterOpen ? "default" : "outline"}
+                size="sm"
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Wrench className="h-4 w-4" />
+                {toolTesterOpen ? "Hide Tools" : "Show Tools"}
+              </Button>
+            )}
             <ServerManagement
               server={{ ...server, connectionStatus }}
               onAction={onAction}

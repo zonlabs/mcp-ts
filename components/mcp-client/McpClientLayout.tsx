@@ -87,6 +87,32 @@ export default function McpClientLayout({
   const [selectedToolName, setSelectedToolName] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const [panelWidth, setPanelWidth] = useState(450);
+  const isResizingRef = useRef(false);
+
+  const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    isResizingRef.current = true;
+    const startWidth = panelWidth;
+    const startX = mouseDownEvent.clientX;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const deltaX = mouseMoveEvent.clientX - startX;
+      const newWidth = Math.max(320, Math.min(800, startWidth - deltaX));
+      setPanelWidth(newWidth);
+    };
+
+    const stopDrag = () => {
+      isResizingRef.current = false;
+      document.removeEventListener("mousemove", doDrag);
+      document.removeEventListener("mouseup", stopDrag);
+    };
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("mouseup", stopDrag);
+  }, [panelWidth]);
+
   const [remoteMcpData, setRemoteMcpData] = useState<any | null>(null);
   const [remoteMcpLoading, setRemoteMcpLoading] = useState(true);
   const [remoteMcpError, setRemoteMcpError] = useState<string | null>(null);
@@ -112,6 +138,7 @@ export default function McpClientLayout({
   useEffect(() => {
     fetchRemoteMcpData(1);
   }, [fetchRemoteMcpData]);
+
 
   // View State Management
 
@@ -219,12 +246,16 @@ export default function McpClientLayout({
     );
   }, [viewMode, serverParam, mergedPublicServers, mergedUserServers]);
 
-  // Update selected server reference dynamically but keep standard updates handled reactively
-  // Close tool tester when server selection or view changes
+  // Handle tool tester panel visibility on server selection or connection status change
   useEffect(() => {
-    setToolTesterOpen(false);
+    if (selectedServer) {
+      const isConnected = selectedServer.connectionStatus === 'READY';
+      setToolTesterOpen(isConnected);
+    } else {
+      setToolTesterOpen(false);
+    }
     setSelectedToolName(null);
-  }, [selectedServer?.id, hasRemoteMcp]);
+  }, [selectedServer?.id, selectedServer?.connectionStatus, hasRemoteMcp]);
 
   const handleAddServer = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -574,9 +605,9 @@ export default function McpClientLayout({
 
         {/* Main Content Area with Right Panel */}
         <div className="flex-1 flex min-w-0 min-h-0 overflow-y-auto">
-          {/* Left Side - Main Content - Hidden when tool tester or remote MCP is open */}
-          {!toolTesterOpen && !hasRemoteMcp && (
-            <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Left Side - Main Content - Hidden on mobile if tool tester is open, hidden if remote MCP is open */}
+          {!hasRemoteMcp && (
+            <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${toolTesterOpen ? "hidden lg:flex" : "flex"}`}>
                 {viewMode === 'add' ? (
                   <div className="flex-1 h-full">
                     <ServerForm
@@ -597,7 +628,7 @@ export default function McpClientLayout({
                     />
                   </div>
                 ) : selectedServer ? (
-                  <div className="flex-1 flex flex-col">
+                  <div className="flex-1 flex flex-col overflow-y-auto">
                     {/* Server Header & Details */}
                     <ServerDetails
                       server={selectedServer}
@@ -606,20 +637,9 @@ export default function McpClientLayout({
                       onAction={onServerAction}
                       onEdit={handleEditServer}
                       onDelete={handleDeleteServer}
+                      toolTesterOpen={toolTesterOpen}
+                      onToggleTools={() => setToolTesterOpen(!toolTesterOpen)}
                     />
-
-                    {/* Tools Explorer */}
-                    <div className="flex-1 overflow-y-auto">
-                      <ToolsExplorer
-                        server={selectedServer}
-                        onOpenToolTester={(toolName) => {
-                          setToolTesterOpen(true);
-                          if (toolName) {
-                            setSelectedToolName(toolName);
-                          }
-                        }}
-                      />
-                    </div>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-minimal">
@@ -678,18 +698,37 @@ export default function McpClientLayout({
             </div>
           )}
 
-          {/* Right Panel - Tool Execution - Full width when visible */}
+          {/* Right Panel - Tool Execution - Docked on the right, resizable */}
           {toolTesterOpen && selectedServer && (
-            <div className="flex-1 max-w-4xl mx-auto w-full">
-              <ToolExecutionPanel
-                server={selectedServer}
-                tools={Array.isArray(selectedServer.tools) ? selectedServer.tools : []}
-                onClose={() => {
-                  setToolTesterOpen(false);
-                  setSelectedToolName(null);
-                }}
-                initialToolName={selectedToolName}
-              />
+            <div
+              style={{
+                width: typeof window !== "undefined" && window.innerWidth >= 1024 ? `${panelWidth}px` : "100%"
+              }}
+              className="border-l border-border bg-background flex flex-col h-full shrink-0 relative lg:max-w-[80vw] lg:min-w-[320px] w-full"
+            >
+              {/* Resizer drag handle (vertical line with dots indicator) */}
+              <div
+                onMouseDown={startResizing}
+                className="absolute top-0 bottom-0 left-[-3px] w-[6px] cursor-col-resize hover:bg-red-700/20 active:bg-red-700/40 transition-colors z-50 flex items-center justify-center group hidden lg:flex select-none"
+              >
+                <div className="w-[4px] h-8 rounded bg-muted-foreground/30 group-hover:bg-red-700 group-active:bg-red-700 flex flex-col gap-0.5 items-center justify-center py-1">
+                  <div className="w-[2px] h-[2px] rounded-full bg-background" />
+                  <div className="w-[2px] h-[2px] rounded-full bg-background" />
+                  <div className="w-[2px] h-[2px] rounded-full bg-background" />
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0 h-full overflow-hidden">
+                <ToolExecutionPanel
+                  server={selectedServer}
+                  tools={Array.isArray(selectedServer.tools) ? selectedServer.tools : []}
+                  onClose={() => {
+                    setToolTesterOpen(false);
+                    setSelectedToolName(null);
+                  }}
+                  initialToolName={selectedToolName}
+                />
+              </div>
             </div>
           )}
 

@@ -343,7 +343,7 @@ export function ServerSidebar({
                         onClick={() => onServerSelect(server)}
                         className={cn(
                           "relative h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-muted cursor-pointer",
-                          isSelected ? "bg-muted ring-1 ring-red-500/30" : ""
+                          isSelected ? "bg-muted ring-1 ring-border" : ""
                         )}
                       >
                         {isSelected && (

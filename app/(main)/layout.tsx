@@ -11,9 +11,9 @@ export default function MainLayout({
     children: React.ReactNode;
 }>) {
     const pathname = usePathname();
-    const isDashboard = pathname?.startsWith("/mcp") || 
-                        pathname?.startsWith("/workflows") || 
-                        pathname?.startsWith("/gateway");
+    const isDashboard = pathname?.startsWith("/mcp") ||
+        pathname?.startsWith("/workflows") ||
+        pathname?.startsWith("/gateway");
 
     const sidebarOpen = useMcpStore((state) => state.sidebarOpen);
 
@@ -22,7 +22,7 @@ export default function MainLayout({
             <MainHeader />
             <div className={cn(
                 "mx-auto w-full flex-1 flex flex-col min-h-0 transition-all duration-300",
-                (isDashboard && !sidebarOpen) ? "max-w-none" : "max-w-5xl"
+                (isDashboard && !sidebarOpen) ? "max-w-none" : "max-w-6xl"
             )}>
                 <main className={cn(
                     "flex-1 flex flex-col min-h-0",

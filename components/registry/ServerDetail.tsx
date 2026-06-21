@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -16,10 +16,11 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  Wrench,
+  Power,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ServerIcon } from "@/components/common/ServerIcon";
-import ToolsExplorer from "@/components/mcp-client/ToolsExplorer";
 import ToolExecutionPanel from "@/components/mcp-client/ToolExecutionPanel";
 import type { ParsedRegistryServer, McpServer } from "@/types/mcp";
 import { toast } from "react-hot-toast";
@@ -48,6 +49,11 @@ export function ServerDetail({ server }: ServerDetailProps) {
   const isConnected = server.connectionStatus === 'READY';
   const isValidating = server.connectionStatus === 'VALIDATING';
   const effectiveTools = tools.length > 0 ? tools : (server.tools || []);
+
+  useEffect(() => {
+    setToolTesterOpen(isConnected);
+    setSelectedToolName(null);
+  }, [server.id, isConnected]);
 
   const handleConnect = () => connect(server);
 
@@ -148,7 +154,18 @@ export function ServerDetail({ server }: ServerDetailProps) {
                 </div>
 
                 {server.hasRemote && (
-                  <div className="shrink-0">
+                  <div className="flex items-center gap-3 shrink-0">
+                    {isConnected && (
+                      <Button
+                        onClick={() => setToolTesterOpen(!toolTesterOpen)}
+                        variant={toolTesterOpen ? "default" : "outline"}
+                        size="lg"
+                        className="gap-2 cursor-pointer"
+                      >
+                        <Wrench className="h-4 w-4" />
+                        {toolTesterOpen ? "Hide Tools" : "Show Tools"}
+                      </Button>
+                    )}
                     {!isConnected ? (
                       <Button
                         onClick={handleConnect}
@@ -172,9 +189,8 @@ export function ServerDetail({ server }: ServerDetailProps) {
                       <Button
                         onClick={handleDisconnect}
                         disabled={isDisconnecting}
-                        variant="outline"
                         size="lg"
-                        className="gap-2 min-w-[140px] cursor-pointer"
+                        className="gap-2 min-w-[140px] cursor-pointer bg-red-900 hover:bg-red-800 text-white transition-colors duration-200"
                       >
                         {isDisconnecting ? (
                           <>
@@ -183,7 +199,7 @@ export function ServerDetail({ server }: ServerDetailProps) {
                           </>
                         ) : (
                           <>
-                            <Pause className="h-4 w-4" />
+                            <Power className="h-4 w-4" />
                             Disconnect
                           </>
                         )}
@@ -203,20 +219,7 @@ export function ServerDetail({ server }: ServerDetailProps) {
                 </Alert>
               )}
 
-              {/* Tools Explorer - Only show when connected */}
-              {isConnected && (
-                <div className="pb-10 border-b">
-                  <ToolsExplorer
-                    server={mcpServer}
-                    onOpenToolTester={(toolName) => {
-                      setToolTesterOpen(true);
-                      if (toolName) {
-                        setSelectedToolName(toolName);
-                      }
-                    }}
-                  />
-                </div>
-              )}
+
 
               {server.description && (
                 <div className="pb-10 border-b">
