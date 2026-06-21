@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const [connections, grantsResult, paginatedResult, metricsResult] = await Promise.all([
       getStoredMcpConnectionsForIdentity(user.id),
       supabase
-        .from("workflow_oauth_grants")
+        .from("mcp_oauth_grants")
         .select("id, client_id, client_name, redirect_uri, scope, token_prefix, created_at, expires_at, last_used_at")
         .eq("user_id", user.id)
         .is("revoked_at", null)

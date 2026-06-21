@@ -26,7 +26,7 @@ export async function GET() {
 
   const now = new Date().toISOString();
   const { data, error } = await supabase
-    .from("workflow_oauth_grants")
+    .from("mcp_oauth_grants")
     .select("id, client_id, client_name, redirect_uri, scope, token_prefix, created_at, expires_at, last_used_at")
     .eq("user_id", user.id)
     .is("revoked_at", null)
@@ -35,7 +35,7 @@ export async function GET() {
 
   if (error) {
     return NextResponse.json(
-      { error: error.message, hint: "Run workflow_oauth_grants migration in Supabase." },
+      { error: error.message, hint: "Run mcp_oauth_grants migration in Supabase." },
       { status: 500 }
     );
   }

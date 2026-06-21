@@ -21,7 +21,7 @@ export async function DELETE(
   }
 
   const { data: existing, error: fetchErr } = await supabase
-    .from("workflow_oauth_grants")
+    .from("mcp_oauth_grants")
     .select("id")
     .eq("id", id)
     .eq("user_id", user.id)
@@ -36,7 +36,7 @@ export async function DELETE(
   }
 
   const { error: updateErr } = await supabase
-    .from("workflow_oauth_grants")
+    .from("mcp_oauth_grants")
     .update({ revoked_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user.id);
