@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
-import { PanelLeftOpen, Server, Plug, Wrench, ChevronRight, LayoutDashboard, Activity, Search } from "lucide-react";
+import { Server, Plug, Wrench, ChevronRight, LayoutDashboard, Activity, Search } from "lucide-react";
 
 import { Toaster } from "react-hot-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -411,21 +411,11 @@ export default function McpClientLayout({
       {/* Premium Dashboard Top Bar */}
       <div className="relative flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 bg-background/80 backdrop-blur-xl border-b border-border/40 flex-shrink-0 z-50">
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
-          {/* Mobile sidebar toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarOpen(prev => !prev)}
-            className="lg:hidden h-8 w-8 shrink-0"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </Button>
-
           <Link href="/" className="flex items-center gap-2.5 group shrink-0">
             <div className="relative">
               <Logo size={28} />
             </div>
-            <span className="text-sm font-semibold text-foreground leading-none">MCP Assistant</span>
+            <span className="text-sm font-semibold text-foreground leading-none hidden sm:inline">MCP Assistant</span>
           </Link>
 
           {/* Breadcrumb when server selected */}
@@ -439,7 +429,7 @@ export default function McpClientLayout({
           )}
 
           {/* Search bar inside Dashboard Header */}
-          <div ref={searchContainerRef} className="relative max-w-sm w-full ml-4 hidden md:block">
+          <div ref={searchContainerRef} className="relative max-w-sm w-full ml-4 block">
             <div className="relative">
               <Input
                 id="header-mcp-search"

@@ -709,7 +709,7 @@ export default function ToolExecutionPanel({
                                     <div className="flex items-center gap-1">
                                       <Checkbox
                                         id={`skip-${key}`}
-                                        checked={isSkipped}
+                                        checked={!!isSkipped}
                                         onCheckedChange={(checked) => {
                                           setSkippedFields((prev) => ({
                                             ...prev,
