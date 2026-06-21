@@ -4,6 +4,7 @@ import AuthProvider from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
+import QueryProvider from "@/components/providers/QueryProvider";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -31,17 +32,19 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
         <AuthProvider userSession={user ? { user } : null}>
-          <McpStoreProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <WebLanguageProvider />
-              {children}
-            </ThemeProvider>
-          </McpStoreProvider>
+          <QueryProvider>
+            <McpStoreProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <WebLanguageProvider />
+                {children}
+              </ThemeProvider>
+            </McpStoreProvider>
+          </QueryProvider>
         </AuthProvider>
       </body>
     </html>

@@ -33,6 +33,7 @@ import Logo from "@/components/common/Logo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { ServerIcon } from "@/components/common/ServerIcon";
+import { useMcpUsage } from "@/hooks/useMcpUsage";
 
 interface McpClientLayoutProps {
   publicServers: McpServer[] | null;
@@ -113,31 +114,8 @@ export default function McpClientLayout({
     document.addEventListener("mouseup", stopDrag);
   }, [panelWidth]);
 
-  const [remoteMcpData, setRemoteMcpData] = useState<any | null>(null);
-  const [remoteMcpLoading, setRemoteMcpLoading] = useState(true);
-  const [remoteMcpError, setRemoteMcpError] = useState<string | null>(null);
-
-  const fetchRemoteMcpData = useCallback(async (page: number) => {
-    setRemoteMcpLoading(true);
-    try {
-      const res = await fetch(`/api/remote-mcp/usage?page=${page}`);
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || "Failed to load remote MCP details");
-      }
-      const json = await res.json();
-      setRemoteMcpData(json);
-      setRemoteMcpError(null);
-    } catch (err) {
-      setRemoteMcpError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setRemoteMcpLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchRemoteMcpData(1);
-  }, [fetchRemoteMcpData]);
+  const [remoteMcpPage, setRemoteMcpPage] = useState(1);
+  const { data: remoteMcpData, loading: remoteMcpLoading, error: remoteMcpError } = useMcpUsage(remoteMcpPage);
 
 
   // View State Management
@@ -461,6 +439,7 @@ export default function McpClientLayout({
           <div ref={searchContainerRef} className="relative max-w-sm w-full ml-4 hidden md:block">
             <div className="relative">
               <Input
+                id="header-mcp-search"
                 type="text"
                 placeholder="Search MCP servers..."
                 value={headerSearchQuery}
@@ -593,6 +572,7 @@ export default function McpClientLayout({
           onOpenRemoteMcp={handleOpenRemoteMcp}
           onShowPopular={handleShowPopular}
           sidebarOpen={sidebarOpen}
+          onSearchFocus={() => document.getElementById('header-mcp-search')?.focus()}
         />
 
         {/* Backdrop for Mobile */}
@@ -739,7 +719,7 @@ export default function McpClientLayout({
                 data={remoteMcpData}
                 loading={remoteMcpLoading}
                 error={remoteMcpError}
-                onPageChange={fetchRemoteMcpData}
+                onPageChange={setRemoteMcpPage}
                 initialTab={
                   searchParams.get("tab") === "revoke" ||
                   searchParams.has("revoke") ||

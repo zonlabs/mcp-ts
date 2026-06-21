@@ -122,7 +122,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
             onClick={() => handleAction('deactivate')}
             disabled={isActionDisabled('deactivate')}
             size="sm"
-            className="flex items-center gap-2 cursor-pointer bg-red-900 hover:bg-red-800 text-white transition-colors duration-200"
+            className="flex items-center gap-2 cursor-pointer bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all duration-200"
           >
             {loading === 'deactivate' ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -136,14 +136,14 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
             onClick={() => handleAction('deactivate')}
             disabled={loading === 'deactivate'}
             size="sm"
-            className="flex items-center gap-2 cursor-pointer bg-red-900 hover:bg-red-800 text-white transition-colors duration-200"
+            className="flex items-center gap-2 cursor-pointer bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all duration-200"
           >
             {loading === 'deactivate' ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <XCircle className="h-3.5 w-3.5" />
             )}
-            {isAuthenticating ? "Cancel auth" : "Disconnect"}
+            {isAuthenticating ? "Cancel auth" : "Deactivate"}
           </Button>
         ) : (
           <Button

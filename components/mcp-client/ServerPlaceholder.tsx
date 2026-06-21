@@ -97,7 +97,7 @@ export function ServerPlaceholder({
           <motion.div variants={itemVariants} className="mb-5">
             <div className="flex items-center gap-2 mb-2.5">
               <Hammer className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold text-foreground">Our Remote MCP</h2>
+              <h2 className="text-base font-semibold text-foreground">MCP Asistant ─── Standalone MCP</h2>
             </div>
             <Link
               href="/mcp?view=activity"
@@ -116,7 +116,7 @@ export function ServerPlaceholder({
                   </div>
                   <p className="text-sm font-semibold text-foreground truncate">MCP Assistant</p>
                 </div>
-                
+
                 <div className="flex shrink-0 items-center gap-1.5">
                   {MCP_CLIENT_ICONS.map((client) => (
                     <div
@@ -147,7 +147,7 @@ export function ServerPlaceholder({
 
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5 hover:bg-muted/40 transition-colors">
                   <div className="min-w-0 flex-1 flex items-center gap-2">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">URL</span>
+                    {/* <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">URL</span> */}
                     <code className="truncate text-xs text-muted-foreground font-mono">
                       {MCP_ASSISTANT_URL}
                     </code>

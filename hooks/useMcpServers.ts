@@ -1,5 +1,7 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { McpServer } from "@/types/mcp";
 
@@ -12,74 +14,57 @@ interface McpServersData {
   handleServerAction: (server: McpServer, action: 'activate' | 'deactivate') => Promise<void>;
   handleServerAdd: (data: any) => Promise<void>;
   handleServerUpdate: (data: any) => Promise<void>;
-  handleServerDelete: (serverName: string) => Promise<void>;
+  handleServerDelete: (serverId: string) => Promise<void>;
 }
 
 export function useMcpServers(): McpServersData {
-  const [servers, setServers] = useState<McpServer[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchServers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
+  const { data: servers, isLoading: loading, error, refetch } = useQuery<McpServer[], Error>({
+    queryKey: ["mcpServers"],
+    queryFn: async () => {
       const params = new URLSearchParams();
       params.set('first', '100');
       params.set('public', '1');
       params.set('orderBy', '-createdAt');
       const response = await fetch(`/api/mcp?${params}`);
-
       const result = await response.json();
-
       if (!response.ok) {
         throw new Error(result.error || 'Failed to fetch servers');
       }
+      return Array.isArray(result.servers) ? result.servers : [];
+    },
+  });
 
-      setServers(Array.isArray(result.servers) ? result.servers : []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch servers';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const refresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   const updateServer = useCallback((serverId: string, updates: Partial<McpServer>) => {
-    setServers(prevServers => {
-      if (!prevServers) return prevServers;
-      return prevServers.map(server =>
-        server.id === serverId
-          ? { ...server, ...updates }
-          : server
+    queryClient.setQueryData<McpServer[]>(["mcpServers"], (old) => {
+      if (!old) return old;
+      return old.map((server) =>
+        server.id === serverId ? { ...server, ...updates } : server
       );
     });
-  }, []);
+  }, [queryClient]);
 
-  const handleServerAction = useCallback(async (server: McpServer, action: 'activate' | 'deactivate') => {
-    try {
+  const actionMutation = useMutation({
+    mutationFn: async ({ server, action }: { server: McpServer; action: 'activate' | 'deactivate' }) => {
       const response = await fetch('/api/mcp/actions', {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action,
-          serverName: server.name
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, serverName: server.name }),
       });
-
       const result = await response.json();
-
       if (!response.ok || result.errors) {
         throw new Error(result.errors?.[0]?.message || 'Action failed');
       }
-
+      return { result, action, server };
+    },
+    onSuccess: ({ result, action, server }) => {
       if (action === 'activate') {
         const connectResult = result.data?.connectMcpServer;
-
         if (connectResult?.requiresAuth) {
           const authUrl = connectResult.authorizationUrl;
           if (authUrl) {
@@ -92,10 +77,9 @@ export function useMcpServers(): McpServersData {
           }
         }
       }
-
-      setServers(prevServers => {
-        if (!prevServers) return prevServers;
-        return prevServers.map(s => {
+      queryClient.setQueryData<McpServer[]>(["mcpServers"], (old) => {
+        if (!old) return old;
+        return old.map((s) => {
           if (s.name === server.name) {
             const updatedServer = result.data?.connectMcpServer || result.data?.disconnectMcpServer;
             const newConnectionStatus = updatedServer?.connectionStatus ||
@@ -111,71 +95,97 @@ export function useMcpServers(): McpServersData {
           return s;
         });
       });
-    } catch {
-      toast.error(`Failed to ${action} server`);
-      throw new Error(`Failed to ${action} server`);
+    },
+    onError: (err, { action }) => {
+      toast.error(err instanceof Error ? err.message : `Failed to ${action} server`);
     }
-  }, []);
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch('/api/mcp/servers', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        throw new Error(result.error || 'Failed to add server');
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcpServers"] });
+      toast.success('Server added successfully');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to add server');
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch('/api/mcp/servers', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        throw new Error(result.error || 'Failed to update server');
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcpServers"] });
+      toast.success('Server updated successfully');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to update server');
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (serverId: string) => {
+      const response = await fetch(`/api/mcp/servers?id=${encodeURIComponent(serverId)}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        throw new Error(result.error || 'Failed to delete server');
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcpServers"] });
+      toast.success('Server deleted successfully');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to delete server');
+    }
+  });
+
+  const handleServerAction = useCallback(async (server: McpServer, action: 'activate' | 'deactivate') => {
+    await actionMutation.mutateAsync({ server, action });
+  }, [actionMutation]);
 
   const handleServerAdd = useCallback(async (data: any) => {
-    const response = await fetch('/api/mcp/servers', {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    const result = await response.json();
-    if (!response.ok || result.error) {
-      throw new Error(result.error || 'Failed to add server');
-    }
-
-    await fetchServers();
-    toast.success('Server added successfully');
-  }, [fetchServers]);
+    await addMutation.mutateAsync(data);
+  }, [addMutation]);
 
   const handleServerUpdate = useCallback(async (data: any) => {
-    const response = await fetch('/api/mcp/servers', {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
+    await updateMutation.mutateAsync(data);
+  }, [updateMutation]);
 
-    const result = await response.json();
-    if (!response.ok || result.error) {
-      throw new Error(result.error || 'Failed to update server');
-    }
-
-    await fetchServers();
-    toast.success('Server updated successfully');
-  }, [fetchServers]);
-
-  const handleServerDelete = useCallback(async (serverName: string) => {
-    const response = await fetch(`/api/mcp/servers?name=${encodeURIComponent(serverName)}`, {
-      method: "DELETE",
-    });
-
-    const result = await response.json();
-    if (!response.ok || result.error) {
-      throw new Error(result.error || 'Failed to delete server');
-    }
-
-    await fetchServers();
-    toast.success('Server deleted successfully');
-  }, [fetchServers]);
-
-  useEffect(() => {
-    fetchServers();
-  }, [fetchServers]);
+  const handleServerDelete = useCallback(async (serverId: string) => {
+    await deleteMutation.mutateAsync(serverId);
+  }, [deleteMutation]);
 
   return {
-    servers,
+    servers: servers ?? null,
     loading,
-    error,
-    refresh: fetchServers,
+    error: error ? error.message : null,
+    refresh,
     updateServer,
     handleServerAction,
     handleServerAdd,

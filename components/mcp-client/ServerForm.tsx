@@ -41,6 +41,7 @@ import { Category } from "@/types/mcp";
 import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { UserSession } from "@/components/providers/AuthProvider";
+import { useCategories } from "@/hooks/useCategories";
 
 const serverSchema = z.object({
   id: z.string().optional(),
@@ -151,34 +152,7 @@ export default function ServerForm({
   const [connectionStatusTrail, setConnectionStatusTrail] = useState<string[]>([]);
   const { connect: activateServerConnection } = useMcpConnection();
 
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [categoriesError, setCategoriesError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setCategoriesLoading(true);
-      setCategoriesError(null);
-      try {
-        const res = await fetch("/api/categories");
-        const j = await res.json();
-        if (!res.ok) throw new Error(j.error || "Failed to load categories");
-        if (!cancelled) {
-          setCategories(Array.isArray(j.categories) ? j.categories : []);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setCategoriesError(e instanceof Error ? e.message : "Failed to load categories");
-        }
-      } finally {
-        if (!cancelled) setCategoriesLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { categories, loading: categoriesLoading, error: categoriesError } = useCategories();
 
   const {
     register,

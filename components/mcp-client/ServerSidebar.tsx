@@ -38,6 +38,7 @@ import { ServerListItem } from "./ServerListItem";
 import { ServerPlaceholder } from "./ServerPlaceholder";
 import { useMcpServersFiltered } from "@/hooks/useMcpServersFiltered";
 import { UserSession } from "@/components/providers/AuthProvider";
+import { useCategories } from "@/hooks/useCategories";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,7 @@ interface ServerSidebarProps {
   onOpenRemoteMcp: (tab: "mcp-server" | "revoke") => void;
   onShowPopular: () => void;
   sidebarOpen?: boolean;
+  onSearchFocus?: () => void;
 }
 
 export function ServerSidebar({
@@ -100,34 +102,12 @@ export function ServerSidebar({
   onOpenRemoteMcp,
   onShowPopular,
   sidebarOpen = true,
+  onSearchFocus,
 }: ServerSidebarProps) {
   const router = useRouter();
   const observerTarget = useRef<HTMLDivElement>(null);
 
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setCategoriesLoading(true);
-      try {
-        const res = await fetch("/api/categories");
-        const j = await res.json();
-        if (!res.ok) throw new Error(j.error || "Failed to load categories");
-        if (!cancelled) {
-          setCategories(Array.isArray(j.categories) ? j.categories : []);
-        }
-      } catch {
-        if (!cancelled) setCategories([]);
-      } finally {
-        if (!cancelled) setCategoriesLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { categories, loading: categoriesLoading } = useCategories();
 
   // Category selection hook logic
   const {
@@ -313,7 +293,7 @@ export function ServerSidebar({
             <Tooltip delayDuration={100}>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={onClose}
+                  onClick={onSearchFocus}
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0 flex items-center justify-center cursor-pointer"
