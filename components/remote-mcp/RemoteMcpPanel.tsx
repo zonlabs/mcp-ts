@@ -92,7 +92,7 @@ export default function RemoteMcpPanel({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">
-              {initialTab === "revoke" ? "Revoke Client Access" : "Remote MCP Activity"}
+              {initialTab === "revoke" ? "Revoke Client Access" : "MCP Usage"}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-[10px] text-muted-foreground font-mono truncate leading-none">

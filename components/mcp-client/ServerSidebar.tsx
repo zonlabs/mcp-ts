@@ -271,7 +271,7 @@ export function ServerSidebar({
                 <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
                   <span className="flex items-center gap-2 w-full">
                     <Hammer className="h-3.5 w-3.5 text-red-500" />
-                    <span className="flex-1">Remote MCP Activity</span>
+                    <span className="flex-1">MCP Usage</span>
                     <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
                   </span>
                 </DropdownMenuItem>
@@ -453,7 +453,7 @@ export function ServerSidebar({
                 <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
                   <span className="flex items-center gap-2 w-full">
                     <Hammer className="h-3.5 w-3.5 text-red-500" />
-                    <span className="flex-1">Remote MCP Activity</span>
+                    <span className="flex-1">MCP Usage</span>
                     <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
                   </span>
                 </DropdownMenuItem>
