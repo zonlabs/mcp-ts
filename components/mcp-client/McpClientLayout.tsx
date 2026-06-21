@@ -229,6 +229,9 @@ export default function McpClientLayout({
     if (selectedServer) {
       const isConnected = selectedServer.connectionStatus === 'READY';
       setToolTesterOpen(isConnected);
+      if (isConnected) {
+        setSidebarOpen(false);
+      }
     } else {
       setToolTesterOpen(false);
     }
@@ -618,7 +621,13 @@ export default function McpClientLayout({
                       onEdit={handleEditServer}
                       onDelete={handleDeleteServer}
                       toolTesterOpen={toolTesterOpen}
-                      onToggleTools={() => setToolTesterOpen(!toolTesterOpen)}
+                      onToggleTools={() => {
+                        const newValue = !toolTesterOpen;
+                        setToolTesterOpen(newValue);
+                        if (newValue) {
+                          setSidebarOpen(false);
+                        }
+                      }}
                     />
                   </div>
                 ) : (
