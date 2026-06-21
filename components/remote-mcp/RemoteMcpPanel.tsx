@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectedClientsCard } from "./ConnectedClientsCard";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
@@ -123,9 +122,25 @@ export default function RemoteMcpPanel({
       {/* Scrollable Contents */}
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">Loading details...</p>
+          <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-6 w-full mx-auto animate-pulse">
+            <div className="space-y-4">
+              <div className="h-4 w-24 bg-muted rounded" />
+              <div className="h-[120px] bg-muted rounded-lg" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="h-16 bg-muted rounded-lg" />
+                <div className="h-16 bg-muted rounded-lg" />
+                <div className="h-16 bg-muted rounded-lg" />
+                <div className="h-16 bg-muted rounded-lg" />
+              </div>
+            </div>
+            <div className="space-y-3 pt-4">
+              <div className="h-4 w-32 bg-muted rounded" />
+              <div className="space-y-2">
+                <div className="h-12 bg-muted rounded-lg" />
+                <div className="h-12 bg-muted rounded-lg" />
+                <div className="h-12 bg-muted rounded-lg" />
+              </div>
+            </div>
           </div>
         ) : error ? (
           <div className="p-6 m-4 rounded-xl border border-destructive/20 bg-destructive/5 text-sm text-destructive">
