@@ -74,9 +74,7 @@ export async function GET(request: NextRequest) {
       const { server, _meta } = entry;
       const meta = _meta["io.modelcontextprotocol.registry/official"];
       // Extract vendor and name from full name (e.g., "ai.exa/exa" -> vendor: "ai.exa", name: "exa")
-      const nameParts = server.name.split("/");
-      const vendor = nameParts.length > 1 ? nameParts[0] : "unknown";
-      const shortName = nameParts.length > 1 ? nameParts[1] : server.name;
+      const [vendor = "unknown", shortName = server.name] = server.name.split("/");
 
       // Get the first icon URL if available (from the icons array, not the MCP URL)
       const iconUrl = server.icons && server.icons.length > 0 ? server.icons[0].src : null;

@@ -3,11 +3,7 @@ import Image from "next/image";
 import Logo from "@/components/common/Logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createClient } from "@/lib/supabase/server";
-import {
-  buildConsentPath,
-  parseConsentSearchParams,
-  validateConsentParams,
-} from "@/lib/mcp-oauth";
+import { parseConsentSearchParams } from "@/lib/mcp-oauth";
 import { ConsentForm } from "./ConsentForm";
 
 export const dynamic = "force-dynamic";
@@ -18,29 +14,57 @@ interface PageProps {
 
 export default async function WorkflowOAuthConsentPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
-  const params = parseConsentSearchParams(resolvedSearchParams);
-  const validationError = validateConsentParams(params);
   const requestError =
     typeof resolvedSearchParams.error === "string" ? resolvedSearchParams.error : undefined;
+
+  const authorizationId = typeof resolvedSearchParams.authorization_id === "string"
+    ? resolvedSearchParams.authorization_id
+    : undefined;
+
+  let validationError = authorizationId ? null : "Missing authorization_id parameter.";
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!validationError && !user) {
-    redirect(`/signin?redirect=${encodeURIComponent(buildConsentPath(params))}`);
+  if (!validationError && !user && authorizationId) {
+    const redirectPath = `/mcp/oauth/consent?authorization_id=${authorizationId}`;
+    redirect(`/signin?redirect=${encodeURIComponent(redirectPath)}`);
   }
 
-  const clientLabel = params.client_name || params.client_id || "MCP client";
-  const accountLabel = user?.email ?? "your MCP Assistant account";
+  let clientLabel = "MCP client";
+  let scopesList: string[] = ["openid", "email"];
+  let pageParams = parseConsentSearchParams(resolvedSearchParams);
 
-  const scopesList = (params.scope ?? "openid email mcp:tools:read mcp:tools:execute")
-    .split(/\s+/)
-    .filter(Boolean);
+  if (authorizationId && user) {
+    const { data: authDetails, error: authError } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+    console.log("DEBUG: authDetails:", JSON.stringify(authDetails, null, 2));
+    if (authError) {
+      validationError = authError.message;
+    } else if (authDetails) {
+      if ("redirect_url" in authDetails) {
+        redirect(authDetails.redirect_url);
+      } else if ("authorization_id" in authDetails) {
+        clientLabel = authDetails.client.name || authDetails.client.id || "MCP client";
+        scopesList = authDetails.scope.split(/\s+/).filter(Boolean);
+        pageParams = {
+          authorization_id: authorizationId,
+          client_id: authDetails.client.id,
+          redirect_uri: authDetails.redirect_uri,
+          client_name: authDetails.client.name,
+          logo_uri: authDetails.client.logo_uri,
+          scope: authDetails.scope,
+        };
+      }
+    }
+  }
+
+  const accountLabel = user?.email ?? "your MCP Assistant account";
+  const avatarUrl = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? null;
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-muted p-3 pt-6 text-foreground sm:items-center sm:pt-3">
+    <main className="flex min-h-screen items-center justify-center bg-muted p-3 text-foreground">
       <style>
         {`
           .oauth-flow-lines {
@@ -131,7 +155,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
             </div>
 
             {/* Right: Requesting client logo or letter avatar */}
-            {params.logo_uri ? (
+            {pageParams.logo_uri ? (
               <div
                 aria-label={clientLabel}
                 className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-background border-2 border-zinc-300 dark:border-zinc-600 shadow-sm"
@@ -140,7 +164,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
                 <img
                   alt={clientLabel}
                   height={36}
-                  src={params.logo_uri}
+                  src={pageParams.logo_uri}
                   width={36}
                   style={{ objectFit: "contain" }}
                 />
@@ -158,7 +182,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
                   letterSpacing: "-0.02em",
                 }}
               >
-                {(params.client_name || params.client_id || "?").charAt(0)}
+                {(pageParams.client_name || pageParams.client_id || "?").charAt(0)}
               </div>
             )}
           </div>
@@ -175,9 +199,10 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
             </Alert>
           ) : (
             <ConsentForm
-              params={params}
+              params={pageParams}
               accountLabel={accountLabel}
               scopesList={scopesList}
+              avatarUrl={avatarUrl}
             />
           )}
         </div>

@@ -1,46 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  buildConsentPath,
-  parseConsentFormData,
-  validateConsentParams,
-  mcpOAuthEndpoint,
-} from "@/lib/mcp-oauth";
-
-function redirectToConsent(request: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, request.url));
-}
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   const form = await request.formData();
-  const params = parseConsentFormData(form);
-  const validationError = validateConsentParams(params);
+  const authorizationId = form.get("authorization_id") as string | null;
 
-  if (validationError) {
-    return redirectToConsent(request, buildConsentPath(params, validationError));
+  if (!authorizationId) {
+    return new NextResponse("Missing authorization_id parameter", { status: 400 });
   }
 
-  const body = new URLSearchParams({
-    client_id: params.client_id,
-    redirect_uri: params.redirect_uri,
-    state: params.state ?? "",
-  });
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.oauth.denyAuthorization(authorizationId);
 
-  const response = await fetch(mcpOAuthEndpoint(params.issuer, "/oauth/authorize/deny"), {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-    redirect: "manual",
-    cache: "no-store",
-  });
-
-  const location = response.headers.get("location");
-  if (response.status >= 300 && response.status < 400 && location) {
-    return NextResponse.redirect(location, { status: 303 });
+  if (error) {
+    const consentPath = `/mcp/oauth/consent?authorization_id=${authorizationId}&error=${encodeURIComponent(error.message)}`;
+    return NextResponse.redirect(new URL(consentPath, request.url));
   }
 
-  const text = await response.text().catch(() => "");
-  return redirectToConsent(
-    request,
-    buildConsentPath(params, text || "Could not deny MCP authorization.")
-  );
+  return NextResponse.redirect(data.redirect_url, { status: 303 });
 }

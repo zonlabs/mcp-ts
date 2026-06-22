@@ -20,29 +20,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: existing, error: fetchErr } = await supabase
-    .from("mcp_oauth_grants")
-    .select("id")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .is("revoked_at", null)
-    .maybeSingle();
+  const { error: revokeErr } = await supabase.auth.oauth.revokeGrant({ clientId: id });
 
-  if (fetchErr) {
-    return NextResponse.json({ error: fetchErr.message }, { status: 500 });
-  }
-  if (!existing) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const { error: updateErr } = await supabase
-    .from("mcp_oauth_grants")
-    .update({ revoked_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("user_id", user.id);
-
-  if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  if (revokeErr) {
+    return NextResponse.json({ error: revokeErr.message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

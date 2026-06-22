@@ -47,12 +47,12 @@ export function ConsentActions() {
       </Button>
       <Button
         aria-disabled={isPending}
-        className="h-10 w-full rounded-md border-border bg-transparent aria-disabled:pointer-events-none aria-disabled:opacity-55"
+        className="h-10 w-full rounded-md border border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 hover:text-foreground hover:border-border/80 transition-all duration-200 aria-disabled:pointer-events-none aria-disabled:opacity-55"
         formAction="/api/mcp-oauth/deny"
         formMethod="post"
         onClick={() => setPendingAction("cancel")}
         type="submit"
-        variant="outline"
+        variant="ghost"
       >
         {pendingAction === "cancel" ? <Spinner /> : "Cancel"}
       </Button>
