@@ -281,12 +281,12 @@ export function ServerSidebar({
                     <span className="flex-1">Revoke Access</span>
                   </span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
+                {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
                   <span className="flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                     Add Gateway
                   </span>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -463,12 +463,12 @@ export function ServerSidebar({
                     <span className="flex-1">Revoke Access</span>
                   </span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
+                {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
                   <span className="flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                     Add Gateway
                   </span>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
               </DropdownMenuContent>
             </DropdownMenu>
 

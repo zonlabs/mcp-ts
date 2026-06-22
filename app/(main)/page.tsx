@@ -357,7 +357,7 @@ export default function Home() {
                 <p>4. Use generated URL to connect your client.</p>
               </motion.div>
 
-              <motion.div variants={fadeInUp}>
+              {/* <motion.div variants={fadeInUp}>
                 <Link
                   href="/gateway"
                   className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
@@ -365,7 +365,7 @@ export default function Home() {
                   Open Gateway
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
-              </motion.div>
+              </motion.div> */}
             </div>
 
             <motion.div variants={fadeInUp} className="rounded-2xl border border-red-200/75 bg-background/60 p-2 sm:p-3 dark:border-red-400/25">
