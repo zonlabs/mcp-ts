@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConnectedClientsCard } from "./ConnectedClientsCard";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
-import { getMcpOAuthIssuer } from "@/lib/mcp-oauth";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
 import { useMcpUsage } from "@/hooks/useMcpUsage";
@@ -20,20 +19,11 @@ export default function RemoteMcpPanel({
 }: RemoteMcpPanelProps) {
   const [page, setPage] = useState(1);
   const { data, isLoading, error } = useMcpUsage(page);
-  const [oauthIssuer, setOauthIssuer] = useState<string>("");
   const [healthStatus, setHealthStatus] = useState<"loading" | "healthy" | "unhealthy">("loading");
   const [healthData, setHealthData] = useState<{
     version?: string;
     uptime_seconds?: number;
   } | null>(null);
-
-  useEffect(() => {
-    try {
-      setOauthIssuer(getMcpOAuthIssuer());
-    } catch {
-      setOauthIssuer("https://api.mcp-assistant.in/oauth");
-    }
-  }, []);
 
   useEffect(() => {
     let active = true;

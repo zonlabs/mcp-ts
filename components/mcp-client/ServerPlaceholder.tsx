@@ -147,7 +147,6 @@ export function ServerPlaceholder({
 
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5 hover:bg-muted/40 transition-colors">
                   <div className="min-w-0 flex-1 flex items-center gap-2">
-                    {/* <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">URL</span> */}
                     <code className="truncate text-xs text-muted-foreground font-mono">
                       {MCP_ASSISTANT_URL}
                     </code>

@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import {
-  buildConsentPath,
-  parseConsentFormData,
-  validateConsentParams,
-  mcpOAuthEndpoint,
-} from "@/lib/mcp-oauth";
-
-function redirectToConsent(request: NextRequest, path: string) {
-  return NextResponse.redirect(new URL(path, request.url));
-}
 
 export async function POST(request: NextRequest) {
   const form = await request.formData();
-  const params = parseConsentFormData(form);
-  const validationError = validateConsentParams(params);
-  const consentPath = buildConsentPath(params);
+  const authorizationId = form.get("authorization_id") as string | null;
 
-  if (validationError) {
-    return redirectToConsent(request, buildConsentPath(params, validationError));
+  if (!authorizationId) {
+    return new NextResponse("Missing authorization_id parameter", { status: 400 });
   }
 
   const supabase = await createClient();
@@ -28,46 +16,16 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
+    const consentPath = `/mcp/oauth/consent?authorization_id=${authorizationId}`;
     return NextResponse.redirect(new URL(`/signin?redirect=${encodeURIComponent(consentPath)}`, request.url));
   }
 
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
 
-  if (sessionError || !session?.access_token) {
-    return redirectToConsent(request, buildConsentPath(params, "No active session. Sign in again."));
+  if (error) {
+    const consentPath = `/mcp/oauth/consent?authorization_id=${authorizationId}&error=${encodeURIComponent(error.message)}`;
+    return NextResponse.redirect(new URL(consentPath, request.url));
   }
 
-  const body = new URLSearchParams({
-    response_type: "code",
-    client_id: params.client_id,
-    redirect_uri: params.redirect_uri,
-    state: params.state ?? "",
-    code_challenge: params.code_challenge ?? "",
-    code_challenge_method: params.code_challenge_method ?? "S256",
-    scope: params.scope ?? "openid email mcp:tools:read mcp:tools:execute",
-    grant_duration: params.grant_duration ?? "1y",
-    user_access_token: session.access_token,
-  });
-
-  const response = await fetch(mcpOAuthEndpoint(params.issuer, "/oauth/authorize"), {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-    redirect: "manual",
-    cache: "no-store",
-  });
-
-  const location = response.headers.get("location");
-  if (response.status >= 300 && response.status < 400 && location) {
-    return NextResponse.redirect(location, { status: 303 });
-  }
-
-  const text = await response.text().catch(() => "");
-  return redirectToConsent(
-    request,
-    buildConsentPath(params, text || "Could not complete MCP authorization.")
-  );
+  return NextResponse.redirect(data.redirect_url, { status: 303 });
 }

@@ -88,7 +88,9 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
                 <div className="min-w-0 space-y-0.5">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <p className="text-sm font-semibold text-foreground">{grant.client_name || grant.client_id}</p>
-                    <p className="font-mono text-xs text-muted-foreground">{grant.token_prefix}...</p>
+                    {grant.token_prefix && (
+                      <p className="font-mono text-xs text-muted-foreground">{grant.token_prefix}...</p>
+                    )}
                   </div>
                   <p className="break-all text-xs text-muted-foreground/90">
                     Expires {expiresLabel}

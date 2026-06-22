@@ -1,37 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Clock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ConsentActions } from "./ConsentActions";
-
-const GRANT_DURATION_OPTIONS = [
-  { value: "1d", label: "1 day" },
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "1y", label: "1 year" },
-  { value: "never", label: "Never" },
-] as const;
-
-export type McpOAuthConsentParams = {
-  issuer: string;
-  client_id: string;
-  redirect_uri: string;
-  client_name?: string;
-  logo_uri?: string;
-  state?: string;
-  code_challenge?: string;
-  code_challenge_method?: string;
-  scope?: string;
-  grant_duration?: "1d" | "7d" | "30d" | "1y" | "never";
-};
+import { type McpOAuthConsentParams } from "@/lib/mcp-oauth";
 
 interface ConsentFormProps {
   params: McpOAuthConsentParams;
@@ -40,30 +11,12 @@ interface ConsentFormProps {
 }
 
 export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormProps) {
-  // Checkboxes state
-  const [readChecked, setReadChecked] = useState(true);
-  const [executeChecked, setExecuteChecked] = useState(true);
-
-  // Build the dynamic scope string submitted to /approve
-  const finalScopes = ["openid", "email"];
-  if (readChecked && scopesList.includes("mcp:tools:read")) finalScopes.push("mcp:tools:read");
-  if (executeChecked && scopesList.includes("mcp:tools:execute")) finalScopes.push("mcp:tools:execute");
-  const finalScopeString = finalScopes.join(" ");
-
   return (
     <form action="/api/mcp-oauth/approve" className="space-y-4 pt-2" method="post">
       {/* Hidden Fields */}
-      <input type="hidden" name="iss" value={params.issuer} />
-      <input type="hidden" name="client_id" value={params.client_id} />
-      <input type="hidden" name="redirect_uri" value={params.redirect_uri} />
-      <input type="hidden" name="client_name" value={params.client_name ?? ""} />
-      <input type="hidden" name="logo_uri" value={params.logo_uri ?? ""} />
-      <input type="hidden" name="state" value={params.state ?? ""} />
-      <input type="hidden" name="code_challenge" value={params.code_challenge ?? ""} />
-      <input type="hidden" name="code_challenge_method" value={params.code_challenge_method ?? "S256"} />
-      <input type="hidden" name="scope" value={finalScopeString} />
+      <input type="hidden" name="authorization_id" value={params.authorization_id} />
 
-      {/* Access requested list with interactive checkboxes */}
+      {/* Access requested list with checkboxes */}
       <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
         <div>
           <p className="text-xs font-medium text-muted-foreground">Signed in as</p>
@@ -89,11 +42,11 @@ export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormPro
             )}
 
             {scopesList.includes("mcp:tools:execute") && (
-              <label className="flex items-start gap-3 cursor-pointer select-none">
+              <label className="flex items-start gap-3 cursor-not-allowed select-none">
                 <Checkbox
                   id="scope-execute"
-                  checked={executeChecked}
-                  onCheckedChange={(v) => setExecuteChecked(v === true)}
+                  checked={true}
+                  disabled={true}
                   className="mt-[3px]"
                 />
                 <div className="space-y-0.5">
@@ -112,30 +65,6 @@ export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormPro
           </div>
         </div>
       </div>
-
-
-      {/* Grant Duration Select */}
-      <label className="block space-y-2 rounded-lg border p-3 text-sm">
-        <span className="flex items-center gap-2 font-medium">
-          <Clock className="h-4 w-4" />
-          Access expires
-        </span>
-        <Select defaultValue={params.grant_duration ?? "1y"} name="grant_duration">
-          <SelectTrigger className="h-10 w-full bg-background font-medium shadow-none">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="start">
-            {GRANT_DURATION_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="block text-xs text-muted-foreground">
-          You can revoke access at any time.
-        </span>
-      </label>
 
       {/* Form Submission Actions */}
       <ConsentActions />

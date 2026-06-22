@@ -46,15 +46,9 @@ export async function GET(request: NextRequest) {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const [connections, grantsResult, paginatedResult, metricsResult] = await Promise.all([
+    const [connections, oauthGrantsResult, paginatedResult, metricsResult] = await Promise.all([
       getStoredMcpConnectionsForIdentity(user.id),
-      supabase
-        .from("mcp_oauth_grants")
-        .select("id, client_id, client_name, redirect_uri, scope, token_prefix, created_at, expires_at, last_used_at")
-        .eq("user_id", user.id)
-        .is("revoked_at", null)
-        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-        .order("created_at", { ascending: false }),
+      supabase.auth.oauth.listGrants(),
       supabase
         .from("mcp_tool_call_events")
         .select(SELECT_COLUMNS, { count: "exact" })
@@ -69,7 +63,7 @@ export async function GET(request: NextRequest) {
         .limit(5000),
     ]);
 
-    const { data: grantsData, error: grantsError } = grantsResult;
+    const { data: grantsData, error: grantsError } = oauthGrantsResult;
     const { data: eventsData, count, error: eventsError } = paginatedResult;
     const { data: metricsData, error: metricsError } = metricsResult;
 
@@ -78,9 +72,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: errorMsg }, { status: 500 });
     }
 
+    const mappedGrants = (grantsData ?? []).map((g) => ({
+      id: g.client.id,
+      client_id: g.client.id,
+      client_name: g.client.name,
+      redirect_uri: g.client.uri || "",
+      scope: (g.scopes || []).join(" "),
+      token_prefix: "",
+      created_at: g.granted_at,
+      expires_at: null,
+      last_used_at: null,
+    }));
+
     return NextResponse.json({
       connections: connections ?? [],
-      grants: grantsData ?? [],
+      grants: mappedGrants,
       events: eventsData ?? [],
       metricsEvents: metricsData ?? [],
       totalCount: count ?? 0,
