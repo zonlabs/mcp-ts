@@ -39,6 +39,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
 
   if (authorizationId && user) {
     const { data: authDetails, error: authError } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+    console.log("DEBUG: authDetails:", JSON.stringify(authDetails, null, 2));
     if (authError) {
       validationError = authError.message;
     } else if (authDetails) {
@@ -60,9 +61,10 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
   }
 
   const accountLabel = user?.email ?? "your MCP Assistant account";
+  const avatarUrl = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? null;
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-muted p-3 pt-6 text-foreground sm:items-center sm:pt-3">
+    <main className="flex min-h-screen items-center justify-center bg-muted p-3 text-foreground">
       <style>
         {`
           .oauth-flow-lines {
@@ -200,6 +202,7 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
               params={pageParams}
               accountLabel={accountLabel}
               scopesList={scopesList}
+              avatarUrl={avatarUrl}
             />
           )}
         </div>

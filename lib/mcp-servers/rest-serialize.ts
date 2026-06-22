@@ -22,7 +22,6 @@ export function restMcpServer(
     isVerified: node.isVerified,
     requiresOauth2: node.requiresOauth2,
     isPublic: node.isPublic,
-    connectionStatus: undefined,
     tools: [],
     updated_at: node.updatedAt,
     createdAt: node.createdAt,

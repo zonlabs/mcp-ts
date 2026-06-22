@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     const { data: grantsData, error: grantsError } = oauthGrantsResult;
+    console.log("DEBUG: oauthGrantsResult:", JSON.stringify(oauthGrantsResult, null, 2));
     const { data: eventsData, count, error: eventsError } = paginatedResult;
     const { data: metricsData, error: metricsError } = metricsResult;
 
@@ -72,21 +73,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: errorMsg }, { status: 500 });
     }
 
-    const mappedGrants = (grantsData ?? []).map((g) => ({
+    const grants = (grantsData ?? []).map((g) => ({
       id: g.client.id,
-      client_id: g.client.id,
       client_name: g.client.name,
-      redirect_uri: g.client.uri || "",
-      scope: (g.scopes || []).join(" "),
-      token_prefix: "",
+      redirect_uri: g.client.uri,
+      logo_uri: g.client.logo_uri,
+      scope: g.scopes?.join(" ") ?? "",
       created_at: g.granted_at,
-      expires_at: null,
-      last_used_at: null,
     }));
 
     return NextResponse.json({
       connections: connections ?? [],
-      grants: mappedGrants,
+      grants,
       events: eventsData ?? [],
       metricsEvents: metricsData ?? [],
       totalCount: count ?? 0,

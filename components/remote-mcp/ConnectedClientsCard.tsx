@@ -14,12 +14,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type McpOAuthGrantRow = {
   id: string;
   client_id: string;
   client_name: string | null;
   redirect_uri: string;
+  logo_uri?: string;
   scope: string;
   token_prefix: string;
   created_at: string;
@@ -78,32 +80,68 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
       ) : (
         <ul className="space-y-2">
           {items.map((grant) => {
-            const expiresLabel = grant.expires_at ? new Date(grant.expires_at).toLocaleDateString() : "Never";
-
             return (
               <li
                 key={grant.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-transparent px-3 py-3 transition-colors hover:bg-muted/20"
+                className="flex items-start justify-between gap-4 rounded-xl border border-border/70 bg-transparent px-4 py-3.5 transition-colors hover:bg-muted/10"
               >
-                <div className="min-w-0 space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <p className="text-sm font-semibold text-foreground">{grant.client_name || grant.client_id}</p>
-                    {grant.token_prefix && (
-                      <p className="font-mono text-xs text-muted-foreground">{grant.token_prefix}...</p>
+                <div className="flex min-w-0 flex-1 gap-3.5 items-start">
+                  {/* Client Logo Avatar */}
+                  {grant.logo_uri ? (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-background border border-border/40 shadow-xs">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={grant.logo_uri}
+                        alt={grant.client_name || "Client"}
+                        className="h-full w-full object-contain p-1 rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-zinc-500 text-white font-bold text-base shadow-xs uppercase"
+                    >
+                      {(grant.client_name || grant.client_id || "?").charAt(0)}
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1 space-y-1 text-left">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                      <span className="text-sm font-semibold text-foreground">{grant.client_name || grant.client_id}</span>
+                      {grant.token_prefix && (
+                        <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{grant.token_prefix}...</span>
+                      )}
+                    </div>
+                    
+                    {grant.redirect_uri && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="truncate text-xs text-muted-foreground/80 cursor-help max-w-fit">
+                            {grant.redirect_uri}
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="start">
+                          {grant.redirect_uri}
+                        </TooltipContent>
+                      </Tooltip>
                     )}
+
+                    <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground/60">
+                      <span>Authorized on {new Date(grant.created_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "numeric", hour12: true })}</span>
+                      {grant.last_used_at && (
+                        <>
+                          <span>•</span>
+                          <span>Last used {new Date(grant.last_used_at).toLocaleDateString()}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <p className="break-all text-xs text-muted-foreground/90">
-                    Expires {expiresLabel}
-                    {grant.last_used_at
-                      ? ` - Last used ${new Date(grant.last_used_at).toLocaleDateString()}`
-                      : ""}
-                  </p>
                 </div>
+
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 shrink-0 gap-1.5 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="h-8 shrink-0 gap-1.5 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive self-center"
                   disabled={pendingId === grant.id}
                   onClick={() => setRevokeId(grant.id)}
                 >

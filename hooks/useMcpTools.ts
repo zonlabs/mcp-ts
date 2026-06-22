@@ -28,17 +28,9 @@ export function useMcpTools(): UseMcpToolsReturn {
   const { connections, isLoading, validateConnections } = useMcpConnection();
 
   const currentServers = Object.values(connections)
-    .filter(connection => connection.connectionStatus === 'READY')
-    .map(connection => ({
-      serverName: connection.serverName,
-      sessionId: connection.sessionId,
-      connectionStatus: connection.connectionStatus,
-      tools: connection.tools,
-      connectedAt: connection.connectedAt,
-      transport: connection.transport,
-      url: connection.url,
-    } as McpServerWithTools));
-
+    .filter(c => c.connectionStatus === 'READY')
+    .map(c => c as unknown as McpServerWithTools);
+  
   const loadMcpServers = async () => {
     if (typeof window === 'undefined') return;
     await validateConnections();

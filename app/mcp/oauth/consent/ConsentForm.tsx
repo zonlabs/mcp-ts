@@ -1,6 +1,5 @@
 "use client";
 
-import { Checkbox } from "@/components/ui/checkbox";
 import { ConsentActions } from "./ConsentActions";
 import { type McpOAuthConsentParams } from "@/lib/mcp-oauth";
 
@@ -8,66 +7,76 @@ interface ConsentFormProps {
   params: McpOAuthConsentParams;
   accountLabel: string;
   scopesList: string[];
+  avatarUrl?: string | null;
 }
 
-export function ConsentForm({ params, accountLabel, scopesList }: ConsentFormProps) {
+function PermissionItem({ title, description }: { title: string; description: string }) {
   return (
-    <form action="/api/mcp-oauth/approve" className="space-y-4 pt-2" method="post">
-      {/* Hidden Fields */}
+    <div className="flex items-start gap-2.5 text-left">
+      <span className="text-muted-foreground mt-0.5 select-none font-medium">✓</span>
+      <div className="space-y-0.5">
+        <p className="text-sm font-medium text-foreground leading-normal">{title}</p>
+        <p className="text-xs text-muted-foreground leading-normal">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+export function ConsentForm({ params, accountLabel, scopesList, avatarUrl }: ConsentFormProps) {
+  return (
+    <form action="/api/mcp-oauth/approve" method="post">
       <input type="hidden" name="authorization_id" value={params.authorization_id} />
 
-      {/* Access requested list with checkboxes */}
-      <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">Signed in as</p>
-          <p className="mt-0.5 break-words text-sm font-semibold">{accountLabel}</p>
-        </div>
-
-        <div className="space-y-2.5">
-          <p className="text-xs font-medium text-muted-foreground">Access requested</p>
-          <div className="space-y-3">
-            {scopesList.includes("mcp:tools:read") && (
-              <label className="flex items-start gap-3 cursor-not-allowed select-none">
-                <Checkbox
-                  id="scope-read"
-                  checked={true}
-                  disabled={true}
-                  className="mt-[3px]"
-                />
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium leading-none">Read access to tools</p>
-                  <p className="text-xs text-muted-foreground leading-normal">Discover and inspect connected MCP servers and tool definitions.</p>
-                </div>
-              </label>
-            )}
-
-            {scopesList.includes("mcp:tools:execute") && (
-              <label className="flex items-start gap-3 cursor-not-allowed select-none">
-                <Checkbox
-                  id="scope-execute"
-                  checked={true}
-                  disabled={true}
-                  className="mt-[3px]"
-                />
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium leading-none">Execute tools</p>
-                  <p className="text-xs text-muted-foreground leading-normal">Call connected MCP tools and run sandboxed scripts.</p>
-                </div>
-              </label>
-            )}
-
-            {!scopesList.includes("mcp:tools:read") && !scopesList.includes("mcp:tools:execute") && (
-              <div className="flex items-start gap-2 text-sm leading-5">
-                <span className="text-muted-foreground mt-0.5">✓</span>
-                <span className="text-xs text-muted-foreground">Basic profile information (openid, email).</span>
-              </div>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-muted-foreground font-semibold text-sm">
+            {avatarUrl ? (
+              <img alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" src={avatarUrl} />
+            ) : (
+              accountLabel.charAt(0).toUpperCase()
             )}
           </div>
+          <div className="min-w-0 flex-1 text-left">
+            <p className="text-sm text-foreground">{accountLabel}</p>
+          </div>
+        </div>
+
+        <hr className="border-border/40" />
+
+        <div className="space-y-3">
+          {scopesList.includes("mcp:tools:read") && (
+            <PermissionItem
+              title="Read access to tools"
+              description="Discover and inspect connected MCP servers and tool definitions."
+            />
+          )}
+
+          {scopesList.includes("mcp:tools:execute") && (
+            <PermissionItem
+              title="Execute tools"
+              description="Call connected MCP tools and run sandboxed scripts."
+            />
+          )}
+
+          {(scopesList.includes("openid") || scopesList.includes("email")) && (
+            <PermissionItem
+              title="Basic profile information"
+              description="Access your openid identifier and email address."
+            />
+          )}
+
+          {scopesList.includes("profile") && (
+            <PermissionItem
+              title="User profile information"
+              description="Access your display name, profile picture, and general preferences."
+            />
+          )}
         </div>
       </div>
 
-      {/* Form Submission Actions */}
-      <ConsentActions />
+      <div className="mt-5">
+        <ConsentActions />
+      </div>
     </form>
   );
 }
