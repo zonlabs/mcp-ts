@@ -262,16 +262,15 @@ export function McpUsageOverview({
                           childCount={eventGroup.children.length}
                         />
                         {eventGroup.children.length > 0 && (
-                          <div className="sm:ml-4 sm:pl-3">
+                          <>
                             {eventGroup.children.map((child) => (
                               <RecentActivityRow
                                 key={child.id}
                                 event={child}
                                 serverUrl={resolveMcpUsageServerUrl(child) ?? undefined}
-                                isChild
                               />
                             ))}
-                          </div>
+                          </>
                         )}
                       </div>
                     ))}
@@ -371,12 +370,10 @@ function UsageMetric({
 function RecentActivityRow({
   event,
   serverUrl,
-  isChild,
   childCount,
 }: {
   event: McpToolCallEventRow;
   serverUrl?: string;
-  isChild?: boolean;
   childCount?: number;
 }) {
   const appName = getMcpAppDisplayName(event.app_key, event.server_name);
@@ -384,17 +381,12 @@ function RecentActivityRow({
 
   return (
     <div className={cn(
-      "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 bg-muted/10 p-3 text-sm sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:bg-transparent sm:px-4",
-      isChild ? "sm:py-2 sm:bg-muted/3" : "sm:py-3"
+      "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 bg-muted/10 p-3 text-sm sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:bg-transparent sm:px-4 sm:py-3"
     )}>
-      {isChild ? (
-        <div />
-      ) : (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Clock3 className="h-4 w-4" />
-          <span>{formatTime(event.started_at)}</span>
-        </div>
-      )}
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Clock3 className="h-4 w-4" />
+        <span>{formatTime(event.started_at)}</span>
+      </div>
       <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
         <ServerIcon serverName={appName} serverUrl={serverUrl} size={28} className="shrink-0 rounded-lg" />
         {event.server_id || serverUrl ? (
