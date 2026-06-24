@@ -257,7 +257,7 @@ export function McpUsageOverview({
                   </div>
                   <div className="space-y-1 sm:space-y-0">
                     {dateGroup.groups.map((eventGroup, idx) => (
-                      <div key={eventGroup.parent.id} className={cn(idx > 0 && "sm:border-t sm:border-border sm:mt-2")}>
+                      <div key={eventGroup.parent.id} className={cn(idx > 0 && "sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 sm:mt-2")}>
                         <RecentActivityRow
                           event={eventGroup.parent}
                           serverUrl={resolveMcpUsageServerUrl(eventGroup.parent, connections) ?? undefined}
@@ -386,8 +386,8 @@ function RecentActivityRow({
 
   return (
     <div className={cn(
-      "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 bg-muted/10 p-3 text-sm sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:bg-transparent sm:px-4 sm:py-3",
-      isChild && "sm:bg-muted/3"
+      "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 bg-muted/10 p-3 text-sm sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:bg-transparent sm:px-4",
+      isChild ? "sm:py-2 sm:bg-muted/3" : "sm:py-3"
     )}>
       {isChild ? (
         <div />
