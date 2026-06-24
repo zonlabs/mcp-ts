@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState, useEffect, useRef } from "react";
 import { Activity, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
-import type { McpToolCallEventRow, McpUsageConnectionLike } from "@/lib/mcp-usage";
+import type { McpToolCallEventRow, McpToolCallEventGroup, McpUsageConnectionLike } from "@/lib/mcp-usage";
 import {
   buildMcpUsageHeatmap,
   getMcpAppDisplayName,
@@ -23,12 +23,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
 interface McpUsageOverviewProps {
-  events: McpToolCallEventRow[];
+  groups: McpToolCallEventGroup[];
   connections: McpUsageConnectionLike[];
   metricsEvents: McpToolCallEventRow[];
   totalCount: number;
   currentPage: number;
   onPageChange?: (newPage: number) => void;
+  isFetching?: boolean;
   days?: number;
   healthStatus?: string;
   healthData?: {
@@ -43,12 +44,13 @@ interface McpUsageOverviewProps {
 }
 
 export function McpUsageOverview({
-  events,
+  groups,
   connections,
   metricsEvents,
   totalCount,
   currentPage,
   onPageChange,
+  isFetching,
   days,
 }: McpUsageOverviewProps) {
   const router = useRouter();
@@ -107,7 +109,7 @@ export function McpUsageOverview({
   const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date(), connections);
   // Compute max count for relative color scaling
   const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
-  const recentEventGroups = useMemo(() => groupRecentEventsByDate(events), [events]);
+  const recentEventGroups = useMemo(() => groupRecentGroupsByDate(groups), [groups]);
   const mostUsedAppEvent = summary.mostUsedApp
     ? metricsEvents.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
     : undefined;
@@ -212,35 +214,78 @@ export function McpUsageOverview({
         </div>
       </div>
 
-      <div className="space-y-3 pb-8">
+      <div className="space-y-2 pb-6">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Recent Activity</h3>
         </div>
 
-        <div className="space-y-5 rounded-2xl bg-background p-3 sm:p-5">
-          <div className="space-y-4">
-            {recentEventGroups.map((group) => (
-              <section key={group.dateKey} className="space-y-2">
+        <div className="space-y-3 rounded-xl bg-background p-2 sm:p-4">
+          <div className="space-y-3">
+            {isFetching && groups.length > 0 ? (
+              <div className="space-y-3">
                 <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  {group.label}
+                  <div className="h-3 w-16 animate-pulse rounded bg-muted" />
                 </div>
-                <div className="space-y-2 sm:space-y-0">
-                  {group.events.map((event) => (
-                    <RecentActivityRow
-                      key={event.id}
-                      event={event}
-                      serverUrl={resolveMcpUsageServerUrl(event, connections) ?? undefined}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 p-3 sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:gap-3 sm:px-4 sm:py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-12 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="flex items-center gap-2 sm:col-span-1 col-span-2">
+                      <div className="h-7 w-7 animate-pulse rounded-lg bg-muted" />
+                      <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <div className="h-3 w-10 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div>
+                      <div className="h-3 w-8 animate-pulse rounded bg-muted" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              recentEventGroups.map((dateGroup) => (
+                <section key={dateGroup.dateKey} className="space-y-1">
+                  <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    {dateGroup.label}
+                  </div>
+                  <div className="space-y-1 sm:space-y-0">
+                    {dateGroup.groups.map((eventGroup, idx) => (
+                      <div key={eventGroup.parent.id} className={cn(idx > 0 && "sm:border-t sm:border-border sm:mt-2")}>
+                        <RecentActivityRow
+                          event={eventGroup.parent}
+                          serverUrl={resolveMcpUsageServerUrl(eventGroup.parent, connections) ?? undefined}
+                          childCount={eventGroup.children.length}
+                        />
+                        {eventGroup.children.length > 0 && (
+                          <div className="sm:ml-4 sm:pl-3">
+                            {eventGroup.children.map((child) => (
+                              <RecentActivityRow
+                                key={child.id}
+                                event={child}
+                                serverUrl={resolveMcpUsageServerUrl(child, connections) ?? undefined}
+                                isChild
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))
+            )}
           </div>
 
           <div className="flex flex-col gap-3 border-t border-red-500/20 px-1 py-3 dark:border-red-400/20 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <p className="text-xs text-muted-foreground">
-              Showing {events.length === 0 ? 0 : (currentPage - 1) * RECENT_ACTIVITY_PAGE_SIZE + 1}-{Math.min(
+              Showing {groups.length === 0 ? 0 : (currentPage - 1) * RECENT_ACTIVITY_PAGE_SIZE + 1}-{Math.min(
                 currentPage * RECENT_ACTIVITY_PAGE_SIZE,
                 totalCount
               )} of {totalCount}
@@ -250,7 +295,7 @@ export function McpUsageOverview({
                 type="button"
                 className="inline-flex h-9 min-w-full items-center justify-center rounded-md border border-red-500/20 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 sm:min-w-0"
                 onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage <= 1}
+                disabled={currentPage <= 1 || isFetching}
               >
                 Previous
               </button>
@@ -258,7 +303,7 @@ export function McpUsageOverview({
                 type="button"
                 className="inline-flex h-9 min-w-full items-center justify-center rounded-md border border-red-500/20 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/20 sm:min-w-0"
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage * RECENT_ACTIVITY_PAGE_SIZE >= totalCount}
+                disabled={currentPage * RECENT_ACTIVITY_PAGE_SIZE >= totalCount || isFetching}
               >
                 Next
               </button>
@@ -272,30 +317,30 @@ export function McpUsageOverview({
 
 
 
-function groupRecentEventsByDate(events: McpToolCallEventRow[]) {
+function groupRecentGroupsByDate(groups: McpToolCallEventGroup[]) {
   const todayKey = getLocalDateKey(new Date());
-  const groups: Array<{
+  const dateGroups: Array<{
     dateKey: string;
     label: string;
-    events: McpToolCallEventRow[];
+    groups: McpToolCallEventGroup[];
   }> = [];
 
-  for (const event of events) {
-    const dateKey = getLocalDateKey(event.started_at);
-    const existing = groups.find((group) => group.dateKey === dateKey);
+  for (const group of groups) {
+    const dateKey = getLocalDateKey(group.parent.started_at);
+    const existing = dateGroups.find((g) => g.dateKey === dateKey);
     if (existing) {
-      existing.events.push(event);
+      existing.groups.push(group);
       continue;
     }
 
-    groups.push({
+    dateGroups.push({
       dateKey,
       label: dateKey === todayKey ? "TODAY" : formatRecentActivityDateLabel(dateKey).toUpperCase(),
-      events: [event],
+      groups: [group],
     });
   }
 
-  return groups;
+  return dateGroups;
 }
 
 function UsageMetric({
@@ -328,19 +373,30 @@ function UsageMetric({
 function RecentActivityRow({
   event,
   serverUrl,
+  isChild,
+  childCount,
 }: {
   event: McpToolCallEventRow;
   serverUrl?: string;
+  isChild?: boolean;
+  childCount?: number;
 }) {
   const appName = getMcpAppDisplayName(event.app_key, event.server_name);
   const isSuccess = event.status === "success";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 bg-muted/10 p-3 text-sm sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 first:sm:border-t-0 sm:bg-transparent sm:px-4 sm:py-3">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Clock3 className="h-4 w-4" />
-        <span>{formatTime(event.started_at)}</span>
-      </div>
+    <div className={cn(
+      "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 bg-muted/10 p-3 text-sm sm:grid-cols-[6rem_12rem_1fr_5rem_5rem] sm:items-center sm:gap-3 sm:bg-transparent sm:px-4 sm:py-3",
+      isChild && "sm:bg-muted/3"
+    )}>
+      {isChild ? (
+        <div />
+      ) : (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Clock3 className="h-4 w-4" />
+          <span>{formatTime(event.started_at)}</span>
+        </div>
+      )}
       <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1">
         <ServerIcon serverName={appName} serverUrl={serverUrl} size={28} className="shrink-0 rounded-lg" />
         {event.server_id || serverUrl ? (
@@ -368,19 +424,26 @@ function RecentActivityRow({
         )}
       </div>
       <div className="col-span-2 min-w-0 sm:col-span-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <p
-              className="break-all whitespace-normal font-mono text-xs tracking-tight sm:text-sm text-foreground"
-              style={{ wordBreak: "break-all", whiteSpace: "normal" }}
-            >
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p
+                className="break-all whitespace-normal font-mono text-xs tracking-tight sm:text-sm text-foreground"
+                style={{ wordBreak: "break-all", whiteSpace: "normal" }}
+              >
+                {event.tool_name}
+              </p>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs break-all">
               {event.tool_name}
-            </p>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs break-all">
-            {event.tool_name}
-          </TooltipContent>
-        </Tooltip>
+            </TooltipContent>
+          </Tooltip>
+          {childCount !== undefined && childCount > 0 && (
+            <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-muted-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground leading-none">
+              +{childCount}
+            </span>
+          )}
+        </div>
         {!isSuccess && event.error_preview ? (
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground sm:truncate">{event.error_preview}</p>
         ) : null}
@@ -392,7 +455,23 @@ function RecentActivityRow({
           isSuccess ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
         )}
       >
-        {isSuccess ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+        {isSuccess ? (
+          <CheckCircle2 className="h-4 w-4" />
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <XCircle className="h-4 w-4 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              <div className="space-y-1 text-xs">
+                {event.error_code && (
+                  <p className="font-mono text-muted-foreground">Code: {event.error_code}</p>
+                )}
+                <p>{event.error_preview || "Unknown error"}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
         {isSuccess ? "OK" : "Error"}
       </div>
     </div>

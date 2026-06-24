@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 export function useMcpUsage(page: number) {
-  return useQuery({
+  const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["mcpUsage", page],
     queryFn: async () => {
       const res = await fetch(`/api/remote-mcp/usage?page=${page}`);
@@ -15,4 +15,6 @@ export function useMcpUsage(page: number) {
     },
     placeholderData: (previousData) => previousData,
   });
+
+  return { data, isLoading, error, isFetching };
 }

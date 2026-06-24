@@ -12,6 +12,7 @@ const SELECT_COLUMNS = [
   "app_key",
   "tool_name",
   "tool_namespace",
+  "event_type",
   "status",
   "error_code",
   "error_preview",
@@ -53,25 +54,58 @@ export async function GET(request: NextRequest) {
         .from("mcp_tool_call_events")
         .select(SELECT_COLUMNS, { count: "exact" })
         .eq("user_id", user.id)
-        .order("started_at", { ascending: false })
+        .eq("event_type", "top_level")
+        .order("completed_at", { ascending: false })
         .range(from, to),
       supabase
         .from("mcp_tool_call_events")
-        .select("started_at,status,app_key,server_id,server_name")
+        .select("started_at,status,app_key,server_id,server_name,event_type")
         .eq("user_id", user.id)
-        .order("started_at", { ascending: false })
+        .order("completed_at", { ascending: false })
+        .order("event_type", { ascending: false })
         .limit(5000),
     ]);
 
     const { data: grantsData, error: grantsError } = oauthGrantsResult;
-    console.log("DEBUG: oauthGrantsResult:", JSON.stringify(oauthGrantsResult, null, 2));
-    const { data: eventsData, count, error: eventsError } = paginatedResult;
+    // console.log("DEBUG: oauthGrantsResult:", JSON.stringify(oauthGrantsResult, null, 2));
+    const { data: rawParentEvents, count, error: eventsError } = paginatedResult;
     const { data: metricsData, error: metricsError } = metricsResult;
 
     if (grantsError || eventsError || metricsError) {
       const errorMsg = grantsError?.message || eventsError?.message || metricsError?.message;
       return NextResponse.json({ error: errorMsg }, { status: 500 });
     }
+
+    const parentEvents = (rawParentEvents ?? []) as unknown as Record<string, unknown>[];
+
+    // Fetch children events sharing the same request_ids as the returned parents
+    const requestIds = [...new Set(parentEvents.map((e) => e.request_id as string))];
+    let children: Record<string, unknown>[] = [];
+    if (requestIds.length > 0) {
+      const { data: childData } = await supabase
+        .from("mcp_tool_call_events")
+        .select(SELECT_COLUMNS)
+        .eq("user_id", user.id)
+        .in("request_id", requestIds)
+        .neq("event_type", "top_level")
+        .order("started_at", { ascending: true });
+      children = (childData ?? []) as unknown as Record<string, unknown>[];
+    }
+
+    // Group children by request_id
+    const childrenByRequestId = new Map<string, Record<string, unknown>[]>();
+    for (const child of children) {
+      const rid = child.request_id as string;
+      const existing = childrenByRequestId.get(rid) ?? [];
+      existing.push(child);
+      childrenByRequestId.set(rid, existing);
+    }
+
+    // Build hierarchical groups: parent + its children
+    const groups = (parentEvents ?? []).map((parent) => ({
+      parent,
+      children: childrenByRequestId.get(parent.request_id as string) ?? [],
+    }));
 
     const grants = (grantsData ?? []).map((g) => ({
       id: g.client.id,
@@ -85,7 +119,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       connections: connections ?? [],
       grants,
-      events: eventsData ?? [],
+      groups,
       metricsEvents: metricsData ?? [],
       totalCount: count ?? 0,
       currentPage,

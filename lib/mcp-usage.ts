@@ -1,5 +1,7 @@
 export type McpToolCallStatus = "success" | "error";
 
+export type McpToolCallEventType = "top_level" | "downstream_tool" | "schema_inspection";
+
 export interface McpToolCallEventRow {
   id: string;
   user_id: string;
@@ -10,6 +12,7 @@ export interface McpToolCallEventRow {
   app_key: string | null;
   tool_name: string;
   tool_namespace: string | null;
+  event_type: McpToolCallEventType;
   status: McpToolCallStatus;
   error_code: string | null;
   error_preview: string | null;
@@ -17,6 +20,11 @@ export interface McpToolCallEventRow {
   completed_at: string;
   duration_ms: number;
   created_at: string;
+}
+
+export interface McpToolCallEventGroup {
+  parent: McpToolCallEventRow;
+  children: McpToolCallEventRow[];
 }
 
 export interface McpUsageSummary {

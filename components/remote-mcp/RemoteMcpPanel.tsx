@@ -18,7 +18,7 @@ export default function RemoteMcpPanel({
   initialTab = "mcp-server",
 }: RemoteMcpPanelProps) {
   const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useMcpUsage(page);
+  const { data, isLoading, error, isFetching } = useMcpUsage(page);
   const [healthStatus, setHealthStatus] = useState<"loading" | "healthy" | "unhealthy">("loading");
   const [healthData, setHealthData] = useState<{
     version?: string;
@@ -146,12 +146,13 @@ export default function RemoteMcpPanel({
               <ConnectedClientsCard grants={data.grants} />
             ) : (
               <McpUsageOverview
-                events={data.events}
+                groups={data.groups}
                 connections={data.connections}
                 metricsEvents={data.metricsEvents}
                 totalCount={data.totalCount}
                 currentPage={data.currentPage || 1}
                 onPageChange={setPage}
+                isFetching={isFetching}
                 healthStatus={healthStatus}
                 healthData={healthData}
               />
