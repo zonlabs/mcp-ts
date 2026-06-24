@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -72,6 +72,7 @@ interface SessionRun {
   id: string;
   toolName: string;
   timestamp: string;
+  createdAt: string;
   input: Record<string, any>;
   result: any;
   success: boolean;
@@ -114,6 +115,8 @@ export default function ToolExecutionPanel({
   const [savePresetDialogOpen, setSavePresetDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState("");
 
+  const isRestoringRef = useRef(false);
+
   const { theme } = useTheme();
   const tool = tools.find((t) => t.name === selectedToolName);
 
@@ -126,8 +129,20 @@ export default function ToolExecutionPanel({
         else setSavedPresets([]);
 
         const storedHistory = localStorage.getItem(`mcp-session-history-${server.id}`);
-        if (storedHistory) setSessionHistory(JSON.parse(storedHistory));
-        else setSessionHistory([]);
+        if (storedHistory) {
+          const parsed: SessionRun[] = JSON.parse(storedHistory);
+          const cutoff = Date.now() - 86_400_000;
+          const valid = parsed.filter((run) => {
+            if (!run.createdAt) return false;
+            return new Date(run.createdAt).getTime() > cutoff;
+          });
+          if (valid.length !== parsed.length) {
+            localStorage.setItem(`mcp-session-history-${server.id}`, JSON.stringify(valid));
+          }
+          setSessionHistory(valid);
+        } else {
+          setSessionHistory([]);
+        }
       } catch (e) {
         console.error("Error loading presets/history", e);
       }
@@ -166,6 +181,10 @@ export default function ToolExecutionPanel({
 
   // Reset form fields when selected tool changes
   useEffect(() => {
+    if (isRestoringRef.current) {
+      isRestoringRef.current = false;
+      return;
+    }
     if (!tool) return;
     const initialValues: Record<string, any> = {};
     const initialSkips: Record<string, boolean> = {};
@@ -295,6 +314,7 @@ export default function ToolExecutionPanel({
         id: Math.random().toString(36).substring(7),
         toolName: tool.name,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        createdAt: new Date().toISOString(),
         input: toolInput,
         result: res,
         success: true,
@@ -321,6 +341,7 @@ export default function ToolExecutionPanel({
         id: Math.random().toString(36).substring(7),
         toolName: tool.name,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        createdAt: new Date().toISOString(),
         input: toolInput,
         result: null,
         success: false,
@@ -367,6 +388,8 @@ export default function ToolExecutionPanel({
 
   // Load preset
   const handleLoadPreset = (preset: SavedPreset) => {
+    isRestoringRef.current = true;
+    setSelectedToolName(preset.toolName);
     setFieldValues(preset.fieldValues);
     setSkippedFields(preset.skippedFields);
     setToolsViewMode("form");
@@ -860,6 +883,7 @@ export default function ToolExecutionPanel({
                   run={run}
                   onDelete={() => handleDeleteRunLog(run.id)}
                   onRestore={() => {
+                    isRestoringRef.current = true;
                     setSelectedToolName(run.toolName);
                     // Build fieldValues and skips
                     const vals: Record<string, any> = {};
