@@ -9,6 +9,7 @@ const SELECT_COLUMNS = [
   "mcp_session_id",
   "server_id",
   "server_name",
+  "server_url",
   "app_key",
   "tool_name",
   "tool_namespace",
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
         .range(from, to),
       supabase
         .from("mcp_tool_call_events")
-        .select("started_at,status,app_key,server_id,server_name,event_type")
+        .select("started_at,status,app_key,server_id,server_name,server_url,event_type")
         .eq("user_id", user.id)
         .order("completed_at", { ascending: false })
         .order("event_type", { ascending: false })

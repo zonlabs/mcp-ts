@@ -9,6 +9,7 @@ export interface McpToolCallEventRow {
   mcp_session_id: string | null;
   server_id: string | null;
   server_name: string | null;
+  server_url: string | null;
   app_key: string | null;
   tool_name: string;
   tool_namespace: string | null;
@@ -51,13 +52,6 @@ export interface McpUsageHeatmapApp {
   name: string;
   count: number;
   serverUrl?: string | null;
-}
-
-export interface McpUsageConnectionLike {
-  sessionId: string;
-  serverId: string;
-  serverName: string;
-  serverUrl: string;
 }
 
 const ORCHESTRATOR_APP_KEYS = new Set(["mcp_assistant", "workflow_automation_engine"]);
@@ -167,7 +161,6 @@ export function buildMcpUsageHeatmap(
   events: McpToolCallEventRow[],
   days = 90,
   now = new Date(),
-  connections: McpUsageConnectionLike[] = []
 ): McpUsageHeatmapDay[] {
   const safeDays = Math.max(1, Math.floor(days));
   const countsByDate = new Map<string, number>();
@@ -182,7 +175,7 @@ export function buildMcpUsageHeatmap(
       normalizeAppKey(event.server_name) ||
       "mcp_server";
     const appName = getMcpAppDisplayName(event.app_key, event.server_name);
-    const serverUrl = resolveMcpUsageServerUrl(event, connections) ?? null;
+    const serverUrl = event.server_url ?? null;
     const appCounts = connectedAppCountsByDate.get(dateKey) ?? new Map<string, McpUsageHeatmapApp>();
     const current = appCounts.get(appKey);
     appCounts.set(appKey, {
@@ -216,29 +209,9 @@ export function buildMcpUsageHeatmap(
 }
 
 export function resolveMcpUsageServerUrl(
-  event: Pick<McpToolCallEventRow, "mcp_session_id" | "server_id" | "server_name" | "app_key">,
-  connections: McpUsageConnectionLike[]
+  event: Pick<McpToolCallEventRow, "server_url">
 ) {
-  const normalizedServerId = normalizeAppKey(event.server_id);
-  const normalizedServerName = normalizeAppKey(event.server_name);
-  const normalizedAppKey = normalizeAppKey(event.app_key);
-
-  const byServerIdentity = connections.find((connection) => {
-    const connectionServerId = normalizeAppKey(connection.serverId);
-    const connectionServerName = normalizeAppKey(connection.serverName);
-    return (
-      (normalizedServerId && connectionServerId === normalizedServerId) ||
-      (normalizedServerName && connectionServerName === normalizedServerName) ||
-      (normalizedAppKey && connectionServerId === normalizedAppKey)
-    );
-  });
-
-  if (byServerIdentity?.serverUrl) {
-    return byServerIdentity.serverUrl;
-  }
-
-  const bySessionId = connections.find((connection) => connection.sessionId === event.mcp_session_id);
-  return bySessionId?.serverUrl ?? null;
+  return event.server_url ?? null;
 }
 
 export function isMcpAssistantOrchestratorEvent(

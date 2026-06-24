@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState, useEffect, useRef } from "react";
 import { Activity, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
-import type { McpToolCallEventRow, McpToolCallEventGroup, McpUsageConnectionLike } from "@/lib/mcp-usage";
+import type { McpToolCallEventRow, McpToolCallEventGroup } from "@/lib/mcp-usage";
 import {
   buildMcpUsageHeatmap,
   getMcpAppDisplayName,
@@ -24,7 +24,6 @@ const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
 interface McpUsageOverviewProps {
   groups: McpToolCallEventGroup[];
-  connections: McpUsageConnectionLike[];
   metricsEvents: McpToolCallEventRow[];
   totalCount: number;
   currentPage: number;
@@ -45,7 +44,6 @@ interface McpUsageOverviewProps {
 
 export function McpUsageOverview({
   groups,
-  connections,
   metricsEvents,
   totalCount,
   currentPage,
@@ -106,7 +104,7 @@ export function McpUsageOverview({
   }
 
   const summary = summarizeMcpUsage(metricsEvents);
-  const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date(), connections);
+  const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date());
   // Compute max count for relative color scaling
   const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
   const recentEventGroups = useMemo(() => groupRecentGroupsByDate(groups), [groups]);
@@ -114,7 +112,7 @@ export function McpUsageOverview({
     ? metricsEvents.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
     : undefined;
   const mostUsedAppServerUrl = mostUsedAppEvent
-    ? resolveMcpUsageServerUrl(mostUsedAppEvent, connections) ?? undefined
+    ? resolveMcpUsageServerUrl(mostUsedAppEvent) ?? undefined
     : undefined;
 
   return (
@@ -260,7 +258,7 @@ export function McpUsageOverview({
                       <div key={eventGroup.parent.id} className={cn(idx > 0 && "sm:border-t sm:border-red-500/20 dark:sm:border-red-400/20 sm:mt-2")}>
                         <RecentActivityRow
                           event={eventGroup.parent}
-                          serverUrl={resolveMcpUsageServerUrl(eventGroup.parent, connections) ?? undefined}
+                          serverUrl={resolveMcpUsageServerUrl(eventGroup.parent) ?? undefined}
                           childCount={eventGroup.children.length}
                         />
                         {eventGroup.children.length > 0 && (
@@ -269,7 +267,7 @@ export function McpUsageOverview({
                               <RecentActivityRow
                                 key={child.id}
                                 event={child}
-                                serverUrl={resolveMcpUsageServerUrl(child, connections) ?? undefined}
+                                serverUrl={resolveMcpUsageServerUrl(child) ?? undefined}
                                 isChild
                               />
                             ))}
@@ -359,7 +357,7 @@ function UsageMetric({
       <p className="mb-1 text-sm text-muted-foreground">{label}</p>
       <div className="flex items-center gap-2">
         {serverUrl ? (
-          <ServerIcon serverName={value} serverUrl={serverUrl} size={20} className="shrink-0" />
+          <ServerIcon serverName={value} serverUrl={serverUrl} size={24} className="shrink-0 rounded-md" />
         ) : null}
         <p className="min-w-0 max-w-[20rem] truncate text-lg font-semibold tracking-tight sm:text-xl">
           {value}

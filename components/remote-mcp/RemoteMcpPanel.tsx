@@ -147,7 +147,6 @@ export default function RemoteMcpPanel({
             ) : (
               <McpUsageOverview
                 groups={data.groups}
-                connections={data.connections}
                 metricsEvents={data.metricsEvents}
                 totalCount={data.totalCount}
                 currentPage={data.currentPage || 1}
