@@ -136,7 +136,7 @@ async function discoverMcpTools(userId: string): Promise<DiscoveredTool[]> {
       } catch {
         // Skip sessions that fail to connect or list tools
       } finally {
-        try { client.disconnect("tool-discovery"); } catch {}
+        try { client.disconnect(); } catch {}
         try { client.dispose(); } catch {}
       }
     })

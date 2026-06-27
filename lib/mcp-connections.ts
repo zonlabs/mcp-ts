@@ -49,8 +49,8 @@ function toConnectionRecord(
 function getStoredConnectionStatus(session: SessionData): string {
   const sessionRecord = session as unknown as Record<string, unknown>;
 
-  if (typeof sessionRecord.active === "boolean") {
-    return sessionRecord.active ? "READY" : "DISCONNECTED";
+  if (typeof sessionRecord.status === "string") {
+    return sessionRecord.status === "active" ? "READY" : "DISCONNECTED";
   }
 
   const state = sessionRecord.connectionStatus ?? sessionRecord.state;
@@ -97,7 +97,7 @@ export async function getMcpConnectionsForIdentity(
       } catch {
         return toConnectionRecord(session, false);
       } finally {
-        client.disconnect("mcp-connections-check");
+        client.disconnect();
         client.dispose();
       }
     })

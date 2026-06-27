@@ -260,7 +260,7 @@ export function PlaygroundChat({
     result: unknown;
     status: 'complete' | 'executing';
   } | null>(null);
-  const [lastAutoOpenedCallId, setLastAutoOpenedCallId] = useState<string | null>(null);
+
   const [selectedThoughtMessageId, setSelectedThoughtMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasSentInitialDraft = useRef(false);
@@ -442,48 +442,7 @@ export function PlaygroundChat({
     setSelectedThoughtMessageId((current) => current ?? lastMessage.id);
   }, [getChainOfThoughtForMessage, messages, status]);
 
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage.role !== 'assistant') return;
 
-    const mcpToolPart = [...lastMessage.parts].reverse().find(
-      (p: any) => p.type === 'tool-mcp_execute_tool' || (p.type === 'tool' && p.toolName === 'mcp_execute_tool')
-    ) as any;
-
-    if (mcpToolPart && mcpToolPart.toolCallId) {
-      if (lastAutoOpenedCallId !== mcpToolPart.toolCallId) {
-        const isExecuting = mcpToolPart.state === 'input-streaming' || mcpToolPart.state === 'input-available';
-        const isComplete = mcpToolPart.state === 'output-available';
-
-        if (isExecuting || isComplete) {
-          const input = mcpToolPart.input;
-          const actualToolName = typeof input?.toolName === 'string' ? input.toolName : '';
-          const actualArgs = input?.args && typeof input.args === 'object' ? (input.args as Record<string, unknown>) : undefined;
-
-          setActiveMcpApp({
-            name: actualToolName,
-            args: actualArgs,
-            result: isComplete ? mcpToolPart.output : undefined,
-            status: isComplete ? 'complete' : 'executing',
-          });
-          setLastAutoOpenedCallId(mcpToolPart.toolCallId);
-        }
-      } else {
-        const isComplete = mcpToolPart.state === 'output-available';
-        if (isComplete && activeMcpApp && activeMcpApp.status !== 'complete') {
-          setActiveMcpApp((current) => {
-            if (!current) return null;
-            return {
-              ...current,
-              status: 'complete',
-              result: mcpToolPart.output,
-            };
-          });
-        }
-      }
-    }
-  }, [messages, lastAutoOpenedCallId, activeMcpApp]);
 
   const hasMessages = messages.length > 0;
 
@@ -686,9 +645,8 @@ export function PlaygroundChat({
                 const actualToolName = typeof input?.toolName === 'string' ? input.toolName : '';
                 const actualArgs = input?.args && typeof input.args === 'object' ? (input.args as Record<string, unknown>) : undefined;
                 return (
-                  <div className="relative group/app w-full my-2">
+                  <div key={`mcp-app-executing-${index}`} className="relative group/app w-full my-2">
                     <McpAppRenderer
-                      key={`mcp-app-${index}`}
                       name={actualToolName}
                       args={actualArgs}
                       result={undefined}
@@ -723,9 +681,8 @@ export function PlaygroundChat({
                 const actualArgs = callInput?.args && typeof callInput.args === 'object' ? (callInput.args as Record<string, unknown>) : undefined;
 
                 return (
-                  <div className="relative group/app w-full my-2">
+                  <div key={`mcp-app-complete-${index}`} className="relative group/app w-full my-2">
                     <McpAppRenderer
-                      key={`mcp-app-${index}`}
                       name={actualToolName}
                       args={actualArgs}
                       result={toolPart.output}

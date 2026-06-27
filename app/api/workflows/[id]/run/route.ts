@@ -49,7 +49,7 @@ export async function POST(
   if (!sessionId) {
     try {
       const userSessions = await sessions.list(user.id);
-      const active = userSessions.find((s: SessionData) => (s as unknown as Record<string, unknown>).active !== false);
+      const active = userSessions.find((s: SessionData) => (s as unknown as Record<string, unknown>).status !== "pending");
       if (active) sessionId = String(active.sessionId ?? "");
     } catch {
       // fall through to DB lookup
@@ -60,7 +60,7 @@ export async function POST(
       .from("mcp_sessions")
       .select("session_id")
       .eq("identity", user.id)
-      .eq("active", true)
+      .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
