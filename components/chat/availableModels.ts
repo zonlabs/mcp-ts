@@ -61,6 +61,20 @@ export const AVAILABLE_MODELS = [
 
   // --- Gemini (2025 - 2026) ---
   {
+    id: "gemini-3-pro-preview",
+    name: "Gemini 3 Pro",
+    description: "2026 flagship preview; next-gen reasoning and multimodal with 2M context window",
+    provider: "Gemini",
+    tag: "Premium"
+  },
+  {
+    id: "gemini-3-flash-preview",
+    name: "Gemini 3 Flash",
+    description: "2026 fast preview; delivers high-speed reasoning and multimodal performance",
+    provider: "Gemini",
+    tag: "Fast"
+  },
+  {
     id: "gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
     description: "2026 fast model; delivers next-gen reasoning and multimodal performance with 2M context window",
@@ -68,9 +82,16 @@ export const AVAILABLE_MODELS = [
     tag: "Fast"
   },
   {
-    id: "gemini-3.1-pro",
-    name: "Gemini 3.1 Pro",
-    description: "2026 release; leads in ARC-AGI-2 logic and specialized 'vibe coding'",
+    id: "gemini-3.1-flash-lite",
+    name: "Gemini 3.1 Flash Lite",
+    description: "Cost-efficient lite variant of Gemini 3.1 for high-throughput workloads",
+    provider: "Gemini",
+    tag: "Fast"
+  },
+  {
+    id: "gemini-3.1-pro-preview",
+    name: "Gemini 3.1 Pro Preview",
+    description: "2026 pro preview; advanced reasoning and coding with custom tool support",
     provider: "Gemini",
     tag: "Premium"
   },
@@ -80,6 +101,13 @@ export const AVAILABLE_MODELS = [
     description: "Mid-2025 'Thinking' model; introduced native multimodal audio output",
     provider: "Gemini",
     tag: "Premium"
+  },
+  {
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    description: "Fast and efficient successor to 2.0 Flash with improved reasoning",
+    provider: "Gemini",
+    tag: "Fast"
   },
   {
     id: "gemini-2.0-flash",
