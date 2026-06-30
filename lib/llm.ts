@@ -1,6 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
 
 export type LlmConfig = {
@@ -13,8 +13,8 @@ export type LlmConfig = {
 const TITLE_MODEL_BY_PROVIDER: Record<string, string> = {
   openai: 'gpt-4o-mini',
   anthropic: 'claude-haiku-4-5',
-  gemini: 'gemini-2.0-flash',
-  google: 'gemini-2.0-flash',
+  gemini: 'gemini-3.5-flash',
+  google: 'gemini-3.5-flash',
   deepseek: 'deepseek-chat',
 };
 
@@ -31,7 +31,8 @@ export function getModelFromConfig(config?: LlmConfig) {
     return anthropic(requestedModel);
   }
   if (provider === 'google' || provider === 'gemini') {
-    return google(requestedModel);
+    const geminiProvider = createGoogleGenerativeAI({ apiKey: apiKey || '' });
+    return geminiProvider(requestedModel);
   }
   return createOpenAI({ apiKey })(requestedModel);
 }
@@ -48,7 +49,8 @@ export function getTitleModel(config?: LlmConfig) {
     return createAnthropic({ apiKey: apiKey || '' })(titleModel);
   }
   if (provider === 'google' || provider === 'gemini') {
-    return google(titleModel);
+    const geminiProvider = createGoogleGenerativeAI({ apiKey: apiKey || '' });
+    return geminiProvider(titleModel);
   }
 
   return createOpenAI({ apiKey })(titleModel);

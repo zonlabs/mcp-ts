@@ -61,9 +61,16 @@ export const AVAILABLE_MODELS = [
 
   // --- Gemini (2025 - 2026) ---
   {
+    id: "gemini-3.5-flash",
+    name: "Gemini 3.5 Flash",
+    description: "2026 fast model; delivers next-gen reasoning and multimodal performance with 2M context window",
+    provider: "Gemini",
+    tag: "Fast"
+  },
+  {
     id: "gemini-3.1-pro",
     name: "Gemini 3.1 Pro",
-    description: "2026 flagship; leads in ARC-AGI-2 logic and specialized 'vibe coding'",
+    description: "2026 release; leads in ARC-AGI-2 logic and specialized 'vibe coding'",
     provider: "Gemini",
     tag: "Premium"
   },
