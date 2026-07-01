@@ -20,102 +20,65 @@ export function ServerIcon({
   showFallback = true,
   fallbackImage,
 }: ServerIconProps) {
-  const [faviconError, setFaviconError] = useState(false);
-  const [fallbackError, setFallbackError] = useState(false);
+  const [error, setError] = useState(false);
 
-  // Reset error states when serverUrl changes to avoid carrying over 404 state to other servers
   React.useEffect(() => {
-    setFaviconError(false);
-    setFallbackError(false);
+    setError(false);
   }, [serverUrl, serverName]);
 
-  // Extract root domain from URL (e.g., mcp.supabase.com -> supabase.com)
-  const getDomainFromUrl = (url?: string | null): string | null => {
+  const getHostname = (url?: string | null): string | null => {
     if (!url) return null;
-
     try {
-      // Handle various URL formats
       let urlString = url.trim();
-
-      // Add protocol if missing
       if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
         urlString = `https://${urlString}`;
       }
-
       const urlObj = new URL(urlString);
-      let hostname = urlObj.hostname;
-
-      // Remove 'www.' prefix if present
-      hostname = hostname.replace(/^www\./, '');
-
-      // Extract root domain (last 2 parts of hostname)
-      // Examples:
-      // - mcp.supabase.com -> supabase.com
-      // - server.smithery.ai -> smithery.ai
-      // - media-aggregator.fastmcp.app -> fastmcp.app
-      const parts = hostname.split('.');
-      if (parts.length >= 2) {
-        return parts.slice(-2).join('.');
-      }
-      return hostname;
-    } catch (error) {
-      // Fallback: try to extract domain with regex
-      // Match the last two parts (domain.tld) from the URL
-      const domainMatch = url.match(/(?:https?:\/\/)?(?:www\.)?(?:[^.\/]+\.)*([^.\/]+\.[^.\/]+)/);
-      return domainMatch ? domainMatch[1] : null;
+      return urlObj.hostname.replace(/^www\./, '');
+    } catch {
+      return null;
     }
   };
 
-  const domain = getDomainFromUrl(serverUrl);
+  const hostname = getHostname(serverUrl);
   const firstLetter = serverName.charAt(0).toUpperCase();
 
-  // Generate a consistent color based on server name
   const getColorFromName = (name: string): string => {
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
       hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
-
     const colors = [
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-indigo-500',
-      'bg-cyan-500',
-      'bg-teal-500',
-      'bg-orange-500',
-      'bg-red-500',
-      'bg-yellow-500',
+      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
+      'bg-indigo-500', 'bg-cyan-500', 'bg-teal-500', 'bg-orange-500',
+      'bg-red-500', 'bg-yellow-500',
     ];
-
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // If we have a domain and no error, show the favicon
-  if (domain && !faviconError) {
-    const faviconUrl = `https://${domain}/favicon.ico`;
+  // Try favicon via server proxy (avoids CORS/third-party cookies)
+  if (hostname && !error) {
     return (
       <img
-        src={faviconUrl}
+        key={`fav:${hostname}`}
+        src={`/api/favicon?hostname=${encodeURIComponent(hostname)}`}
         alt={`${serverName} favicon`}
         className={className}
         width={size}
         height={size}
         loading="lazy"
         decoding="async"
-        referrerPolicy="no-referrer"
-        onError={() => {
-          setFaviconError(true);
-        }}
+        onError={() => setError(true)}
+
       />
     );
   }
 
-  // If custom fallback image is provided, use it (when favicon fails or no domain)
-  if (fallbackImage && showFallback && !fallbackError) {
+  // Custom fallback image
+  if (fallbackImage && showFallback) {
     return (
       <img
+        key={`fallback:${fallbackImage}`}
         src={fallbackImage}
         alt={`${serverName} icon`}
         width={size}
@@ -124,14 +87,11 @@ export function ServerIcon({
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
-        onError={(e) => {
-          setFallbackError(true);
-        }}
       />
     );
   }
 
-  // Fallback to first letter with colored background
+  // Letter fallback
   if (showFallback) {
     return (
       <div
@@ -148,6 +108,5 @@ export function ServerIcon({
     );
   }
 
-  // No fallback - just return null
   return null;
 }

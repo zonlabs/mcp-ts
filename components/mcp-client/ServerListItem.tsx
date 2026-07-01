@@ -37,7 +37,7 @@ export function ServerListItem({
 
   return (
     <div
-      className={`group relative ${showActions ? "" : "px-1 py-0.5 border-b border-border last:border-b-0"}`}
+      className={`group relative border-b border-border last:border-b-0 ${showActions ? "" : "px-1 py-0.5"}`}
     >
       {/* Action Buttons (for user servers) */}
       {showActions && onEdit && onDelete && (
