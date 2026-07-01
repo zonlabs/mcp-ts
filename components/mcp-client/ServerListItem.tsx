@@ -5,6 +5,8 @@ import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ServerListItemProps {
   server: McpServer;
@@ -43,6 +45,7 @@ export function ServerListItem({
           <Button
             variant="ghost"
             size="sm"
+            aria-label={`Edit ${server.name}`}
             onClick={(e) => {
               e.stopPropagation();
               onEdit(server);
@@ -54,6 +57,7 @@ export function ServerListItem({
           <Button
             variant="ghost"
             size="sm"
+            aria-label={`Delete ${server.name}`}
             onClick={(e) => {
               e.stopPropagation();
               onDelete(server.id);
@@ -66,7 +70,7 @@ export function ServerListItem({
       )}
 
       <div
-        className={`cursor-pointer transition-all duration-200 relative ${showActions
+        className={`cursor-pointer transition-[background-color,border-color,box-shadow] duration-200 relative ${showActions
           ? `p-2 ${isSelected
             ? "rounded-lg border border-border bg-muted/65 dark:bg-muted/30 shadow-xs"
             : "rounded-lg border border-transparent hover:bg-muted/30 dark:hover:bg-muted/15"
@@ -121,20 +125,12 @@ export function ServerListItem({
             )}
           </div>
         </div>
-        <div className="mt-2 space-y-1.5">
-          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-            {server.description || ""}
-          </p>
-          {server.createdAt && (
-            <p className="text-xs text-muted-foreground/90">
-              added on:{" "}
-              {new Date(server.createdAt).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </p>
-          )}
+        <div className="mt-2 h-[2.5rem]">
+          <div className="line-clamp-2 text-xs leading-relaxed text-muted-foreground [&>*]:inline [&>p]:inline [&>p>code]:bg-muted [&>p>code]:px-1 [&>p>code]:rounded [&>p>code]:text-[10px] [&_a]:underline [&_a]:underline-offset-2 [&_a]:text-primary">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {server.description || ""}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
     </div>

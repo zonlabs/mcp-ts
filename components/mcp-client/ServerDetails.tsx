@@ -221,6 +221,7 @@ export function ServerDetails({
                   <Button
                     variant="ghost"
                     size="sm"
+                    aria-label={urlCopied ? "URL copied" : "Copy server URL"}
                     onClick={handleCopyUrl}
                     className="h-5 w-5 p-0 hover:bg-accent cursor-pointer flex-shrink-0"
                   >

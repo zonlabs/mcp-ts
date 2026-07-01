@@ -93,10 +93,8 @@ export function ServerIcon({
   };
 
   // If we have a domain and no error, show the favicon
-  // Note: we listen to onError to trigger fallback letter view when Google Favicon service fails.
   if (domain && !faviconError) {
-    const faviconSize = Math.max(256, size * 4);
-    const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=${faviconSize}`;
+    const faviconUrl = `https://${domain}/favicon.ico`;
     return (
       <img
         src={faviconUrl}
@@ -109,13 +107,6 @@ export function ServerIcon({
         referrerPolicy="no-referrer"
         onError={() => {
           setFaviconError(true);
-        }}
-        onLoad={(e) => {
-          // If the loaded image is the default google fallback (usually 16x16 or naturalWidth <= 16), trigger fallback
-          const img = e.currentTarget;
-          if (img.naturalWidth > 0 && img.naturalWidth <= 16) {
-            setFaviconError(true);
-          }
         }}
       />
     );

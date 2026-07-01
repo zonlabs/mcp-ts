@@ -135,14 +135,14 @@ export function UserMessage({ message, parts, onEdit }: {
             </div>
           ) : (
             <>
-              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed font-instrument-serif tracking-wide w-fit max-w-full">
+              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed w-fit max-w-full">
                 <p className={`whitespace-pre-wrap break-words ${isLong && !isExpanded ? "line-clamp-3" : ""}`}>
                   {textContent}
                 </p>
                 {isLong && (
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="mt-1.5 text-xs font-instrument-serif tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                    className="mt-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {isExpanded ? "Show less" : "Show more"}
                   </button>
@@ -250,7 +250,7 @@ export function AssistantMessage({
     <div className="flex flex-col items-start gap-3 w-full">
       {text && (
         <div className="flex flex-col gap-1 w-full">
-          <div className="prose prose-sm dark:prose-invert max-w-full leading-relaxed font-instrument-serif tracking-wide text-muted-foreground/90 text-[17px]">
+          <div className="prose prose-sm dark:prose-invert max-w-full leading-relaxed text-muted-foreground/90 text-[17px]">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{

@@ -92,9 +92,10 @@ export function ServerPlaceholder({
           variants={containerVariants}
           initial="hidden"
           animate="visible"
+          style={{ willChange: 'transform' }}
           className="mx-auto max-w-5xl w-full"
         >
-          <motion.div variants={itemVariants} className="mb-5">
+          <motion.div variants={itemVariants} style={{ willChange: 'transform' }} className="mb-5">
             <div className="flex items-center gap-2 mb-2.5">
               <Hammer className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-base font-semibold text-foreground">MCP Asistant ─── Standalone MCP</h2>
@@ -172,7 +173,7 @@ export function ServerPlaceholder({
           </motion.div>
 
           {featuredServers.length > 0 && (
-            <motion.div variants={itemVariants} className="p-0">
+            <motion.div variants={itemVariants} style={{ willChange: 'transform' }} className="p-0">
               <div className="mb-5">
                 <div className="flex items-center gap-2">
                   <Star className="h-4 w-4 fill-amber-400 text-amber-400" />

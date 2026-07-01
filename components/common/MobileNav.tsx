@@ -49,6 +49,7 @@ export function MobileNav() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              style={{ willChange: 'transform' }}
               className="font-sans-original fixed inset-y-0 left-0 z-[211] w-[min(20rem,calc(100vw-2rem))] bg-background p-6 tracking-normal shadow-xl"
             >
               <div className="mb-8 flex items-center justify-between">

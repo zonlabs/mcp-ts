@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
+
 import { useRouter } from "next/navigation";
 import {
   PanelLeftClose,
@@ -42,6 +42,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 interface ServerSidebarProps {
   publicServers: McpServer[] | null;
@@ -190,20 +191,21 @@ export function ServerSidebar({
     return (
       <TooltipProvider>
         <div
-          className="border-r border-border flex flex-col bg-background transition-all duration-300 sticky top-14 h-[calc(100vh-3.5rem)] z-40 w-16"
+          className="border-r border-border flex flex-col bg-background transition-[width] duration-300 sticky top-14 h-[calc(100vh-3.5rem)] z-40 w-16"
         >
           {/* Top Header with Expand Button */}
           <div className="p-4 border-b border-border flex flex-col items-center flex-shrink-0">
             <Tooltip delayDuration={100}>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  className="h-8 w-8 p-0 hover:bg-muted cursor-pointer"
-                >
-                  <PanelLeftOpen className="h-4 w-4" />
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Expand sidebar"
+                    onClick={onClose}
+                    className="h-8 w-8 p-0 hover:bg-muted cursor-pointer"
+                  >
+                    <PanelLeftOpen className="h-4 w-4" />
+                  </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={10} className="z-[230]">
                 <p className="text-xs">Expand sidebar</p>
@@ -221,6 +223,7 @@ export function ServerSidebar({
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label="Manage Remote MCP"
                         className="h-8 w-8 p-0 flex items-center justify-center cursor-pointer"
                       >
                         <Settings className="h-4.5 w-4.5 text-muted-foreground" />
@@ -293,6 +296,7 @@ export function ServerSidebar({
             <Tooltip delayDuration={100}>
               <TooltipTrigger asChild>
                 <Button
+                  aria-label="Search servers"
                   onClick={onSearchFocus}
                   variant="ghost"
                   size="sm"
@@ -340,7 +344,9 @@ export function ServerSidebar({
                     <TooltipContent side="right" sideOffset={10} className="z-[230]">
                       <p className="font-semibold text-xs">{server.name}</p>
                       {server.description && (
-                        <p className="text-[10px] opacity-70 max-w-xs line-clamp-2 mt-0.5">{server.description}</p>
+                        <div className="text-[10px] opacity-70 max-w-xs line-clamp-2 mt-0.5 [&>*]:inline [&>p]:inline">
+                          <ReactMarkdown>{server.description}</ReactMarkdown>
+                        </div>
                       )}
                     </TooltipContent>
                   </Tooltip>
@@ -358,7 +364,7 @@ export function ServerSidebar({
     <TooltipProvider>
       <div
         className={cn(
-          "border-r border-border flex flex-col bg-background transition-all duration-300",
+          "border-r border-border flex flex-col bg-background transition-[width,transform] duration-300",
           // Desktop: sticky in-flow
           "lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:z-40 lg:w-80 lg:inset-auto lg:translate-x-0",
           // Mobile: fixed overlay below dashboard bar
@@ -404,6 +410,7 @@ export function ServerSidebar({
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label="Manage Remote MCP"
                       className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
                     >
                       <Settings className="h-4 w-4" />
@@ -479,6 +486,7 @@ export function ServerSidebar({
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label="Filter by category"
                       className="h-7 w-7 p-0 relative flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
                       disabled={categoriesLoading}
                     >
@@ -535,6 +543,7 @@ export function ServerSidebar({
             <Button
               variant="ghost"
               size="sm"
+              aria-label="Close sidebar"
               onClick={onClose}
               className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
             >

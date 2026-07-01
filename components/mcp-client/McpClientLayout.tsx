@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Server, Plug, Wrench, ChevronRight, LayoutDashboard, Activity, Search } from "lucide-react";
 
@@ -24,15 +25,34 @@ import { ServerSidebar } from "./ServerSidebar";
 import { ServerDetails } from "./ServerDetails";
 import { ServerPlaceholder } from "./ServerPlaceholder";
 import ToolsExplorer from "./ToolsExplorer";
-import ToolExecutionPanel from "./ToolExecutionPanel";
 import { useMcpStore, type McpStore } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { UserSession } from "@/components/providers/AuthProvider";
-import RemoteMcpPanel from "@/components/remote-mcp/RemoteMcpPanel";
 import Logo from "@/components/common/Logo";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { ServerIcon } from "@/components/common/ServerIcon";
+
+const ToolExecutionPanel = dynamic(() => import("./ToolExecutionPanel"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full">
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+    </div>
+  ),
+});
+
+const RemoteMcpPanel = dynamic(
+  () => import("@/components/remote-mcp/RemoteMcpPanel"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      </div>
+    ),
+  },
+);
 
 
 interface McpClientLayoutProps {
@@ -392,11 +412,7 @@ export default function McpClientLayout({
         });
 
         setHeaderSearchResults(unique.slice(0, 8));
-      } catch (err) {
-        if (err instanceof Error && err.name !== "AbortError") {
-          console.error(err);
-        }
-      } finally {
+      } catch { } finally {
         setHeaderSearchLoading(false);
       }
     }, 200);
@@ -442,7 +458,7 @@ export default function McpClientLayout({
                 value={headerSearchQuery}
                 onChange={(e) => setHeaderSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
-                className="h-9 pl-9 pr-4 text-xs w-full bg-muted/40 border-border/60 focus-visible:bg-background transition-all duration-200"
+                className="h-9 pl-9 pr-4 text-xs w-full bg-muted/40 border-border/60 focus-visible:bg-background transition-[background-color,border-color] duration-200"
               />
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             </div>
@@ -654,14 +670,14 @@ export default function McpClientLayout({
                           return (
                             <div
                               key={stat.label}
-                              className="group relative overflow-hidden rounded-xl border border-red-200/70 dark:border-red-400/20 bg-card/50 backdrop-blur-sm p-4 shadow-sm hover:shadow-md hover:border-red-400 dark:hover:border-red-500/40 transition-all duration-300 ease-out"
+                              className="group relative overflow-hidden rounded-xl border border-red-200/70 dark:border-red-400/20 bg-card/50 backdrop-blur-sm p-4 shadow-sm hover:shadow-md hover:border-red-400 dark:hover:border-red-500/40 transition-[box-shadow,border-color] duration-300 ease-out"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="space-y-1">
                                   <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{stat.label}</p>
                                   <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none mt-1">{stat.value}</p>
                                 </div>
-                                <div className="rounded-lg border border-red-200/30 dark:border-red-400/10 bg-muted/30 p-2.5 transition-all duration-300 group-hover:scale-105 group-hover:border-red-500/30">
+                                <div className="rounded-lg border border-red-200/30 dark:border-red-400/10 bg-muted/30 p-2.5 transition-[transform,border-color] duration-300 group-hover:scale-105 group-hover:border-red-500/30">
                                   <Icon className="h-4.5 w-4.5 text-muted-foreground group-hover:text-red-500 transition-colors" strokeWidth={2.5} />
                                 </div>
                               </div>
@@ -691,6 +707,15 @@ export default function McpClientLayout({
             >
               {/* Resizer drag handle (vertical line with dots indicator) */}
               <div
+                role="separator"
+                aria-label="Resize tool panel"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    const widthChange = e.key === 'ArrowLeft' ? -50 : 50;
+                    setPanelWidth((prev) => Math.max(320, Math.min(800, prev + widthChange)));
+                  }
+                }}
                 onMouseDown={startResizing}
                 className="absolute top-0 bottom-0 left-[-3px] w-[6px] cursor-col-resize hover:bg-red-700/20 active:bg-red-700/40 transition-colors z-50 flex items-center justify-center group hidden lg:flex select-none"
               >

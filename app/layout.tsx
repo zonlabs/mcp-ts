@@ -6,6 +6,7 @@ import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { createClient } from "@/lib/supabase/server";
+import { plusJakartaSans, instrumentSerif, geistMono } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "MCP Assistant",
@@ -15,6 +16,9 @@ export const metadata: Metadata = {
   },
   verification: {
     google: "Not4GrBnowoe9oFiAJ1p11C-olKqFaDIuPV-19X8tBo",
+  },
+  other: {
+    "Cache-Control": "public, max-age=31536000, immutable",
   },
 };
 
@@ -29,7 +33,7 @@ export default async function RootLayout({
   } = await supabase.auth.getUser();
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${instrumentSerif.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <AuthProvider userSession={user ? { user } : null}>
           <QueryProvider>

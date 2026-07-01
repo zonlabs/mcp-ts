@@ -243,7 +243,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
                 w-full resize-none bg-transparent border-0 outline-none
                 text-gray-900 dark:text-white
                 placeholder-gray-500 dark:placeholder-gray-400
-                text-[16px] font-instrument-serif tracking-wide
+                text-[16px]
                 leading-relaxed
                 focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0
                 [&:focus]:outline-none [&:focus]:ring-0 [&:focus]:border-0

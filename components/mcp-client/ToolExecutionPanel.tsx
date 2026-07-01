@@ -143,9 +143,7 @@ export default function ToolExecutionPanel({
         } else {
           setSessionHistory([]);
         }
-      } catch (e) {
-        console.error("Error loading presets/history", e);
-      }
+      } catch { }
     }
   }, [server.id]);
 
@@ -507,6 +505,7 @@ export default function ToolExecutionPanel({
                 <Tooltip delayDuration={150}>
                   <TooltipTrigger asChild>
                     <button
+                      aria-label="Save current inputs as preset"
                       onClick={handleSavePreset}
                       className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors cursor-pointer border border-transparent hover:border-border"
                     >
@@ -522,6 +521,7 @@ export default function ToolExecutionPanel({
                 <Tooltip delayDuration={150}>
                   <TooltipTrigger asChild>
                     <button
+                      aria-label="Reset form inputs to default"
                       onClick={handleResetInputs}
                       className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors cursor-pointer border border-transparent hover:border-border"
                     >
@@ -637,6 +637,7 @@ export default function ToolExecutionPanel({
                 {/* Tool Breadcrumb Navigation */}
                 <div className="flex-shrink-0 px-4 py-2 border-b border-border bg-muted/10 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <button
+                    aria-label="Back to tools"
                     onClick={() => setSelectedToolName("")}
                     className="hover:text-foreground hover:bg-muted/80 p-0.5 rounded transition-colors cursor-pointer"
                   >
@@ -649,6 +650,7 @@ export default function ToolExecutionPanel({
                   {/* Collapsible Section: Description */}
                   <div className="border-b border-border py-1">
                     <button
+                      aria-expanded={descExpanded}
                       onClick={() => setDescExpanded(!descExpanded)}
                       className="w-full flex items-center justify-between py-2 text-xs font-semibold text-foreground hover:text-primary transition-colors cursor-pointer"
                     >
@@ -665,6 +667,7 @@ export default function ToolExecutionPanel({
                   {/* Collapsible Section: Input Schema */}
                   <div className="border-b border-border py-1">
                     <button
+                      aria-expanded={schemaExpanded}
                       onClick={() => setSchemaExpanded(!schemaExpanded)}
                       className="w-full flex items-center justify-between py-2 text-xs font-semibold text-foreground hover:text-primary transition-colors cursor-pointer"
                     >
@@ -693,6 +696,7 @@ export default function ToolExecutionPanel({
                   {/* Collapsible Section: Parameters Form Builder */}
                   <div className="border-b border-border py-1">
                     <button
+                      aria-expanded={paramsExpanded}
                       onClick={() => setParamsExpanded(!paramsExpanded)}
                       className="w-full flex items-center justify-between py-2 text-xs font-semibold text-foreground hover:text-primary transition-colors cursor-pointer"
                     >
@@ -1015,6 +1019,7 @@ function HistoryLogCollapseItem({
             Load Inputs
           </Button>
           <button
+            aria-label={expanded ? "Collapse run details" : "Expand run details"}
             onClick={() => setExpanded(!expanded)}
             className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
@@ -1023,6 +1028,7 @@ function HistoryLogCollapseItem({
           <Button
             variant="ghost"
             size="icon-xs"
+            aria-label="Delete run history item"
             onClick={onDelete}
             className="text-destructive hover:bg-destructive/10 cursor-pointer h-6 w-6"
           >
