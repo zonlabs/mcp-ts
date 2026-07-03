@@ -68,7 +68,6 @@ export async function GET(request: NextRequest) {
     ]);
 
     const { data: grantsData, error: grantsError } = oauthGrantsResult;
-    // console.log("DEBUG: oauthGrantsResult:", JSON.stringify(oauthGrantsResult, null, 2));
     const { data: rawParentEvents, count, error: eventsError } = paginatedResult;
     const { data: metricsData, error: metricsError } = metricsResult;
 

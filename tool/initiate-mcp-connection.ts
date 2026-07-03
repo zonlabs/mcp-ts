@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { getMcpConnectionsForIdentity } from '@/lib/mcp-connections';
+import { getStoredMcpConnectionsForIdentity } from '@/lib/mcp-connections';
 import { normalizeServerUrl } from '@/lib/url';
 
 export const initiateMcpConnection = tool({
@@ -33,7 +33,7 @@ export const initiateMcpConnection = tool({
       }
 
       const normalizedTargetUrl = normalizeServerUrl(serverUrl);
-      const connections = await getMcpConnectionsForIdentity(user.id);
+      const connections = await getStoredMcpConnectionsForIdentity(user.id);
       const connection = connections.find(
         (conn) => normalizeServerUrl(conn.serverUrl) === normalizedTargetUrl
       );

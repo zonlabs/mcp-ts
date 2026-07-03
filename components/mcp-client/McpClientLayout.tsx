@@ -159,7 +159,7 @@ export default function McpClientLayout({
     setSelectedCategory(categorySlug);
   }, [categorySlug]);
 
-  const handleOpenRemoteMcp = (tab: "mcp-server" | "revoke" = "mcp-server") => {
+  const handleOpenRemoteMcp = (tab: "mcp-server" | "revoke" | "tool-policy" = "mcp-server") => {
     if (!session?.user) {
       router.push("/signin?redirect=/mcp");
       return;
@@ -749,7 +749,9 @@ export default function McpClientLayout({
                   searchParams.has("revoke") ||
                   searchParams.get("remote-mcp") === "revoke"
                     ? "revoke"
-                    : "mcp-server"
+                    : searchParams.get("tab") === "tool-policy"
+                      ? "tool-policy"
+                      : "mcp-server"
                 }
                 onClose={() => {
                   const params = new URLSearchParams(searchParams.toString());

@@ -1,22 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConnectedClientsCard } from "./ConnectedClientsCard";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
+import ToolPolicyView from "./ToolPolicyView";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
 import { useMcpUsage } from "@/hooks/useMcpUsage";
 
 interface RemoteMcpPanelProps {
-  onClose: () => void;
+  onClose?: () => void;
   initialTab?: string;
 }
 
 export default function RemoteMcpPanel({
-  onClose,
   initialTab = "mcp-server",
 }: RemoteMcpPanelProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const [page, setPage] = useState(1);
   const { data, isLoading, error, isFetching } = useMcpUsage(page);
   const [healthStatus, setHealthStatus] = useState<"loading" | "healthy" | "unhealthy">("loading");
@@ -53,10 +59,16 @@ export default function RemoteMcpPanel({
     };
   }, []);
 
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   return (
     <div className="h-full flex flex-col bg-background select-none md:select-text">
       {/* Header */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+      <div className="flex-shrink-0 px-4 sm:px-6 py-4 flex items-center justify-between gap-3 border-b border-border/40">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center">
             <ServerIcon
@@ -68,7 +80,7 @@ export default function RemoteMcpPanel({
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">
-              {initialTab === "revoke" ? "Revoke Client Access" : "MCP Usage"}
+              MCP Assistant
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-xs text-muted-foreground font-mono truncate leading-none">
@@ -107,12 +119,39 @@ export default function RemoteMcpPanel({
             </div>
           </div>
         </div>
+
+      </div>
+
+      {/* Tabs Navigation */}
+      <div className="flex-shrink-0 px-4 sm:px-6 py-2 border-b border-border/40 bg-muted/10">
+        <Tabs value={initialTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="bg-transparent h-9 p-0 gap-6">
+            <TabsTrigger
+              value="mcp-server"
+              className="border-x-0 border-t-0 border-b-2 border-transparent data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-semibold tracking-wide text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:shadow-none cursor-pointer"
+            >
+              Activity
+            </TabsTrigger>
+            <TabsTrigger
+              value="tool-policy"
+              className="border-x-0 border-t-0 border-b-2 border-transparent data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-semibold tracking-wide text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:shadow-none cursor-pointer"
+            >
+              Tool Policy
+            </TabsTrigger>
+            <TabsTrigger
+              value="revoke"
+              className="border-x-0 border-t-0 border-b-2 border-transparent data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-semibold tracking-wide text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:shadow-none cursor-pointer"
+            >
+              Authorized Apps
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Scrollable Contents */}
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
         {isLoading ? (
-          <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-6 w-full mx-auto animate-pulse">
+          <div className="px-4 sm:px-6 pt-3 pb-6 sm:pt-4 sm:pb-8 space-y-6 w-full mx-auto animate-pulse">
             <div className="space-y-4">
               <div className="h-4 w-24 bg-muted rounded" />
               <div className="h-[120px] bg-muted rounded-lg" />
@@ -140,24 +179,28 @@ export default function RemoteMcpPanel({
               Retry
             </Button>
           </div>
-        ) : data ? (
-          <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-6 w-full mx-auto">
-            {initialTab === "revoke" ? (
-              <ConnectedClientsCard grants={data.grants} />
+        ) : (
+          <div className="px-4 sm:px-6 pt-3 pb-6 sm:pt-4 sm:pb-8 space-y-6 w-full mx-auto">
+            {initialTab === "tool-policy" ? (
+              <ToolPolicyView />
+            ) : initialTab === "revoke" ? (
+              data && <ConnectedClientsCard grants={data.grants} />
             ) : (
-              <McpUsageOverview
-                groups={data.groups}
-                metricsEvents={data.metricsEvents}
-                totalCount={data.totalCount}
-                currentPage={data.currentPage || 1}
-                onPageChange={setPage}
-                isFetching={isFetching}
-                healthStatus={healthStatus}
-                healthData={healthData}
-              />
+              data && (
+                <McpUsageOverview
+                  groups={data.groups}
+                  metricsEvents={data.metricsEvents}
+                  totalCount={data.totalCount}
+                  currentPage={data.currentPage || 1}
+                  onPageChange={setPage}
+                  isFetching={isFetching}
+                  healthStatus={healthStatus}
+                  healthData={healthData}
+                />
+              )
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

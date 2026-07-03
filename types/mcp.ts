@@ -4,6 +4,27 @@ export type ToolInfo = {
   schema?: unknown; // JSON type from Strawberry
   inputSchema?: unknown;
   outputSchema?: unknown;
+  annotations?: unknown;
+};
+
+export type ToolPolicyMode = "all" | "allowlist" | "denylist";
+
+export type ToolPolicy = {
+  mode: ToolPolicyMode;
+  toolIds: string[];
+  updatedAt?: number;
+};
+
+export type ToolAccessInfo = ToolInfo & {
+  toolId: string;
+  allowed: boolean;
+};
+
+export type ToolAccessResult = {
+  toolPolicy: ToolPolicy;
+  tools: ToolAccessInfo[];
+  toolCount: number;
+  allowedToolCount: number;
 };
 
 export type Category = {
@@ -176,3 +197,5 @@ export type ParsedRegistryServer = {
   connectionStatus?: string;
   tools?: ToolInfo[];
 };
+
+

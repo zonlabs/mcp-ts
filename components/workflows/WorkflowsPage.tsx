@@ -173,7 +173,7 @@ export function WorkflowsPage() {
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
           <TabsList className="bg-transparent p-0 border-b border-border rounded-none w-full justify-start">
-            <TabsTrigger value="workflows" className="gap-2 rounded-none px-0 mr-6 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
+            <TabsTrigger value="workflows" className="gap-2 rounded-none px-0 mr-6 border-x-0 border-t-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
               <GitFork className="w-3.5 h-3.5" />
               Workflows
               {workflows.length > 0 && (
@@ -182,7 +182,7 @@ export function WorkflowsPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="history" className="gap-2 rounded-none px-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
+            <TabsTrigger value="history" className="gap-2 rounded-none px-0 border-x-0 border-t-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">
               <Zap className="w-3.5 h-3.5" />
               History
             </TabsTrigger>

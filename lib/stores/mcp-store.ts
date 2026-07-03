@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import toast from 'react-hot-toast';
-import type { McpServer, ToolInfo, ParsedRegistryServer } from '@/types/mcp';
+import type { McpServer, ToolInfo, ParsedRegistryServer, ToolAccessResult, ToolPolicy } from '@/types/mcp';
 import { normalizeServerUrl } from '@/lib/url';
 
 /**
@@ -32,9 +32,22 @@ export interface StoredConnection {
   transport?: string;
   connectionStatus: ConnectionStatus;
   tools: ToolInfo[];
+  allTools?: ToolInfo[];
+  toolPolicy?: ToolPolicy;
   connectedAt: string;
   error?: string;
 }
+type McpActionsBundle = {
+  connect: any;
+  disconnect: any;
+  callTool: any;
+  reconnect: any;
+  getToolAccess?: (sessionId: string) => Promise<ToolAccessResult>;
+  updateToolPolicy?: (
+    sessionId: string,
+    policy: { mode: ToolPolicy["mode"]; toolIds?: string[] }
+  ) => Promise<ToolAccessResult>;
+};
 
 function normalizeConnectionStatus(
   status?: string | null
@@ -137,7 +150,7 @@ interface ConnectionState {
   isValidating: boolean;
   validationProgress: { validated: number; total: number } | null;
   activeConnectionCount: number;
-  mcpActions: { connect: any; disconnect: any; callTool: any } | null;
+  mcpActions: McpActionsBundle | null;
 }
 
 /**
@@ -204,12 +217,13 @@ interface ConnectionActions {
   connect: (server: McpServer) => Promise<void>;
   disconnect: (sessionId: string) => Promise<void>;
   syncConnections: (connections: Record<string, any>) => void;
-  setMcpActions: (actions: { connect: any; disconnect: any; callTool: any }) => void;
-  mcpActions: { connect: any; disconnect: any; callTool: any } | null;
+  setMcpActions: (actions: McpActionsBundle) => void;
+  mcpActions: McpActionsBundle | null;
   validateSession: (sessionId: string) => Promise<void>;
   validateAllSessions: () => Promise<void>;
   fetchSessionTools: (sessionId: string) => Promise<ToolInfo[]>;
   updateConnectionStatus: (sessionId: string, status: ConnectionStatus, tools?: ToolInfo[]) => void;
+  updateConnectionToolAccess: (sessionId: string, access: ToolAccessResult) => void;
   getConnection: (sessionId: string) => StoredConnection | undefined;
   getConnectionByServerId: (serverId: string) => StoredConnection | undefined;
   getConnectionStatus: (sessionId: string) => ConnectionStatus | undefined;
@@ -560,9 +574,10 @@ export const useMcpStore = create<McpStore>()(
 
         syncConnections: (connections) => {
           set({
-            connections: Object.entries(connections).reduce((acc, [key, val]: [string, any]) => {
+            connections: Object.values(connections).reduce((acc, val: any) => {
+              if (!val?.sessionId) return acc;
               const normalizedStatus = normalizeConnectionStatus(val.state);
-              acc[key] = {
+              acc[val.sessionId] = {
                 sessionId: val.sessionId,
                 serverId: val.serverId || val.identity, // Fallback if needed
                 serverName: val.serverName,
@@ -570,6 +585,8 @@ export const useMcpStore = create<McpStore>()(
                 transport: normalizeTransport(val.transportType || val.transport || "streamable-http"),
                 connectionStatus: normalizedStatus,
                 tools: val.tools || [],
+                allTools: val.allTools || [],
+                toolPolicy: val.toolPolicy,
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available
                 error: val.error,
               };
@@ -672,6 +689,24 @@ export const useMcpStore = create<McpStore>()(
                 },
               },
               activeConnectionCount: newActiveCount,
+            };
+          });
+        },
+
+        updateConnectionToolAccess: (sessionId, access) => {
+          set((state) => {
+            const connection = state.connections[sessionId];
+            if (!connection) return state;
+
+            return {
+              connections: {
+                ...state.connections,
+                [sessionId]: {
+                  ...connection,
+                  toolPolicy: access.toolPolicy,
+                  tools: access.tools.filter((tool) => tool.allowed),
+                },
+              },
             };
           });
         },
@@ -805,12 +840,20 @@ export const selectFilteredServers = (state: McpStore) => {
 };
 
 /**
- * Selector: Get all active connections
+ * Selector: Get all active connections (memoized for getServerSnapshot stability)
  */
+let _prevConnections: Record<string, StoredConnection> | undefined;
+let _cachedActive: StoredConnection[] = [];
+
 export const selectActiveConnections = (state: McpStore) => {
-  return Object.values(state.connections).filter(
+  if (state.connections === _prevConnections) {
+    return _cachedActive;
+  }
+  _prevConnections = state.connections;
+  _cachedActive = Object.values(state.connections).filter(
     (c) => c.connectionStatus === 'READY'
   );
+  return _cachedActive;
 };
 
 /**
@@ -824,3 +867,7 @@ export const selectIsLoading = (state: McpStore) => {
     state.registryLoading
   );
 };
+
+
+
+
