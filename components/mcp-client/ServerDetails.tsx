@@ -16,11 +16,11 @@ import {
   Check,
   Clock,
   Link2,
-  Wrench,
 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import ServerManagement from "./ServerManagement";
+import { ToolAccessDialog } from "./ToolAccessDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -52,6 +52,7 @@ export function ServerDetails({
   onToggleTools,
 }: ServerDetailsProps) {
   const [urlCopied, setUrlCopied] = useState(false);
+  const [toolAccessOpen, setToolAccessOpen] = useState(false);
 
   const connections = useMcpStore((s) => s.connections);
   const stored = useMemo(
@@ -80,6 +81,12 @@ export function ServerDetails({
       ]
         .filter(Boolean)
         .join("\n");
+  const visibleToolCount = stored?.tools?.length ?? server.tools?.length ?? 0;
+  const accessSummary = stored?.toolPolicy?.mode === "allowlist"
+    ? `${visibleToolCount} tools allowed`
+    : stored?.toolPolicy?.mode === "denylist"
+      ? `${stored.toolPolicy.toolIds.length} tools denied`
+      : "All tools allowed";
 
   const addedAtSource = server.createdAt || server.updated_at;
 
@@ -98,7 +105,8 @@ export function ServerDetails({
   const canDelete = isStaff || !(server.isPublic && server.owner !== myId);
 
   return (
-    <div className="p-4 sm:p-6 border-b border-border">
+    <>
+      <div className="p-4 sm:p-6 border-b border-border">
       <div className="flex flex-col gap-4">
         {/* Header with title and actions */}
         <div className="flex items-center justify-between">
@@ -113,22 +121,15 @@ export function ServerDetails({
           </div>
 
           <div className="flex items-center gap-2">
-            {isConnected && onToggleTools && (
-              <Button
-                onClick={onToggleTools}
-                variant={toolTesterOpen ? "default" : "outline"}
-                size="sm"
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Wrench className="h-4 w-4" />
-                {toolTesterOpen ? "Hide Tools" : "Show Tools"}
-              </Button>
-            )}
             <ServerManagement
               server={{ ...server, connectionStatus }}
               onAction={onAction}
               onEdit={canEdit ? onEdit : undefined}
               onDelete={canDelete ? onDelete : undefined}
+              onToggleTools={isConnected && onToggleTools ? onToggleTools : undefined}
+              toolTesterOpen={toolTesterOpen}
+              onManageAccess={isConnected && stored ? () => setToolAccessOpen(true) : undefined}
+              toolAccessSummary={accessSummary}
             />
           </div>
         </div>
@@ -293,6 +294,14 @@ export function ServerDetails({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      <ToolAccessDialog
+        server={server}
+        connection={stored}
+        open={toolAccessOpen}
+        onOpenChange={setToolAccessOpen}
+      />
+    </>
   );
 }
+

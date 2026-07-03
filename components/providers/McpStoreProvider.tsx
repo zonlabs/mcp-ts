@@ -3,10 +3,18 @@
 import { useEffect, useRef } from 'react';
 import { useMcpStore, type McpStore } from '@/lib/stores/mcp-store';
 import { useMcp } from '@mcp-ts/sdk/client/react';
+import type { ToolAccessResult, ToolPolicy } from '@/types/mcp';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { openAuthPopup } from '@/lib/auth-popup-utils';
 import { setMcpClient } from '@/lib/mcp-client-store';
 
+type McpHookWithToolPolicy = ReturnType<typeof useMcp> & {
+  getToolAccess?: (sessionId: string) => Promise<ToolAccessResult>;
+  updateToolPolicy?: (
+    sessionId: string,
+    policy: { mode: ToolPolicy["mode"]; toolIds?: string[] }
+  ) => Promise<ToolAccessResult>;
+};
 /**
  * MCP Store Provider
  * Initializes the Zustand store with data on mount
@@ -39,10 +47,13 @@ function McpStoreProviderInner({
     connections,
     connect,
     disconnect,
+    reconnect,
     callTool,
     finishAuth,
     resumeAuth,
     sseClient,
+    getToolAccess,
+    updateToolPolicy,
   } = useMcp({
     url: '/api/mcp/sse',
     userId,
@@ -108,15 +119,15 @@ function McpStoreProviderInner({
         }
       })();
     },
-  });
+  }) as McpHookWithToolPolicy;
 
   const syncConnections = useMcpStore(state => state.syncConnections);
   const setMcpActions = useMcpStore(state => state.setMcpActions);
 
   // Sync actions to store once (or when they change)
   useEffect(() => {
-    setMcpActions({ connect, disconnect, callTool });
-  }, [connect, disconnect, callTool, setMcpActions]);
+    setMcpActions({ connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy });
+  }, [connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, setMcpActions]);
 
   // Sync state to store whenever connections change
   useEffect(() => {
@@ -133,3 +144,7 @@ function McpStoreProviderInner({
 
   return <>{children}</>;
 }
+
+
+
+

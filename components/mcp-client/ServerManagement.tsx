@@ -10,8 +10,17 @@ import {
   XCircle,
   Loader2,
   Edit,
-  Trash2
+  Trash2,
+  Wrench,
+  ShieldCheck,
+  RotateCw,
 } from "lucide-react";
+import { useMcpStore } from "@/lib/stores/mcp-store";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,9 +36,22 @@ interface ServerManagementProps {
   onAction: (server: McpServer, action: 'activate' | 'deactivate') => Promise<unknown>;
   onEdit?: (server: McpServer) => void;
   onDelete?: (serverId: string) => void;
+  onToggleTools?: () => void;
+  toolTesterOpen?: boolean;
+  onManageAccess?: () => void;
+  toolAccessSummary?: string;
 }
 
-export default function ServerManagement({ server, onAction, onEdit, onDelete }: ServerManagementProps) {
+export default function ServerManagement({
+  server,
+  onAction,
+  onEdit,
+  onDelete,
+  onToggleTools,
+  toolTesterOpen,
+  onManageAccess,
+  toolAccessSummary,
+}: ServerManagementProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const status = server.connectionStatus?.toUpperCase();
   const isReady = status === "READY";
@@ -99,6 +121,27 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
     }
   };
 
+  const reconnectMcp = useMcpStore((state) => state.mcpActions?.reconnect);
+
+  const handleReconnect = async () => {
+    setLoading("reconnect");
+
+    try {
+      const callbackUrl = `${window.location.origin}/auth/callback/success`;
+      await reconnectMcp({
+        serverId: server.id,
+        serverName: server.name,
+        serverUrl: server.url ?? undefined,
+        transportType: server.transport as 'sse' | 'streamable-http' | undefined,
+        callbackUrl,
+      });
+    } catch {
+      // Errors handled by the underlying action layer
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const isActionDisabled = (action: string) => {
     if (loading) return true;
 
@@ -122,7 +165,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
             onClick={() => handleAction('deactivate')}
             disabled={isActionDisabled('deactivate')}
             size="sm"
-            className="flex items-center gap-2 cursor-pointer bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all duration-200"
+            className="flex items-center gap-2 cursor-pointer bg-red-800 hover:bg-red-700 text-white shadow-sm transition-all duration-200"
           >
             {loading === 'deactivate' ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -136,7 +179,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
             onClick={() => handleAction('deactivate')}
             disabled={loading === 'deactivate'}
             size="sm"
-            className="flex items-center gap-2 cursor-pointer bg-red-600 hover:bg-red-700 text-white shadow-sm transition-all duration-200"
+            className="flex items-center gap-2 cursor-pointer bg-red-800 hover:bg-red-700 text-white shadow-sm transition-all duration-200"
           >
             {loading === 'deactivate' ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -162,7 +205,7 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
         )}
 
         {/* Dropdown Menu for Additional Actions */}
-        {(onEdit || onDelete) && (
+        {(onToggleTools || onManageAccess || onEdit || onDelete) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -174,7 +217,43 @@ export default function ServerManagement({ server, onAction, onEdit, onDelete }:
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              {onToggleTools && (
+                <DropdownMenuItem
+                  onClick={onToggleTools}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Wrench className="h-4 w-4" />
+                  {toolTesterOpen ? "Hide Tools" : "Show Tools"}
+                </DropdownMenuItem>
+              )}
+              {onManageAccess && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuItem
+                      onClick={onManageAccess}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      Manage access
+                    </DropdownMenuItem>
+                  </TooltipTrigger>
+                  {toolAccessSummary && (
+                    <TooltipContent side="left">{toolAccessSummary}</TooltipContent>
+                  )}
+                </Tooltip>
+              )}
+              {isReady && (
+                <DropdownMenuItem
+                  onClick={handleReconnect}
+                  disabled={loading !== null}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <RotateCw className={`h-4 w-4 ${loading === "reconnect" ? "animate-spin" : ""}`} />
+                  Reconnect
+                </DropdownMenuItem>
+              )}
+              <div className="border-t border-border my-1" />
               {onEdit && (
                 <DropdownMenuItem
                   onClick={() => onEdit(server)}

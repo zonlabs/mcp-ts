@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConnectedClientsCard } from "./ConnectedClientsCard";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
+import ToolPolicyView from "./ToolPolicyView";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
 import { useMcpUsage } from "@/hooks/useMcpUsage";
@@ -140,6 +141,8 @@ export default function RemoteMcpPanel({
               Retry
             </Button>
           </div>
+        ) : initialTab === "tool-policy" ? (
+          <ToolPolicyView />
         ) : data ? (
           <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-6 w-full mx-auto">
             {initialTab === "revoke" ? (

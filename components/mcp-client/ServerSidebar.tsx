@@ -18,6 +18,7 @@ import {
   Hammer,
   Sparkles,
   KeyRound,
+  ShieldCheck,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -69,7 +70,7 @@ interface ServerSidebarProps {
   onCategoryChange: (category: string) => void;
   session: UserSession | null;
   userSession?: UserSession | null;
-  onOpenRemoteMcp: (tab: "mcp-server" | "revoke") => void;
+  onOpenRemoteMcp: (tab: "mcp-server" | "revoke" | "tool-policy") => void;
   onShowPopular: () => void;
   sidebarOpen?: boolean;
   onSearchFocus?: () => void;
@@ -235,46 +236,24 @@ export function ServerSidebar({
                   <p className="text-xs">Manage Remote MCP</p>
                 </TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="start" className="z-[220] w-56">
+              <DropdownMenuContent align="start" className="z-[220] w-64">
                 <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
                   <span className="flex items-center gap-2">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
                     Popular MCP
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (activeTab === "public") {
-                      onRefreshPublic();
-                    } else {
-                      onRefreshUser();
-                    }
-                  }}
-                  className="cursor-pointer"
-                  disabled={activeTab === "public" ? publicLoading : userLoading}
-                >
-                  <span className="flex items-center gap-2 w-full">
-                    <RefreshCw
-                      className={`h-3.5 w-3.5 text-muted-foreground ${(activeTab === "public" ? publicLoading : userLoading)
-                        ? "animate-spin"
-                        : ""
-                        }`}
-                    />
-                    <span className="flex-1">Refresh list</span>
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
                   <span className="flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                    Add Remote MCP
+                    Add Connector
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
                   <span className="flex items-center gap-2 w-full">
-                    <Hammer className="h-3.5 w-3.5 text-red-500" />
-                    <span className="flex-1">MCP Usage</span>
+                    <Hammer className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="flex-1">View Activity</span>
                     <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
                   </span>
                 </DropdownMenuItem>
@@ -282,6 +261,12 @@ export function ServerSidebar({
                   <span className="flex items-center gap-2 w-full">
                     <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="flex-1">Revoke Access</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                    Tool Policy
                   </span>
                 </DropdownMenuItem>
                 {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
@@ -421,46 +406,24 @@ export function ServerSidebar({
                   <p className="text-xs font-semibold">Manage Remote MCP</p>
                 </TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="end" className="z-[220] w-56">
+              <DropdownMenuContent align="end" className="z-[220] w-64">
                 <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
                   <span className="flex items-center gap-2">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
                     Popular MCP
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (activeTab === "public") {
-                      onRefreshPublic();
-                    } else {
-                      onRefreshUser();
-                    }
-                  }}
-                  className="cursor-pointer"
-                  disabled={activeTab === "public" ? publicLoading : userLoading}
-                >
-                  <span className="flex items-center gap-2 w-full">
-                    <RefreshCw
-                      className={`h-3.5 w-3.5 text-muted-foreground ${(activeTab === "public" ? publicLoading : userLoading)
-                        ? "animate-spin"
-                        : ""
-                        }`}
-                    />
-                    <span className="flex-1">Refresh list</span>
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
                   <span className="flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                    Add Remote MCP
+                    Add Connector
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
                   <span className="flex items-center gap-2 w-full">
-                    <Hammer className="h-3.5 w-3.5 text-red-500" />
-                    <span className="flex-1">MCP Usage</span>
+                    <Hammer className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="flex-1">View Activity</span>
                     <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
                   </span>
                 </DropdownMenuItem>
@@ -468,6 +431,12 @@ export function ServerSidebar({
                   <span className="flex items-center gap-2 w-full">
                     <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="flex-1">Revoke Access</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                    Tool Policy
                   </span>
                 </DropdownMenuItem>
                 {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
