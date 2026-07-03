@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
-
-type PendingAction = "allow" | "cancel" | null;
+import { denyAction } from "./actions";
 
 function Spinner() {
   return (
@@ -31,68 +30,30 @@ function Spinner() {
   );
 }
 
-export function ConsentActions({ authorizationId }: { authorizationId: string }) {
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const isPending = pendingAction !== null;
-
-  const handleAction = async (action: "allow" | "cancel") => {
-    setPendingAction(action);
-    try {
-      const endpoint = action === "allow" ? "/api/mcp-oauth/approve" : "/api/mcp-oauth/deny";
-      const formData = new FormData();
-      formData.append("authorization_id", authorizationId);
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        let errMsg = "Request failed";
-        try {
-          const errData = await res.json() as { error?: string };
-          errMsg = errData.error || errMsg;
-        } catch {
-          const text = await res.text();
-          errMsg = text || errMsg;
-        }
-        window.location.href = `/mcp/oauth/consent?authorization_id=${authorizationId}&error=${encodeURIComponent(errMsg)}`;
-        return;
-      }
-
-      const data = await res.json() as { redirect_url?: string; error?: string };
-      if (data.error) {
-        window.location.href = `/mcp/oauth/consent?authorization_id=${authorizationId}&error=${encodeURIComponent(data.error)}`;
-      } else if (data.redirect_url) {
-        window.location.href = data.redirect_url;
-      } else {
-        throw new Error("No redirect URL returned by server");
-      }
-    } catch (err: unknown) {
-      console.error("[ConsentActions] Action failed:", err);
-      const msg = err instanceof Error ? err.message : "Network error";
-      window.location.href = `/mcp/oauth/consent?authorization_id=${authorizationId}&error=${encodeURIComponent(msg)}`;
-    }
-  };
+/**
+ * Must be rendered inside a <form> — uses useFormStatus to read the parent
+ * form's pending state and disable both buttons while a submission is in flight.
+ */
+export function ConsentActions() {
+  const { pending } = useFormStatus();
 
   return (
     <div className="space-y-3">
       <Button
-        disabled={isPending}
+        type="submit"
+        disabled={pending}
         className="h-10 w-full rounded-md bg-foreground text-background hover:bg-foreground/90 disabled:opacity-55"
-        onClick={() => handleAction("allow")}
-        type="button"
       >
-        {pendingAction === "allow" ? <Spinner /> : "Allow access"}
+        {pending ? <Spinner /> : "Allow access"}
       </Button>
       <Button
-        disabled={isPending}
+        type="submit"
+        formAction={denyAction}
+        disabled={pending}
         className="h-10 w-full rounded-md border border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 hover:text-foreground hover:border-border/80 transition-all duration-200 disabled:opacity-55"
-        onClick={() => handleAction("cancel")}
-        type="button"
         variant="ghost"
       >
-        {pendingAction === "cancel" ? <Spinner /> : "Cancel"}
+        {pending ? <Spinner /> : "Cancel"}
       </Button>
     </div>
   );
