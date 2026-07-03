@@ -6,16 +6,15 @@ export async function POST(request: NextRequest) {
   const authorizationId = form.get("authorization_id") as string | null;
 
   if (!authorizationId) {
-    return new NextResponse("Missing authorization_id parameter", { status: 400 });
+    return NextResponse.json({ error: "Missing authorization_id parameter" }, { status: 400 });
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.oauth.denyAuthorization(authorizationId);
 
   if (error) {
-    const consentPath = `/mcp/oauth/consent?authorization_id=${authorizationId}&error=${encodeURIComponent(error.message)}`;
-    return NextResponse.redirect(new URL(consentPath, request.url));
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.redirect(data.redirect_url, { status: 303 });
+  return NextResponse.json({ redirect_url: data.redirect_url });
 }

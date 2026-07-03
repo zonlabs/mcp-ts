@@ -39,7 +39,6 @@ export default async function WorkflowOAuthConsentPage({ searchParams }: PagePro
 
   if (authorizationId && user) {
     const { data: authDetails, error: authError } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
-    console.log("DEBUG: authDetails:", JSON.stringify(authDetails, null, 2));
     if (authError) {
       validationError = authError.message;
     } else if (authDetails) {

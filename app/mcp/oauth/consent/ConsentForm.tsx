@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ConsentActions } from "./ConsentActions";
 import { type McpOAuthConsentParams } from "@/lib/mcp-oauth";
 
@@ -24,10 +25,9 @@ function PermissionItem({ title, description }: { title: string; description: st
 
 export function ConsentForm({ params, accountLabel, scopesList, avatarUrl }: ConsentFormProps) {
   return (
-    <form action="/api/mcp-oauth/approve" method="post">
-      <input type="hidden" name="authorization_id" value={params.authorization_id} />
-
+    <>
       <div className="space-y-4">
+        <hr className="border-border/40" />
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-muted-foreground font-semibold text-sm">
             {avatarUrl ? (
@@ -75,8 +75,19 @@ export function ConsentForm({ params, accountLabel, scopesList, avatarUrl }: Con
       </div>
 
       <div className="mt-5">
-        <ConsentActions />
+        <ConsentActions authorizationId={params.authorization_id || ""} />
       </div>
-    </form>
+
+      <p className="mt-4 text-center text-xs text-muted-foreground">
+        You can{" "}
+        <Link
+          href="/mcp?view=activity&tab=revoke"
+          className="underline underline-offset-2 hover:text-foreground transition-colors"
+        >
+          revoke this access anytime
+        </Link>
+        .
+      </p>
+    </>
   );
 }
