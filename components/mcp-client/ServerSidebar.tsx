@@ -198,15 +198,15 @@ export function ServerSidebar({
           <div className="p-4 border-b border-border flex flex-col items-center flex-shrink-0">
             <Tooltip delayDuration={100}>
               <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Expand sidebar"
-                    onClick={onClose}
-                    className="h-8 w-8 p-0 hover:bg-muted cursor-pointer"
-                  >
-                    <PanelLeftOpen className="h-4 w-4" />
-                  </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Expand sidebar"
+                  onClick={onClose}
+                  className="h-8 w-8 p-0 hover:bg-muted cursor-pointer"
+                >
+                  <PanelLeftOpen className="h-4 w-4" />
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={10} className="z-[230]">
                 <p className="text-xs">Expand sidebar</p>
@@ -267,6 +267,8 @@ export function ServerSidebar({
                   <span className="flex items-center gap-2">
                     <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
                     Tool Policy
+
+                    <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
                   </span>
                 </DropdownMenuItem>
                 {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
@@ -357,260 +359,213 @@ export function ServerSidebar({
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >      {/* Header */}
-      <div className="p-3 border-b border-border flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="relative h-5 w-5">
-              <Image
-                src="/technologies/mcp-light.webp"
-                alt="MCP"
-                width={20}
-                height={20}
-                className="dark:hidden"
-              />
-              <Image
-                src="/technologies/mcp.webp"
-                alt="MCP"
-                width={20}
-                height={20}
-                className="hidden dark:block"
-              />
-            </div>
-            <span className="font-medium text-sm">MCP&apos;s</span>
-            {activeServersCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-xs font-medium text-green-700 dark:text-green-400">
-                  {activeServersCount} active
-                </span>
+        <div className="p-3 border-b border-border flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="relative h-5 w-5">
+                <Image
+                  src="/technologies/mcp-light.webp"
+                  alt="MCP"
+                  width={20}
+                  height={20}
+                  className="dark:hidden"
+                />
+                <Image
+                  src="/technologies/mcp.webp"
+                  alt="MCP"
+                  width={20}
+                  height={20}
+                  className="hidden dark:block"
+                />
               </div>
-            )}
-          </div>
+              <span className="font-medium text-sm">MCP&apos;s</span>
+              {activeServersCount > 0 && (
+                <div className="flex items-center gap-1.5 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                    {activeServersCount} active
+                  </span>
+                </div>
+              )}
+            </div>
 
-          <div className="flex items-center gap-0.5">
-            <DropdownMenu>
-              <Tooltip delayDuration={100}>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Manage Remote MCP"
-                      className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="z-[230]">
-                  <p className="text-xs font-semibold">Manage Remote MCP</p>
-                </TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="end" className="z-[220] w-64">
-                <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-                    Popular MCP
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                    Add Connector
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
-                  <span className="flex items-center gap-2 w-full">
-                    <Hammer className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="flex-1">View Activity</span>
-                    <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenRemoteMcp("revoke")} className="cursor-pointer">
-                  <span className="flex items-center gap-2 w-full">
-                    <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="flex-1">Revoke Access</span>
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                    Tool Policy
-                  </span>
-                </DropdownMenuItem>
-                {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
+            <div className="flex items-center gap-0.5">
+              <DropdownMenu>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Manage Remote MCP"
+                        className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="z-[230]">
+                    <p className="text-xs font-semibold">Manage Remote MCP</p>
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="z-[220] w-64">
+                  <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                      Popular MCP
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
+                    <span className="flex items-center gap-2">
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                      Add Connector
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
+                    <span className="flex items-center gap-2 w-full">
+                      <Hammer className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="flex-1">View Activity</span>
+                      <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
+                    <span className="flex items-center gap-2 w-full">
+                      <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="flex-1">Tool Policy</span>
+                      <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onOpenRemoteMcp("revoke")} className="cursor-pointer">
+                    <span className="flex items-center gap-2 w-full">
+                      <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="flex-1">Revoke Access</span>
+                    </span>
+                  </DropdownMenuItem>
+                  {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
                   <span className="flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                     Add Gateway
                   </span>
                 </DropdownMenuItem> */}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            <DropdownMenu>
-              <Tooltip delayDuration={100}>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Filter by category"
-                      className="h-7 w-7 p-0 relative flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
-                      disabled={categoriesLoading}
-                    >
-                      <Filter className="h-4 w-4" />
-                      {selectedCategory && (
-                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="z-[230]">
-                  <p className="text-xs font-semibold">
-                    {selectedCategory
-                      ? `Filtered: ${
-                        categories.find((c) => c.slug === selectedCategory)?.name ||
+              <DropdownMenu>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Filter by category"
+                        className="h-7 w-7 p-0 relative flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                        disabled={categoriesLoading}
+                      >
+                        <Filter className="h-4 w-4" />
+                        {selectedCategory && (
+                          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="z-[230]">
+                    <p className="text-xs font-semibold">
+                      {selectedCategory
+                        ? `Filtered: ${categories.find((c) => c.slug === selectedCategory)?.name ||
                         selectedCategory
                         }`
-                      : "Filter by Category"}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+                        : "Filter by Category"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
 
-              <DropdownMenuContent align="end" className="z-[220] w-48">
-                <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {categoriesLoading ? (
-                  <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
-                ) : (
-                  <>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        onCategoryChange("");
-                      }}
-                    >
-                      All Categories
-                    </DropdownMenuItem>
-                    {categories.map((node) => (
+                <DropdownMenuContent align="end" className="z-[220] w-48">
+                  <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {categoriesLoading ? (
+                    <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
+                  ) : (
+                    <>
                       <DropdownMenuItem
-                        key={node.id}
                         onSelect={(e) => {
                           e.preventDefault();
-                          onCategoryChange(node?.slug || "");
+                          onCategoryChange("");
                         }}
                       >
-                        {node.name}
+                        All Categories
                       </DropdownMenuItem>
-                    ))}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                      {categories.map((node) => (
+                        <DropdownMenuItem
+                          key={node.id}
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            onCategoryChange(node?.slug || "");
+                          }}
+                        >
+                          {node.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Close sidebar"
-              onClick={onClose}
-              className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Close sidebar"
+                onClick={onClose}
+                className="h-7 w-7 p-0 flex items-center justify-center cursor-pointer text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => onTabChange(value as "public" | "user")}
-          className="flex-1 flex flex-col min-h-0"
-        >
-          {/* Tabs Header */}
-          <div className="px-3 flex-shrink-0">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => onTabChange(value as "public" | "user")}
+            className="flex-1 flex flex-col min-h-0"
+          >
+            {/* Tabs Header */}
+            <div className="px-3 flex-shrink-0">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger
+                  value="public"
+                  className="flex items-center gap-2 text-xs"
+                >
+                  <Globe className="h-3 w-3" />
+                  Public
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {publicServersCount}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="user"
+                  className="flex items-center gap-2 text-xs"
+                >
+                  <UserIcon className="h-3 w-3" />
+                  My Servers
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {userServersCount}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide py-2">
+              {/* Public Servers */}
+              <TabsContent
                 value="public"
-                className="flex items-center gap-2 text-xs"
+                className="px-3 pb-3 m-0 flex flex-col gap-1"
               >
-                <Globe className="h-3 w-3" />
-                Public
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {publicServersCount}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger
-                value="user"
-                className="flex items-center gap-2 text-xs"
-              >
-                <UserIcon className="h-3 w-3" />
-                My Servers
-                <Badge variant="secondary" className="ml-1 text-xs">
-                  {userServersCount}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide py-2">
-            {/* Public Servers */}
-            <TabsContent
-              value="public"
-              className="px-3 pb-3 m-0 flex flex-col gap-1"
-            >
-              {displayLoading ? (
-                [...Array(8)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="px-3 py-3 border-b border-border last:border-b-0"
-                  >
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-3/4" />
-                      <Skeleton className="h-3 w-1/2" />
-                      <Skeleton className="h-3 w-2/3" />
-                    </div>
-                  </div>
-                ))
-              ) : displayServers && displayServers.length > 0 ? (
-                <>
-                  {displayServers.map((server) => (
-                    <ServerListItem
-                      key={server.id}
-                      server={server}
-                      isSelected={selectedServer?.name === server.name}
-                      onClick={() => onServerSelect(server)}
-                    />
-                  ))}
-
-                  {/* Infinite scroll sentinel */}
-                  {displayHasNextPage && (
-                    <div ref={observerTarget} className="flex justify-center py-4">
-                      {displayIsLoadingMore && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm">Loading more servers...</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Extra spacing at bottom */}
-                  <div className="h-16" />
-                </>
-              ) : (
-                <ServerPlaceholder type="no-servers" tab="public" />
-              )}
-            </TabsContent>
-
-            {/* User Servers */}
-            <TabsContent value="user" className="px-3 pb-3 m-0 flex flex-col gap-1">
-              {userLoading ? (
-                <div className="space-y-0">
-                  {[...Array(8)].map((_, i) => (
+                {displayLoading ? (
+                  [...Array(8)].map((_, i) => (
                     <div
                       key={i}
                       className="px-3 py-3 border-b border-border last:border-b-0"
@@ -621,39 +576,86 @@ export function ServerSidebar({
                         <Skeleton className="h-3 w-2/3" />
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : userServers && userServers.length > 0 ? (
-                <>
-                  {userServers.map((server) => {
-                    const isStaff = userSession?.role === "staff";
-                    const myId = session?.user?.id;
-                    const canEdit = isStaff || !(server.isPublic && server.owner !== myId);
-                    const canDelete = isStaff || !(server.isPublic && server.owner !== myId);
-
-                    return (
+                  ))
+                ) : displayServers && displayServers.length > 0 ? (
+                  <>
+                    {displayServers.map((server) => (
                       <ServerListItem
                         key={server.id}
                         server={server}
                         isSelected={selectedServer?.name === server.name}
                         onClick={() => onServerSelect(server)}
-                        onEdit={canEdit ? onEditServer : undefined}
-                        onDelete={canDelete ? onDeleteServer : undefined}
-                        showActions={true}
                       />
-                    );
-                  })}
-                  {/* Extra spacing at bottom */}
-                  <div className="h-16" />
-                </>
-              ) : (
-                <ServerPlaceholder type="no-servers" tab="user" />
-              )}
-            </TabsContent>
-          </div>
-        </Tabs>
+                    ))}
+
+                    {/* Infinite scroll sentinel */}
+                    {displayHasNextPage && (
+                      <div ref={observerTarget} className="flex justify-center py-4">
+                        {displayIsLoadingMore && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Loading more servers...</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Extra spacing at bottom */}
+                    <div className="h-16" />
+                  </>
+                ) : (
+                  <ServerPlaceholder type="no-servers" tab="public" />
+                )}
+              </TabsContent>
+
+              {/* User Servers */}
+              <TabsContent value="user" className="px-3 pb-3 m-0 flex flex-col gap-1">
+                {userLoading ? (
+                  <div className="space-y-0">
+                    {[...Array(8)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="px-3 py-3 border-b border-border last:border-b-0"
+                      >
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                          <Skeleton className="h-3 w-2/3" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : userServers && userServers.length > 0 ? (
+                  <>
+                    {userServers.map((server) => {
+                      const isStaff = userSession?.role === "staff";
+                      const myId = session?.user?.id;
+                      const canEdit = isStaff || !(server.isPublic && server.owner !== myId);
+                      const canDelete = isStaff || !(server.isPublic && server.owner !== myId);
+
+                      return (
+                        <ServerListItem
+                          key={server.id}
+                          server={server}
+                          isSelected={selectedServer?.name === server.name}
+                          onClick={() => onServerSelect(server)}
+                          onEdit={canEdit ? onEditServer : undefined}
+                          onDelete={canDelete ? onDeleteServer : undefined}
+                          showActions={true}
+                        />
+                      );
+                    })}
+                    {/* Extra spacing at bottom */}
+                    <div className="h-16" />
+                  </>
+                ) : (
+                  <ServerPlaceholder type="no-servers" tab="user" />
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }
