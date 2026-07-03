@@ -52,18 +52,6 @@ export default function ToolPolicyView() {
 
   return (
     <div className="h-full flex flex-col bg-background select-none md:select-text">
-      <div className="flex-shrink-0 px-4 sm:px-6 py-4 flex items-center gap-3 border-b border-border">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40">
-          <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Tool Policy</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Manage tool access for connected MCP servers
-          </p>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
         <section className="px-4 sm:px-6 py-6 space-y-4">
           {activeConnections.length === 0 ? (

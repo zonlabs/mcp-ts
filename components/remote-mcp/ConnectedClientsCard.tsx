@@ -65,14 +65,7 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
   const targetClientName = revokeTarget ? (revokeTarget.client_name || revokeTarget.client_id) : "this client";
 
   return (
-    <section id="clients" className="scroll-mt-24 space-y-4 bg-background p-4 shadow-sm">
-      <div>
-        <h2 className="text-sm font-semibold uppercase tracking-[0.16em]">Connected MCP clients</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          OAuth clients authorized from the consent screen.
-        </p>
-      </div>
-
+    <section id="clients" className="scroll-mt-24 space-y-4 bg-background p-5 border border-border rounded-xl shadow-xs">
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
           <p className="text-sm text-muted-foreground">No OAuth clients connected yet.</p>
