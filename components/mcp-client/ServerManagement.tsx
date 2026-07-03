@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "react-hot-toast";
 import {
   Power,
   Play,
@@ -135,8 +136,9 @@ export default function ServerManagement({
         transportType: server.transport as 'sse' | 'streamable-http' | undefined,
         callbackUrl,
       });
-    } catch {
-      // Errors handled by the underlying action layer
+      toast.success(`${server.name} reconnected successfully`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to reconnect ${server.name}`);
     } finally {
       setLoading(null);
     }

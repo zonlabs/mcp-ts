@@ -584,13 +584,13 @@ export default function ServerForm({
             <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 rounded-none border-b border-border/70">
               <TabsTrigger
                 value="basic"
-                className="rounded-none border-b-2 border-transparent bg-transparent pb-2 pt-1 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                className="rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent pb-2 pt-1 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
               >
                 Basic Info
               </TabsTrigger>
               <TabsTrigger
                 value="additional"
-                className="rounded-none border-b-2 border-transparent bg-transparent pb-2 pt-1 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                className="rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent pb-2 pt-1 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
               >
                 Additional Info
               </TabsTrigger>

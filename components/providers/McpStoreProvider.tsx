@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useMcpStore, type McpStore } from '@/lib/stores/mcp-store';
 import { useMcp } from '@mcp-ts/sdk/client/react';
 import type { ToolAccessResult, ToolPolicy } from '@/types/mcp';
@@ -52,7 +52,7 @@ function McpStoreProviderInner({
     finishAuth,
     resumeAuth,
     sseClient,
-    getToolAccess,
+    getToolAccess: _sdkGetToolAccess,
     updateToolPolicy,
   } = useMcp({
     url: '/api/mcp/sse',
@@ -121,6 +121,42 @@ function McpStoreProviderInner({
     },
   }) as McpHookWithToolPolicy;
 
+  // Custom getToolAccess that computes the result using pre-loaded store connection states,
+  // completely bypassing the slow getToolPolicy RPC call over SSE.
+  const getToolAccess = useCallback(async (sessionId: string): Promise<ToolAccessResult> => {
+    const storeState = useMcpStore.getState();
+    const connection = storeState.connections[sessionId];
+    if (!connection) {
+      throw new Error("Connection not found");
+    }
+
+    const serverId = connection.serverId;
+    const targetTools = connection.allTools && connection.allTools.length > 0
+      ? connection.allTools
+      : connection.tools || [];
+    const targetPolicy = connection.toolPolicy ?? { mode: "all", toolIds: [] };
+
+    const tools = targetTools.map((t) => {
+      const toolId = (t as any).toolId || (serverId ? `${serverId}::${t.name}` : t.name);
+      return {
+        ...t,
+        toolId,
+        allowed: targetPolicy.mode === "all"
+          ? true
+          : targetPolicy.mode === "allowlist"
+            ? targetPolicy.toolIds.includes(toolId)
+            : !targetPolicy.toolIds.includes(toolId),
+      };
+    });
+
+    return {
+      toolPolicy: targetPolicy,
+      tools,
+      toolCount: targetTools.length,
+      allowedToolCount: tools.filter((t) => t.allowed).length,
+    };
+  }, []);
+
   const syncConnections = useMcpStore(state => state.syncConnections);
   const setMcpActions = useMcpStore(state => state.setMcpActions);
 
@@ -144,7 +180,3 @@ function McpStoreProviderInner({
 
   return <>{children}</>;
 }
-
-
-
-

@@ -504,11 +504,11 @@ export function WorkflowDetail({ workflowId, initialTab }: WorkflowDetailProps) 
 
         <Tabs value={mainTab} onValueChange={onMainTabChange}>
           <TabsList className="bg-transparent p-0 border-b border-border rounded-none w-full justify-start mb-6">
-            <TabsTrigger value="overview" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Overview</TabsTrigger>
-            <TabsTrigger value="script" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Script</TabsTrigger>
-            <TabsTrigger value="schedules" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Schedules</TabsTrigger>
-            <TabsTrigger value="default-inputs" className="rounded-none px-0 mr-8 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Default Inputs</TabsTrigger>
-            <TabsTrigger value="history" className="rounded-none px-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">History</TabsTrigger>
+            <TabsTrigger value="overview" className="rounded-none px-0 mr-8 border-x-0 border-t-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Overview</TabsTrigger>
+            <TabsTrigger value="script" className="rounded-none px-0 mr-8 border-x-0 border-t-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Script</TabsTrigger>
+            <TabsTrigger value="schedules" className="rounded-none px-0 mr-8 border-x-0 border-t-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Schedules</TabsTrigger>
+            <TabsTrigger value="default-inputs" className="rounded-none px-0 mr-8 border-x-0 border-t-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">Default Inputs</TabsTrigger>
+            <TabsTrigger value="history" className="rounded-none px-0 border-x-0 border-t-0 data-[state=active]:border-b-2 data-[state=active]:border-foreground">History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">

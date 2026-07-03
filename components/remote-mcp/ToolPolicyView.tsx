@@ -51,9 +51,8 @@ export default function ToolPolicyView() {
   );
 
   return (
-    <div className="h-full flex flex-col bg-background select-none md:select-text">
-      <div className="flex-1 overflow-y-auto scrollbar-minimal">
-        <section className="px-4 sm:px-6 py-6 space-y-4">
+    <>
+      <section className="space-y-4">
           {activeConnections.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
               <ShieldCheck className="h-8 w-8 mx-auto text-muted-foreground/40 mb-3" />
@@ -106,8 +105,7 @@ export default function ToolPolicyView() {
               ))}
             </div>
           )}
-        </section>
-      </div>
+      </section>
 
       {dialogServer && (
         <ToolAccessDialog
@@ -122,6 +120,6 @@ export default function ToolPolicyView() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConnectedClientsCard } from "./ConnectedClientsCard";
@@ -13,12 +12,11 @@ import { cn } from "@/lib/utils";
 import { useMcpUsage } from "@/hooks/useMcpUsage";
 
 interface RemoteMcpPanelProps {
-  onClose: () => void;
+  onClose?: () => void;
   initialTab?: string;
 }
 
 export default function RemoteMcpPanel({
-  onClose,
   initialTab = "mcp-server",
 }: RemoteMcpPanelProps) {
   const router = useRouter();
@@ -122,14 +120,6 @@ export default function RemoteMcpPanel({
           </div>
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Tabs Navigation */}
@@ -138,19 +128,19 @@ export default function RemoteMcpPanel({
           <TabsList className="bg-transparent h-9 p-0 gap-6">
             <TabsTrigger
               value="mcp-server"
-              className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-medium cursor-pointer"
+              className="border-x-0 border-t-0 border-b-2 border-transparent data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-semibold tracking-wide text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:shadow-none cursor-pointer"
             >
               Activity
             </TabsTrigger>
             <TabsTrigger
               value="tool-policy"
-              className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-medium cursor-pointer"
+              className="border-x-0 border-t-0 border-b-2 border-transparent data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-semibold tracking-wide text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:shadow-none cursor-pointer"
             >
               Tool Policy
             </TabsTrigger>
             <TabsTrigger
               value="revoke"
-              className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-medium cursor-pointer"
+              className="border-x-0 border-t-0 border-b-2 border-transparent data-[state=active]:border-red-500 rounded-none h-9 px-0 text-xs font-semibold tracking-wide text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:shadow-none cursor-pointer"
             >
               Authorized Apps
             </TabsTrigger>
@@ -161,7 +151,7 @@ export default function RemoteMcpPanel({
       {/* Scrollable Contents */}
       <div className="flex-1 overflow-y-auto scrollbar-minimal">
         {isLoading ? (
-          <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-6 w-full mx-auto animate-pulse">
+          <div className="px-4 sm:px-6 pt-3 pb-6 sm:pt-4 sm:pb-8 space-y-6 w-full mx-auto animate-pulse">
             <div className="space-y-4">
               <div className="h-4 w-24 bg-muted rounded" />
               <div className="h-[120px] bg-muted rounded-lg" />
@@ -189,26 +179,28 @@ export default function RemoteMcpPanel({
               Retry
             </Button>
           </div>
-        ) : initialTab === "tool-policy" ? (
-          <ToolPolicyView />
-        ) : data ? (
-          <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-6 w-full mx-auto">
-            {initialTab === "revoke" ? (
-              <ConnectedClientsCard grants={data.grants} />
+        ) : (
+          <div className="px-4 sm:px-6 pt-3 pb-6 sm:pt-4 sm:pb-8 space-y-6 w-full mx-auto">
+            {initialTab === "tool-policy" ? (
+              <ToolPolicyView />
+            ) : initialTab === "revoke" ? (
+              data && <ConnectedClientsCard grants={data.grants} />
             ) : (
-              <McpUsageOverview
-                groups={data.groups}
-                metricsEvents={data.metricsEvents}
-                totalCount={data.totalCount}
-                currentPage={data.currentPage || 1}
-                onPageChange={setPage}
-                isFetching={isFetching}
-                healthStatus={healthStatus}
-                healthData={healthData}
-              />
+              data && (
+                <McpUsageOverview
+                  groups={data.groups}
+                  metricsEvents={data.metricsEvents}
+                  totalCount={data.totalCount}
+                  currentPage={data.currentPage || 1}
+                  onPageChange={setPage}
+                  isFetching={isFetching}
+                  healthStatus={healthStatus}
+                  healthData={healthData}
+                />
+              )
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

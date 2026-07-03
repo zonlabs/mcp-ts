@@ -32,6 +32,7 @@ export interface StoredConnection {
   transport?: string;
   connectionStatus: ConnectionStatus;
   tools: ToolInfo[];
+  allTools?: ToolInfo[];
   toolPolicy?: ToolPolicy;
   connectedAt: string;
   error?: string;
@@ -573,9 +574,10 @@ export const useMcpStore = create<McpStore>()(
 
         syncConnections: (connections) => {
           set({
-            connections: Object.entries(connections).reduce((acc, [key, val]: [string, any]) => {
+            connections: Object.values(connections).reduce((acc, val: any) => {
+              if (!val?.sessionId) return acc;
               const normalizedStatus = normalizeConnectionStatus(val.state);
-              acc[key] = {
+              acc[val.sessionId] = {
                 sessionId: val.sessionId,
                 serverId: val.serverId || val.identity, // Fallback if needed
                 serverName: val.serverName,
@@ -583,6 +585,7 @@ export const useMcpStore = create<McpStore>()(
                 transport: normalizeTransport(val.transportType || val.transport || "streamable-http"),
                 connectionStatus: normalizedStatus,
                 tools: val.tools || [],
+                allTools: val.allTools || [],
                 toolPolicy: val.toolPolicy,
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available
                 error: val.error,

@@ -65,7 +65,7 @@ export function ConnectedClientsCard({ grants }: ConnectedClientsCardProps) {
   const targetClientName = revokeTarget ? (revokeTarget.client_name || revokeTarget.client_id) : "this client";
 
   return (
-    <section id="clients" className="scroll-mt-24 space-y-4 bg-background p-5 border border-border rounded-xl shadow-xs">
+    <section id="clients" className="scroll-mt-24 space-y-4">
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
           <p className="text-sm text-muted-foreground">No OAuth clients connected yet.</p>

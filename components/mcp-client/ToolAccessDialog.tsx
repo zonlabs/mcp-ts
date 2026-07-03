@@ -16,6 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ServerIcon } from "@/components/common/ServerIcon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,15 +56,44 @@ export function ToolAccessDialog({
   const getToolAccess = useMcpStore((state) => state.mcpActions?.getToolAccess);
   const updateToolPolicy = useMcpStore((state) => state.mcpActions?.updateToolPolicy);
   const updateConnectionToolAccess = useMcpStore((state) => state.updateConnectionToolAccess);
-  const [access, setAccess] = useState<ToolAccessResult | null>(null);
-  const [mode, setMode] = useState<ToolPolicyMode>("all");
-  const [selectedToolIds, setSelectedToolIds] = useState<Set<string>>(new Set());
+  const initialAccess = useMemo<ToolAccessResult | null>(() => {
+    const targetTools = server.tools ?? connection?.tools ?? [];
+    const targetPolicy = connection?.toolPolicy ?? { mode: "all", toolIds: [] };
+
+    return {
+      toolPolicy: targetPolicy,
+      tools: targetTools.map((t) => {
+        const toolId = (t as any).toolId || (server.id ? `${server.id}::${t.name}` : t.name);
+        return {
+          ...t,
+          toolId,
+          allowed: targetPolicy.mode === "all"
+            ? true
+            : targetPolicy.mode === "allowlist"
+              ? targetPolicy.toolIds.includes(toolId)
+              : !targetPolicy.toolIds.includes(toolId),
+        };
+      }),
+      toolCount: targetTools.length,
+      allowedToolCount: targetTools.length,
+    };
+  }, [connection, server]);
+
+  const [access, setAccess] = useState<ToolAccessResult | null>(() => initialAccess);
+  const [mode, setMode] = useState<ToolPolicyMode>(() => connection?.toolPolicy?.mode ?? "all");
+  const [selectedToolIds, setSelectedToolIds] = useState<Set<string>>(() => new Set(connection?.toolPolicy?.toolIds ?? []));
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmZeroOpen, setConfirmZeroOpen] = useState(false);
-  const userChangedMode = useRef(false);
+  const userInteracted = useRef(false);
+  const userToggledCheckbox = useRef(false);
+
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   const sessionId = connection?.sessionId;
 
@@ -70,7 +101,8 @@ export function ToolAccessDialog({
     if (!open || !sessionId) return;
     const currentSessionId = sessionId;
     let active = true;
-    userChangedMode.current = false;
+    userInteracted.current = false;
+    userToggledCheckbox.current = false;
 
     async function loadAccess() {
       if (!getToolAccess) {
@@ -78,19 +110,34 @@ export function ToolAccessDialog({
         return;
       }
 
-      setLoading(true);
+      if (!connection || !connection.tools || connection.tools.length === 0) {
+        setLoading(true);
+      }
       setError(null);
       try {
         const result = await getToolAccess(currentSessionId);
         if (!active) return;
         setAccess(result);
-        if (!userChangedMode.current) {
+        if (!userInteracted.current) {
           setMode(result.toolPolicy.mode);
-          setSelectedToolIds(new Set(result.toolPolicy.toolIds));
+        }
+        if (!userToggledCheckbox.current) {
+          const activeMode = userInteracted.current ? modeRef.current : result.toolPolicy.mode;
+          if (activeMode === result.toolPolicy.mode) {
+            setSelectedToolIds(new Set(result.toolPolicy.toolIds));
+          } else if (activeMode === "allowlist") {
+            setSelectedToolIds(new Set(result.tools.filter((t) => t.allowed).map((t) => t.toolId)));
+          } else if (activeMode === "denylist") {
+            setSelectedToolIds(new Set(result.tools.filter((t) => !t.allowed).map((t) => t.toolId)));
+          } else {
+            setSelectedToolIds(new Set());
+          }
         }
       } catch (loadError) {
         if (!active) return;
-        setError(loadError instanceof Error ? loadError.message : "Could not load tool access.");
+        if (!connection || !connection.tools || connection.tools.length === 0) {
+          setError(loadError instanceof Error ? loadError.message : "Could not load tool access.");
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -132,7 +179,7 @@ export function ToolAccessDialog({
   }, [access, mode, selectedToolIds]);
 
   function handleModeChange(nextMode: ToolPolicyMode) {
-    userChangedMode.current = true;
+    userInteracted.current = true;
     setMode(nextMode);
     if (nextMode === "all") {
       setSelectedToolIds(new Set());
@@ -156,6 +203,7 @@ export function ToolAccessDialog({
   }
 
   function toggleTool(toolId: string, checked: boolean) {
+    userToggledCheckbox.current = true;
     setSelectedToolIds((current) => {
       const next = new Set(current);
       if (checked) {
@@ -168,10 +216,12 @@ export function ToolAccessDialog({
   }
 
   function selectAll() {
+    userToggledCheckbox.current = true;
     setSelectedToolIds(new Set(allToolIds));
   }
 
   function clearSelected() {
+    userToggledCheckbox.current = true;
     setSelectedToolIds(new Set());
   }
 
@@ -214,7 +264,7 @@ export function ToolAccessDialog({
           <DialogHeader className="border-b border-border px-5 py-4 text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted/40">
-                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <ShieldCheck className="h-4 w-4 text-foreground/80" />
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-base">Tool access</DialogTitle>
@@ -226,20 +276,23 @@ export function ToolAccessDialog({
           </DialogHeader>
 
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-5 py-4">
-            <div className="grid grid-cols-3 rounded-md border border-border bg-muted/30 p-1">
-              {MODE_OPTIONS.map((option) => (
-                <Button
-                  key={option.mode}
-                  type="button"
-                  variant={mode === option.mode ? "secondary" : "ghost"}
-                  size="sm"
-                  className="h-8 rounded-sm px-2 text-xs"
-                  onClick={() => handleModeChange(option.mode)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
+            <Tabs
+              value={mode}
+              onValueChange={(val) => handleModeChange(val as ToolPolicyMode)}
+              className="w-full"
+            >
+              <TabsList className="grid grid-cols-3 w-full">
+                {MODE_OPTIONS.map((option) => (
+                  <TabsTrigger
+                    key={option.mode}
+                    value={option.mode}
+                    className="text-xs cursor-pointer border-0 data-[state=active]:border-transparent dark:data-[state=active]:border-transparent data-[state=active]:bg-background dark:data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                  >
+                    {option.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
 
             {error && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -294,18 +347,24 @@ export function ToolAccessDialog({
                         return (
                           <label
                             key={tool.toolId}
-                            className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-muted/30"
+                            className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-muted/30"
                           >
                             <Checkbox
                               checked={checked}
                               onCheckedChange={(value) => toggleTool(tool.toolId, value === true)}
-                              className="mt-0.5"
+                              className="shrink-0"
                               aria-label={`${mode === "allowlist" ? "Allow" : "Deny"} ${tool.name}`}
+                            />
+                            <ServerIcon
+                              serverName={server.name}
+                              serverUrl={server.url}
+                              size={36}
+                              className="rounded-lg shrink-0"
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <code className="truncate font-mono text-[11px] text-foreground">{tool.name}</code>
-                                <Badge variant={badge === "Destructive" ? "destructive" : "outline"} className={cn("h-5 px-1.5 text-[10px]", badge === "Read" && "border-emerald-500/30 text-emerald-700 dark:text-emerald-300", badge === "Write" && "border-amber-500/40 text-amber-700 dark:text-amber-300")}>
+                                <Badge variant="outline" className={cn("h-5 px-1.5 text-[10px]", badge === "Destructive" && "border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5")}>
                                   {badge}
                                 </Badge>
                               </div>
@@ -356,6 +415,10 @@ export function ToolAccessDialog({
 }
 
 function classifyTool(tool: ToolAccessInfo): ToolBadge {
+  const ann = tool.annotations as { destructiveHint?: boolean; readOnlyHint?: boolean } | undefined;
+  if (ann?.destructiveHint === true) return "Destructive";
+  if (ann?.readOnlyHint === true) return "Read";
+
   const value = `${tool.name} ${tool.description ?? ""}`.toLowerCase();
   if (/delete|remove|destroy|drop|revoke|disable|purge/.test(value)) return "Destructive";
   if (/create|add|update|edit|write|send|post|put|patch|merge|commit|upload|enable/.test(value)) return "Write";
