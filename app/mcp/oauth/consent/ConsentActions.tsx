@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { denyAction } from "./actions";
@@ -36,24 +37,33 @@ function Spinner() {
  */
 export function ConsentActions() {
   const { pending } = useFormStatus();
+  const [activeAction, setActiveAction] = useState<"allow" | "cancel" | null>(null);
+
+  useEffect(() => {
+    if (!pending) {
+      setActiveAction(null);
+    }
+  }, [pending]);
 
   return (
     <div className="space-y-3">
       <Button
         type="submit"
         disabled={pending}
+        onClick={() => setActiveAction("allow")}
         className="h-10 w-full rounded-md bg-foreground text-background hover:bg-foreground/90 disabled:opacity-55"
       >
-        {pending ? <Spinner /> : "Allow access"}
+        {pending && activeAction === "allow" ? <Spinner /> : "Allow access"}
       </Button>
       <Button
         type="submit"
         formAction={denyAction}
         disabled={pending}
+        onClick={() => setActiveAction("cancel")}
         className="h-10 w-full rounded-md border border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 hover:text-foreground hover:border-border/80 transition-all duration-200 disabled:opacity-55"
         variant="ghost"
       >
-        {pending ? <Spinner /> : "Cancel"}
+        {pending && activeAction === "cancel" ? <Spinner /> : "Cancel"}
       </Button>
     </div>
   );
