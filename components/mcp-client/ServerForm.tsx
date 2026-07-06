@@ -299,15 +299,15 @@ export default function ServerForm({
     expectedServerName: string,
     expectedUrl: string,
     onStatus: (status: string) => void
-  ): Promise<{ status: "READY"; toolCount: number; sessionId?: string }> => {
-    return await new Promise((resolve) => {
+  ): Promise<{ status: "READY" | "FAILED"; toolCount: number; sessionId?: string }> => {
+    return await new Promise((resolve, reject) => {
       let settled = false;
       let unsubscribe: (() => void) | undefined;
 
       const targetUrl = normalizeUrl(expectedUrl);
       const targetName = expectedServerName.trim().toLowerCase();
 
-      const cleanup = (result: { status: "READY"; toolCount: number; sessionId?: string }) => {
+      const settle = (result: { status: "READY" | "FAILED"; toolCount: number; sessionId?: string }) => {
         if (settled) return;
         settled = true;
         if (unsubscribe) unsubscribe();
@@ -328,9 +328,9 @@ export default function ServerForm({
 
         const status = String(match.connectionStatus || "").toUpperCase();
         onStatus(status);
-        if (status === "READY") {
-          cleanup({
-            status: "READY",
+        if (status === "READY" || status === "FAILED") {
+          settle({
+            status: status as "READY" | "FAILED",
             toolCount: Array.isArray(match.tools) ? match.tools.length : 0,
             sessionId: match.sessionId,
           });
@@ -343,6 +343,16 @@ export default function ServerForm({
 
       // Immediate check in case state already changed before subscription callback.
       evaluate(useMcpStore.getState().connections);
+
+      // Timeout — if the connection never reaches a terminal state (READY/FAILED),
+      // give the form back so the user can retry.
+      setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          if (unsubscribe) unsubscribe();
+          reject(new Error('Connection verification timed out'));
+        }
+      }, 60_000);
     });
   };
 
@@ -415,6 +425,8 @@ export default function ServerForm({
         url,
         transportType: useCustomTransport ? transport : "streamable-http",
         headers: normalizeHeaderRows(form.headers),
+        clientId: form.clientId || null,
+        clientSecret: form.clientSecret || null,
       };
 
       try {
@@ -447,10 +459,10 @@ export default function ServerForm({
           // Continue waiting for status transitions to READY.
         } else if (normalized.includes("authorization required") || normalized.includes("oauth")) {
           upsertValidationMessage("connection", {
-            state: "running",
-            detail: "Authorization required. Complete auth to continue verification.",
+            state: "failed",
+            detail: "Authorization required, but OAuth flow could not be started. Try again or use a static token.",
           });
-          // Continue waiting for post-auth status transitions to READY.
+          throw error;
         } else {
           throw error;
         }
@@ -462,16 +474,22 @@ export default function ServerForm({
         (status) => {
           setConnectionStatusTrail((prev) => (prev.includes(status) ? prev : [...prev, status]));
           upsertValidationMessage("connection", {
-            state: status === "READY" ? "done" : "running",
+            state: status === "READY" ? "done" : status === "FAILED" ? "failed" : "running",
             detail: `${CONNECTION_STATUS_DETAILS[status] || `Status: ${status}`} (${status})`,
           });
         }
       );
 
-      upsertValidationMessage("connection", {
-        state: "done",
-        detail: `Connected successfully (${runtimeResult.toolCount} tools discovered).`,
-      });
+      if (runtimeResult.status === "READY") {
+        upsertValidationMessage("connection", {
+          state: "done",
+          detail: `Connected successfully (${runtimeResult.toolCount} tools discovered).`,
+        });
+      } else {
+        throw new Error(
+          `Connection failed (${runtimeResult.status})`
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Server connection check failed.";
       upsertValidationMessage("connection", {

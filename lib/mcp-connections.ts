@@ -13,6 +13,7 @@ export interface McpConnectionRecord {
   active: boolean;
   connectionStatus: string;
   toolPolicy?: ToolPolicy;
+  enabled?: boolean;
 }
 
 function toConnectionRecord(

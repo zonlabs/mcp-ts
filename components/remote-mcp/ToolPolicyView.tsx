@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { ShieldCheck, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { ToolAccessDialog } from "@/components/mcp-client/ToolAccessDialog";
 import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
@@ -42,6 +43,8 @@ function connectionToServer(conn: StoredConnection): McpServer {
 
 export default function ToolPolicyView() {
   const connections = useMcpStore((state) => state.connections);
+  const updateSession = useMcpStore((state) => state.mcpActions?.updateSession);
+  const syncConnections = useMcpStore((state) => state.syncConnections);
   const [dialogServer, setDialogServer] = useState<McpServer | null>(null);
   const [dialogConnection, setDialogConnection] = useState<StoredConnection | null>(null);
 
@@ -49,6 +52,15 @@ export default function ToolPolicyView() {
     () => Object.values(connections).filter((c) => c.connectionStatus === "READY"),
     [connections]
   );
+
+  const handleToggle = useCallback(async (sessionId: string, enabled: boolean) => {
+    if (!updateSession) return;
+    try {
+      await updateSession(sessionId, enabled);
+    } catch (error) {
+      console.error("[ToolPolicy] Failed to toggle session:", error);
+    }
+  }, [updateSession]);
 
   return (
     <>
@@ -81,6 +93,11 @@ export default function ToolPolicyView() {
                           {conn.serverName}
                         </span>
                         <PolicyBadge mode={conn.toolPolicy?.mode} />
+                        {conn.enabled === false && (
+                          <span className="text-xs text-muted-foreground/60 font-medium">
+                            Disabled
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground/70 truncate">
                         {conn.tools.length} tool{conn.tools.length !== 1 ? "s" : ""} available
@@ -88,19 +105,31 @@ export default function ToolPolicyView() {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 shrink-0 gap-1.5"
-                    onClick={() => {
-                      setDialogServer(connectionToServer(conn));
-                      setDialogConnection(conn);
-                    }}
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                    Manage
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 pr-2 border-r border-border/40">
+                      <Switch
+                        checked={conn.enabled !== false}
+                        onCheckedChange={(checked) => handleToggle(conn.sessionId, checked)}
+                        aria-label={conn.enabled !== false ? "Disable server for AI" : "Enable server for AI"}
+                      />
+                      <span className="text-[11px] text-muted-foreground/60 select-none">
+                        {conn.enabled !== false ? "AI" : "Off"}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5"
+                      onClick={() => {
+                        setDialogServer(connectionToServer(conn));
+                        setDialogConnection(conn);
+                      }}
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                      Manage
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

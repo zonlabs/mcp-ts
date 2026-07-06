@@ -34,6 +34,7 @@ export interface StoredConnection {
   tools: ToolInfo[];
   allTools?: ToolInfo[];
   toolPolicy?: ToolPolicy;
+  enabled?: boolean;
   connectedAt: string;
   error?: string;
 }
@@ -47,6 +48,10 @@ type McpActionsBundle = {
     sessionId: string,
     policy: { mode: ToolPolicy["mode"]; toolIds?: string[] }
   ) => Promise<ToolAccessResult>;
+  updateSession?: (
+    sessionId: string,
+    enabled: boolean
+  ) => Promise<{ success: boolean }>;
 };
 
 function normalizeConnectionStatus(
@@ -587,6 +592,7 @@ export const useMcpStore = create<McpStore>()(
                 tools: val.tools || [],
                 allTools: val.allTools || [],
                 toolPolicy: val.toolPolicy,
+                enabled: val.enabled ?? true,
                 connectedAt: new Date().toISOString(), // This might need to come from hook if available
                 error: val.error,
               };
@@ -619,6 +625,8 @@ export const useMcpStore = create<McpStore>()(
               transportType: server.transport,
               callbackUrl,
               headers: normalizeHeaders(server.headers),
+              clientId: server.clientId || undefined,
+              clientSecret: server.clientSecret || undefined,
             });
             toast.success(`Connection initiated for ${server.name}`);
           } catch (error) {
