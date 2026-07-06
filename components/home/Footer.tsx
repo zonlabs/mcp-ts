@@ -4,13 +4,15 @@ import Logo from "@/components/common/Logo";
 
 export default function Footer() {
   return (
-    <footer className="relative max-w-5xl mx-auto border-t border-border/50 bg-background/50 backdrop-blur-sm">
+    <footer className="relative max-w-5xl mx-auto border-t border-border/50">
       <div className="container mx-auto px-6 py-12">
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div className="space-y-3">
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:text-left text-center">
-              <Logo size={36} />
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:text-left text-center">
+              <div className="sm:mt-1 flex-shrink-0">
+                <Logo size={48} />
+              </div>
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-foreground">MCP Assistant</h3>
                 <p className="text-sm text-muted-foreground">

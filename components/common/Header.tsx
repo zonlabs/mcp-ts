@@ -33,7 +33,7 @@ export default function Header() {
             <Link href="/" className="flex items-center gap-2">
               <Logo size={34} />
               {(!isDashboard || sidebarOpen) && (
-                <span className="text-sm font-semibold text-foreground inline-block font-sans-original">
+                <span className="text-base font-semibold text-foreground inline-block font-sans-original">
                   MCP Assistant
                 </span>
               )}
@@ -54,7 +54,7 @@ export default function Header() {
             ) : (
               <Link
                 href="/signin"
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-base font-medium hover:bg-primary/90 transition-colors"
               >
                 Sign in
               </Link>

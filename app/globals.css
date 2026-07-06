@@ -169,6 +169,10 @@
     @apply font-sans;
   }
 
+  a, button {
+    font-size: 1rem;
+  }
+
   button:not(:disabled):not([aria-disabled="true"]),
   [role="button"]:not(:disabled):not([aria-disabled="true"]) {
     cursor: pointer;

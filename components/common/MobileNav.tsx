@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Home, Hammer, MessageSquare, Package, BookOpen, GitFork } from "lucide-react";
+import { Menu, X, Home, Hammer, MessageSquare, Package, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +17,6 @@ export function MobileNav() {
     { href: "/", label: "Home", icon: Home },
     { href: "/mcp", label: "MCP", icon: Hammer },
     { href: "/registry", label: "Registry", icon: Package },
-    { href: "/workflows", label: "Workflows", icon: GitFork },
     { href: "/chat", label: "Chat", icon: MessageSquare },
     { href: "https://docs.mcp-assistant.in/", label: "Docs", icon: BookOpen, external: true },
   ];

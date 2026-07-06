@@ -1,6 +1,6 @@
 "use client";
 
-import { User, ChevronDown, Settings, LogOut, Home, Hammer, Package, GitFork, MessageSquare, BookOpen } from "lucide-react";
+import { User, ChevronDown, Settings, LogOut, Home, Hammer, Package, MessageSquare, BookOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,7 +35,6 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
     { href: "/", label: "Home", icon: Home },
     { href: "/mcp", label: "MCP", icon: Hammer },
     { href: "/registry", label: "Registry", icon: Package },
-    { href: "/workflows", label: "Workflows", icon: GitFork },
     { href: "/chat", label: "Chat", icon: MessageSquare },
     { href: "https://docs.mcp-assistant.in/", label: "Docs", icon: BookOpen, external: true },
   ];
