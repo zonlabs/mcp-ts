@@ -39,7 +39,7 @@ type ToolAccessDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-type ToolBadge = "Read" | "Write" | "Destructive" | "Unknown";
+type ToolBadge = "Read" | "Write" | "Destructive" | "Idempotent";
 
 const MODE_OPTIONS: Array<{ mode: ToolPolicyMode; label: string }> = [
   { mode: "all", label: "All tools" },
@@ -364,7 +364,12 @@ export function ToolAccessDialog({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <code className="truncate font-mono text-[11px] text-foreground">{tool.name}</code>
-                                <Badge variant="outline" className={cn("h-5 px-1.5 text-[10px]", badge === "Destructive" && "border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5")}>
+                                <Badge variant="outline" className={cn("h-5 px-1.5 text-[10px]",
+                                  badge === "Destructive" && "border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5",
+                                  badge === "Write" && "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5",
+                                  badge === "Read" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5",
+                                  badge === "Idempotent" && "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/5",
+                                )}>
                                   {badge}
                                 </Badge>
                               </div>
@@ -415,15 +420,16 @@ export function ToolAccessDialog({
 }
 
 function classifyTool(tool: ToolAccessInfo): ToolBadge {
-  const ann = tool.annotations as { destructiveHint?: boolean; readOnlyHint?: boolean } | undefined;
+  const ann = tool.annotations as { destructiveHint?: boolean; readOnlyHint?: boolean; idempotentHint?: boolean } | undefined;
   if (ann?.destructiveHint === true) return "Destructive";
   if (ann?.readOnlyHint === true) return "Read";
+  if (ann?.idempotentHint === true) return "Idempotent";
 
   const value = `${tool.name} ${tool.description ?? ""}`.toLowerCase();
-  if (/delete|remove|destroy|drop|revoke|disable|purge/.test(value)) return "Destructive";
-  if (/create|add|update|edit|write|send|post|put|patch|merge|commit|upload|enable/.test(value)) return "Write";
-  if (/get|list|read|fetch|search|find|query|lookup|view|inspect/.test(value)) return "Read";
-  return "Unknown";
+  if (/delete|remove|destroy|drop|revoke|disable|purge|clear|wipe/.test(value)) return "Destructive";
+  if (/create|add|update|edit|write|send|post|put|patch|merge|commit|upload|enable|process|execute|run|transform|calculate|generate|build|publish|deploy|sync|import|export|clone|fork|copy/.test(value)) return "Write";
+  if (/get|list|read|fetch|search|find|query|lookup|view|inspect|check|count|sum|aggregate|describe|show/.test(value)) return "Read";
+  return "Write";
 }
 
 

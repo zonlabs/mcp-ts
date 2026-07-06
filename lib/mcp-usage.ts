@@ -2,6 +2,12 @@ export type McpToolCallStatus = "success" | "error";
 
 export type McpToolCallEventType = "top_level" | "downstream_tool" | "schema_inspection";
 
+export interface ServerIcon {
+  src: string;
+  sizes?: string;
+  type?: string;
+}
+
 export interface McpToolCallEventRow {
   id: string;
   user_id: string;
@@ -10,6 +16,7 @@ export interface McpToolCallEventRow {
   server_id: string | null;
   server_name: string | null;
   server_url: string | null;
+  server_icons: ServerIcon[] | null;
   app_key: string | null;
   tool_name: string;
   tool_namespace: string | null;
@@ -52,6 +59,7 @@ export interface McpUsageHeatmapApp {
   name: string;
   count: number;
   serverUrl?: string | null;
+  serverIcons?: ServerIcon[] | null;
 }
 
 const ORCHESTRATOR_APP_KEYS = new Set(["mcp_assistant", "workflow_automation_engine"]);
@@ -176,6 +184,7 @@ export function buildMcpUsageHeatmap(
       "mcp_server";
     const appName = getMcpAppDisplayName(event.app_key, event.server_name);
     const serverUrl = event.server_url ?? null;
+    const serverIcons = event.server_icons ?? null;
     const appCounts = connectedAppCountsByDate.get(dateKey) ?? new Map<string, McpUsageHeatmapApp>();
     const current = appCounts.get(appKey);
     appCounts.set(appKey, {
@@ -183,6 +192,7 @@ export function buildMcpUsageHeatmap(
       name: appName,
       count: (current?.count ?? 0) + 1,
       serverUrl: current?.serverUrl ?? serverUrl,
+      serverIcons: current?.serverIcons ?? serverIcons,
     });
     connectedAppCountsByDate.set(dateKey, appCounts);
   }

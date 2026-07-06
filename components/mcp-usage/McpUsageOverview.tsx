@@ -1,10 +1,11 @@
 "use client";
 
 import { Fragment, useMemo, useState, useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 import { Activity, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
-import type { McpToolCallEventRow, McpToolCallEventGroup } from "@/lib/mcp-usage";
+import type { McpToolCallEventRow, McpToolCallEventGroup, ServerIcon as McpServerIcon } from "@/lib/mcp-usage";
 import {
   buildMcpUsageHeatmap,
   getMcpAppDisplayName,
@@ -21,6 +22,45 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
+
+function ServerActivityIcon({
+  icons,
+  serverName,
+  serverUrl,
+  size = 24,
+  className = "",
+}: {
+  icons?: McpServerIcon[] | null;
+  serverName: string;
+  serverUrl?: string | null;
+  size?: number;
+  className?: string;
+}) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  if (icons && icons.length > 0) {
+    // Pick a dark-friendly icon when in dark mode (looks for "dark" in filename)
+    const darkIcon = isDark ? icons.find((i) => /dark/i.test(i.src)) : undefined;
+    const src = darkIcon?.src ?? icons[0]?.src;
+    if (src) {
+      return (
+        <img
+          src={src}
+          alt={`${serverName} icon`}
+          width={size}
+          height={size}
+          className={className}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        />
+      );
+    }
+  }
+
+  return <ServerIcon serverName={serverName} serverUrl={serverUrl} size={size} className={className} />;
+}
 
 interface McpUsageOverviewProps {
   groups: McpToolCallEventGroup[];
@@ -163,9 +203,10 @@ export function McpUsageOverview({
                             <>
                               {tooltipItems.map((app) => (
                                 <div key={`${day.date}-${app.key}`} className="flex items-center gap-2 text-xs">
-                                  <ServerIcon
+                                  <ServerActivityIcon
+                                    icons={app.serverIcons}
                                     serverName={app.name}
-                                    serverUrl={app.serverUrl ?? undefined}
+                                    serverUrl={app.serverUrl}
                                     size={16}
                                     className="shrink-0 rounded-sm"
                                   />
