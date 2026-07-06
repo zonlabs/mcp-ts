@@ -8,7 +8,7 @@ export function restCategory(row: CategoryRow): Category {
 /** Plain REST JSON shape for one MCP server (matches `McpServer` UI type). */
 export function restMcpServer(
   node: McpServerNode,
-  options: { includeHeaders?: boolean } = {}
+  options: { includeHeaders?: boolean; includeCredentials?: boolean } = {}
 ): McpServer {
   const server: McpServer = {
     id: node.id,
@@ -29,6 +29,11 @@ export function restMcpServer(
 
   if (options.includeHeaders && node.headers) {
     server.headers = node.headers;
+  }
+
+  if (options.includeCredentials) {
+    if (node.clientId) server.clientId = node.clientId;
+    if (node.clientSecret) server.clientSecret = node.clientSecret;
   }
 
   return server;

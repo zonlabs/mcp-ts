@@ -61,7 +61,7 @@ export default async function McpPage({ searchParams }: PageProps) {
 
   const userServers =
     userResult.status === "fulfilled"
-      ? userResult.value.map((node) => restMcpServer(node, { includeHeaders: true }))
+      ? userResult.value.map((node) => restMcpServer(node, { includeHeaders: true, includeCredentials: true }))
       : [];
   const userError =
     userResult.status === "rejected" ? userResult.reason instanceof Error
@@ -77,7 +77,10 @@ export default async function McpPage({ searchParams }: PageProps) {
   // Resolve matching server details serverside
   if (serverId && matchedServerResult.status === "fulfilled" && (matchedServerResult.value as any)?.data) {
     const matchedNode = mapServerRow((matchedServerResult.value as any).data);
-    const matchedRest = restMcpServer(matchedNode, { includeHeaders: true });
+    const matchedRest = restMcpServer(matchedNode, {
+      includeHeaders: true,
+      includeCredentials: matchedNode.owner === user?.id,
+    });
     serversideSelectedServer = matchedRest;
     
     const exists =

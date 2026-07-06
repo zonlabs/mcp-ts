@@ -175,6 +175,8 @@ export async function saveUserMcpServer(
     headers: normalizeHeaderRecord(body.headers) ?? null,
     query_params: body.queryParams ?? null,
     requires_oauth2: Boolean(body.requiresOauth2 ?? body.requiresOauth),
+    client_id: (body.clientId as string) || null,
+    client_secret: (body.clientSecret as string) || null,
     is_public: Boolean(body.isPublic),
   };
 

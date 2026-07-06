@@ -23,6 +23,8 @@ export type McpServerRow = {
   headers: unknown;
   query_params: unknown;
   requires_oauth2: boolean;
+  client_id?: string | null;
+  client_secret?: string | null;
   is_public: boolean;
   is_featured: boolean;
   created_at: string;
@@ -44,6 +46,8 @@ export type McpServerNode = {
   categories: Category[];
   description: string | null;
   requiresOauth2: boolean;
+  clientId?: string | null;
+  clientSecret?: string | null;
   updatedAt: string;
   createdAt: string;
   owner: string;
@@ -108,6 +112,8 @@ export function mapServerRow(row: McpServerRow): McpServerNode {
     categories,
     description: row.description,
     requiresOauth2: row.requires_oauth2,
+    clientId: row.client_id ?? null,
+    clientSecret: row.client_secret ?? null,
     updatedAt: row.updated_at,
     createdAt: row.created_at,
     owner: row.user_id,

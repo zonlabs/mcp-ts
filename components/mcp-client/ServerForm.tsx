@@ -53,6 +53,8 @@ const serverSchema = z.object({
   command: z.string().optional(),
   args: z.string().optional(),
   requiresOauth: z.boolean().optional(),
+  clientId: z.string().optional(),
+  clientSecret: z.string().optional(),
   isPublic: z.boolean().optional(),
   headers: z
     .array(
@@ -173,6 +175,8 @@ export default function ServerForm({
       command: "",
       args: "",
       requiresOauth: false,
+      clientId: "",
+      clientSecret: "",
       isPublic: false,
       headers: [],
     },
@@ -184,6 +188,8 @@ export default function ServerForm({
   });
 
   const watchedTransport = watch("transport");
+  const watchedRequiresOauth = watch("requiresOauth");
+  const watchedIsPublic = watch("isPublic");
 
   const buildInitialValidationSteps = ({
     requiresValidation,
@@ -213,6 +219,7 @@ export default function ServerForm({
     if (mode === "edit" && server) {
       const categoryIds = server.categories ? server.categories.map((cat) => cat.id) : [];
       setSelectedCategoryIds(categoryIds);
+
       reset({
         id: server.id,
         name: server.name,
@@ -227,6 +234,8 @@ export default function ServerForm({
             : JSON.stringify(server.args)
           : "",
         requiresOauth: server.requiresOauth2 || false,
+        clientId: server.clientId || "",
+        clientSecret: server.clientSecret || "",
         isPublic: server.isPublic || false,
         headers: headerRecordToRows(server.headers),
       });
@@ -243,6 +252,8 @@ export default function ServerForm({
         command: "",
         args: "",
         requiresOauth: false,
+        clientId: "",
+        clientSecret: "",
         isPublic: false,
         headers: [],
       });
@@ -626,25 +637,6 @@ export default function ServerForm({
                 />
                 {errors.url && <p className="text-red-500 text-xs mt-1">{errors.url.message}</p>}
               </div>
-
-              <div className="flex items-start space-x-3 py-3 border-b">
-                <Controller
-                  name="isPublic"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      id="isPublic"
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="mt-0.5"
-                    />
-                  )}
-                />
-                <div className="space-y-1">
-                  <Label htmlFor="isPublic" className="text-sm font-medium">Visibility</Label>
-                  <p className="text-xs text-muted-foreground">Enable to list this server publicly.</p>
-                </div>
-              </div>
             </TabsContent>
 
             <TabsContent value="additional" className="pt-4 space-y-6 px-1 pb-4">
@@ -742,10 +734,91 @@ export default function ServerForm({
               </div>
 
               <div className="space-y-4">
+                <h3 className="text-lg font-medium border-b border-border/80 pb-2">Authentication</h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-2">
+                  <div className="flex items-start space-x-3 py-3 border-b">
+                    <Controller
+                      name="requiresOauth"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          id="requiresOauth"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className="mt-0.5"
+                        />
+                      )}
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth</Label>
+                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {watchedRequiresOauth && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 border-b border-border/50">
+                    <div className="space-y-2">
+                      <Label htmlFor="clientId" className="text-sm font-medium">OAuth Client ID</Label>
+                      <Input
+                        id="clientId"
+                        placeholder="Enter Client ID"
+                        {...register("clientId")}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Your registered OAuth Client Identifier from Google / GitHub.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="clientSecret" className="text-sm font-medium">OAuth Client Secret (Optional)</Label>
+                      <Input
+                        id="clientSecret"
+                        type="password"
+                        placeholder="Enter Client Secret"
+                        {...register("clientSecret")}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Optional for public OAuth clients, required for web apps.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
                 <h3 className="text-lg font-medium border-b border-border/80 pb-2">Metadata & Visibility</h3>
 
+                <div className="flex items-start space-x-3 py-3 border-b border-border/50">
+                  <Controller
+                    name="isPublic"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox
+                        id="isPublic"
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          // Clear selected categories if visibility is unchecked
+                          if (!checked) {
+                            setSelectedCategoryIds([]);
+                            setValue("categoryIds", []);
+                          }
+                        }}
+                        className="mt-0.5"
+                      />
+                    )}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="isPublic" className="text-sm font-medium">Visibility</Label>
+                    <p className="text-xs text-muted-foreground">Enable to list this server publicly in the catalog.</p>
+                  </div>
+                </div>
+
                 <div className="space-y-1">
-                  <Label htmlFor="categoryIds" className="text-xs">Categories</Label>
+                  <Label htmlFor="categoryIds" className={`text-xs ${!watchedIsPublic ? "text-muted-foreground/50" : ""}`}>
+                    Categories
+                  </Label>
                   {categoriesLoading ? (
                     <p className="text-xs text-muted-foreground">Loading categories...</p>
                   ) : categoriesError ? (
@@ -753,7 +826,12 @@ export default function ServerForm({
                   ) : (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="outline" className="w-full h-10 justify-between text-sm font-normal">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!watchedIsPublic}
+                          className="w-full h-10 justify-between text-sm font-normal disabled:opacity-50"
+                        >
                           <div className="flex items-center gap-1.5 truncate">
                             {selectedCategoryIds.length > 0 ? (
                               selectedCategoryIds.map((id) => {
@@ -772,7 +850,9 @@ export default function ServerForm({
                                 );
                               })
                             ) : (
-                              <span className="text-muted-foreground">Select categories...</span>
+                              <span className="text-muted-foreground">
+                                {watchedIsPublic ? "Select categories..." : "Select categories (Enable visibility first)"}
+                              </span>
                             )}
                           </div>
                           <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
@@ -797,27 +877,6 @@ export default function ServerForm({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-2">
-                  <div className="flex items-start space-x-3 py-3 border-b">
-                    <Controller
-                      name="requiresOauth"
-                      control={control}
-                      render={({ field }) => (
-                        <Checkbox
-                          id="requiresOauth"
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="mt-0.5"
-                        />
-                      )}
-                    />
-                    <div className="space-y-1">
-                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth</Label>
-                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth.</p>
-                    </div>
-                  </div>
                 </div>
               </div>
             </TabsContent>

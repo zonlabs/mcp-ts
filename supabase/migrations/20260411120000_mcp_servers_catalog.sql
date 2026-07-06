@@ -24,6 +24,8 @@ create table if not exists public.mcp_servers (
   headers jsonb,
   query_params jsonb,
   requires_oauth2 boolean not null default false,
+  client_id text,
+  client_secret text,
   is_public boolean not null default false,
   is_featured boolean not null default false,
   created_at timestamptz not null default now(),

@@ -27,6 +27,8 @@ type ConnectableServer = {
   transportType?: string | null;
   title?: string | null;
   headers?: Record<string, string> | Array<{ key: string; value: string }> | null;
+  clientId?: string | null;
+  clientSecret?: string | null;
 };
 
 function normalizeHeaders(
@@ -196,6 +198,8 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
         transportType: transport,
         callbackUrl,
         headers: normalizeHeaders(server.headers),
+        clientId: server.clientId || undefined,
+        clientSecret: server.clientSecret || undefined,
       });
 
     } catch (error) {

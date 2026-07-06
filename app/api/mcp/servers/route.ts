@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     //   ctx.user.id
     // );
 
-    return NextResponse.json({ server: restMcpServer(saved, { includeHeaders: true }) });
+    return NextResponse.json({ server: restMcpServer(saved, { includeHeaders: true, includeCredentials: true }) });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error";
     console.error("Error saving MCP server:", error);

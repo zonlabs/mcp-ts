@@ -192,10 +192,10 @@ export function ServerSidebar({
     return (
       <TooltipProvider>
         <div
-          className="border-r border-border flex flex-col bg-background transition-[width] duration-300 sticky top-14 h-[calc(100vh-3.5rem)] z-40 w-16"
+          className="border-r border-border flex flex-col bg-background transition-[width] duration-300 sticky top-14 h-[calc(100vh-3.5rem)] z-40 w-12"
         >
           {/* Top Header with Expand Button */}
-          <div className="p-4 border-b border-border flex flex-col items-center flex-shrink-0">
+          <div className="py-4 border-b border-border flex flex-col items-center flex-shrink-0">
             <Tooltip delayDuration={100}>
               <TooltipTrigger asChild>
                 <Button
@@ -215,7 +215,7 @@ export function ServerSidebar({
           </div>
 
           {/* Action Buttons: Manage cog dropdown and Refresh */}
-          <div className="p-2 border-b border-border flex flex-col items-center gap-2.5 flex-shrink-0">
+          <div className="py-2 border-b border-border flex flex-col items-center gap-2.5 flex-shrink-0">
             <DropdownMenu>
               <Tooltip delayDuration={100}>
                 <TooltipTrigger asChild>

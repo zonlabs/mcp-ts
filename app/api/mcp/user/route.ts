@@ -14,7 +14,7 @@ export async function GET() {
 
   try {
     const nodes = await listUserMcpServers(supabase, user.id);
-    return NextResponse.json({ servers: nodes.map((node) => restMcpServer(node, { includeHeaders: true })) });
+    return NextResponse.json({ servers: nodes.map((node) => restMcpServer(node, { includeHeaders: true, includeCredentials: true })) });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Failed to load servers";
     return NextResponse.json({ error: message }, { status: 500 });

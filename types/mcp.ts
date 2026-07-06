@@ -53,6 +53,8 @@ export type McpServer = {
   args?: any | null;
   headers?: Record<string, string> | Array<{ key: string; value: string }> | null;
   requiresOauth2: boolean;
+  clientId?: string | null;
+  clientSecret?: string | null;
   isPublic?: boolean;
   connectionStatus?: string | null;
   tools: ToolInfo[];
