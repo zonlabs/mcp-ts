@@ -407,7 +407,7 @@ export default function Home() {
                   ["Zendesk", "zendesk"],
                   ["Intercom", "intercom"],
                   ["Mailchimp", "mailchimp"],
-                ] as const).map(([name, slug, invert]) => (
+                ] as const).map(([name, slug, invert = false]) => (
                   <div
                     key={name}
                     className="flex h-11 w-11 items-center justify-center rounded-lg bg-card/40 backdrop-blur-xs transition-all duration-200 hover:scale-110"
