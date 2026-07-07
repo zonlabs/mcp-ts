@@ -84,14 +84,11 @@ export default function SignInPage() {
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="flex items-center gap-2">
-            <Logo />
+            <div className="rounded-md overflow-hidden"><Logo /></div>
             <span className="text-lg font-semibold text-foreground">MCP Assistant</span>
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Sign in to your account
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Welcome back! Please sign in to continue
+          <p className="text-base text-foreground/80">
+            Sign in to your account to continue
           </p>
         </div>
 
@@ -118,7 +115,7 @@ export default function SignInPage() {
             <div className="absolute inset-0 flex items-center">
               <Separator />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
+            <div className="relative flex justify-center text-sm uppercase">
               <span className="bg-muted/40 px-2 text-muted-foreground">
                 or
               </span>
