@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -16,13 +16,19 @@ import {
   Check,
   Clock,
   Link2,
+  Terminal,
+  MessageSquare,
+  Database,
+  ChevronDown,
 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import ServerManagement from "./ServerManagement";
 import { ToolAccessDialog } from "./ToolAccessDialog";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
@@ -53,6 +59,10 @@ export function ServerDetails({
 }: ServerDetailsProps) {
   const [urlCopied, setUrlCopied] = useState(false);
   const [toolAccessOpen, setToolAccessOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("tools");
+  const [expandedResource, setExpandedResource] = useState<string | null>(null);
+  const [resourceContents, setResourceContents] = useState<Record<string, { text?: string; mimeType?: string }>>({});
+  const [loadingResource, setLoadingResource] = useState<string | null>(null);
 
   const connections = useMcpStore((s) => s.connections);
   const stored = useMemo(
@@ -87,6 +97,54 @@ export function ServerDetails({
     : stored?.toolPolicy?.mode === "denylist"
       ? `${stored.toolPolicy.toolIds.length} tools denied`
       : "All tools allowed";
+
+  const prompts = stored?.prompts ?? server.prompts;
+  const resources = stored?.resources ?? server.resources;
+  const allTools = stored?.tools ?? server.tools ?? [];
+
+  const tabs = [
+    { id: "tools" as const, label: "Tools", count: allTools.length, icon: Terminal },
+    { id: "prompts" as const, label: "Prompts", count: prompts?.length ?? 0, icon: MessageSquare },
+    { id: "resources" as const, label: "Resources", count: resources?.length ?? 0, icon: Database },
+  ].filter((t) => t.count > 0);
+
+  const mcpActions = useMcpStore((s) => s.mcpActions);
+  const fetchConnectionCapabilities = useMcpStore((s) => s.fetchConnectionCapabilities);
+
+  const handleReadResource = async (uri: string) => {
+    if (loadingResource) return;
+    if (expandedResource === uri) {
+      setExpandedResource(null);
+      return;
+    }
+    setLoadingResource(uri);
+    try {
+      if (!stored?.sessionId || !mcpActions?.readResource) return;
+      const result = await mcpActions.readResource(stored.sessionId, uri);
+      const contents = (result as any)?.contents;
+      if (contents?.[0]) {
+        setResourceContents((prev) => ({
+          ...prev,
+          [uri]: { text: contents[0].text, mimeType: contents[0].mimeType },
+        }));
+      }
+      setExpandedResource(uri);
+    } catch {
+      setResourceContents((prev) => ({
+        ...prev,
+        [uri]: { text: "Failed to read resource" },
+      }));
+      setExpandedResource(uri);
+    } finally {
+      setLoadingResource(null);
+    }
+  };
+
+  useEffect(() => {
+    if (isConnected && stored?.sessionId && !stored?.prompts && !stored?.resources) {
+      fetchConnectionCapabilities(stored.sessionId);
+    }
+  }, [isConnected, stored?.sessionId, stored?.prompts, stored?.resources, fetchConnectionCapabilities]);
 
   const addedAtSource = server.createdAt || server.updated_at;
 
@@ -296,6 +354,130 @@ export function ServerDetails({
         </div>
       </div>
       </div>
+
+      {tabs.length > 0 && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="border-b border-border">
+          <div className="px-4 sm:px-6">
+            <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent p-0 h-auto">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-red-500 bg-transparent px-4 py-3 text-xs font-medium data-[state=active]:text-foreground text-muted-foreground hover:text-foreground transition-colors gap-2"
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                    <span className="ml-1 text-[10px] text-muted-foreground">({tab.count})</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
+
+          <div className="px-4 sm:px-6 py-4">
+            {/* Tools */}
+            <TabsContent value="tools" className="m-0 space-y-2">
+              {allTools.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No tools available</p>
+              ) : (
+                allTools.map((tool) => (
+                  <div key={tool.name} className="rounded-lg border border-border/60 p-3">
+                    <code className="text-sm font-medium text-foreground">{tool.name}</code>
+                    {tool.description && (
+                      <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </TabsContent>
+
+            {/* Prompts */}
+            <TabsContent value="prompts" className="m-0 space-y-2">
+              {(!prompts || prompts.length === 0) ? (
+                <p className="text-xs text-muted-foreground">No prompts available</p>
+              ) : (
+                prompts.map((prompt) => (
+                  <div key={prompt.name} className="rounded-lg border border-border/60 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <code className="text-sm font-medium text-foreground">{prompt.name}</code>
+                    </div>
+                    {prompt.description && (
+                      <p className="text-xs text-muted-foreground mb-2">{prompt.description}</p>
+                    )}
+                    {prompt.arguments && prompt.arguments.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {prompt.arguments.map((arg) => (
+                          <span
+                            key={arg.name}
+                            className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-mono text-muted-foreground"
+                          >
+                            {arg.name}
+                            {arg.required && <span className="text-red-500">*</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </TabsContent>
+
+            {/* Resources */}
+            <TabsContent value="resources" className="m-0 space-y-2">
+              {(!resources || resources.length === 0) ? (
+                <p className="text-xs text-muted-foreground">No resources available</p>
+              ) : (
+                resources.map((resource) => {
+                  const isExpanded = expandedResource === resource.uri;
+                  const content = resourceContents[resource.uri];
+                  const isLoading = loadingResource === resource.uri;
+                  return (
+                    <div key={resource.uri}>
+                      <button
+                        onClick={() => handleReadResource(resource.uri)}
+                        className="w-full text-left rounded-lg border border-border/60 p-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <code className="text-sm font-medium text-foreground">{resource.name}</code>
+                          <div className="flex items-center gap-2">
+                            {resource.mimeType && (
+                              <span className="text-[10px] text-muted-foreground font-mono">{resource.mimeType}</span>
+                            )}
+                            {isLoading ? (
+                              <span className="text-[10px] text-muted-foreground animate-pulse">loading...</span>
+                            ) : (
+                              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                            )}
+                          </div>
+                        </div>
+                        {resource.description && (
+                          <p className="text-xs text-muted-foreground mb-2">{resource.description}</p>
+                        )}
+                        <div className="text-[10px] text-muted-foreground font-mono truncate">
+                          {resource.uri}
+                        </div>
+                      </button>
+                      {isExpanded && content && (
+                        <div className="mx-3 mb-2 p-3 rounded-lg bg-muted/40 border border-border/40">
+                          {content.mimeType && (
+                            <div className="text-[10px] text-muted-foreground font-mono mb-2">{content.mimeType}</div>
+                          )}
+                          <pre className="text-xs whitespace-pre-wrap break-words font-mono max-h-64 overflow-y-auto">
+                            {content.text || "(binary content)"}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
+      )}
+
       <ToolAccessDialog
         server={server}
         connection={stored}

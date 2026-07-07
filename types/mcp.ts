@@ -58,6 +58,21 @@ export type McpServer = {
   isPublic?: boolean;
   connectionStatus?: string | null;
   tools: ToolInfo[];
+  prompts?: Array<{
+    name: string;
+    description?: string;
+    arguments?: Array<{
+      name: string;
+      description?: string;
+      required?: boolean;
+    }>;
+  }>;
+  resources?: Array<{
+    uri: string;
+    name: string;
+    description?: string;
+    mimeType?: string;
+  }>;
   updated_at: string;
   createdAt?: string;
   error?: string | null;

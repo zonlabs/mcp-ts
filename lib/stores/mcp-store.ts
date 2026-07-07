@@ -33,6 +33,21 @@ export interface StoredConnection {
   connectionStatus: ConnectionStatus;
   tools: ToolInfo[];
   allTools?: ToolInfo[];
+  prompts?: Array<{
+    name: string;
+    description?: string;
+    arguments?: Array<{
+      name: string;
+      description?: string;
+      required?: boolean;
+    }>;
+  }>;
+  resources?: Array<{
+    uri: string;
+    name: string;
+    description?: string;
+    mimeType?: string;
+  }>;
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
   connectedAt: string;
@@ -52,6 +67,12 @@ type McpActionsBundle = {
     sessionId: string,
     enabled: boolean
   ) => Promise<{ success: boolean }>;
+  listPrompts?: (sessionId: string) => Promise<{
+    prompts: Array<{ name: string; description?: string; arguments?: Array<{ name: string; description?: string; required?: boolean }> }>;
+  }>;
+  listResources?: (sessionId: string) => Promise<{
+    resources: Array<{ uri: string; name: string; description?: string; mimeType?: string }>;
+  }>;
 };
 
 function normalizeConnectionStatus(
@@ -234,6 +255,7 @@ interface ConnectionActions {
   getConnectionStatus: (sessionId: string) => ConnectionStatus | undefined;
   isServerConnected: (serverId: string) => boolean;
   getServerTools: (sessionId: string) => ToolInfo[] | undefined;
+  fetchConnectionCapabilities: (sessionId: string) => Promise<void>;
 }
 
 /**
@@ -582,18 +604,21 @@ export const useMcpStore = create<McpStore>()(
             connections: Object.values(connections).reduce((acc, val: any) => {
               if (!val?.sessionId) return acc;
               const normalizedStatus = normalizeConnectionStatus(val.state);
+              const existing = get().connections[val.sessionId];
               acc[val.sessionId] = {
                 sessionId: val.sessionId,
-                serverId: val.serverId || val.identity, // Fallback if needed
+                serverId: val.serverId || val.identity,
                 serverName: val.serverName,
                 url: val.serverUrl,
                 transport: normalizeTransport(val.transportType || val.transport || "streamable-http"),
                 connectionStatus: normalizedStatus,
                 tools: val.tools || [],
                 allTools: val.allTools || [],
+                prompts: val.prompts ?? existing?.prompts,
+                resources: val.resources ?? existing?.resources,
                 toolPolicy: val.toolPolicy,
                 enabled: val.enabled ?? true,
-                connectedAt: new Date().toISOString(), // This might need to come from hook if available
+                connectedAt: new Date().toISOString(),
                 error: val.error,
               };
               return acc;
@@ -763,6 +788,40 @@ export const useMcpStore = create<McpStore>()(
          */
         getServerTools: (sessionId) => {
           return get().connections[sessionId]?.tools;
+        },
+
+        fetchConnectionCapabilities: async (sessionId) => {
+          const { mcpActions } = get();
+          if (!mcpActions?.listPrompts || !mcpActions?.listResources) return;
+
+          const connection = get().connections[sessionId];
+          if (!connection || connection.connectionStatus !== 'READY') return;
+          if (connection.prompts || connection.resources) return;
+
+          try {
+            const [promptsResult, resourcesResult] = await Promise.all([
+              mcpActions.listPrompts(sessionId).catch(() => null),
+              mcpActions.listResources(sessionId).catch(() => null),
+            ]);
+
+            const prompts = promptsResult?.prompts;
+            const resources = resourcesResult?.resources;
+
+            if (prompts || resources) {
+              set((state) => ({
+                connections: {
+                  ...state.connections,
+                  [sessionId]: {
+                    ...state.connections[sessionId],
+                    ...(prompts ? { prompts } : {}),
+                    ...(resources ? { resources } : {}),
+                  },
+                },
+              }));
+            }
+          } catch {
+            // silently ignore — server may not support prompts/resources
+          }
         },
 
         // ==================== UI ACTIONS ====================

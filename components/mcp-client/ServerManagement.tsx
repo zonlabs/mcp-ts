@@ -226,7 +226,7 @@ export default function ServerManagement({
                   className="flex items-center gap-2 cursor-pointer"
                 >
                   <Wrench className="h-4 w-4" />
-                  {toolTesterOpen ? "Hide Tools" : "Show Tools"}
+                  {toolTesterOpen ? "Hide Tools" : "Call Tools"}
                 </DropdownMenuItem>
               )}
               {onManageAccess && (

@@ -163,7 +163,7 @@ export function ServerDetail({ server }: ServerDetailProps) {
                         className="gap-2 cursor-pointer"
                       >
                         <Wrench className="h-4 w-4" />
-                        {toolTesterOpen ? "Hide Tools" : "Show Tools"}
+                        {toolTesterOpen ? "Hide Tools" : "Call Tools"}
                       </Button>
                     )}
                     {!isConnected ? (
