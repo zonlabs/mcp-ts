@@ -100,12 +100,14 @@ export function ServerDetails({
 
   const prompts = stored?.prompts ?? server.prompts;
   const resources = stored?.resources ?? server.resources;
+  const resourceTemplates = stored?.resourceTemplates;
   const allTools = stored?.tools ?? server.tools ?? [];
 
   const tabs = [
     { id: "tools" as const, label: "Tools", count: allTools.length, icon: Terminal },
     { id: "prompts" as const, label: "Prompts", count: prompts?.length ?? 0, icon: MessageSquare },
     { id: "resources" as const, label: "Resources", count: resources?.length ?? 0, icon: Database },
+    { id: "templates" as const, label: "Templates", count: resourceTemplates?.length ?? 0, icon: Database },
   ].filter((t) => t.count > 0);
 
   const mcpActions = useMcpStore((s) => s.mcpActions);
@@ -472,6 +474,30 @@ export function ServerDetails({
                     </div>
                   );
                 })
+              )}
+            </TabsContent>
+
+            {/* Resource Templates */}
+            <TabsContent value="templates" className="m-0 space-y-2">
+              {(!resourceTemplates || resourceTemplates.length === 0) ? (
+                <p className="text-xs text-muted-foreground">No resource templates available</p>
+              ) : (
+                resourceTemplates.map((template) => (
+                  <div key={template.uriTemplate} className="rounded-lg border border-border/60 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <code className="text-sm font-medium text-foreground">{template.name}</code>
+                      {template.mimeType && (
+                        <span className="text-[10px] text-muted-foreground font-mono">{template.mimeType}</span>
+                      )}
+                    </div>
+                    {template.description && (
+                      <p className="text-xs text-muted-foreground mb-2">{template.description}</p>
+                    )}
+                    <div className="text-[10px] text-muted-foreground font-mono truncate">
+                      {template.uriTemplate}
+                    </div>
+                  </div>
+                ))
               )}
             </TabsContent>
           </div>

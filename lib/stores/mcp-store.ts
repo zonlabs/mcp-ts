@@ -48,6 +48,12 @@ export interface StoredConnection {
     description?: string;
     mimeType?: string;
   }>;
+  resourceTemplates?: Array<{
+    uriTemplate: string;
+    name: string;
+    description?: string;
+    mimeType?: string;
+  }>;
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
   connectedAt: string;
@@ -73,6 +79,10 @@ type McpActionsBundle = {
   listResources?: (sessionId: string) => Promise<{
     resources: Array<{ uri: string; name: string; description?: string; mimeType?: string }>;
   }>;
+  listResourceTemplates?: (sessionId: string) => Promise<{
+    resourceTemplates: Array<{ uriTemplate: string; name: string; description?: string; mimeType?: string }>;
+  }>;
+  readResource?: (sessionId: string, uri: string) => Promise<unknown>;
 };
 
 function normalizeConnectionStatus(
@@ -616,6 +626,7 @@ export const useMcpStore = create<McpStore>()(
                 allTools: val.allTools || [],
                 prompts: val.prompts ?? existing?.prompts,
                 resources: val.resources ?? existing?.resources,
+                resourceTemplates: val.resourceTemplates ?? existing?.resourceTemplates,
                 toolPolicy: val.toolPolicy,
                 enabled: val.enabled ?? true,
                 connectedAt: new Date().toISOString(),
@@ -796,18 +807,20 @@ export const useMcpStore = create<McpStore>()(
 
           const connection = get().connections[sessionId];
           if (!connection || connection.connectionStatus !== 'READY') return;
-          if (connection.prompts || connection.resources) return;
+          if (connection.prompts || connection.resources || connection.resourceTemplates) return;
 
           try {
-            const [promptsResult, resourcesResult] = await Promise.all([
+            const [promptsResult, resourcesResult, templatesResult] = await Promise.all([
               mcpActions.listPrompts(sessionId).catch(() => null),
               mcpActions.listResources(sessionId).catch(() => null),
+              mcpActions.listResourceTemplates?.(sessionId).catch(() => null),
             ]);
 
             const prompts = promptsResult?.prompts;
             const resources = resourcesResult?.resources;
+            const resourceTemplates = templatesResult?.resourceTemplates;
 
-            if (prompts || resources) {
+            if (prompts || resources || resourceTemplates) {
               set((state) => ({
                 connections: {
                   ...state.connections,
@@ -815,6 +828,7 @@ export const useMcpStore = create<McpStore>()(
                     ...state.connections[sessionId],
                     ...(prompts ? { prompts } : {}),
                     ...(resources ? { resources } : {}),
+                    ...(resourceTemplates ? { resourceTemplates } : {}),
                   },
                 },
               }));
