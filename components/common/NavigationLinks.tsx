@@ -89,7 +89,7 @@ export function NavigationLinks() {
               </Link>
               <div className="-mx-1 my-1 h-px bg-border" />
               <Link 
-                href="/settings/connectors" 
+                href="/mcp?view=add" 
                 className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer w-full text-left"
                 onClick={() => setOpen(false)}
               >
