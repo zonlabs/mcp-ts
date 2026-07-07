@@ -63,21 +63,24 @@ const fadeInUp: Variants = {
   }
 };
 
-function ServiceBadge({ name, icon, init, bg }: { name: string; icon: string; init: string; bg: string }) {
+function ServiceBadge({ name, icon, init, bg, invert, className }: { name: string; icon: string; init: string; bg: string; invert?: boolean; className?: string }) {
   const [errored, setErrored] = useState(false);
   const handleError = useCallback(() => setErrored(true), []);
 
   return (
-    <div className="flex flex-col items-center gap-1.5 group">
+    <div className={`flex flex-col items-center gap-1.5 group ${className ?? ""}`}>
       <div className={`flex h-14 w-14 items-center justify-center rounded-xl border border-border/60 transition-all duration-200 group-hover:border-red-200/60 group-hover:scale-110 dark:group-hover:border-red-400/30 ${errored ? bg : "bg-card/40"}`}>
         {errored ? (
           <span className="text-sm font-bold tracking-tight text-white">{init}</span>
         ) : (
-          <img
+          <Image
             src={`https://logos.composio.dev/api/${icon}`}
             alt={name}
-            className="h-7 w-7"
+            width={28}
+            height={28}
+            className={`h-7 w-7 ${invert ? "dark:invert" : ""}`}
             onError={handleError}
+            unoptimized
           />
         )}
       </div>
@@ -190,27 +193,27 @@ export default function Home() {
                       { name: "Netlify", icon: "https://logos.composio.dev/api/netlify" },
                       { name: "Heroku", icon: "https://logos.composio.dev/api/heroku" },
                       { name: "cloudinary", icon: "https://logos.composio.dev/api/cloudinary" },
-                      { name: "Higgsfield", icon: "https://logos.composio.dev/api/higgsfield", invert: true },
-                      { name: "Perplexity", icon: "https://logos.composio.dev/api/perplexityai", invert: true },
+                      { name: "Higgsfield", icon: "https://logos.composio.dev/api/higgsfield" },
+                      { name: "Perplexity", icon: "https://logos.composio.dev/api/perplexityai" },
                       { name: "Calendly", icon: "https://logos.composio.dev/api/calendly" },
-                      { name: "Mem0", icon: "https://logos.composio.dev/api/mem0", invert: true },
-                      { name: "Context 7", icon: "https://logos.composio.dev/api/context7", invert: true },
-                      { name: "Firecrawl", icon: "https://logos.composio.dev/api/firecrawl", invert: true },
-                      { name: "Exa", icon: "https://logos.composio.dev/api/exa", invert: true },
+                      { name: "Mem0", icon: "https://logos.composio.dev/api/mem0" },
+                      { name: "Context 7", icon: "https://logos.composio.dev/api/context7" },
+                      { name: "Firecrawl", icon: "https://logos.composio.dev/api/firecrawl" },
                       { name: "Parallel Search", icon: "https://logos.composio.dev/api/parallel", invert: true },
+                      { name: "Exa", icon: "https://logos.composio.dev/api/exa", },
                     ].map((plat) => (
                       <div
                         key={plat.name}
                         className="flex h-11 w-11 items-center justify-center rounded-lg bg-card/40 backdrop-blur-xs transition-all duration-200 hover:scale-110"
                         title={plat.name}
                       >
-                        <img
+                        <Image
                           src={plat.icon}
                           alt={plat.name}
                           width={30}
                           height={20}
                           className={`rounded-sm ${plat.invert ? "dark:invert" : ""}`}
-                          loading="lazy"
+                          unoptimized
                         />
                       </div>
                     ))}
@@ -246,7 +249,7 @@ export default function Home() {
                 <Link href="https://modelcontextprotocol.io/docs/getting-started/intro" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
                   Model Context Protocol
                 </Link>{" "}
-                makes it possible for AI apps to use tools and data, but building on top of it is more than calling <code className="text-foreground">listTools()</code> and <code className="text-foreground">callTool()</code>. You need sessions, OAuth flows, storage, reconnects, and framework integrations.{" "}
+                makes it possible for AI apps to use tools and data, but building on top of it is more than tool invocation. You need sessions, OAuth flows, storage, reconnects, and framework integrations.{" "}
                 <span className="font-medium text-foreground">mcp-ts</span> takes care of that application layer so you can focus on what your app does.
               </motion.p>
 
@@ -386,26 +389,39 @@ export default function Home() {
                 </code>
               </motion.div>
  
-              <motion.div variants={fadeInUp} className="flex flex-wrap items-center justify-center gap-4 mb-6">
-                {[
-                  { name: "Calendar", icon: "googlecalendar", init: "CA", bg: "bg-blue-500" },
-                  { name: "HubSpot", icon: "hubspot", init: "HS", bg: "bg-orange-500" },
-                  { name: "Linear", icon: "linear", init: "LN", bg: "bg-indigo-600" },
-                  { name: "Supabase", icon: "supabase", init: "SB", bg: "bg-emerald-500" },
-                  { name: "Stripe", icon: "stripe", init: "ST", bg: "bg-indigo-600" },
-                  { name: "Zoom", icon: "zoom", init: "ZM", bg: "bg-blue-600" },
-                  { name: "GitLab", icon: "gitlab", init: "GL", bg: "bg-orange-600" },
-                  { name: "Exa", icon: "exa", init: "EX", bg: "bg-violet-500" },
-                  { name: "Twilio", icon: "twilio", init: "TW", bg: "bg-red-600" },
-                  { name: "Trello", icon: "trello", init: "TR", bg: "bg-blue-500" },
-                  { name: "Asana", icon: "asana", init: "AS", bg: "bg-rose-500" },
-                  { name: "Shopify", icon: "shopify", init: "SH", bg: "bg-emerald-600" },
-                  { name: "ClickUp", icon: "clickup", init: "CU", bg: "bg-pink-600" },
-                  { name: "Zendesk", icon: "zendesk", init: "ZD", bg: "bg-green-800" },
-                  { name: "Intercom", icon: "intercom", init: "IC", bg: "bg-blue-600" },
-                  { name: "Mailchimp", icon: "mailchimp", init: "MC", bg: "bg-yellow-500" },
-                ].map((svc) => (
-                  <ServiceBadge key={svc.name} {...svc} />
+              <motion.div variants={fadeInUp} className="flex flex-wrap items-center justify-center gap-2.5 max-w-2xl mx-auto mb-6">
+                {([
+                  ["Calendar", "googlecalendar"],
+                  ["HubSpot", "hubspot"],
+                  ["Linear", "linear"],
+                  ["Supabase", "supabase"],
+                  ["Stripe", "stripe"],
+                  ["Zoom", "zoom"],
+                  ["GitLab", "gitlab"],
+                  ["Exa", "exa"],
+                  ["Twilio", "twilio"],
+                  ["Trello", "trello"],
+                  ["Asana", "asana"],
+                  ["Shopify", "shopify"],
+                  ["ClickUp", "clickup"],
+                  ["Zendesk", "zendesk"],
+                  ["Intercom", "intercom"],
+                  ["Mailchimp", "mailchimp"],
+                ] as const).map(([name, slug, invert]) => (
+                  <div
+                    key={name}
+                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-card/40 backdrop-blur-xs transition-all duration-200 hover:scale-110"
+                    title={name}
+                  >
+                    <Image
+                      src={`https://logos.composio.dev/api/${slug}`}
+                      alt={name}
+                      width={30}
+                      height={20}
+                      className={`rounded-sm ${invert ? "dark:invert" : ""}`}
+                      unoptimized
+                    />
+                  </div>
                 ))}
               </motion.div>
  
