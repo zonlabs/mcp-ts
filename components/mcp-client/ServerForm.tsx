@@ -589,17 +589,17 @@ export default function ServerForm({
 
   return (
     <div className="h-full flex flex-col bg-background animate-in slide-in-from-bottom-4 duration-300 max-w-2xl mx-auto w-full">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Edit2 className="h-4 w-4 text-primary" />
+          <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
+            <Edit2 className="h-3.5 w-3.5 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold">{mode === "add" ? "Add New Server" : "Edit Server"}</h2>
+          <h2 className="text-base font-semibold">{mode === "add" ? "Add Server" : "Edit Server"}</h2>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="w-full mx-auto space-y-8">
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="w-full mx-auto space-y-4">
           {!session && (
             <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
@@ -610,7 +610,7 @@ export default function ServerForm({
           )}
 
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 rounded-none border-b border-border/70">
+            <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 rounded-none border-b border-border/50">
               <TabsTrigger
                 value="basic"
                 className="rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent pb-2 pt-1 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
@@ -625,12 +625,10 @@ export default function ServerForm({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="basic" className="pt-4 space-y-4">
-              <h3 className="text-lg font-medium border-b pb-2">Basic Information</h3>
-
+            <TabsContent value="basic" className="pt-3 space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="name" className="text-xs">Server Name</Label>
-                <Input {...register("name")} id="name" placeholder="My MCP Server" className="h-10" />
+                <Input {...register("name")} id="name" placeholder="My MCP Server" className="h-9" />
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
               </div>
 
@@ -640,9 +638,9 @@ export default function ServerForm({
                   {...register("description")}
                   id="description"
                   placeholder="What does this server do? (optional/markdown supported)"
-                  className="min-h-[100px] resize-none leading-relaxed"
+                  className="min-h-[64px] resize-none leading-relaxed text-sm"
                 />
-                <p className="text-xs text-muted-foreground">Markdown supported. Help others understand this server.</p>
+                <p className="text-[10px] text-muted-foreground">Markdown supported.</p>
               </div>
 
               <div className="space-y-1">
@@ -651,163 +649,156 @@ export default function ServerForm({
                   {...register("url")}
                   id="url"
                   placeholder="https://mcp.example.com/token/mcp"
-                  className="h-10 font-mono text-sm"
+                  className="h-9 font-mono text-sm"
                 />
                 {errors.url && <p className="text-red-500 text-xs mt-1">{errors.url.message}</p>}
               </div>
             </TabsContent>
 
-            <TabsContent value="additional" className="pt-4 space-y-6 px-1 pb-4">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium border-b border-border/80 pb-2">Connection Configuration</h3>
+            <TabsContent value="additional" className="pt-3 space-y-4 px-1 pb-2">
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium border-b border-border/50 pb-1">Connection</h3>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Transport Type</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setUseCustomTransport((prev) => !prev)}
-                    >
-                      {useCustomTransport ? "Use Auto" : "Set Manually"}
-                    </Button>
-                  </div>
-
-                  {!useCustomTransport ? (
-                    <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                      Auto (recommended) - transport is selected automatically.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
-                      <label
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          transportType === "streamable-http"
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "border-muted hover:border-primary/50 hover:bg-muted/50"
-                        }`}
-                      >
-                        <input type="radio" {...register("transport")} value="streamable-http" className="sr-only" />
-                        <Globe className="h-5 w-5 mb-2" />
-                        <span className="font-semibold text-sm">HTTP</span>
-                        <span className="text-[10px] text-muted-foreground">Streamable HTTP</span>
-                      </label>
-                      <label
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          transportType === "sse"
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "border-muted hover:border-primary/50 hover:bg-muted/50"
-                        }`}
-                      >
-                        <input type="radio" {...register("transport")} value="sse" className="sr-only" />
-                        <Rss className="h-5 w-5 mb-2" />
-                        <span className="font-semibold text-sm">SSE</span>
-                        <span className="text-[10px] text-muted-foreground">Server-Sent Events</span>
-                      </label>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-border/80 pb-2">
-                  <h3 className="text-lg font-medium">HTTP Headers</h3>
-                  <Button type="button" variant="default" size="sm" onClick={() => append({ key: "", value: "" })} className="h-8 text-xs">
-                    <Plus className="mr-1 h-3 w-3" />
-                    Add Header
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Transport</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px]"
+                    onClick={() => setUseCustomTransport((prev) => !prev)}
+                  >
+                    {useCustomTransport ? "Auto" : "Manual"}
                   </Button>
                 </div>
 
-                <div className="space-y-3">
+                {!useCustomTransport ? (
+                  <div className="rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground">
+                    Auto (recommended)
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        transportType === "streamable-http"
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/50"
+                      }`}
+                    >
+                      <input type="radio" {...register("transport")} value="streamable-http" className="sr-only" />
+                      <Globe className="h-4 w-4 shrink-0" />
+                      <div>
+                        <span className="text-xs font-medium">HTTP</span>
+                        <span className="text-xs text-muted-foreground ml-1">Streamable</span>
+                      </div>
+                    </label>
+                    <label
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        transportType === "sse"
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-primary/50"
+                      }`}
+                    >
+                      <input type="radio" {...register("transport")} value="sse" className="sr-only" />
+                      <Rss className="h-4 w-4 shrink-0" />
+                      <div>
+                        <span className="text-xs font-medium">SSE</span>
+                        <span className="text-xs text-muted-foreground ml-1">Server-Sent Events</span>
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-border/50 pb-1">
+                  <h3 className="text-sm font-medium">HTTP Headers</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ key: "", value: "" })} className="h-7 text-xs px-2">
+                    <Plus className="mr-0.5 h-3 w-3" />
+                    Add
+                  </Button>
+                </div>
+
+                <div className="space-y-1.5">
                   {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2 group">
+                    <div key={field.id} className="flex items-center gap-1.5 group">
                       <Input
                         {...register(`headers.${index}.key`)}
                         placeholder="Authorization"
-                        className="w-1/3 h-9 font-mono text-xs"
+                        className="w-[35%] h-8 font-mono text-xs"
                       />
                       <Input
                         {...register(`headers.${index}.value`)}
                         placeholder="Bearer token123"
-                        className="flex-1 h-9 font-mono text-xs"
+                        className="flex-1 h-8 font-mono text-xs"
                       />
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => remove(index)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
                     </div>
                   ))}
                   {fields.length === 0 && (
-                    <div className="text-center py-6 border-2 border-dashed rounded-lg text-muted-foreground text-sm">
+                    <div className="text-center py-4 border border-dashed rounded-lg text-muted-foreground text-xs">
                       No custom headers configured.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium border-b border-border/80 pb-2">Authentication</h3>
+              <div className="space-y-2.5">
+                <h3 className="text-sm font-medium border-b border-border/50 pb-1">Authentication</h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-2">
-                  <div className="flex items-start space-x-3 py-3 border-b">
-                    <Controller
-                      name="requiresOauth"
-                      control={control}
-                      render={({ field }) => (
-                        <Checkbox
-                          id="requiresOauth"
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="mt-0.5"
-                        />
-                      )}
-                    />
-                    <div className="space-y-1">
-                      <Label htmlFor="requiresOauth" className="text-sm font-medium">OAuth</Label>
-                      <p className="text-xs text-muted-foreground">Enable if the server requires OAuth.</p>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2.5 py-1.5">
+                  <Controller
+                    name="requiresOauth"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox
+                        id="requiresOauth"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
+                  />
+                  <Label htmlFor="requiresOauth" className="text-xs font-medium">OAuth</Label>
+                  <span className="text-xs text-muted-foreground">Enable if the server requires OAuth.</span>
                 </div>
 
                 {watchedRequiresOauth && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 border-b border-border/50">
-                    <div className="space-y-2">
-                      <Label htmlFor="clientId" className="text-sm font-medium">OAuth Client ID</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <Label htmlFor="clientId" className="text-xs font-medium">Client ID</Label>
                       <Input
                         id="clientId"
                         placeholder="Enter Client ID"
                         {...register("clientId")}
+                        className="h-8 text-xs"
                       />
-                      <p className="text-[11px] text-muted-foreground">
-                        Your registered OAuth Client Identifier from Google / GitHub.
-                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="clientSecret" className="text-sm font-medium">OAuth Client Secret (Optional)</Label>
+                    <div className="space-y-1">
+                      <Label htmlFor="clientSecret" className="text-xs font-medium">Client Secret</Label>
                       <Input
                         id="clientSecret"
                         type="password"
                         placeholder="Enter Client Secret"
                         {...register("clientSecret")}
+                        className="h-8 text-xs"
                       />
-                      <p className="text-[11px] text-muted-foreground">
-                        Optional for public OAuth clients, required for web apps.
-                      </p>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium border-b border-border/80 pb-2">Metadata & Visibility</h3>
+              <div className="space-y-2.5">
+                <h3 className="text-sm font-medium border-b border-border/50 pb-1">Visibility</h3>
 
-                <div className="flex items-start space-x-3 py-3 border-b border-border/50">
+                <div className="flex items-center gap-2.5 py-1.5">
                   <Controller
                     name="isPublic"
                     control={control}
@@ -817,20 +808,16 @@ export default function ServerForm({
                         checked={field.value}
                         onCheckedChange={(checked) => {
                           field.onChange(checked);
-                          // Clear selected categories if visibility is unchecked
                           if (!checked) {
                             setSelectedCategoryIds([]);
                             setValue("categoryIds", []);
                           }
                         }}
-                        className="mt-0.5"
                       />
                     )}
                   />
-                  <div className="space-y-1">
-                    <Label htmlFor="isPublic" className="text-sm font-medium">Visibility</Label>
-                    <p className="text-xs text-muted-foreground">Enable to list this server publicly in the catalog.</p>
-                  </div>
+                  <Label htmlFor="isPublic" className="text-xs font-medium">Public</Label>
+                  <span className="text-xs text-muted-foreground">List this server publicly in the catalog.</span>
                 </div>
 
                 <div className="space-y-1">
@@ -848,18 +835,18 @@ export default function ServerForm({
                           type="button"
                           variant="outline"
                           disabled={!watchedIsPublic}
-                          className="w-full h-10 justify-between text-sm font-normal disabled:opacity-50"
+                          className="w-full h-8 justify-between text-xs font-normal disabled:opacity-50"
                         >
-                          <div className="flex items-center gap-1.5 truncate">
+                          <div className="flex items-center gap-1 truncate">
                             {selectedCategoryIds.length > 0 ? (
                               selectedCategoryIds.map((id) => {
                                 const category = categories.find((c) => c.id === id);
                                 if (!category) return null;
                                 return (
-                                  <div key={id} className="flex items-center gap-1 bg-secondary px-2 py-0.5 rounded">
+                                  <div key={id} className="flex items-center gap-1 bg-secondary px-1.5 py-0.5 rounded">
                                     {category.icon &&
                                       (category.icon.includes(".") ? (
-                                        <Image src={`/categories/${category.icon}`} alt={category.name} width={14} height={14} />
+                                        <Image src={`/categories/${category.icon}`} alt={category.name} width={12} height={12} />
                                       ) : (
                                         <span className="text-xs">{category.icon}</span>
                                       ))}
@@ -869,14 +856,14 @@ export default function ServerForm({
                               })
                             ) : (
                               <span className="text-muted-foreground">
-                                {watchedIsPublic ? "Select categories..." : "Select categories (Enable visibility first)"}
+                                {watchedIsPublic ? "Select categories..." : "Enable visibility first"}
                               </span>
                             )}
                           </div>
-                          <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
+                          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[300px]" align="start">
+                      <DropdownMenuContent className="w-[250px]" align="start">
                         {categories.map((node) => (
                           <DropdownMenuCheckboxItem
                             key={node.id}
@@ -900,51 +887,19 @@ export default function ServerForm({
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex items-center gap-2 pt-1">
             {shouldShowStatus && (
-              <div className="mr-auto min-w-[320px] max-w-[640px] py-1">
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-b border-border/70 px-1">
-                    {orderedValidationMessages.map((message) => (
-                      <div
-                        key={message.key}
-                        className={`inline-flex min-h-8 items-center justify-center border-b-2 px-2 py-1 text-[11px] font-medium transition-colors ${getTopStepPillClass(message.state)}`}
-                      >
-                        <span className="leading-none">{message.label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="relative ml-1 pl-1">
-                    {orderedValidationMessages.map((message) => (
-                      <div key={`${message.key}-detail`} className="relative pb-3 pl-8 text-xs last:pb-0">
-                        <span
-                          className={`absolute left-0 top-1 h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${getTimelineMarkerClass(message.state)}`}
-                        >
-                          <span className={`h-1.5 w-1.5 rounded-full ${getTimelineMarkerInnerClass(message.state)}`} />
-                        </span>
-                        <div className={`min-w-0 py-0.5 ${getTimelineItemClass(message.state)}`}>
-                            <p className="font-medium text-foreground">{message.label}</p>
-                            <p className="mt-0.5 text-muted-foreground break-words">{message.detail || "Pending..."}</p>
-                            {message.key === "connection" && connectionStatusTrail.length > 0 && (
-                              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {connectionStatusTrail.map((status) => (
-                                  <span
-                                    key={status}
-                                    className="rounded-sm border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                                  >
-                                    {status}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {validationError && <p className="text-xs text-red-500">{validationError}</p>}
-                </div>
+              <div className="mr-auto flex items-center gap-2">
+                {orderedValidationMessages.map((message) => (
+                  <span
+                    key={message.key}
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${getTopStepPillClass(message.state)}`}
+                  >
+                    {message.state === "running" && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+                    {message.label}
+                  </span>
+                ))}
+                {validationError && <span className="text-[10px] text-red-500 ml-1">{validationError}</span>}
               </div>
             )}
 
@@ -953,22 +908,20 @@ export default function ServerForm({
             <Button
               onClick={handleSubmit(handleFormSubmit)}
               disabled={!session || isSubmitting || isValidatingBeforeSubmit}
-              className="gap-2"
+              className="gap-1.5"
             >
               {isSubmitting || isValidatingBeforeSubmit ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <Save className="h-4 w-4" />
+                <Save className="h-3 w-3" />
               )}
               {isValidatingBeforeSubmit
                 ? "Validating..."
                 : mode === "add"
                   ? "Submit"
-                  : "Update Server"}
+                  : "Update"}
             </Button>
           </div>
-
-          <div className="h-12" />
         </div>
       </div>
     </div>
