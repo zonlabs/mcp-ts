@@ -57,7 +57,7 @@ function McpStoreProviderInner({
     updateSession,
     listPrompts,
     listResources,
-    // listResourceTemplates, // published sdk doesn't have this yet
+    listResourceTemplates,
     readResource,
   } = useMcp({
     url: '/api/mcp/sse',
@@ -167,8 +167,8 @@ function McpStoreProviderInner({
 
   // Sync actions to store once (or when they change)
   useEffect(() => {
-    setMcpActions({ connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, listResources, readResource });
-  }, [connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, listResources, readResource, setMcpActions]);
+    setMcpActions({ connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, listResources, listResourceTemplates, readResource });
+  }, [connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, listResources, listResourceTemplates, readResource, setMcpActions]);
 
   // Sync state to store whenever connections change
   useEffect(() => {

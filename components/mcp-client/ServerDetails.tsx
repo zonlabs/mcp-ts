@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -28,6 +28,7 @@ import { ToolAccessDialog } from "./ToolAccessDialog";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserSession } from "@/components/providers/AuthProvider";
@@ -45,6 +46,7 @@ interface ServerDetailsProps {
   onDelete?: (serverId: string) => void;
   toolTesterOpen?: boolean;
   onToggleTools?: () => void;
+  onToolClick?: (toolName: string) => void;
 }
 
 export function ServerDetails({
@@ -56,9 +58,15 @@ export function ServerDetails({
   onDelete,
   toolTesterOpen,
   onToggleTools,
+  onToolClick,
 }: ServerDetailsProps) {
   const [urlCopied, setUrlCopied] = useState(false);
   const [toolAccessOpen, setToolAccessOpen] = useState(false);
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [templateParams, setTemplateParams] = useState<Record<string, string>>({});
+  const [templateResourceContent, setTemplateResourceContent] = useState<string | null>(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateMimeType, setTemplateMimeType] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState("tools");
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
   const [resourceContents, setResourceContents] = useState<Record<string, { text?: string; mimeType?: string }>>({});
@@ -139,6 +147,39 @@ export function ServerDetails({
       setExpandedResource(uri);
     } finally {
       setLoadingResource(null);
+    }
+  };
+
+  const extractTemplateVars = useCallback((uriTemplate: string): string[] => {
+    const vars: string[] = [];
+    const regex = /\{([^}]+)\}/g;
+    let match;
+    while ((match = regex.exec(uriTemplate)) !== null) {
+      vars.push(match[1]);
+    }
+    return vars;
+  }, []);
+
+  const substituteTemplate = useCallback((uriTemplate: string, params: Record<string, string>): string => {
+    return uriTemplate.replace(/\{([^}]+)\}/g, (_, key) => params[key] || `{${key}}`);
+  }, []);
+
+  const handleReadTemplate = async (uriTemplate: string) => {
+    if (templateLoading) return;
+    setTemplateLoading(true);
+    setTemplateResourceContent(null);
+    setTemplateMimeType(undefined);
+    try {
+      const uri = substituteTemplate(uriTemplate, templateParams);
+      if (!stored?.sessionId || !mcpActions?.readResource) return;
+      const result = await mcpActions.readResource(stored.sessionId, uri);
+      const contents = (result as any)?.contents;
+      setTemplateResourceContent(contents?.[0]?.text ?? "(empty)");
+      setTemplateMimeType(contents?.[0]?.mimeType);
+    } catch {
+      setTemplateResourceContent("Failed to read resource");
+    } finally {
+      setTemplateLoading(false);
     }
   };
 
@@ -385,12 +426,21 @@ export function ServerDetails({
                 <p className="text-xs text-muted-foreground">No tools available</p>
               ) : (
                 allTools.map((tool) => (
-                  <div key={tool.name} className="rounded-lg border border-border/60 p-3">
-                    <code className="text-sm font-medium text-foreground">{tool.name}</code>
+                  <button
+                    key={tool.name}
+                    onClick={() => onToolClick?.(tool.name)}
+                    className="w-full text-left rounded-lg border border-border/60 p-3 hover:bg-muted/50 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="text-sm font-medium text-foreground">{tool.name}</code>
+                      <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        Call tool →
+                      </span>
+                    </div>
                     {tool.description && (
                       <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
                     )}
-                  </div>
+                  </button>
                 ))
               )}
             </TabsContent>
@@ -482,22 +532,63 @@ export function ServerDetails({
               {(!resourceTemplates || resourceTemplates.length === 0) ? (
                 <p className="text-xs text-muted-foreground">No resource templates available</p>
               ) : (
-                resourceTemplates.map((template) => (
-                  <div key={template.uriTemplate} className="rounded-lg border border-border/60 p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <code className="text-sm font-medium text-foreground">{template.name}</code>
-                      {template.mimeType && (
-                        <span className="text-[10px] text-muted-foreground font-mono">{template.mimeType}</span>
+                resourceTemplates.map((template) => {
+                  const vars = extractTemplateVars(template.uriTemplate);
+                  const isExpanded = expandedTemplate === template.uriTemplate;
+                  return (
+                    <div key={template.uriTemplate} className="rounded-lg border border-border/60">
+                      <button
+                        onClick={() => setExpandedTemplate(isExpanded ? null : template.uriTemplate)}
+                        className="w-full text-left p-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <code className="text-sm font-medium text-foreground">{template.name}</code>
+                          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform flex-shrink-0", isExpanded && "rotate-180")} />
+                        </div>
+                        {template.description && (
+                          <p className="text-xs text-muted-foreground mb-2">{template.description}</p>
+                        )}
+                        <div className="text-[10px] text-muted-foreground font-mono">{template.uriTemplate}</div>
+                      </button>
+                      {isExpanded && vars.length > 0 && (
+                        <div className="px-3 pb-3 space-y-2">
+                          {vars.map((v) => (
+                            <div key={v}>
+                              <label className="text-[10px] font-mono text-muted-foreground block mb-1">{v}</label>
+                              <Input
+                                value={templateParams[v] || ""}
+                                onChange={(e) => setTemplateParams((p) => ({ ...p, [v]: e.target.value }))}
+                                placeholder={`Enter ${v}`}
+                                className="h-7 text-xs"
+                              />
+                            </div>
+                          ))}
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleReadTemplate(template.uriTemplate)}
+                              disabled={templateLoading || vars.some((v) => !templateParams[v])}
+                              className="h-7 text-xs"
+                            >
+                              {templateLoading ? "Loading..." : "Read"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {isExpanded && templateResourceContent && (
+                        <div className="mx-3 mb-3 p-3 rounded-lg bg-muted/40 border border-border/40">
+                          {templateMimeType && (
+                            <div className="text-[10px] text-muted-foreground font-mono mb-2">{templateMimeType}</div>
+                          )}
+                          <pre className="text-xs whitespace-pre-wrap break-words font-mono max-h-64 overflow-y-auto">
+                            {templateResourceContent}
+                          </pre>
+                        </div>
                       )}
                     </div>
-                    {template.description && (
-                      <p className="text-xs text-muted-foreground mb-2">{template.description}</p>
-                    )}
-                    <div className="text-[10px] text-muted-foreground font-mono truncate">
-                      {template.uriTemplate}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </TabsContent>
           </div>

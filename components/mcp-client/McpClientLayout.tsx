@@ -638,6 +638,11 @@ export default function McpClientLayout({
                           setSidebarOpen(false);
                         }
                       }}
+                      onToolClick={(toolName) => {
+                        setSelectedToolName(toolName);
+                        setToolTesterOpen(true);
+                        setSidebarOpen(false);
+                      }}
                     />
                   </div>
                 ) : (
