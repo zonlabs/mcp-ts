@@ -6,6 +6,7 @@ import { useState } from 'react';
 interface ServerIconProps {
   serverName: string;
   serverUrl?: string | null;
+  icon?: string | null;
   size?: number;
   className?: string;
   showFallback?: boolean;
@@ -15,16 +16,37 @@ interface ServerIconProps {
 export function ServerIcon({
   serverName,
   serverUrl,
+  icon,
   size = 24,
   className = '',
   showFallback = true,
   fallbackImage,
 }: ServerIconProps) {
   const [error, setError] = useState(false);
+  const [iconError, setIconError] = useState(false);
 
   React.useEffect(() => {
     setError(false);
-  }, [serverUrl, serverName]);
+    setIconError(false);
+  }, [serverUrl, serverName, icon]);
+
+  // If an explicit icon URL is provided, render it directly with fallback
+  if (icon && !iconError) {
+    return (
+      <img
+        key={`icon:${icon}`}
+        src={icon}
+        alt={`${serverName} icon`}
+        width={size}
+        height={size}
+        className={className}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setIconError(true)}
+      />
+    );
+  }
 
   const getHostname = (url?: string | null): string | null => {
     if (!url) return null;

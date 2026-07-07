@@ -114,6 +114,7 @@ export function ServerDetails({
             <ServerIcon
               serverName={server.name}
               serverUrl={server.url}
+              icon={server.icon}
               size={32}
               className="flex-shrink-0"
             />

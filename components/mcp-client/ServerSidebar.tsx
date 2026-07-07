@@ -323,6 +323,7 @@ export function ServerSidebar({
                         <ServerIcon
                           serverName={server.name}
                           serverUrl={server.url ?? undefined}
+                          icon={server.icon}
                           size={22}
                           className="rounded-md"
                         />

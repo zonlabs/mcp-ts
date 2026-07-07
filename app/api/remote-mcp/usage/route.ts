@@ -24,6 +24,33 @@ const SELECT_COLUMNS = [
   "created_at",
 ].join(",");
 
+const METRICS_PAGE_SIZE = 1000;
+
+async function fetchAllMetricsEvents(supabase: any, userId: string) {
+  const allEvents: any[] = [];
+  let page = 0;
+
+  while (true) {
+    const from = page * METRICS_PAGE_SIZE;
+    const to = from + METRICS_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("mcp_tool_call_events")
+      .select("started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type")
+      .eq("user_id", userId)
+      .order("completed_at", { ascending: false })
+      .order("event_type", { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allEvents.push(...data);
+    if (data.length < METRICS_PAGE_SIZE) break;
+    page++;
+  }
+
+  return allEvents;
+}
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
@@ -59,21 +86,16 @@ export async function GET(request: NextRequest) {
         .eq("event_type", "top_level")
         .order("completed_at", { ascending: false })
         .range(from, to),
-      supabase
-        .from("mcp_tool_call_events")
-        .select("started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type")
-        .eq("user_id", user.id)
-        .order("completed_at", { ascending: false })
-        .order("event_type", { ascending: false })
-        .limit(5000),
+      fetchAllMetricsEvents(supabase, user.id),
     ]);
 
     const { data: grantsData, error: grantsError } = oauthGrantsResult;
     const { data: rawParentEvents, count, error: eventsError } = paginatedResult;
-    const { data: metricsData, error: metricsError } = metricsResult;
+    const metricsData = metricsResult;
+    const metricsError = null;
 
-    if (grantsError || eventsError || metricsError) {
-      const errorMsg = grantsError?.message || eventsError?.message || metricsError?.message;
+    if (grantsError || eventsError) {
+      const errorMsg = grantsError?.message || eventsError?.message;
       return NextResponse.json({ error: errorMsg }, { status: 500 });
     }
 
