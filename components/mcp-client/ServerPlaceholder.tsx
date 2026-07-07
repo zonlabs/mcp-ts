@@ -98,11 +98,11 @@ export function ServerPlaceholder({
           <motion.div variants={itemVariants} style={{ willChange: 'transform' }} className="mb-5">
             <div className="flex items-center gap-2 mb-2.5">
               <Hammer className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-base font-semibold text-foreground">MCP Asistant ─── Standalone MCP</h2>
+              <h2 className="text-base font-semibold text-foreground">Standalone MCP</h2>
             </div>
             <Link
               href="/mcp?view=activity"
-              className="group block rounded-xl border border-red-200/70 bg-background/50 p-4 text-left transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
+              className="group block rounded-xl border border-red-200/70 bg-background/50 p-4 text-left transition-colors hover:border-red-400 dark:border-red-400/20 dark:hover:border-red-500/40"
             >
               {/* Row 1: Logo, Name, and Icons */}
               <div className="flex items-center justify-between gap-4">
@@ -188,7 +188,7 @@ export function ServerPlaceholder({
                 {featuredServers.map((server) => (
                   <div
                     key={server.id}
-                    className="rounded-xl border border-red-200/70 bg-background/50 p-3 text-left transition-colors hover:bg-red-50/20 dark:border-red-400/20 dark:hover:bg-red-950/10"
+                    className="rounded-xl border border-red-200/70 bg-background/50 p-3 text-left transition-colors hover:border-red-400 dark:border-red-400/20 dark:hover:border-red-500/40"
                   >
                     <div className="flex items-start gap-2.5">
                       <ServerIcon
@@ -215,6 +215,7 @@ export function ServerPlaceholder({
               </div>
             </motion.div>
           )}
+          <div className="h-8" />
         </motion.div>
       </div>
     );

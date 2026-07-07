@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Database,
   ChevronDown,
+  Info,
 } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
@@ -31,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 
@@ -81,6 +83,7 @@ export function ServerDetails({
   const connectionStatus =
     stored?.connectionStatus ?? server.connectionStatus ?? "DISCONNECTED";
   const isConnected = connectionStatus?.toUpperCase() === "READY";
+  const isFailed = ["ERROR", "FAILED"].includes(connectionStatus?.toUpperCase() ?? "");
   const lastConnectedLabel = stored?.connectedAt
     ? new Date(stored.connectedAt).toLocaleString("en-US", {
         month: "short",
@@ -207,7 +210,7 @@ export function ServerDetails({
 
   return (
     <>
-      <div className="p-4 sm:p-6 border-b border-border">
+      <div className="p-4 sm:p-6">
       <div className="flex flex-col gap-4">
         {/* Header with title and actions */}
         <div className="flex items-center justify-between">
@@ -219,7 +222,7 @@ export function ServerDetails({
               size={32}
               className="flex-shrink-0"
             />
-            <h2 className="text-xl sm:text-2xl font-semibold">{server.name}</h2>
+            <h2 className="text-base sm:text-2xl font-semibold">{server.name}</h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -245,163 +248,156 @@ export function ServerDetails({
           </div>
         )}
 
-        {/* Server Information Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-border">
-          {/* Basic Info */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-medium text-muted-foreground">
-              Basic Information
-            </h3>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs">
-                <Server className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium">Transport:</span>
-                <span className="text-muted-foreground">{server.transport}</span>
+        {/* Status bar */}
+        <div className="flex items-center justify-between pt-4 border-t border-border">
+          <Tooltip delayDuration={100}>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5 cursor-default">
+                <span className={cn(
+                  "h-2 w-2 rounded-full",
+                  isConnected ? "bg-green-500" : isFailed ? "bg-red-500" : "bg-muted-foreground/50"
+                )} />
+                <span className={cn(
+                  "text-xs font-semibold",
+                  isConnected && "text-green-600 dark:text-green-400",
+                  isFailed && "text-red-600 dark:text-red-400",
+                  !isConnected && !isFailed && "text-foreground"
+                )}>
+                  {connectionStatus}
+                </span>
               </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap break-words">
+              {statusTooltipText}
+            </TooltipContent>
+          </Tooltip>
 
-              <div className="flex items-center gap-2 text-xs">
-                {server.requiresOauth2 ? (
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <LockOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-                <span className="font-medium">Server type:</span>
-                {server.requiresOauth2 ? (
-                  <div className="flex items-center gap-1">
-                    <Shield className="h-3.5 w-3.5 text-amber-500" />
-                    <span className="text-muted-foreground">OAuth</span>
+          <HoverCard openDelay={100} closeDelay={100}>
+            <HoverCardTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 cursor-pointer" aria-label="Server details">
+                <Info className="h-3.5 w-3.5" />
+              </Button>
+            </HoverCardTrigger>
+            <HoverCardContent side="left" align="start" className="w-72 p-4">
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center gap-2 border-b border-border pb-2">
+                  <ServerIcon
+                    serverName={server.name}
+                    serverUrl={server.url}
+                    icon={server.icon}
+                    size={18}
+                  />
+                  <span className="text-sm font-semibold truncate">{server.name}</span>
+                </div>
+
+                {/* Basic Info */}
+                <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Basic Info</h4>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <Server className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="font-medium text-foreground">Transport:</span>
+                      <span className="text-muted-foreground">{server.transport}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      {server.requiresOauth2 ? (
+                        <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                      ) : (
+                        <LockOpen className="h-3 w-3 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="font-medium text-foreground">Server type:</span>
+                      {server.requiresOauth2 ? (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Shield className="h-3 w-3 text-amber-500" />
+                          OAuth
+                        </span>
+                      ) : (
+                        <span className="text-blue-600 dark:text-blue-400 font-medium">Open</span>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <span className="text-blue-600 dark:text-blue-400 font-medium">
-                    Open
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+                </div>
 
-          {/* Connection Details */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-medium text-muted-foreground">
-              Connection Details
-            </h3>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs">
-                <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium">Status:</span>
-                <Tooltip delayDuration={100}>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Badge
-                        variant={isConnected ? "default" : "secondary"}
-                        className="text-[10px] px-1.5 py-0"
-                      >
+                {/* Connection */}
+                <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Connection</h4>
+                  <div className="space-y-1">
+                    {server.url && (
+                      <div className="flex items-center gap-2 text-xs min-w-0">
+                        <Link2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <code className="bg-muted px-1 rounded text-[10px] font-mono truncate flex-1 min-w-0">{server.url}</code>
+                        <button onClick={handleCopyUrl} className="shrink-0 hover:text-foreground text-muted-foreground">
+                          {urlCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-xs">
+                      <Activity className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="font-medium text-foreground">Status:</span>
+                      <Badge variant={isConnected ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
                         {connectionStatus}
                       </Badge>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap break-words">
-                    {statusTooltipText}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              {server.url && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Link2
-                    className="h-3.5 w-3.5 text-muted-foreground shrink-0"
-                    aria-hidden
-                  />
-                  <Tooltip delayDuration={100}>
-                    <TooltipTrigger asChild>
-                      <code className="bg-muted px-1.5 py-0.5 rounded text-[10px] font-mono truncate flex-1 min-w-0">
-                        {server.url}
-                      </code>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs break-all">
-                      {server.url}
-                    </TooltipContent>
-                  </Tooltip>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={urlCopied ? "URL copied" : "Copy server URL"}
-                    onClick={handleCopyUrl}
-                    className="h-5 w-5 p-0 hover:bg-accent cursor-pointer flex-shrink-0"
-                  >
-                    {urlCopied ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-              )}
-              {stored?.connectedAt && (
-                <Tooltip delayDuration={100}>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      <span className="text-xs">{lastConnectedLabel}</span>
                     </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {`Last connected ${lastConnectedLabel}`}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {isConnected && !stored?.connectedAt && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5 shrink-0" />
-                  <span>Connected — reconnect once to record a &quot;last connected&quot; time.</span>
+                    {stored?.connectedAt && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3 shrink-0" />
+                        <span className="font-medium text-foreground">Connected at:</span>
+                        <span>{lastConnectedLabel}</span>
+                      </div>
+                    )}
+                    {isConnected && !stored?.connectedAt && (
+                      <p className="text-[10px] text-muted-foreground">Connected — reconnect once to record a "last connected" time.</p>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Metadata */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-medium text-muted-foreground">
-              Metadata
-            </h3>
-            <div className="space-y-2">
-              {addedAtSource && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="font-medium">Added on:</span>
-                  <span className="text-muted-foreground">
-                    {new Date(addedAtSource).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
+                {/* Metadata */}
+                <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Metadata</h4>
+                  <div className="space-y-1">
+                    {addedAtSource && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="font-medium text-foreground">Added:</span>
+                        <span className="text-muted-foreground">
+                          {new Date(addedAtSource).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    {isMine && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <UserIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="text-muted-foreground">Added by you</span>
+                      </div>
+                    )}
+                    {server.isPublic !== undefined && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="font-medium text-foreground">Visibility:</span>
+                        <span className="text-muted-foreground">
+                          {server.isPublic ? "Public" : "Private"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-              {isMine && (
-                <div className="flex items-center gap-2 text-xs">
-                  <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">Added by you</span>
-                </div>
-              )}
-              {server.isPublic !== undefined && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="font-medium">Visibility:</span>
-                  <span className="text-muted-foreground">
-                    {server.isPublic ? "Public Server" : "Private Server"}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
         </div>
       </div>
       </div>
 
-      {tabs.length > 0 && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="border-b border-border">
-          <div className="px-4 sm:px-6">
-            <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent p-0 h-auto">
+      {tabs.length > 0 && (<>
+        <div className="mx-4 sm:mx-6 h-px bg-border border-b" />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="px-4 sm:px-6 overflow-x-auto">
+            <TabsList className="w-full justify-start rounded-none bg-transparent p-0 h-auto flex-nowrap">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -593,7 +589,7 @@ export function ServerDetails({
             </TabsContent>
           </div>
         </Tabs>
-      )}
+      </>)}
 
       <ToolAccessDialog
         server={server}

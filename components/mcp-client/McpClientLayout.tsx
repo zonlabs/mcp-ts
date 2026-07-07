@@ -675,19 +675,15 @@ export default function McpClientLayout({
                           return (
                             <div
                               key={stat.label}
-                              className="group relative overflow-hidden rounded-xl border border-red-200/70 dark:border-red-400/20 bg-card/50 backdrop-blur-sm p-4 shadow-sm hover:shadow-md hover:border-red-400 dark:hover:border-red-500/40 transition-[box-shadow,border-color] duration-300 ease-out"
+                              className="rounded-xl border border-red-200/70 dark:border-red-400/20 bg-card/50 p-4 hover:border-red-400 dark:hover:border-red-500/40 transition-colors duration-200"
                             >
                               <div className="flex items-start justify-between">
                                 <div className="space-y-1">
                                   <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{stat.label}</p>
                                   <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none mt-1">{stat.value}</p>
                                 </div>
-                                <div className="rounded-lg border border-red-200/30 dark:border-red-400/10 bg-muted/30 p-2.5 transition-[transform,border-color] duration-300 group-hover:scale-105 group-hover:border-red-500/30">
-                                  <Icon className="h-4.5 w-4.5 text-muted-foreground group-hover:text-red-500 transition-colors" strokeWidth={2.5} />
-                                </div>
+                                <Icon className="h-4.5 w-4.5 text-red-500 shrink-0" strokeWidth={2.5} />
                               </div>
-                              {/* Decorative corner glow */}
-                              <div className="absolute top-0 right-0 w-2 h-2 rounded-bl-full bg-red-500/10 shadow-[0_0_12px_rgba(239,68,68,0.35)] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             </div>
                           );
                         })}
