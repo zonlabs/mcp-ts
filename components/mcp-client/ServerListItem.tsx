@@ -103,6 +103,7 @@ export function ServerListItem({
             <ServerIcon
               serverName={server.name}
               serverUrl={server.url}
+              icon={server.icon}
               size={16}
               className="flex-shrink-0"
             />
