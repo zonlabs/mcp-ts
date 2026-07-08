@@ -53,7 +53,7 @@ export default function PrivacyPolicy() {
 
               <h3 className="text-xl font-semibold mt-6 mb-3">3. Usage Data</h3>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
-                <li>Connection state and tool discovery data stored temporarily in Redis (24-hour TTL)</li>
+                <li>Connection state and tool discovery data stored temporarily with automatic expiry</li>
                 <li>Session information for anonymous users</li>
                 <li>No tracking or analytics data is collected</li>
               </ul>
@@ -75,7 +75,7 @@ export default function PrivacyPolicy() {
               <h2 className="text-2xl font-semibold mb-4">Data Storage</h2>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li><strong>Database:</strong> User accounts and MCP server configurations are stored in our secure database</li>
-                <li><strong>Redis Cache:</strong> Connection state and temporary data stored with 24-hour automatic expiry</li>
+                <li><strong>Cache:</strong> Connection state and temporary data stored with 24-hour automatic expiry</li>
                 <li><strong>Backend Services:</strong> Authentication tokens are securely validated</li>
                 <li><strong>No Third-Party Storage:</strong> We do not store your data on third-party servers</li>
               </ul>
@@ -125,7 +125,7 @@ export default function PrivacyPolicy() {
                 <li>Secure token handling for authentication</li>
                 <li>No plaintext storage of sensitive credentials</li>
                 <li>OAuth 2.0 industry-standard authentication</li>
-                <li>Redis TTL-based automatic cleanup of temporary data</li>
+                <li>Automatic cleanup and expiry of temporary data</li>
               </ul>
             </div>
 
@@ -162,7 +162,7 @@ export default function PrivacyPolicy() {
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li><strong>Account Data:</strong> Stored until you delete your account</li>
                 <li><strong>Authentication Tokens:</strong> Expire according to Google&apos;s OAuth token lifetime</li>
-                <li><strong>Redis Cache:</strong> Automatically expires after 24 hours</li>
+                <li><strong>Temporary Cache:</strong> Automatically expires after 24 hours</li>
                 <li><strong>Session Data:</strong> Cleared when you sign out</li>
               </ul>
             </div>

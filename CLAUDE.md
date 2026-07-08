@@ -15,7 +15,7 @@ MCP Assistant is a web-based client for connecting to and interacting with remot
 - **AI/Agent**: Assistant UI (@assistant-ui/react) + LangGraph SDK
 - **Authentication**: Supabase Auth
 - **Database**: Supabase (PostgreSQL)
-- **Session Store**: Redis (optional, for MCP OAuth session persistence)
+- **Session Store**: @mcp-ts/sdk (OAuth session persistence)
 - **MCP Client**: @modelcontextprotocol/sdk
 
 ## Development Commands
@@ -58,9 +58,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_LANGGRAPH_API_URL=http://localhost:8123
 NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID=agent
 
-# Redis (Optional - for MCP OAuth session persistence)
-REDIS_URL=redis://localhost:6379/0
-
 # MCP Registry API (Optional - for enhanced registry features)
 MCP_REGISTRY_API_KEY=your_registry_api_key_here
 ```
@@ -74,7 +71,7 @@ The application uses a client-side MCP connection architecture that supports OAu
 **Core MCP Libraries (`lib/mcp/`):**
 - `oauth-client.ts` - MCPOAuthClient that manages connections to MCP servers with OAuth 2.0 support
 - `oauth-provider.ts` - InMemoryOAuthClientProvider handles OAuth token management and refresh
-- `session-store.ts` - SessionStore manages MCP sessions in Redis with 12-hour TTL
+- `session-store.ts` - SessionStore manages MCP sessions via @mcp-ts/sdk storage backends
 - `connection-store.ts` - ConnectionStore manages active connections in localStorage (client-side)
 - `config.ts` - Configuration utilities for MCP servers
 - `types.ts` - TypeScript types for MCP servers, tools, and sessions
@@ -90,7 +87,7 @@ The system supports two MCP transport types:
    - User provides server URL and callback URL
    - MCPOAuthClient attempts connection
    - If OAuth required, returns authorization URL
-   - Session data stored in Redis with sessionId
+   - Session data stored via @mcp-ts/sdk storage backend
 
 2. **OAuth Redirect**:
    - User redirected to MCP server's OAuth authorization endpoint
@@ -99,20 +96,18 @@ The system supports two MCP transport types:
 3. **OAuth Callback** (`/api/mcp/auth/callback`):
    - MCP server redirects back with authorization code
    - Code exchanged for access/refresh tokens
-   - Session updated with tokens in Redis
+   - Session updated with tokens in storage
    - Client marks connection as active in localStorage
 
 4. **Token Refresh**:
    - OAuth provider automatically refreshes expired tokens
-   - New tokens persisted to Redis via `onSaveTokens` callback
+   - New tokens persisted via `onSaveTokens` callback
 
 ### Session Management
 
-**Redis Session Store** (`lib/mcp/session-store.ts`):
-- Sessions stored with key pattern: `mcp:session:{sessionId}`
-- TTL: 12 hours (43200 seconds)
+**Session Store** (`lib/mcp/session-store.ts`):
+- Manages MCP sessions via @mcp-ts/sdk storage backends
 - Stores: serverUrl, callbackUrl, transportType, tokens, clientInformation, userId
-- User sessions indexed: `mcp:user:{userId}:sessions` (set of sessionIds)
 
 **LocalStorage Connection Store** (`lib/mcp/connection-store.ts`):
 - Client-side connection state management
@@ -172,13 +167,11 @@ The system supports two MCP transport types:
 
 ## Key Implementation Patterns
 
-### Serverless-Friendly MCP Sessions
+### MCP Session Management
 
-The application is designed for Vercel/serverless deployment:
-- **Stateless API routes**: Each request reconstructs MCP client from Redis session
+The application manages MCP sessions via @mcp-ts/sdk storage backends:
 - **Session restoration**: `sessionStore.getClient(sessionId)` rebuilds MCPOAuthClient with stored tokens
 - **Automatic token refresh**: OAuth provider handles token expiration transparently
-- **Redis persistence**: Connection state survives across serverless function invocations
 
 Example pattern in API routes:
 ```typescript
@@ -258,43 +251,8 @@ This allows the callback handler to:
 
 ### Session Types (`lib/mcp/session-store.ts`)
 
-- `SessionData` - Redis session data structure
+- `SessionData` - Session data structure from @mcp-ts/sdk
 - `SetClientOptions` - Options for storing client sessions
-
-## Redis Setup
-
-Redis is optional but recommended for production:
-
-**Without Redis:**
-- Sessions stored in-memory (cleared on server restart)
-- Each API route invocation requires fresh OAuth connection
-- Not suitable for serverless deployments
-
-**With Redis:**
-- Sessions persist across server restarts
-- OAuth tokens cached and automatically refreshed
-- Serverless-friendly architecture
-- User sessions maintained with TTL
-
-**Install Redis:**
-```bash
-# macOS
-brew install redis
-redis-server
-
-# Windows
-choco install redis-64
-redis-server
-
-# Linux
-sudo apt install redis-server
-sudo systemctl start redis
-```
-
-**Verify Redis:**
-```bash
-redis-cli ping  # Should return PONG
-```
 
 ## LangGraph Backend Setup
 
@@ -313,24 +271,15 @@ The application requires a LangGraph backend for AI assistant functionality:
 2. Click "Add Server"
 3. Fill in server details (name, URL, transport type)
 4. If OAuth required, user will be redirected to authorize
-5. After authorization, connection stored in localStorage + Redis
+5. After authorization, connection stored in browser localStorage
 
 ### Testing OAuth Flow Locally
 
-1. Ensure Redis is running: `redis-cli ping`
-2. Start dev server: `npm run dev`
-3. Add MCP server with OAuth in UI
-4. Check Redis for session: `redis-cli GET mcp:session:{sessionId}`
-5. Inspect browser localStorage for connection state
+1. Start dev server: `npm run dev`
+2. Add MCP server with OAuth in UI
+3. Inspect browser localStorage for connection state
 
 ### Debugging Connection Issues
-
-**Check session in Redis:**
-```bash
-redis-cli
-> KEYS mcp:session:*
-> GET mcp:session:{sessionId}
-```
 
 **Check localStorage:**
 ```javascript
@@ -346,13 +295,11 @@ localStorage.getItem('mcp_connections')
 ## Troubleshooting
 
 **"Session not found" errors:**
-- Check Redis connection: `redis-cli ping`
-- Verify session hasn't expired (12-hour TTL)
-- Check `REDIS_URL` environment variable
+- Verify session hasn't expired
+- Check storage backend connection
 
 **OAuth authorization loop:**
 - Clear localStorage: `localStorage.removeItem('mcp_connections')`
-- Clear Redis session: `redis-cli DEL mcp:session:{sessionId}`
 - Check callback URL matches MCP server configuration
 
 **Token refresh failures:**
@@ -364,8 +311,3 @@ localStorage.getItem('mcp_connections')
 - Check `/api/mcp/tool/list` endpoint directly
 - Verify server is accessible from your network
 - Check for CORS issues in browser console
-
-**Serverless deployment issues:**
-- Ensure Redis is accessible from serverless functions
-- Check Redis connection timeout settings
-- Verify environment variables are set in deployment platform

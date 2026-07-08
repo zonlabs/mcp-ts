@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
  * 3. Clears URL params after handling
  * 4. Triggers a refresh callback to fetch updated connections
  *
- * Note: Connection is already stored in Redis by the callback endpoint,
+ * Note: Connection is already stored by the callback endpoint,
  * so we just need to trigger a refresh to get the updated state
  */
 export function useOAuthCallback(onSuccess?: () => void) {

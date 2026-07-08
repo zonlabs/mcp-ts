@@ -265,7 +265,6 @@ interface ConnectionActions {
   getConnectionStatus: (sessionId: string) => ConnectionStatus | undefined;
   isServerConnected: (serverId: string) => boolean;
   getServerTools: (sessionId: string) => ToolInfo[] | undefined;
-  fetchConnectionCapabilities: (sessionId: string) => Promise<void>;
 }
 
 /**
@@ -799,43 +798,6 @@ export const useMcpStore = create<McpStore>()(
          */
         getServerTools: (sessionId) => {
           return get().connections[sessionId]?.tools;
-        },
-
-        fetchConnectionCapabilities: async (sessionId) => {
-          const { mcpActions } = get();
-          if (!mcpActions?.listPrompts || !mcpActions?.listResources) return;
-
-          const connection = get().connections[sessionId];
-          if (!connection || connection.connectionStatus !== 'READY') return;
-          if (connection.prompts || connection.resources || connection.resourceTemplates) return;
-
-          try {
-            const [promptsResult, resourcesResult, templatesResult] = await Promise.all([
-              mcpActions.listPrompts(sessionId).catch(() => null),
-              mcpActions.listResources(sessionId).catch(() => null),
-              mcpActions.listResourceTemplates?.(sessionId).catch(() => null),
-            ]);
-
-            const prompts = promptsResult?.prompts;
-            const resources = resourcesResult?.resources;
-            const resourceTemplates = templatesResult?.resourceTemplates;
-
-            if (prompts || resources || resourceTemplates) {
-              set((state) => ({
-                connections: {
-                  ...state.connections,
-                  [sessionId]: {
-                    ...state.connections[sessionId],
-                    ...(prompts ? { prompts } : {}),
-                    ...(resources ? { resources } : {}),
-                    ...(resourceTemplates ? { resourceTemplates } : {}),
-                  },
-                },
-              }));
-            }
-          } catch {
-            // silently ignore — server may not support prompts/resources
-          }
         },
 
         // ==================== UI ACTIONS ====================

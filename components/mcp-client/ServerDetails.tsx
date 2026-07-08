@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -122,7 +122,6 @@ export function ServerDetails({
   ].filter((t) => t.count > 0);
 
   const mcpActions = useMcpStore((s) => s.mcpActions);
-  const fetchConnectionCapabilities = useMcpStore((s) => s.fetchConnectionCapabilities);
 
   const handleReadResource = async (uri: string) => {
     if (loadingResource) return;
@@ -185,12 +184,6 @@ export function ServerDetails({
       setTemplateLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (isConnected && stored?.sessionId && !stored?.prompts && !stored?.resources) {
-      fetchConnectionCapabilities(stored.sessionId);
-    }
-  }, [isConnected, stored?.sessionId, stored?.prompts, stored?.resources, fetchConnectionCapabilities]);
 
   const addedAtSource = server.createdAt || server.updated_at;
 
