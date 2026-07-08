@@ -1,19 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-
-import { useRouter } from "next/navigation";
+import { useRef, useEffect } from "react";
 import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  RefreshCw,
   Filter,
   Search,
   Globe,
   User as UserIcon,
   Loader2,
-  ChevronDown,
   Settings,
   Hammer,
   Sparkles,
@@ -22,7 +18,6 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,7 +29,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { McpServer, Category } from "@/types/mcp";
+import { McpServer } from "@/types/mcp";
 import { ServerListItem } from "./ServerListItem";
 import { ServerPlaceholder } from "./ServerPlaceholder";
 import { useMcpServersFiltered } from "@/hooks/useMcpServersFiltered";
@@ -89,8 +84,6 @@ export function ServerSidebar({
   onAddServer,
   onEditServer,
   onDeleteServer,
-  onRefreshPublic,
-  onRefreshUser,
   onClose,
   hasNextPage,
   isLoadingMore,
@@ -106,8 +99,45 @@ export function ServerSidebar({
   sidebarOpen = true,
   onSearchFocus,
 }: ServerSidebarProps) {
-  const router = useRouter();
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  const renderManageMenuItems = () => (
+    <>
+      <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
+        <span className="flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+          Popular MCP
+        </span>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
+        <span className="flex items-center gap-2">
+          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+          Add Connector
+        </span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
+        <span className="flex items-center gap-2 w-full">
+          <Hammer className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="flex-1">View Activity</span>
+          <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
+        </span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
+        <span className="flex items-center gap-2">
+          <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+          Tool Policy
+          <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
+        </span>
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => onOpenRemoteMcp("revoke")} className="cursor-pointer">
+        <span className="flex items-center gap-2 w-full">
+          <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="flex-1">Revoke Access</span>
+        </span>
+      </DropdownMenuItem>
+    </>
+  );
 
   const { categories, loading: categoriesLoading } = useCategories();
 
@@ -178,16 +208,6 @@ export function ServerSidebar({
     displayLoadMore,
   ]);
 
-  const truncateText = (text: string, maxLength = 17) => {
-    return text.length > maxLength ? text.slice(0, maxLength) + "…" : text;
-  };
-
-  const sidebarVariants = {
-    hidden: { x: -320, opacity: 0 },
-    visible: { x: 0, opacity: 1 },
-    exit: { x: -320, opacity: 0 },
-  };
-
   if (!sidebarOpen) {
     return (
       <TooltipProvider>
@@ -237,46 +257,7 @@ export function ServerSidebar({
                 </TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="start" className="z-[220] w-64">
-                <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-                    Popular MCP
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                    Add Connector
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
-                  <span className="flex items-center gap-2 w-full">
-                    <Hammer className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="flex-1">View Activity</span>
-                    <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenRemoteMcp("revoke")} className="cursor-pointer">
-                  <span className="flex items-center gap-2 w-full">
-                    <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="flex-1">Revoke Access</span>
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                    Tool Policy
-
-                    <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
-                  </span>
-                </DropdownMenuItem>
-                {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                    Add Gateway
-                  </span>
-                </DropdownMenuItem> */}
+                {renderManageMenuItems()}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -410,45 +391,7 @@ export function ServerSidebar({
                   </TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="end" className="z-[220] w-64">
-                  <DropdownMenuItem onClick={onShowPopular} className="cursor-pointer">
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-                      Popular MCP
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onAddServer} className="cursor-pointer">
-                    <span className="flex items-center gap-2">
-                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                      Add Connector
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onOpenRemoteMcp("mcp-server")} className="cursor-pointer">
-                    <span className="flex items-center gap-2 w-full">
-                      <Hammer className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="flex-1">View Activity</span>
-                      <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
-                    <span className="flex items-center gap-2 w-full">
-                      <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="flex-1">Tool Policy</span>
-                      <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onOpenRemoteMcp("revoke")} className="cursor-pointer">
-                    <span className="flex items-center gap-2 w-full">
-                      <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="flex-1">Revoke Access</span>
-                    </span>
-                  </DropdownMenuItem>
-                  {/* <DropdownMenuItem onClick={() => router.push("/gateway")} className="cursor-pointer">
-                  <span className="flex items-center gap-2">
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                    Add Gateway
-                  </span>
-                </DropdownMenuItem> */}
+                  {renderManageMenuItems()}
                 </DropdownMenuContent>
               </DropdownMenu>
 

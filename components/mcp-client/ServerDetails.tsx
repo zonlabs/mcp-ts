@@ -70,6 +70,7 @@ export function ServerDetails({
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateMimeType, setTemplateMimeType] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState("tools");
+  const [expandedTool, setExpandedTool] = useState<string | null>(null);
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
   const [resourceContents, setResourceContents] = useState<Record<string, { text?: string; mimeType?: string }>>({});
   const [loadingResource, setLoadingResource] = useState<string | null>(null);
@@ -414,23 +415,35 @@ export function ServerDetails({
               {allTools.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No tools available</p>
               ) : (
-                allTools.map((tool) => (
-                  <button
-                    key={tool.name}
-                    onClick={() => onToolClick?.(tool.name)}
-                    className="w-full text-left rounded-lg border border-border/60 p-3 hover:bg-muted/50 transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <code className="text-sm font-medium text-foreground">{tool.name}</code>
-                      <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        Call tool →
-                      </span>
+                allTools.map((tool) => {
+                  const isExpanded = expandedTool === tool.name;
+                  return (
+                    <div key={tool.name}>
+                      <button
+                        onClick={() => setExpandedTool(isExpanded ? null : tool.name)}
+                        className="w-full text-left rounded-lg border border-border/60 p-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <code className="text-sm font-medium text-foreground">{tool.name}</code>
+                          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-3 pb-3 border border-t-0 border-border/60 rounded-b-lg -mt-px">
+                          {tool.description && (
+                            <p className="text-xs text-muted-foreground mt-2">{tool.description}</p>
+                          )}
+                          {tool.inputSchema ? (
+                            <div className="mt-2">
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Input Schema</p>
+                              <pre className="text-[10px] font-mono bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(tool.inputSchema, null, 2)}</pre>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
-                    {tool.description && (
-                      <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
-                    )}
-                  </button>
-                ))
+                  );
+                })
               )}
             </TabsContent>
 
