@@ -124,7 +124,7 @@ export function ServerSidebar({
         </span>
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => onOpenRemoteMcp("tool-policy")} className="cursor-pointer">
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-2 w-full">
           <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
           Tool Policy
           <span className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">NEW</span>

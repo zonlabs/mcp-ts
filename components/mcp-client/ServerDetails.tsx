@@ -51,6 +51,21 @@ interface ServerDetailsProps {
   onToolClick?: (toolName: string) => void;
 }
 
+type ToolBadge = "Read" | "Write" | "Destructive" | "Idempotent";
+
+function classifyTool(tool: { name: string; description?: string; annotations?: unknown }): ToolBadge {
+  const ann = tool.annotations as { destructiveHint?: boolean; readOnlyHint?: boolean; idempotentHint?: boolean } | undefined;
+  if (ann?.destructiveHint === true) return "Destructive";
+  if (ann?.readOnlyHint === true) return "Read";
+  if (ann?.idempotentHint === true) return "Idempotent";
+
+  const value = `${tool.name} ${tool.description ?? ""}`.toLowerCase();
+  if (/delete|remove|destroy|drop|revoke|disable|purge|clear|wipe/.test(value)) return "Destructive";
+  if (/create|add|update|edit|write|send|post|put|patch|merge|commit|upload|enable|process|execute|run|transform|calculate|generate|build|publish|deploy|sync|import|export|clone|fork|copy/.test(value)) return "Write";
+  if (/get|list|read|fetch|search|find|query|lookup|view|inspect|check|count|sum|aggregate|describe|show/.test(value)) return "Read";
+  return "Write";
+}
+
 export function ServerDetails({
   server,
   session,
@@ -417,6 +432,9 @@ export function ServerDetails({
               ) : (
                 allTools.map((tool) => {
                   const isExpanded = expandedTool === tool.name;
+                  const badge = classifyTool(tool);
+                  const uiMeta = (tool as any)._meta?.ui as { resourceUri?: string; visibility?: string[] } | undefined;
+                  const isApp = uiMeta?.resourceUri?.startsWith("ui://");
                   return (
                     <div key={tool.name}>
                       <button
@@ -424,7 +442,22 @@ export function ServerDetails({
                         className="w-full text-left rounded-lg border border-border/60 p-3 hover:bg-muted/50 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <code className="text-sm font-medium text-foreground">{tool.name}</code>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <code className="text-sm font-medium text-foreground truncate">{tool.name}</code>
+                            <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0.5 h-auto",
+                              badge === "Destructive" && "text-red-500 border-red-500/30",
+                              badge === "Write" && "text-amber-500 border-amber-500/30",
+                              badge === "Read" && "text-emerald-500 border-emerald-500/30",
+                              badge === "Idempotent" && "text-blue-500 border-blue-500/30",
+                            )}>
+                              {badge}
+                            </Badge>
+                            {isApp && (
+                              <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0.5 h-auto text-purple-500 dark:text-purple-400 border-purple-500/30">
+                                App
+                              </Badge>
+                            )}
+                          </div>
                           <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
                         </div>
                       </button>

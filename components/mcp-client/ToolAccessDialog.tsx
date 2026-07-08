@@ -344,6 +344,8 @@ export function ToolAccessDialog({
                       {filteredTools.map((tool) => {
                         const checked = selectedToolIds.has(tool.toolId);
                         const badge = classifyTool(tool);
+                        const uiMeta = (tool as any)._meta?.ui as { resourceUri?: string; visibility?: string[] } | undefined;
+                        const isApp = uiMeta?.resourceUri?.startsWith("ui://");
                         return (
                           <label
                             key={tool.toolId}
@@ -364,14 +366,19 @@ export function ToolAccessDialog({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <code className="truncate font-mono text-[11px] text-foreground">{tool.name}</code>
-                                <Badge variant="outline" className={cn("h-5 px-1.5 text-[10px]",
-                                  badge === "Destructive" && "border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5",
-                                  badge === "Write" && "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5",
-                                  badge === "Read" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5",
-                                  badge === "Idempotent" && "border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/5",
+                                <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0.5 h-auto",
+                                  badge === "Destructive" && "text-red-500 border-red-500/30",
+                                  badge === "Write" && "text-amber-500 border-amber-500/30",
+                                  badge === "Read" && "text-emerald-500 border-emerald-500/30",
+                                  badge === "Idempotent" && "text-blue-500 border-blue-500/30",
                                 )}>
                                   {badge}
                                 </Badge>
+                                {isApp && (
+                                  <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0.5 h-auto text-purple-500 dark:text-purple-400 border-purple-500/30">
+                                    App
+                                  </Badge>
+                                )}
                               </div>
                               <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                                 {tool.description || "No description provided."}
