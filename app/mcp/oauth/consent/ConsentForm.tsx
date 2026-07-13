@@ -88,12 +88,9 @@ export function ConsentForm({ params, accountLabel, scopesList, avatarUrl }: Con
         </div>
       </form>
 
-      <p className="mt-4 text-center text-xs text-muted-foreground">
+      <p className="mt-4 text-center text-sm text-muted-foreground">
         You can{" "}
-        <Link
-          href="/mcp?view=activity&tab=revoke"
-          className="underline underline-offset-2 hover:text-foreground transition-colors"
-        >
+        <Link href="/mcp?view=activity&tab=revoke" className="underline underline-offset-4 hover:text-primary">
           revoke this access anytime
         </Link>
         .
