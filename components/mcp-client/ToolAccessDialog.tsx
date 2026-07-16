@@ -187,11 +187,7 @@ export function ToolAccessDialog({
     }
 
     if (nextMode === "allowlist") {
-      if (access?.toolPolicy.mode === "allowlist") {
-        setSelectedToolIds(new Set(access.toolPolicy.toolIds));
-      } else {
-        setSelectedToolIds(new Set(tools.filter((tool) => tool.allowed).map((tool) => tool.toolId)));
-      }
+      setSelectedToolIds(new Set());
       return;
     }
 
@@ -286,7 +282,7 @@ export function ToolAccessDialog({
                   <TabsTrigger
                     key={option.mode}
                     value={option.mode}
-                    className="text-xs cursor-pointer border-0 data-[state=active]:border-transparent dark:data-[state=active]:border-transparent data-[state=active]:bg-background dark:data-[state=active]:bg-background data-[state=active]:shadow-xs"
+                    className="text-xs cursor-pointer dark:data-[state=active]:bg-background"
                   >
                     {option.label}
                   </TabsTrigger>
@@ -300,25 +296,40 @@ export function ToolAccessDialog({
               </div>
             )}
 
-            {mode === "all" ? (
-              <div className="rounded-md border border-border bg-muted/20 px-4 py-8 text-center">
-                <p className="text-sm font-medium text-foreground">All tools allowed</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Agents can discover and call every tool currently exposed by this server.
-                </p>
-              </div>
-            ) : (
-              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="relative min-w-0 flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search tools"
-                      className="h-8 pl-8 text-xs"
-                    />
-                  </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+              {mode === "all" && (
+                <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    All tools are accessible. Switch to Allowlist or Denylist to restrict access.
+                  </p>
+                </div>
+              )}
+              {mode === "allowlist" && (
+                <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be accessible by agents
+                  </p>
+                </div>
+              )}
+              {mode === "denylist" && (
+                <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be inaccessible by agents
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search tools"
+                    className="h-8 pl-8 text-xs"
+                  />
+                </div>
+                {mode !== "all" && (
                   <div className="flex items-center gap-1.5">
                     <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={selectAll}>
                       Select all
@@ -327,71 +338,78 @@ export function ToolAccessDialog({
                       Clear
                     </Button>
                   </div>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
-                  {loading ? (
-                    <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading tools
-                    </div>
-                  ) : filteredTools.length === 0 ? (
-                    <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
-                      No tools match this search.
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-border">
-                      {filteredTools.map((tool) => {
-                        const checked = selectedToolIds.has(tool.toolId);
-                        const badge = classifyTool(tool);
-                        const uiMeta = (tool as any)._meta?.ui as { resourceUri?: string; visibility?: string[] } | undefined;
-                        const isApp = uiMeta?.resourceUri?.startsWith("ui://");
-                        return (
-                          <label
-                            key={tool.toolId}
-                            className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-muted/30"
-                          >
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(value) => toggleTool(tool.toolId, value === true)}
-                              className="shrink-0"
-                              aria-label={`${mode === "allowlist" ? "Allow" : "Deny"} ${tool.name}`}
-                            />
-                            <ServerIcon
-                              serverName={server.name}
-                              serverUrl={server.url}
-                              size={36}
-                              className="rounded-lg shrink-0"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <code className="truncate font-mono text-[11px] text-foreground">{tool.name}</code>
-                                <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0.5 h-auto",
-                                  badge === "Destructive" && "text-red-500 border-red-500/30",
-                                  badge === "Write" && "text-amber-500 border-amber-500/30",
-                                  badge === "Read" && "text-emerald-500 border-emerald-500/30",
-                                  badge === "Idempotent" && "text-blue-500 border-blue-500/30",
-                                )}>
-                                  {badge}
-                                </Badge>
-                                {isApp && (
-                                  <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0.5 h-auto text-purple-500 dark:text-purple-400 border-purple-500/30">
-                                    App
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                                {tool.description || "No description provided."}
-                              </p>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
-            )}
+
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
+                {loading ? (
+                  <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading tools
+                  </div>
+                ) : filteredTools.length === 0 ? (
+                  <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+                    No tools match this search.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {filteredTools.map((tool) => {
+                      const isAllMode = mode === "all";
+                      const checked = isAllMode ? true : selectedToolIds.has(tool.toolId);
+                      const badge = classifyTool(tool);
+                      const uiMeta = (tool as any)._meta?.ui as { resourceUri?: string; visibility?: string[] } | undefined;
+                      const isApp = uiMeta?.resourceUri?.startsWith("ui://");
+                      return (
+                        <label
+                          key={tool.toolId}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5",
+                            isAllMode ? "" : "cursor-pointer hover:bg-muted/30",
+                          )}
+                        >
+                          <Checkbox
+                            checked={checked}
+                            disabled={isAllMode}
+                            onCheckedChange={(value) => toggleTool(tool.toolId, value === true)}
+                            className="shrink-0"
+                            aria-label={`${
+                              isAllMode ? "Allow" : mode === "allowlist" ? "Allow" : "Deny"
+                            } ${tool.name}`}
+                          />
+                          <ServerIcon
+                            serverName={server.name}
+                            serverUrl={server.url}
+                            size={36}
+                            className="rounded-lg shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <code className="truncate font-mono text-[11px] text-foreground">{tool.name}</code>
+                              <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0.5 h-auto",
+                                badge === "Destructive" && "text-red-500 border-red-500/30",
+                                badge === "Write" && "text-amber-500 border-amber-500/30",
+                                badge === "Read" && "text-emerald-500 border-emerald-500/30",
+                                badge === "Idempotent" && "text-blue-500 border-blue-500/30",
+                              )}>
+                                {badge}
+                              </Badge>
+                              {isApp && (
+                                <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0.5 h-auto text-purple-500 dark:text-purple-400 border-purple-500/30">
+                                  App
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                              {tool.description || "No description provided."}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="border-t border-border px-5 py-3">
