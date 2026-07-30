@@ -16,7 +16,7 @@ import {
   AppBridge, 
   PostMessageTransport
 } from '@modelcontextprotocol/ext-apps/app-bridge';
-import type { LoggingMessageNotification } from '@modelcontextprotocol/sdk/types.js';
+import type { LoggingMessageNotification } from "@modelcontextprotocol/client";
 import type { AppHostClient } from './types';
 import { setupSandboxProxyIframe } from '../utils/app-host-utils.js';
 import { APP_HOST_DEFAULTS } from './constants.js';

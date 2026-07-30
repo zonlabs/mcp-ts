@@ -26,12 +26,10 @@ function rawClient(overrides: Record<string, unknown> = {}) {
     getSessionId: () => 'policy-session',
     getServerId: () => 'github',
     getServerName: () => 'GitHub',
-    fetchTools: async () => ({
-      tools: [
-        { name: 'get_issue', description: 'Read issue' },
-        { name: 'create_issue', description: 'Write issue' },
-      ],
-    }),
+    fetchTools: async () => [
+      { name: 'get_issue', description: 'Read issue' },
+      { name: 'create_issue', description: 'Write issue' },
+    ],
     listTools: async () => ({
       tools: [
         { name: 'get_issue', description: 'Read issue' },
@@ -53,8 +51,8 @@ test.describe('normalizeToolPolicy', () => {
   });
 
   test('returns undefined for non-object input', () => {
-    expect(normalizeToolPolicy('string', NOW)).toBeUndefined();
-    expect(normalizeToolPolicy(42, NOW)).toBeUndefined();
+    expect(normalizeToolPolicy('string' as any, NOW)).toBeUndefined();
+    expect(normalizeToolPolicy(42 as any, NOW)).toBeUndefined();
   });
 
   test('preserves valid allowlist policy', () => {
@@ -200,7 +198,7 @@ test.describe('MCP session tool policy', () => {
 
     const gateway = createToolPolicyGateway('user-policy', 'policy-session', rawClient() as any);
 
-    const result = await gateway.listTools();
+    const result = await gateway.listTools({ filtered: true });
 
     expect(result.tools.map((tool) => tool.name)).toEqual(['get_issue']);
   });
@@ -218,7 +216,7 @@ test.describe('MCP session tool policy', () => {
 
     const gateway = createToolPolicyGateway('user-policy', 'policy-session', rawClient() as any);
 
-    const result = await gateway.listTools();
+    const result = await gateway.listTools({ filtered: true });
 
     expect(result.tools.map((tool) => tool.name)).toEqual(['get_issue']);
   });

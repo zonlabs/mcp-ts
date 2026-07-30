@@ -7,9 +7,9 @@
  *
  * @example
  * ```typescript
- * import { MultiSessionClient } from '@mcp-ts/sdk/server';
- * import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
- * import { createMcpMiddleware } from '@mcp-ts/sdk/adapters/agui-middleware';
+ * import { MultiSessionClient } from '@mcp-ts/client/server';
+ * import { AguiAdapter } from '@mcp-ts/client/adapters/agui-adapter';
+ * import { createMcpMiddleware } from '@mcp-ts/client/adapters/agui-middleware';
  * import { HttpAgent } from '@ag-ui/client';
  *
  * // Create MCP client

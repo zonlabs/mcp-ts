@@ -45,14 +45,15 @@ test.describe('MCPClient.fetchTools cache', () => {
     // Inject a fake SDK client that returns our tool list
     (client as any).client = {
       request: async () => ({ tools }),
+      listTools: async () => ({ tools }),
     };
 
     const result = await client.fetchTools();
 
-    expect(result.tools).toHaveLength(1);
-    expect(result.tools[0].name).toBe('tool_a');
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('tool_a');
     expect((client as any).cachedTools).not.toBeNull();
-    expect((client as any).cachedTools.tools[0].name).toBe('tool_a');
+    expect((client as any).cachedTools[0].name).toBe('tool_a');
   });
 
   test('fetchTools does not call the SDK client on a second call (cache hit)', async () => {
@@ -62,6 +63,10 @@ test.describe('MCPClient.fetchTools cache', () => {
     let callCount = 0;
     (client as any).client = {
       request: async () => {
+        callCount += 1;
+        return { tools };
+      },
+      listTools: async () => {
         callCount += 1;
         return { tools };
       },

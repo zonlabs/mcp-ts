@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { Client } from "@modelcontextprotocol/client";
 import { MCPClient } from '../src/server/mcp/oauth-client';
 import { _setStorageInstanceForTesting, sessions } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';

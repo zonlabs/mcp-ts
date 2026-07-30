@@ -80,7 +80,7 @@ test.describe('policy-filtered tool lists', () => {
       params: { sessionId: 'alltools-session' },
     } as any);
 
-    expect(result.tools.map((t: any) => t.name)).toEqual(['read_file', 'write_file']);
+    expect((result as any).result.tools.map((t: any) => t.name)).toEqual(['read_file', 'write_file']);
 
     await manager.dispose();
   });
@@ -107,8 +107,8 @@ test.describe('policy-filtered tool lists', () => {
       },
     } as any);
 
-    expect(result.success).toBe(true);
-    expect(result.tools.map((t: any) => t.name)).toEqual(['read_file']);
+    expect((result as any).result.success).toBe(true);
+    expect((result as any).result.tools.map((t: any) => t.name)).toEqual(['read_file']);
 
     await manager.dispose();
   });
@@ -131,7 +131,7 @@ test.describe('policy-filtered tool lists', () => {
       params: { sessionId: 'alltools-session' },
     } as any);
 
-    expect(result.tools.map((t: any) => t.name)).toEqual(
+    expect((result as any).result.tools.map((t: any) => t.name)).toEqual(
       ['read_file', 'write_file', 'delete_file']
     );
 
@@ -184,15 +184,15 @@ test.describe('policy-filtered tool lists', () => {
       },
     }) as any);
 
-    const { createToolPolicyGateway } = await import('../src/server/mcp/tool-policy-gateway');
+    const { createToolPolicyGateway } = await import('../src/server/mcp/tool-policy-gateway.js');
     const gateway = createToolPolicyGateway('alltools-user', 'alltools-session', fakeClient() as any);
 
     const all = await gateway.listTools();
-    expect(all.tools.map((t) => t.name)).toEqual(
+    expect(all.tools.map((t: any) => t.name)).toEqual(
       ['read_file', 'write_file', 'delete_file'] // no policy applied by default
     );
 
     const filtered = await gateway.listTools({ filtered: true });
-    expect(filtered.tools.map((t) => t.name)).toEqual(['read_file']); // policy applied
+    expect(filtered.tools.map((t: any) => t.name)).toEqual(['read_file']); // policy applied
   });
 });

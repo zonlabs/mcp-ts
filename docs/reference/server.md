@@ -10,7 +10,7 @@ icon: "server"
 Creates handlers for Next.js App Router API routes.
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client/server';
 
 const { GET, POST } = createNextMcpHandler({
   getUserId?: (request) => string | null,
@@ -31,7 +31,7 @@ const { GET, POST } = createNextMcpHandler({
 Creates a Node.js-compatible handler for standard HTTP frameworks.
 
 ```typescript
-import { createSSEHandler } from '@mcp-ts/sdk/server';
+import { createSSEHandler } from '@mcp-ts/client/server';
 
 const handler = createSSEHandler({
   userId: string,
@@ -51,7 +51,7 @@ Mount the same handler for both the streamed `GET` endpoint and `POST` RPC calls
 Direct MCP client class for server-side operations.
 
 ```typescript
-import { MCPClient } from '@mcp-ts/sdk/server';
+import { MCPClient } from '@mcp-ts/client/server';
 
 const client = new MCPClient({
   userId: string,
@@ -88,7 +88,7 @@ const client = new MCPClient({
 Manages multiple MCP connections for a single user.
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { MultiSessionClient } from '@mcp-ts/client/server';
 
 const mcp = new MultiSessionClient(userId, {
   timeout: 15000,
@@ -117,5 +117,5 @@ import {
   SqliteStorage,
   SupabaseStorageBackend,
   NeonStorageBackend,
-} from '@mcp-ts/sdk/server';
+} from '@mcp-ts/client/server';
 ```

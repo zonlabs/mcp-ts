@@ -15,7 +15,7 @@ Supabase provides a powerful, scalable backend for your MCP sessions. Ideal for:
 ## Installation
 
 ```bash
-npm install @mcp-ts/sdk @supabase/supabase-js
+npm install @mcp-ts/client @supabase/supabase-js
 ```
 
 ## Configuration
@@ -202,7 +202,7 @@ Without the key, data is stored in plain text (suitable for development; not rec
 When `SUPABASE_URL` and `SUPABASE_SECRET_KEY` are present in your environment, the global `sessions` proxy automatically uses the Supabase backend.
 
 ```typescript
-import { sessions } from '@mcp-ts/sdk/server';
+import { sessions } from '@mcp-ts/client/server';
 
 const sessionList = await sessions.list('user-123');
 ```
@@ -213,7 +213,7 @@ If you want to manage the Supabase client yourself or use multiple backends:
 
 ```typescript
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseStorageBackend } from '@mcp-ts/sdk/server';
+import { createSupabaseStorageBackend } from '@mcp-ts/client/server';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
 const supabaseBackend = createSupabaseStorageBackend(supabase);

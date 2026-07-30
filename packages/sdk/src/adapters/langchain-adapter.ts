@@ -104,7 +104,7 @@ export class LangChainAdapter {
             } else {
                 console.warn('[LangChainAdapter] Failed to convert JSON Schema to Zod, using fallback:', error);
             }
-            return this.z!.record(this.z!.any()).optional().describe("Dynamic Input");
+            return this.z!.record(this.z!.string(), this.z!.any()).optional().describe("Dynamic Input");
         }
     }
 

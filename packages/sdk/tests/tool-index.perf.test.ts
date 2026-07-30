@@ -14,6 +14,7 @@ function createSyntheticTools(toolCount: number): IndexedTool[] {
 
         tools.push({
             name: duplicateName,
+            serverId: `server_${sessionIndex}`,
             description: `${domain} action for synthetic benchmark item ${i}`,
             inputSchema: {
                 type: 'object',

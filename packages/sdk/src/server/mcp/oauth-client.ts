@@ -1,31 +1,7 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { CallToolResultSchema, GetPromptResultSchema, ReadResourceResultSchema } from "@modelcontextprotocol/core";
+import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
+import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, ClientCapabilities } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import {
-  UnauthorizedError as SDKUnauthorizedError,
-} from '@modelcontextprotocol/sdk/client/auth.js';
-import {
-  McpError,
-  ListToolsResult,
-  CallToolRequest,
-  CallToolResult,
-  CallToolResultSchema,
-  ListPromptsResult,
-  GetPromptRequest,
-  GetPromptResult,
-  GetPromptResultSchema,
-  ListResourcesResult,
-  ListResourceTemplatesResult,
-  ReadResourceRequest,
-  ReadResourceResult,
-  ReadResourceResultSchema,
-  type Tool,
-  type Prompt,
-  type Resource,
-  type ResourceTemplate,
-  type Implementation,
-} from '@modelcontextprotocol/sdk/types.js';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
 import { UnauthorizedError } from '../../shared/errors.js';
@@ -35,18 +11,10 @@ import {
   MCP_CLIENT_NAME,
   MCP_CLIENT_VERSION,
 } from '../../shared/constants.js';
-import type { OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
-import type { OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
-
 /**
  * Supported MCP transport types
  */
 export type TransportType = 'sse' | 'streamable-http';
-
-/**
- * Extended capabilities including MCP App support
- */
-import type { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
 
 interface McpAppClientCapabilities extends Omit<ClientCapabilities, 'extensions'> {
   extensions?: {
@@ -120,7 +88,7 @@ export class MCPClient {
 
   private _capabilityErrorHandler<T>(empty: T, _methodName?: string): (error: unknown) => T {
     return (error: unknown): T => {
-      if (error instanceof McpError && error.code === -32601) {
+      if (error instanceof ProtocolError && error.code === -32601) {
         return empty;
       }
       throw error;
@@ -409,10 +377,18 @@ export class MCPClient {
       return;
     }
 
-    await this._store.update(this.config.userId, this.config.sessionId, {
-      ...this.session,
-      status,
-    });
+    const existing = await this._store.get(this.config.userId, this.config.sessionId);
+    if (!existing) {
+      await this._store.create({
+        ...this.session,
+        status,
+      });
+    } else {
+      await this._store.update(this.config.userId, this.config.sessionId, {
+        ...this.session,
+        status,
+      });
+    }
   }
 
   /**
@@ -848,8 +824,8 @@ export class MCPClient {
     return resourcesAgg;
   }
 
-  async fetchResourceTemplates(): Promise<ResourceTemplate[]> {
-    let templatesAgg: ResourceTemplate[] = [];
+  async fetchResourceTemplates(): Promise<ResourceTemplateType[]> {
+    let templatesAgg: ResourceTemplateType[] = [];
     let templatesResult: ListResourceTemplatesResult = {
       resourceTemplates: [],
     };
@@ -1056,7 +1032,7 @@ export class MCPClient {
     tools: Tool[];
     prompts: Prompt[];
     resources: Resource[];
-    resourceTemplates: ResourceTemplate[];
+    resourceTemplates: ResourceTemplateType[];
   }> {
     const caps = this.client.getServerCapabilities();
     const shouldProbe = !caps;
@@ -1071,7 +1047,7 @@ export class MCPClient {
         : Promise.resolve([] as Resource[]),
       (caps?.resources || shouldProbe)
         ? this.fetchResourceTemplates()
-        : Promise.resolve([] as ResourceTemplate[]),
+        : Promise.resolve([] as ResourceTemplateType[]),
     ]);
 
     return { tools, prompts, resources, resourceTemplates };

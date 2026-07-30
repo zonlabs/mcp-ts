@@ -1,11 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
-import type {
-    OAuthClientInformationFull,
-    OAuthClientInformationMixed,
-    OAuthClientMetadata,
-    OAuthTokens
-} from "@modelcontextprotocol/sdk/shared/auth.js";
+import type { OAuthClientProvider, OAuthClientInformationFull, OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from "@modelcontextprotocol/client";
 import { nanoid } from "nanoid";
 import { sessions, type SessionCredentials, type SessionStore } from "../storage/index.js";
 import {

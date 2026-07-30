@@ -289,7 +289,7 @@ test.describe('ToolIndex', () => {
             {
                 name: 'cyclic_search',
                 description: 'Search with a cyclic schema',
-                inputSchema,
+                inputSchema: inputSchema as any,
                 serverName: 'Search',
                 sessionId: 'search-session',
                 serverId: 'search-server',

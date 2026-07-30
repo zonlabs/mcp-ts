@@ -1,7 +1,7 @@
-# Developer Guide (@mcp-ts/sdk)
+# Developer Guide (@mcp-ts/client)
 
 ## Overview
-`@mcp-ts/sdk` is a TypeScript SDK for building Model Context Protocol (MCP) applications with support for streamed HTTP RPC, OAuth 2.1, multiple storage backends, MCP Apps, and production-ready integrations.
+`@mcp-ts/client` is a TypeScript SDK for building Model Context Protocol (MCP) applications with support for streamed HTTP RPC, OAuth 2.1, multiple storage backends, MCP Apps, and production-ready integrations.
 
 ## Architecture
 
@@ -69,7 +69,7 @@ npm test            # Run Playwright tests
 ### Key Conventions
 - **Imports**: Use explicit `.js` extensions for ESM compatibility when modifying imports.
 - **Exports**: Define exports in both `package.json` and `tsup.config.ts`.
-- **Client imports**: React APIs live under `@mcp-ts/sdk/client/react`; Vue APIs live under `@mcp-ts/sdk/client/vue`.
+- **Client imports**: React APIs live under `@mcp-ts/client/client/react`; Vue APIs live under `@mcp-ts/client/client/vue`.
 - **Testing**: Use `playwright` for e2e and integration tests in `tests/`.
 
 ## Common Tasks

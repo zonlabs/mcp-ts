@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { MCPClient } from '../src/server/mcp/oauth-client';
 import { _setStorageInstanceForTesting } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
-import { UnauthorizedError as SDKUnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { UnauthorizedError as SDKUnauthorizedError } from "@modelcontextprotocol/client";
 
 test.describe('Session Lifecycle Management', () => {
     const userId = 'test-user';

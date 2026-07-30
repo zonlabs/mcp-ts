@@ -58,10 +58,10 @@ export type {
   OAuthClientInformation,
   OAuthClientInformationFull,
   OAuthTokens,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
+} from '@modelcontextprotocol/client';
 
 export type {
   ListToolsResult,
   CallToolResult,
   Tool,
-} from '@modelcontextprotocol/sdk/types.js';
+} from '@modelcontextprotocol/client';

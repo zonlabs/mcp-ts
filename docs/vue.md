@@ -5,13 +5,13 @@ description: "Manage MCP connections in Vue 3 applications with the useMcp compo
 icon: "vuejs"
 ---
 
-The `@mcp-ts/sdk/client/vue` package provides a composable for managing MCP connections in Vue 3 applications.
+The `@mcp-ts/client/client/vue` package provides a composable for managing MCP connections in Vue 3 applications.
 
 ## Basic Usage
 
 ```vue
 <script setup lang="ts">
-import { useMcp } from '@mcp-ts/sdk/client/vue';
+import { useMcp } from '@mcp-ts/client/client/vue';
 
 const { connections, connect, status } = useMcp({
   url: '/api/mcp',
@@ -77,7 +77,7 @@ const {
 
 ```vue
 <script setup lang="ts">
-import { useMcp } from '@mcp-ts/sdk/client/vue';
+import { useMcp } from '@mcp-ts/client/client/vue';
 import { ref } from 'vue';
 
 const props = defineProps<{ userId: string }>();

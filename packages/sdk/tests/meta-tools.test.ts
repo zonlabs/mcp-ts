@@ -15,6 +15,7 @@ function createRouterClient(
         description?: string;
         inputSchema?: Record<string, unknown>;
         outputSchema?: Record<string, unknown>;
+        _meta?: Record<string, unknown>;
     }>
 ) {
     return {

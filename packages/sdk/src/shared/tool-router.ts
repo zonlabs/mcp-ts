@@ -12,8 +12,8 @@
  *
  * @example
  * ```ts
- * import { ToolRouter } from '@mcp-ts/sdk/shared';
- * import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+ * import { ToolRouter } from '@mcp-ts/client/shared';
+ * import { AIAdapter } from '@mcp-ts/client/adapters/ai';
  *
  * const router = new ToolRouter(multiSessionClient, {
  *   strategy: 'search',
@@ -25,8 +25,7 @@
  *
  * @packageDocumentation
  */
-
-import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { Tool } from "@modelcontextprotocol/client";
 import type { ToolClient, ToolClientProvider } from './types.js';
 import {
   ToolIndex,

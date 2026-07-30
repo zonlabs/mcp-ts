@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('ToolRouter benchmark script', () => {
   test('calculates context efficiency and renders a markdown report', async () => {
-    const benchmark = await import('../benchmarks/toolrouter-efficiency.mjs');
+    // @ts-ignore
+    const benchmark = await import('../../../benchmarks/toolrouter-efficiency.mjs');
 
     const result = await benchmark.runScenario({
       toolCount: 100,
@@ -32,7 +33,8 @@ test.describe('ToolRouter benchmark script', () => {
   });
 
   test('collects live tool catalogs and redacts fixtures by default', async () => {
-    const liveBenchmark = await import('../benchmarks/toolrouter-live.mjs');
+    // @ts-ignore
+    const liveBenchmark = await import('../../../benchmarks/toolrouter-live.mjs');
 
     const clients = [
       {
@@ -103,7 +105,8 @@ test.describe('ToolRouter benchmark script', () => {
   });
 
   test('parses env file content without overriding existing process values', async () => {
-    const liveBenchmark = await import('../benchmarks/toolrouter-live.mjs');
+    // @ts-ignore
+    const liveBenchmark = await import('../../../benchmarks/toolrouter-live.mjs');
 
     const parsed = liveBenchmark.parseEnvContent(`
 NEXT_PUBLIC_MCP_USER_ID=real-user

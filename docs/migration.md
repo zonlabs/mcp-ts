@@ -11,7 +11,7 @@ In previous versions, session and connection management was handled through the 
 
 ### Before (v1.x)
 ```typescript
-import { storage } from '@mcp-ts/sdk';
+import { storage } from '@mcp-ts/client';
 
 // Accessing connections or sessions
 const userSessions = await storage.getSessions(userId);
@@ -19,7 +19,7 @@ const userSessions = await storage.getSessions(userId);
 
 ### After (v2.0.0)
 ```typescript
-import { sessions } from '@mcp-ts/sdk/server';
+import { sessions } from '@mcp-ts/client/server';
 
 // Use the new sessions API methods
 const sessionId = await sessions.generateSessionId();
@@ -39,7 +39,7 @@ The `useMcp` React hook has been updated to use `userId` instead of `identity`, 
 
 ### Before (v1.x)
 ```typescript
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/client/react';
 
 const { tools } = useMcp({
   identity: "user_123"
@@ -48,7 +48,7 @@ const { tools } = useMcp({
 
 ### After (v2.0.0)
 ```typescript
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/client/react';
 
 const { tools } = useMcp({
   userId: "user_123"

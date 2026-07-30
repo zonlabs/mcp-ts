@@ -535,7 +535,7 @@ export class SSEConnectionManager {
       this.clients.set(sessionId, client);
 
       const { toolCount } = await this.discoverAllCapabilities(sessionId, session.serverId ?? 'unknown');
-      return { success: true, toolCount };
+      return { success: true, toolCount: toolCount ?? 0 };
     } catch (error) {
       this.sendEvent(connectionErrorEvent(sessionId, session.serverId, error, 'auth'));
       throw error;
@@ -899,7 +899,7 @@ export class SSEConnectionManager {
  *
  * @example
  * ```ts
- * import { createSSEHandler } from '@mcp-ts/sdk/server';
+ * import { createSSEHandler } from '@mcp-ts/client/server';
  *
  * const handler = createSSEHandler({ userId: 'user-123' });
  * // Mount `handler` on both GET and POST for your HTTP framework.

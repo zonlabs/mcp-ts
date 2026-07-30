@@ -7,7 +7,8 @@ const authCodeMessage = 'MCP_AUTH_CODE';
 const authChannelName = 'mcp-auth-channel';
 
 async function loadHarness(page: Page): Promise<void> {
-  const fixtureDir = path.join(process.cwd(), 'test-results', 'oauth-popup-harness');
+  const id = Math.random().toString(36).slice(2, 10);
+  const fixtureDir = path.join(process.cwd(), 'test-results', `oauth-popup-harness-${id}`);
   await mkdir(fixtureDir, { recursive: true });
 
   const entryFile = path.join(fixtureDir, 'entry.tsx');

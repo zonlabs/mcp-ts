@@ -39,15 +39,15 @@ Expose specific groups of tools based on the current application state or user i
 To use the `ToolRouter`, initialize it with your `MultiSessionClient` and pass it to the `AIAdapter`.
 
 ```typescript
-import { MultiSessionClient } from "@mcp-ts/sdk/server";
-import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
+import { MultiSessionClient } from "@mcp-ts/client/server";
+import { AIAdapter } from "@mcp-ts/client/adapters/ai";
 
 export async function createMcpAgent(userId: string = "user-123") {
   const client = new MultiSessionClient(userId);
   await client.connect();
 
   // Dynamic import for ToolRouter (shared SDK utility)
-  const { ToolRouter } = await import("@mcp-ts/sdk/shared");
+  const { ToolRouter } = await import("@mcp-ts/client/shared");
   
   // Configure the router for high scalability (discovery strategy)
   const router = new ToolRouter(client, { strategy: "search" });

@@ -11,7 +11,7 @@ icon: "code"
 import type {
   McpConnectionState,
   McpConnectionEvent,
-} from '@mcp-ts/sdk/shared';
+} from '@mcp-ts/client/shared';
 
 type McpConnectionState =
   | 'DISCONNECTED'
@@ -36,7 +36,7 @@ type McpConnectionEvent =
 ### Tool Types
 
 ```typescript
-import type { ToolInfo } from '@mcp-ts/sdk/shared';
+import type { ToolInfo } from '@mcp-ts/client/shared';
 
 interface ToolInfo {
   name: string;
@@ -77,7 +77,7 @@ interface Session {
 ### Tool Policy Types
 
 ```typescript
-import { createToolId, isToolAllowed, filterToolsByPolicy } from '@mcp-ts/sdk/server';
+import { createToolId, isToolAllowed, filterToolsByPolicy } from '@mcp-ts/client/server';
 
 interface ToolPolicy {
   mode: 'all' | 'allowlist' | 'denylist';
@@ -106,7 +106,7 @@ interface ToolPolicy {
 Thrown when OAuth authorization is required.
 
 ```typescript
-import { UnauthorizedError } from '@mcp-ts/sdk/server';
+import { UnauthorizedError } from '@mcp-ts/client/server';
 
 try {
   await client.connect();

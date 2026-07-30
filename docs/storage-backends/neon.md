@@ -140,7 +140,7 @@ WITH CHECK (true);
 When `MCP_TS_STORAGE_TYPE=neon` and `NEON_DATABASE_URL` are present in your environment, the global `sessions` proxy automatically uses the Neon backend.
 
 ```typescript
-import { sessions } from '@mcp-ts/sdk/server';
+import { sessions } from '@mcp-ts/client/server';
 
 // This will use Neon automatically if env vars are set
 const sessionList = await sessions.list('user-123');
@@ -152,7 +152,7 @@ If you want to manage the Neon SQL client yourself or use multiple storage backe
 
 ```typescript
 import { neon } from '@neondatabase/serverless';
-import { createNeonStorageBackend } from '@mcp-ts/sdk/server';
+import { createNeonStorageBackend } from '@mcp-ts/client/server';
 
 const sql = neon(process.env.NEON_DATABASE_URL!);
 const neonBackend = createNeonStorageBackend(sql);

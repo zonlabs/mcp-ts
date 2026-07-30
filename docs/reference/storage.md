@@ -10,7 +10,7 @@ icon: "database"
 Global `sessions` instance that automatically selects the appropriate backend based on environment configuration.
 
 ```typescript
-import { sessions } from '@mcp-ts/sdk/server';
+import { sessions } from '@mcp-ts/client/server';
 ```
 
 Because `sessions` is a lazy async proxy, call its methods with `await` in real code, including `generateSessionId()`.
@@ -151,7 +151,7 @@ import {
   RedisStorageBackend,
   MemoryStorageBackend,
   FileStorageBackend,
-} from '@mcp-ts/sdk/server';
+} from '@mcp-ts/client/server';
 import Redis from 'ioredis';
 
 const redis = new Redis(process.env.REDIS_URL);

@@ -14,8 +14,7 @@
  *
  * @packageDocumentation
  */
-
-import type { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { Tool, CallToolResult } from "@modelcontextprotocol/client";
 import type { ToolRouter } from './tool-router.js';
 import type { IndexedTool, ToolLookupOptions } from './tool-index.js';
 

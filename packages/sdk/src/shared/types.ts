@@ -1,8 +1,7 @@
 /**
  * Type definitions for MCP operations
  */
-
-import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { Tool, CallToolResult } from "@modelcontextprotocol/client";
 
 // ---------------------------------------------------------------------------
 // Core Capability Interfaces

@@ -1,4 +1,4 @@
-import type { Tool, ListToolsResult, CallToolResult, Implementation } from '@modelcontextprotocol/sdk/types.js';
+import type { Tool, ListToolsResult, CallToolResult, Implementation } from "@modelcontextprotocol/client";
 import type { ToolClient } from '../../shared/types.js';
 import { sessions } from '../storage/index.js';
 import type { Session } from '../storage/types.js';

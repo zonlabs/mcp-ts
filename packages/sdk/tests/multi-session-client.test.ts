@@ -17,7 +17,7 @@ test.describe('MultiSessionClient', () => {
     test.beforeEach(() => {
         // Mock getSessionId to read from the internal state created in constructor
         (MCPClient.prototype as any).getSessionId = function() {
-            return (this as any).sessionId;
+            return (this as any).config?.sessionId || (this as any).sessionId;
         };
         (MCPClient.prototype as any).isConnected = function() {
             return (this as any)._mockConnected || false;
@@ -289,7 +289,7 @@ test.describe('MultiSessionClient', () => {
         });
 
         // Push the stale client manually to simulate the scenario
-        (multiClient2 as any).clients = multiClient.getClients();
+        (multiClient2 as any).clients = (multiClient as any).clients;
         await multiClient2.connect();
 
         expect(evictedSessions).toContain('stale-session');

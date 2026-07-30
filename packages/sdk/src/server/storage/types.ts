@@ -1,9 +1,6 @@
 
 import type { MCPClient } from '../mcp/oauth-client.js';
-import type {
-    OAuthTokens,
-    OAuthClientInformationMixed,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
+import type { OAuthTokens, OAuthClientInformationMixed } from "@modelcontextprotocol/client";
 
 export interface OAuthState {
     nonce: string;
