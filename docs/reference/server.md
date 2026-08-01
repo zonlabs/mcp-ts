@@ -44,6 +44,43 @@ const handler = createSSEHandler({
 
 Mount the same handler for both the streamed `GET` endpoint and `POST` RPC calls.
 
+
+#### `ClientMetadata`
+
+`clientDefaults` and `getClientMetadata` can provide OAuth display metadata, a custom OAuth provider, and MCP SDK v2 client options:
+
+```typescript
+import type { McpSdkClientOptions } from '@mcp-ts/client/server';
+
+interface ClientMetadata {
+  clientName?: string;
+  clientUri?: string;
+  logoUri?: string;
+  policyUri?: string;
+  oauthProvider?: OAuthClientProvider;
+  client?: McpSdkClientOptions;
+}
+```
+
+Static `clientDefaults` and dynamic `getClientMetadata()` results are merged. Nested `client.capabilities`, `client.versionNegotiation`, and extension capability objects are merged instead of replaced wholesale; no capabilities are injected automatically.
+
+#### MCP SDK v2 Options
+
+`McpSdkClientOptions` is an allowlisted subset of the official SDK `ClientOptions`. `mcp-ts` defaults `versionNegotiation` to `{ mode: 'auto' }` and persists the serializable client option subset under `serverOptions.client` on sessions. Live objects such as `responseCacheStore` can be passed at runtime but are not persisted. Pass MCP Apps UI extension capabilities explicitly when needed.
+
+```typescript
+const client: McpSdkClientOptions = {
+  versionNegotiation: { mode: 'auto' },
+  capabilities: { sampling: {} },
+  inputRequired: { autoFulfill: true },
+  listMaxPages: 128,
+  cachePartition: 'user-id',
+  defaultCacheTtlMs: 30000,
+};
+```
+
+When `transport` is omitted, Streamable HTTP is tried. Automatic SSE fallback is disabled; pass `transport: { type: 'sse' }` only when explicitly connecting to an SSE endpoint.
+
 ---
 
 ### `MCPClient`
@@ -60,7 +97,12 @@ const client = new MCPClient({
   serverName?: string,
   serverUrl?: string,
   callbackUrl?: string,
-  transportType?: 'sse' | 'streamable-http',
+  transport?: { type?: 'sse' | 'streamable-http' },
+  serverOptions?: {
+    client?: McpSdkClientOptions,
+    transport?: { type?: 'sse' | 'streamable-http'; protocolVersion?: string },
+    discoverResult?: DiscoverResult,
+  } | null
   onRedirect?: (authUrl: string) => void,
   clientName?: string,
   clientUri?: string,
@@ -80,6 +122,9 @@ const client = new MCPClient({
 - `listResources(): Promise<ListResourcesResult>`
 - `readResource(uri): Promise<ReadResourceResult>`
 - `finishAuth(code, state?): Promise<void>`
+- `getNegotiatedProtocolVersion(): string | undefined`
+- `getProtocolEra(): 'legacy' | 'modern' | undefined`
+- `getDiscoverResult(): DiscoverResult | undefined`
 
 ---
 

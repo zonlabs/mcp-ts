@@ -5,7 +5,7 @@
  * - POST + JSON accepts direct RPC result response
  */
 
-import { SSEConnectionManager, type ClientMetadata } from './sse-handler.js';
+import { SSEConnectionManager, mergeClientMetadata, type ClientMetadata } from './sse-handler.js';
 import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events.js';
 import { isConnectionEvent, isRpcResponseEvent } from '../../shared/event-routing.js';
 import type { McpRpcResponse } from '../../shared/types.js';
@@ -66,7 +66,8 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
   });
 
   async function resolveClientMetadata(request: Request): Promise<ClientMetadata | undefined> {
-    return getClientMetadata ? await getClientMetadata(request) : clientDefaults;
+    if (!getClientMetadata) return clientDefaults;
+    return mergeClientMetadata(clientDefaults ?? {}, await getClientMetadata(request));
   }
 
   async function GET(): Promise<Response> {

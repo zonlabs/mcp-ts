@@ -17,7 +17,7 @@ async function createSession() {
     serverName: 'Server One',
     serverUrl: 'https://mcp.example.com',
     callbackUrl: redirectUrl,
-    transportType: 'streamable-http',
+    serverOptions: { transport: { type: 'streamable-http' } },
     createdAt: Date.now(),
     status: 'pending',
   });

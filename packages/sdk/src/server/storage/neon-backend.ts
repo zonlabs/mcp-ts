@@ -21,7 +21,7 @@ type NeonSessionRow = {
     server_id?: string | null;
     server_name?: string | null;
     server_url: string;
-    transport_type: 'sse' | 'streamable-http';
+    server_options?: unknown;
     callback_url: string;
     created_at: string | Date;
     updated_at?: string | Date | null;
@@ -87,7 +87,7 @@ export class NeonStorageBackend implements SessionStore {
             serverId: row.server_id ?? undefined,
             serverName: row.server_name ?? undefined,
             serverUrl: row.server_url,
-            transportType: row.transport_type,
+            serverOptions: row.server_options as Session['serverOptions'],
             callbackUrl: row.callback_url,
             createdAt: new Date(row.created_at).getTime(),
             updatedAt: new Date(row.updated_at ?? row.created_at).getTime(),
@@ -129,13 +129,13 @@ export class NeonStorageBackend implements SessionStore {
 
         const columns: string[] = [
             'session_id', 'user_id', 'server_id', 'server_name',
-            'server_url', 'transport_type', 'callback_url',
+            'server_url', 'server_options', 'callback_url',
             'created_at', 'updated_at', 'headers', 'auth_url',
             'status', 'expires_at',
         ];
         const values: unknown[] = [
             sessionId, userId, session.serverId, session.serverName,
-            session.serverUrl, session.transportType, session.callbackUrl,
+            session.serverUrl, session.serverOptions ?? null, session.callbackUrl,
             createdAt, updatedAt, encryptObject(session.headers),
             session.authUrl ?? null, status,
             expiresAt === null ? null : new Date(expiresAt).toISOString(),
@@ -176,7 +176,7 @@ export class NeonStorageBackend implements SessionStore {
             'serverId' in data ||
             'serverName' in data ||
             'serverUrl' in data ||
-            'transportType' in data ||
+            'serverOptions' in data ||
             'callbackUrl' in data ||
             'status' in data ||
             'headers' in data ||
@@ -198,7 +198,7 @@ export class NeonStorageBackend implements SessionStore {
             addSet('server_id', updatedSession.serverId);
             addSet('server_name', updatedSession.serverName);
             addSet('server_url', updatedSession.serverUrl);
-            addSet('transport_type', updatedSession.transportType);
+            addSet('server_options', updatedSession.serverOptions ?? null);
             addSet('callback_url', updatedSession.callbackUrl);
             addSet('status', status);
             addSet('headers', encryptObject(updatedSession.headers));
@@ -278,7 +278,7 @@ export class NeonStorageBackend implements SessionStore {
         try {
             const selection = options?.includeCredentials
                 ? '*'
-                : 'session_id, user_id, server_id, server_name, server_url, transport_type, callback_url, created_at, updated_at, expires_at, headers, auth_url, status, tool_policy, enabled';
+                : 'session_id, user_id, server_id, server_name, server_url, server_options, callback_url, created_at, updated_at, expires_at, headers, auth_url, status, tool_policy, enabled, server_options';
 
             const rows = await this.sql.query(
                 `SELECT ${selection} FROM ${this.tableName} WHERE user_id = $1 AND session_id = $2`,
@@ -411,7 +411,3 @@ export class NeonStorageBackend implements SessionStore {
         // Neon HTTP queries do not hold a persistent connection.
     }
 }
-
-
-
-

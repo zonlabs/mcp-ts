@@ -109,7 +109,8 @@ interface Session {
   serverName?: string;
   serverUrl: string;
   callbackUrl: string;
-  transportType: 'sse' | 'streamable-http';
+  transport: { type: 'sse' } | 'streamable-http'; // legacy compatibility
+  transport?: { type?: 'sse' | 'streamable-http' } | null;
   status: 'pending' | 'active';
   createdAt: number;
   updatedAt?: number;

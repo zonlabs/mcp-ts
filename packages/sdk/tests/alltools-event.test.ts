@@ -29,7 +29,7 @@ function activeSession(overrides: Record<string, unknown> = {}) {
     serverName: 'Filesystem',
     serverUrl: 'https://example.com/mcp',
     callbackUrl: 'https://app.local/oauth/callback',
-    transportType: 'streamable-http' as const,
+    transport: { type: 'streamable-http' } as const,
     createdAt: Date.now(),
     status: 'active' as const,
     ...overrides,

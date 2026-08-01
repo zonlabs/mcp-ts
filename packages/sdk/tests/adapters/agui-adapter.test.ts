@@ -83,5 +83,3 @@ test.describe('AguiAdapter', () => {
     expect(tools).toHaveLength(0);
   });
 });
-
-

@@ -20,7 +20,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName: 'Server One',
       serverUrl: 'https://example.com/mcp',
       callbackUrl: 'https://app.local/oauth/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
       createdAt: Date.now(),
       status: 'pending',
     });
@@ -68,7 +68,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName: 'Server Two',
       serverUrl: 'https://example.com/mcp-active',
       callbackUrl: 'https://app.local/oauth/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
       createdAt: Date.now(),
       status: 'active',
     });
@@ -106,7 +106,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName: 'Timestamped Server',
       serverUrl: 'https://example.com/mcp-timestamps',
       callbackUrl: 'https://app.local/oauth/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
       createdAt: 1780076200000,
       updatedAt: 1780076300000,
       status: 'active',
@@ -145,7 +145,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName: 'Server Three',
       serverUrl: 'https://example.com/mcp-resource',
       callbackUrl: 'https://app.local/oauth/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
       createdAt: Date.now(),
       status: 'active',
     });
@@ -163,7 +163,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName?: string;
       serverUrl?: string;
       callbackUrl?: string;
-      transportType?: string;
+      transport?: { type?: string };
     }> = [];
 
     (MCPClient.prototype as any).connect = async function () {
@@ -172,7 +172,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
         serverName: (this as any).config.serverName,
         serverUrl: (this as any).config.serverUrl,
         callbackUrl: (this as any).config.callbackUrl,
-        transportType: (this as any).config.transportType,
+        transport: (this as any).config.transport,
       });
     };
 
@@ -199,7 +199,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
         serverName: 'Server Three',
         serverUrl: 'https://example.com/mcp-resource',
         callbackUrl: 'https://app.local/oauth/callback',
-        transportType: 'streamable-http',
+        transport: { type: 'streamable-http' },
       }]);
     } finally {
       (MCPClient.prototype as any).connect = originalConnect;
@@ -231,7 +231,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
         serverId: (this as any).config.serverId,
         serverUrl: (this as any).config.serverUrl,
         callbackUrl: (this as any).config.callbackUrl,
-        transportType: (this as any).config.transportType || 'streamable-http',
+        serverOptions: { transport: { type: (this as any).config.transport?.type || 'streamable-http' } },
         createdAt: Date.now(),
         status: 'active',
       });
@@ -284,7 +284,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName: 'Server Five',
       serverUrl: 'https://example.com/mcp-auth',
       callbackUrl: 'https://app.local/oauth/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
       createdAt: Date.now(),
       status: 'pending',
     });
@@ -354,7 +354,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName: 'Server LRT',
       serverUrl: 'https://example.com/mcp-lrt',
       callbackUrl: 'https://app.local/oauth/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
       createdAt: Date.now(),
       status: 'active',
     });
@@ -418,7 +418,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       serverName: 'Server LRT Empty',
       serverUrl: 'https://example.com/mcp-lrt-empty',
       callbackUrl: 'https://app.local/oauth/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
       createdAt: Date.now(),
       status: 'active',
     });
@@ -453,4 +453,3 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
     }
   });
 });
-

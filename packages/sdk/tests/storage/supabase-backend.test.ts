@@ -202,7 +202,8 @@ test.describe('SupabaseStorageBackend', () => {
             expect(row.server_id).toBe(session.serverId);
             expect(row.server_name).toBe(session.serverName);
             expect(row.server_url).toBe(session.serverUrl);
-            expect(row.transport_type).toBe(session.transportType);
+            expect(row.server_options?.transport?.type).toBe(session.serverOptions?.transport?.type);
+            expect(row.server_options?.transport).toEqual({ type: session.serverOptions?.transport?.type });
             expect(row.callback_url).toBe(session.callbackUrl);
             expect(row.status).toBe(session.status);
             expect(row.tokens).toBeUndefined();
@@ -261,7 +262,7 @@ test.describe('SupabaseStorageBackend', () => {
             await storage.create(session);
 
             const newTokens = createMockTokens();
-            await storage.update(session.userId, session.sessionId, { status: 'active', transportType: 'streamable-http' });
+            await storage.update(session.userId, session.sessionId, { status: 'active', serverOptions: { transport: { type: 'streamable-http' } } });
             await storage.patchCredentials(session.userId, session.sessionId, { tokens: newTokens });
 
             const retrieved = await storage.get(session.userId, session.sessionId);
@@ -270,7 +271,8 @@ test.describe('SupabaseStorageBackend', () => {
             expect(retrieved?.status).toBe('active');
             expect((retrieved as any)?.tokens).toBeUndefined();
             expect(credentials?.tokens).toEqual(newTokens);
-            expect(retrieved?.transportType).toBe('streamable-http');
+            expect(retrieved?.serverOptions?.transport?.type).toBe('streamable-http');
+            expect(retrieved?.serverOptions?.transport).toEqual({ type: 'streamable-http' });
             // Preserved
             expect(retrieved?.serverId).toBe(session.serverId);
             expect(retrieved?.serverUrl).toBe(session.serverUrl);
@@ -335,7 +337,7 @@ test.describe('SupabaseStorageBackend', () => {
             expect(result?.serverId).toBe(session.serverId);
             expect(result?.serverName).toBe(session.serverName);
             expect(result?.serverUrl).toBe(session.serverUrl);
-            expect(result?.transportType).toBe(session.transportType);
+            expect(result?.serverOptions?.transport?.type).toBe(session.serverOptions?.transport?.type);
             expect(result?.callbackUrl).toBe(session.callbackUrl);
             expect(result?.userId).toBe(session.userId);
             expect(result?.status).toBe(session.status);

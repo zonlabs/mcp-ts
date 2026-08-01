@@ -59,7 +59,11 @@ interface Session {
   serverName?: string;
   serverUrl: string;
   callbackUrl: string;
-  transportType: 'sse' | 'streamable-http';
+  serverOptions?: {
+    client?: StoredMcpSdkClientOptions;
+    transport?: { type?: 'sse' | 'streamable-http'; protocolVersion?: string };
+    discoverResult?: DiscoverResult;
+  } | null;
   status: 'pending' | 'active';
   createdAt: number;
   updatedAt?: number;
@@ -73,7 +77,9 @@ interface Session {
   clientId?: string | null;
   oauthState?: OAuthState | null;
 }
+```
 
+Durable session storage keeps v2 metadata under `serverOptions`. `SessionInfo`, `GetSessionResult`, and `FinishAuthResult` can still expose live protocol metadata when a client has connected.
 ### Tool Policy Types
 
 ```typescript

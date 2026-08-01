@@ -67,7 +67,7 @@ const sessionList = await fileBackend.list('user-123');
     "serverName": "My MCP Server",
     "serverUrl": "https://mcp.example.com",
     "callbackUrl": "https://app.com/callback",
-    "transportType": "sse",
+    "serverOptions": { "transport": { "type": "sse" } },
     "active": true,
     "createdAt": 1706234567890
   }

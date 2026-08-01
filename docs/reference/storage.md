@@ -50,7 +50,7 @@ await sessions.create({
   serverName: 'My Server',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: 'https://myapp.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   status: 'active',
   createdAt: Date.now(),
 });

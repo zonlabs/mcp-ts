@@ -6,6 +6,8 @@ import type {
     StoredOAuthTokens,
     StoredOAuthClientInformation,
     OAuthDiscoveryState,
+    ClientOptions,
+    DiscoverResult,
 } from "@modelcontextprotocol/client";
 
 export interface OAuthState {
@@ -18,7 +20,30 @@ export interface OAuthState {
 export type SessionStatus = 'pending' | 'active';
 
 export type ToolPolicyMode = 'all' | 'allowlist' | 'denylist';
+export type StoredMcpTransportType = 'sse' | 'streamable-http';
 
+export interface StoredMcpTransportOptions {
+    type?: StoredMcpTransportType;
+    protocolVersion?: string;
+}
+
+export type StoredMcpSdkClientOptions = Pick<
+    ClientOptions,
+    | 'capabilities'
+    | 'versionNegotiation'
+    | 'inputRequired'
+    | 'supportedProtocolVersions'
+    | 'enforceStrictCapabilities'
+    | 'listMaxPages'
+    | 'cachePartition'
+    | 'defaultCacheTtlMs'
+>;
+
+export interface StoredMcpServerOptions {
+    client?: StoredMcpSdkClientOptions;
+    transport?: StoredMcpTransportOptions;
+    discoverResult?: DiscoverResult;
+}
 export interface ToolPolicy {
     mode: ToolPolicyMode;
     toolIds: string[];
@@ -30,7 +55,7 @@ export interface Session {
     serverId?: string; // Database server ID for mapping
     serverName?: string;
     serverUrl: string;
-    transportType: 'sse' | 'streamable-http';
+    serverOptions?: StoredMcpServerOptions | null;
     callbackUrl: string;
     createdAt: number;
     updatedAt?: number;
@@ -94,7 +119,7 @@ export interface SetClientOptions {
     client?: MCPClient;
     serverUrl?: string;
     callbackUrl?: string;
-    transportType?: 'sse' | 'streamable-http';
+    serverOptions?: StoredMcpServerOptions | null;
     userId?: string;
     headers?: Record<string, string>;
 }
@@ -192,5 +217,3 @@ export interface SessionStore {
      */
     disconnect(): Promise<void>;
 }
-
-

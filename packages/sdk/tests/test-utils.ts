@@ -3,7 +3,7 @@
  */
 import RedisMock from 'ioredis-mock';
 import { Redis } from 'ioredis';
-import type { SessionStatus } from '../src/server/storage/types';
+import type { SessionStatus, StoredMcpServerOptions } from '../src/server/storage/types';
 
 /**
  * Create a mock Redis instance for testing
@@ -32,7 +32,7 @@ export function createMockSession(overrides: Partial<MockSession> = {}): MockSes
         serverName: 'Test MCP Server',
         serverUrl: 'https://mcp.example.com',
         callbackUrl: 'https://app.example.com/callback',
-        transportType: 'sse',
+        serverOptions: { transport: { type: 'sse' } },
         status: 'active',
         createdAt: now,
         updatedAt: now,
@@ -47,7 +47,7 @@ export interface MockSession {
     serverName: string;
     serverUrl: string;
     callbackUrl: string;
-    transportType: 'sse' | 'streamable-http';
+    serverOptions?: StoredMcpServerOptions | null;
     status?: SessionStatus;
     createdAt: number;
     updatedAt?: number;

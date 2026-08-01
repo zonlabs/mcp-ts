@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { NeonStorageBackend } from '../../src/server/storage/neon-backend';
 import { createMockSession, createMockTokens } from '../test-utils';
 import { DORMANT_SESSION_EXPIRATION_MS, STATE_EXPIRATION_MS } from '../../src/shared/constants';
-import type { SessionStatus } from '../../src/server/storage/types';
+import type { SessionStatus, StoredMcpServerOptions } from '../../src/server/storage/types';
 
 type NeonRow = {
     id: string;
@@ -10,8 +10,7 @@ type NeonRow = {
     user_id: string;
     server_id?: string;
     server_name?: string;
-    server_url: string;
-    transport_type: 'sse' | 'streamable-http';
+    server_url: string;    server_options?: StoredMcpServerOptions | null;
     callback_url: string;
     created_at: string;
     updated_at: string;
@@ -53,9 +52,8 @@ function createMockNeonSql() {
                 session_id: sessionId,
                 user_id: userId,
                 server_id: params[2] as string | undefined,
-                server_name: params[3] as string | undefined,
-                server_url: params[4] as string,
-                transport_type: params[5] as 'sse' | 'streamable-http',
+                server_name: params[3] as string | undefined,                server_url: params[4] as string,
+                server_options: params[5] as StoredMcpServerOptions | null,
                 callback_url: params[6] as string,
                 created_at: params[7] as string,
                 updated_at: params[8] as string,
@@ -86,8 +84,7 @@ function createMockNeonSql() {
 
                 row.server_id = params[0] as string | undefined;
                 row.server_name = params[1] as string | undefined;
-                row.server_url = params[2] as string;
-                row.transport_type = params[3] as 'sse' | 'streamable-http';
+                row.server_url = params[2] as string;                row.server_options = params[3] as StoredMcpServerOptions | null;
                 row.callback_url = params[4] as string;
                 row.status = params[5] as SessionStatus;
                 row.headers = params[6] as Record<string, string> | undefined;
@@ -165,8 +162,7 @@ function createMockNeonSql() {
                 if (normalized.includes('server_id')) result.server_id = row.server_id;
                 if (normalized.includes('server_name')) result.server_name = row.server_name;
                 if (normalized.includes('server_url')) result.server_url = row.server_url;
-                if (normalized.includes('transport_type')) result.transport_type = row.transport_type;
-                if (normalized.includes('callback_url')) result.callback_url = row.callback_url;
+                                if (normalized.includes('callback_url')) result.callback_url = row.callback_url;
                 if (normalized.includes('created_at')) result.created_at = row.created_at;
                 if (normalized.includes('updated_at')) result.updated_at = row.updated_at;
                 if (normalized.includes('expires_at')) result.expires_at = row.expires_at;
@@ -174,6 +170,7 @@ function createMockNeonSql() {
                 if (normalized.includes('auth_url')) result.auth_url = row.auth_url;
                 if (normalized.includes('status')) result.status = row.status;
                 if (normalized.includes('tool_policy')) result.tool_policy = row.tool_policy;
+                                                                                if (normalized.includes('server_options')) result.server_options = row.server_options;
                 return result;
             });
         }
@@ -311,7 +308,7 @@ test.describe('NeonStorageBackend', () => {
         await storage.create(session);
 
         const tokens = createMockTokens({ access_token: 'refreshed-token' });
-        await storage.update(session.userId, session.sessionId, { status: 'pending', transportType: 'streamable-http' });
+        await storage.update(session.userId, session.sessionId, { status: 'pending', serverOptions: { transport: { type: 'streamable-http' } } });
         await storage.patchCredentials(session.userId, session.sessionId, { tokens });
 
         const retrieved = await storage.get(session.userId, session.sessionId);
@@ -319,7 +316,8 @@ test.describe('NeonStorageBackend', () => {
         expect(retrieved?.status).toBe('pending');
         expect((retrieved as any)?.tokens).toBeUndefined();
         expect(credentials?.tokens).toEqual(tokens);
-        expect(retrieved?.transportType).toBe('streamable-http');
+        expect(retrieved?.serverOptions?.transport?.type).toBe('streamable-http');
+        expect(retrieved?.serverOptions?.transport).toEqual({ type: 'streamable-http' });
         expect(retrieved?.serverUrl).toBe(session.serverUrl);
     });
 
@@ -377,7 +375,8 @@ test.describe('NeonStorageBackend', () => {
             expect(row.server_id).toBe(session.serverId);
             expect(row.server_name).toBe(session.serverName);
             expect(row.server_url).toBe(session.serverUrl);
-            expect(row.transport_type).toBe(session.transportType);
+            expect(row.server_options?.transport?.type).toBe(session.serverOptions?.transport?.type);
+            expect(row.server_options?.transport).toEqual({ type: session.serverOptions?.transport?.type });
             expect(row.callback_url).toBe(session.callbackUrl);
             expect(row.status).toBe(session.status);
         });
@@ -435,7 +434,7 @@ test.describe('NeonStorageBackend', () => {
             expect(result?.serverId).toBe(session.serverId);
             expect(result?.serverName).toBe(session.serverName);
             expect(result?.serverUrl).toBe(session.serverUrl);
-            expect(result?.transportType).toBe(session.transportType);
+            expect(result?.serverOptions?.transport?.type).toBe(session.serverOptions?.transport?.type);
             expect(result?.callbackUrl).toBe(session.callbackUrl);
             expect(result?.userId).toBe(session.userId);
             expect(result?.status).toBe(session.status);

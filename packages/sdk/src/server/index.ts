@@ -4,7 +4,7 @@
  */
 
 /** Core MCP client and session management */
-export { MCPClient } from './mcp/oauth-client.js';
+export { MCPClient, normalizeMcpSdkClientOptions, type McpSdkClientOptions } from './mcp/oauth-client.js';
 export { UnauthorizedError } from '../shared/errors.js';
 export { sessions, onSessionMutation, withDbObservability, type SessionStore } from './storage/index.js';
 export { StorageOAuthClientProvider } from './mcp/storage-oauth-provider.js';
@@ -64,6 +64,8 @@ export type {
   StoredOAuthClientInformation,
   StoredOAuthTokens,
   OAuthTokens,
+  DiscoverResult,
+  ProtocolEra,
 } from '@modelcontextprotocol/client';
 
 export type {

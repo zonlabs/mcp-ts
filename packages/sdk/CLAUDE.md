@@ -46,9 +46,18 @@ Each backend implements `init()` for health checks and runtime validation.
 - **Statelessness**: Session state is reconstructed from storage; server instances are ephemeral.
 
 ### Dependency Management
-- **Core**: Minimal dependencies (`nanoid`, `@modelcontextprotocol/sdk`).
+- **Core**: Minimal dependencies (`nanoid`, `@modelcontextprotocol/client`, `@modelcontextprotocol/core`).
 - **Adapters/Storage**: Optional peer dependencies (for example `ai`, `langchain`, `better-sqlite3`, `@supabase/supabase-js`, `@neondatabase/serverless`).
 - **Dynamic Imports**: Used to load adapters and storage implementations only when requested.
+
+
+### MCP SDK v2 Protocol Support
+- `McpSdkClientOptions` is exported from `@mcp-ts/client/server` as the supported allowlist of official SDK client options.
+- `normalizeMcpSdkClientOptions()` defaults `versionNegotiation` to `{ mode: 'auto' }` and does not inject SDK capabilities.
+- Sessions persist Cloudflare-style `serverOptions`: `client`, `transport`, and `discoverResult` in one JSON object.
+- Restored clients pass `connect({ prior })` when protocol metadata is available.
+- `responseCacheStore` is runtime-only. Persist `cachePartition` and `defaultCacheTtlMs`, and let callers provide the live store object again.
+- Automatic SSE fallback is disabled. Explicit `transport: { type: 'sse' }` is required for SSE.
 
 ### Storage Backend Initialization
 - All backends implement `init()` for health checks.

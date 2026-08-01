@@ -55,7 +55,7 @@ await sessions.create({
   userId: 'user-123',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: 'https://app.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   status: 'active',
   createdAt: Date.now(),
 });
@@ -77,7 +77,7 @@ await redisBackend.create({
   userId: 'user-123',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: 'https://app.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   status: 'active',
   createdAt: Date.now(),
 });

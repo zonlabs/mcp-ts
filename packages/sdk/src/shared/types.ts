@@ -2,6 +2,7 @@
  * Type definitions for MCP operations
  */
 import { Tool, CallToolResult } from "@modelcontextprotocol/client";
+import type { DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
 
 // ---------------------------------------------------------------------------
 // Core Capability Interfaces
@@ -217,7 +218,7 @@ export interface ConnectParams {
   serverName: string;
   serverUrl: string;
   callbackUrl: string;
-  transportType?: TransportType;
+  transport?: { type?: TransportType };
   headers?: Record<string, string>;
   clientId?: string;
   clientSecret?: string;
@@ -292,7 +293,12 @@ export interface SessionInfo {
   serverId?: string;
   serverName?: string;
   serverUrl: string;
-  transport: TransportType;
+  transport?: TransportType;
+  serverOptions?: {
+    client?: unknown;
+    transport?: { type?: TransportType; protocolVersion?: string };
+    discoverResult?: DiscoverResult;
+  } | null;
   createdAt: number;
   updatedAt?: number;
   /**
@@ -302,6 +308,9 @@ export interface SessionInfo {
   status: SessionStatus;
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
+  protocolEra?: ProtocolEra | null;
+  protocolVersion?: string | null;
+  discoverResult?: DiscoverResult | null;
 }
 
 export interface SessionListResult {
@@ -320,11 +329,17 @@ export interface DisconnectResult {
 export interface GetSessionResult {
   success: boolean;
   toolCount: number;
+  protocolEra?: ProtocolEra | null;
+  protocolVersion?: string | null;
+  discoverResult?: DiscoverResult | null;
 }
 
 export interface FinishAuthResult {
   success: boolean;
   toolCount: number;
+  protocolEra?: ProtocolEra | null;
+  protocolVersion?: string | null;
+  discoverResult?: DiscoverResult | null;
 }
 
 export interface ListToolsRpcResult {
@@ -385,6 +400,3 @@ export interface ListResourceTemplatesResult {
 }
 
 export type { CallToolResult };
-
-
-

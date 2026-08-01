@@ -46,7 +46,7 @@ import type {
 import { RpcErrorCodes, UnauthorizedError } from '../../shared/errors.js';
 import { isConnectionEvent, isRpcResponseEvent } from '../../shared/event-routing.js';
 import { parseOAuthState } from '../../shared/utils.js';
-import { MCPClient } from '../mcp/oauth-client.js';
+import { MCPClient, type McpSdkClientOptions } from '../mcp/oauth-client.js';
 import { sessions, generateServerId, withDbObservability, type Session, type SessionStore } from '../storage/index.js';
 import {
   createToolId,
@@ -68,6 +68,7 @@ export interface ClientMetadata {
   logoUri?: string;
   policyUri?: string;
   oauthProvider?: OAuthClientProvider;
+  client?: McpSdkClientOptions;
 }
 
 /** Options passed to {@link createSSEHandler}. */
@@ -102,9 +103,57 @@ const DEFAULT_HEARTBEAT_MS = 30_000;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Merges nested SDK client options from handler defaults and dynamic metadata. */
+function mergeClientCapabilities(
+  defaults?: NonNullable<McpSdkClientOptions['capabilities']>,
+  override?: NonNullable<McpSdkClientOptions['capabilities']>,
+): NonNullable<McpSdkClientOptions['capabilities']> | undefined {
+  if (!defaults && !override) return undefined;
+
+  return {
+    ...defaults,
+    ...override,
+    extensions: defaults?.extensions || override?.extensions
+      ? {
+          ...defaults?.extensions,
+          ...override?.extensions,
+        }
+      : undefined,
+  };
+}
+
+function mergeMcpSdkClientOptions(
+  defaults?: McpSdkClientOptions,
+  override?: McpSdkClientOptions,
+): McpSdkClientOptions | undefined {
+  if (!defaults && !override) return undefined;
+
+  return {
+    ...defaults,
+    ...override,
+    versionNegotiation: defaults?.versionNegotiation || override?.versionNegotiation
+      ? {
+          ...defaults?.versionNegotiation,
+          ...override?.versionNegotiation,
+        }
+      : undefined,
+    capabilities: mergeClientCapabilities(defaults?.capabilities, override?.capabilities),
+  };
+}
+
+export function mergeClientMetadata(defaults: ClientMetadata, override?: ClientMetadata): ClientMetadata {
+  if (!override) return defaults;
+
+  return {
+    ...defaults,
+    ...override,
+    client: mergeMcpSdkClientOptions(defaults.client, override.client),
+  };
+}
+
 /**
  * Normalizes a raw headers object: trims keys & string values,
- * drops entries with empty key or value, returns `undefined` when nothing remains.
+ * drops entries with empty key or value, returns undefined when nothing remains.
  */
 function normalizeHeaders(
   headers?: Record<string, string>,
@@ -344,12 +393,15 @@ export class SSEConnectionManager {
         serverId:    s.serverId,
         serverName:  s.serverName,
         serverUrl:   s.serverUrl,
-        transport:   s.transportType,
+        transport:   s.serverOptions?.transport?.type,
+        serverOptions: s.serverOptions ?? null,
         createdAt:   s.createdAt,
         updatedAt:   s.updatedAt ?? s.createdAt,
         status:      s.status ?? 'pending',
         toolPolicy:  s.toolPolicy,
         enabled:     s.enabled ?? true,
+        protocolVersion: s.serverOptions?.transport?.protocolVersion ?? null,
+        discoverResult: s.serverOptions?.discoverResult ?? null,
       })),
     };
   }
@@ -373,7 +425,13 @@ export class SSEConnectionManager {
       this.clients.set(params.sessionId, client);
 
       const { toolCount } = await this.discoverAllCapabilities(params.sessionId, session.serverId ?? 'unknown');
-      return { success: true, toolCount };
+      return {
+        success: true,
+        toolCount,
+        protocolEra: client.getProtocolEra() ?? null,
+        protocolVersion: client.getNegotiatedProtocolVersion() ?? null,
+        discoverResult: client.getDiscoverResult() ?? null,
+      };
     } catch (error) {
       this.sendEvent(connectionErrorEvent(params.sessionId, session.serverId, error, 'validation'));
       throw error;
@@ -427,7 +485,7 @@ export class SSEConnectionManager {
       serverName:   params.serverName,
       serverUrl:    params.serverUrl,
       callbackUrl:  params.callbackUrl,
-      transportType: params.transportType,
+      transport: params.transport,
       headers,
       clientInformation,
       sessionStore: this.observedStore,
@@ -473,7 +531,7 @@ export class SSEConnectionManager {
       serverName:   params.serverName,
       serverUrl:    params.serverUrl,
       callbackUrl:  params.callbackUrl,
-      transportType: params.transportType,
+      transport: params.transport,
       headers,
       clientInformation,
       sessionStore: this.observedStore,
@@ -514,10 +572,8 @@ export class SSEConnectionManager {
    * and calls `finishAuth` inside a {@link runWithCodeVerifierState} context
    * so the PKCE code verifier is available without a DB read.
    *
-   * The session's stored `transportType` is intentionally **omitted** from the
-   * client config — this lets `MCPClient` auto-negotiate (try Streamable HTTP
-   * first, fall back to SSE), which is required for servers like Neon that
-   * only support SSE transport.
+   * The session's stored `serverOptions` are passed through so restored clients
+   * reuse the saved transport, SDK client options, and discover result.
    */
   private async finishAuth(params: FinishAuthParams): Promise<FinishAuthResult> {
     const parsed    = parseOAuthState(params.state);
@@ -718,7 +774,7 @@ export class SSEConnectionManager {
       : {};
 
     if (this.options.getClientMetadata) {
-      metadata = { ...metadata, ...(await this.options.getClientMetadata(request)) };
+      metadata = mergeClientMetadata(metadata, await this.options.getClientMetadata(request));
     }
     return metadata;
   }
@@ -797,14 +853,17 @@ export class SSEConnectionManager {
       serverName:    session.serverName,
       serverUrl:     session.serverUrl,
       callbackUrl:   session.callbackUrl,
-      transportType: session.transportType,
+      transport: session.serverOptions?.transport,
       headers:       session.headers,
       oauthProvider: metadata?.oauthProvider,
       hasSession:    true,
       cachedCredentials: { tokens: session.tokens ?? undefined },
       clientInformation: session.clientInformation ?? (session.clientId ? { client_id: session.clientId } : undefined),
+      serverOptions: session.serverOptions ?? undefined,
+      discoverResult: session.serverOptions?.discoverResult ?? undefined,
       sessionStore:  this.observedStore,
       ...metadata,
+      client: mergeMcpSdkClientOptions(session.serverOptions?.client, metadata?.client),
     });
   }
 

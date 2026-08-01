@@ -1,12 +1,12 @@
 import { CallToolResultSchema, GetPromptResultSchema, ReadResourceResultSchema } from "@modelcontextprotocol/core";
 import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
-import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, ClientCapabilities, StoredOAuthClientInformation, OAuthClientInformationMixed } from "@modelcontextprotocol/client";
+import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 import { sessions } from '../storage/index.js';
-import type { Session, SessionStatus, SessionStore } from '../storage/types.js';
+import type { Session, SessionStatus, SessionStore, StoredMcpSdkClientOptions, StoredMcpTransportOptions, StoredMcpServerOptions } from '../storage/types.js';
 import {
   MCP_CLIENT_NAME,
   MCP_CLIENT_VERSION,
@@ -16,12 +16,77 @@ import {
  */
 export type TransportType = 'sse' | 'streamable-http';
 
-interface McpAppClientCapabilities extends Omit<ClientCapabilities, 'extensions'> {
-  extensions?: {
-    'io.modelcontextprotocol/ui'?: {
-      mimeTypes: string[];
-    };
-    [key: string]: any;
+export type McpSdkClientOptions = Pick<
+  ClientOptions,
+  | 'capabilities'
+  | 'versionNegotiation'
+  | 'inputRequired'
+  | 'supportedProtocolVersions'
+  | 'enforceStrictCapabilities'
+  | 'listMaxPages'
+  | 'responseCacheStore'
+  | 'cachePartition'
+  | 'defaultCacheTtlMs'
+>;
+
+export function normalizeMcpSdkClientOptions(options?: McpSdkClientOptions): McpSdkClientOptions {
+  return {
+    ...options,
+    versionNegotiation: {
+      mode: 'auto',
+      ...options?.versionNegotiation,
+    },
+  };
+}
+export function toStoredMcpSdkClientOptions(options?: McpSdkClientOptions): StoredMcpSdkClientOptions | undefined {
+  if (!options) return undefined;
+  const stored: StoredMcpSdkClientOptions = {
+    capabilities: options.capabilities,
+    versionNegotiation: options.versionNegotiation,
+    inputRequired: options.inputRequired,
+    supportedProtocolVersions: options.supportedProtocolVersions,
+    enforceStrictCapabilities: options.enforceStrictCapabilities,
+    listMaxPages: options.listMaxPages,
+    cachePartition: options.cachePartition,
+    defaultCacheTtlMs: options.defaultCacheTtlMs,
+  };
+
+  return Object.fromEntries(
+    Object.entries(stored).filter(([, value]) => value !== undefined)
+  ) as StoredMcpSdkClientOptions;
+}
+
+function mergeMcpSdkClientOptions(
+  persisted?: StoredMcpSdkClientOptions | null,
+  override?: McpSdkClientOptions,
+): McpSdkClientOptions | undefined {
+  if (!persisted && !override) return undefined;
+
+  const extensions = {
+    ...persisted?.capabilities?.extensions,
+    ...override?.capabilities?.extensions,
+  };
+  const capabilities = persisted?.capabilities || override?.capabilities
+    ? {
+        ...persisted?.capabilities,
+        ...override?.capabilities,
+      }
+    : undefined;
+
+  if (capabilities && Object.keys(extensions).length > 0) {
+    capabilities.extensions = extensions;
+  }
+
+  return {
+    ...persisted,
+    ...override,
+    versionNegotiation: persisted?.versionNegotiation || override?.versionNegotiation
+      ? {
+          ...persisted?.versionNegotiation,
+          ...override?.versionNegotiation,
+        }
+      : undefined,
+    capabilities,
   };
 }
 
@@ -33,7 +98,7 @@ export interface MCPOAuthClientOptions {
   userId: string;
   serverId?: string; /** Optional - loaded from session if not provided */
   sessionId: string; /** Required - primary key for session lookup */
-  transportType?: TransportType;
+  transport?: StoredMcpTransportOptions | null;
   headers?: Record<string, string>;
   /** OAuth Client Metadata (optional - user application info) */
   clientName?: string;
@@ -64,6 +129,12 @@ export interface MCPOAuthClientOptions {
    * Custom OAuthClientProvider override (e.g. Cloudflare AgentMcpOAuthProvider or custom provider).
    */
   oauthProvider?: OAuthClientProvider;
+  /** MCP SDK v2 client options forwarded to @modelcontextprotocol/client. */
+  client?: McpSdkClientOptions;
+  /** Persisted Cloudflare-style server options loaded from session storage. */
+  serverOptions?: StoredMcpServerOptions | null;
+  /** Persisted server/discover result used for v2 restore optimization. */
+  discoverResult?: DiscoverResult | null;
 }
 
 /**
@@ -78,6 +149,9 @@ export class MCPClient {
   private config!: MCPOAuthClientOptions;
   private createdAt?: number;
   private _serverInfo: Implementation | undefined;
+  private _negotiatedProtocolVersion: string | undefined;
+  private _protocolEra: ProtocolEra | undefined;
+  private _discoverResult: DiscoverResult | undefined;
   private _store!: SessionStore;
 
   /** Event emitters for connection lifecycle */
@@ -110,21 +184,47 @@ export class MCPClient {
       this.oauthProvider = options.oauthProvider;
     }
 
-    this.client = new Client(
+    this.client = this.createSdkClient();
+  }
+
+  private createSdkClient(): Client {
+    return new Client(
       {
         name: MCP_CLIENT_NAME,
         version: MCP_CLIENT_VERSION,
       },
-      {
-        capabilities: {
-          extensions: {
-            'io.modelcontextprotocol/ui': {
-              mimeTypes: ['text/html+mcp'],
-            },
-          },
-        } as McpAppClientCapabilities,
-      }
+      normalizeMcpSdkClientOptions(this.config.client)
     );
+  }
+
+  private captureConnectionMetadata(): void {
+    this._serverInfo = this.client.getServerVersion();
+    this._negotiatedProtocolVersion = this.client.getNegotiatedProtocolVersion();
+    this._protocolEra = this.client.getProtocolEra();
+    this._discoverResult = this.client.getDiscoverResult();
+  }
+
+  private getConfiguredTransportType(): TransportType {
+    return (this.config.transport?.type ?? this.config.serverOptions?.transport?.type ?? 'streamable-http') as TransportType;
+  }
+
+  private getStoredServerOptions(): StoredMcpServerOptions {
+    return {
+      client: toStoredMcpSdkClientOptions(this.config.client),
+      transport: {
+        ...(this.config.transport ?? {}),
+        type: this.getConfiguredTransportType(),
+        protocolVersion: this._negotiatedProtocolVersion ?? this.config.transport?.protocolVersion,
+      },
+      discoverResult: this._discoverResult ?? this.config.discoverResult ?? undefined,
+    };
+  }
+  private getConnectOptions(): { prior: { kind: 'modern'; discover: DiscoverResult } } | undefined {
+    const discoverResult = this.config.discoverResult ?? this.config.serverOptions?.discoverResult;
+    if (discoverResult) {
+      return { prior: { kind: 'modern', discover: discoverResult } };
+    }
+    return undefined;
   }
 
   /** Shared session-shaped data for ensureSession and saveSession */
@@ -136,7 +236,7 @@ export class MCPClient {
       serverName: this.config.serverName,
       serverUrl: this.config.serverUrl!,
       callbackUrl: this.config.callbackUrl!,
-      transportType: (this.config.transportType || 'streamable-http') as TransportType,
+      serverOptions: this.getStoredServerOptions(),
       headers: this.config.headers,
       createdAt: this.createdAt ?? Date.now(),
       updatedAt: Date.now(),
@@ -286,7 +386,7 @@ export class MCPClient {
 
   /**
    * Ensures session metadata and OAuth provider are loaded.
-   * Does NOT create the SDK Client — callers that need one create it themselves.
+   * Rebuilds the SDK Client when persisted serverOptions.client values are loaded during restoration.
    * @private
    */
   private async ensureSession(): Promise<void> {
@@ -306,6 +406,14 @@ export class MCPClient {
       this.config.serverName = this.config.serverName || existingSession.serverName;
       this.config.serverId = this.config.serverId || existingSession.serverId || 'unknown';
       this.config.headers = this.config.headers || existingSession.headers;
+      const storedOptions = existingSession.serverOptions ?? this.config.serverOptions ?? undefined;
+      this.config.transport = this.config.transport ?? storedOptions?.transport;
+      this.config.discoverResult = this.config.discoverResult ?? storedOptions?.discoverResult ?? undefined;
+      const previousClientOptions = this.config.client;
+      this.config.client = mergeMcpSdkClientOptions(storedOptions?.client, this.config.client);
+      if (!previousClientOptions && this.config.client && !this.client.transport) {
+        this.client = this.createSdkClient();
+      }
       this.createdAt = existingSession.createdAt;
     }
 
@@ -409,73 +517,19 @@ export class MCPClient {
   }
 
   /**
-   * Try to connect using available transports
-   * @returns The corrected transport type object if successful
+   * Connects using the configured transport. Defaults to Streamable HTTP.
+   * @returns The transport type object if successful.
    * @private
    */
-  private async tryConnect(): Promise<{ transportType: TransportType }> {
-    /**
-     * If exact transport type is known, only try that.
-     * Otherwise (auto mode), try streamable_http first, then sse.
-     */
-    const transportsToTry: TransportType[] = this.config.transportType
-      ? [this.config.transportType]
-      : ['streamable-http', 'sse'];
+  private async tryConnect(): Promise<{ transport: TransportType }> {
+    const currentType = this.getConfiguredTransportType();
+    const transport = this.getTransport(currentType);
 
-    let lastError: unknown;
+    this.transport = transport;
+    await this.client!.connect(transport, this.getConnectOptions());
+    this.captureConnectionMetadata();
 
-    for (const currentType of transportsToTry) {
-      const isLastAttempt = currentType === transportsToTry[transportsToTry.length - 1];
-
-      try {
-        const transport = this.getTransport(currentType);
-
-        /** Update local state with the transport we are about to try */
-        this.transport = transport;
-
-        /** Race connection against timeout */
-        await this.client!.connect(transport);
-
-        /** Capture server metadata from the initialize response */
-        this._serverInfo = this.client.getServerVersion();
-
-        /** Success! Return the type that worked */
-        return { transportType: currentType };
-
-      } catch (error: any) {
-        lastError = error;
-
-        /** Check for Auth Errors - these should fail immediately, no fallback */
-        const isAuthError = error instanceof SDKUnauthorizedError ||
-          (error instanceof Error && error.message.toLowerCase().includes('unauthorized'));
-
-        if (isAuthError) {
-          throw error;
-        }
-
-        /** If this was the last transport to try, throw the error */
-        if (isLastAttempt) {
-          throw error;
-        }
-
-        /** Otherwise, log and continue to next transport */
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        this.emitProgress(`Connection attempt with ${currentType} failed: ${errorMessage}. Retrying...`);
-        this._onObservabilityEvent.fire({
-          level: 'warn',
-          message: `Transport ${currentType} failed, falling back`,
-          sessionId: this.config.sessionId,
-          serverId: this.config.serverId,
-          metadata: {
-            failedTransport: currentType,
-            error: errorMessage
-          },
-          timestamp: Date.now(),
-        });
-      }
-    }
-
-    throw lastError || new Error('No transports available');
+    return { transport: currentType };
   }
 
   /**
@@ -516,11 +570,11 @@ export class MCPClient {
     try {
       this.emitStateChange('CONNECTING');
 
-      /** Use the tryConnect loop to handle transport fallbacks */
-      const { transportType } = await this.tryConnect();
+      /** Connect using the configured transport. */
+      const { transport } = await this.tryConnect();
 
-      /** Update transport type to the one that actually worked */
-      this.config.transportType = transportType;
+      /** Update transport options to the one that actually worked. */
+      this.config.transport = { ...(this.config.transport ?? {}), type: transport };
 
       this.emitStateChange('CONNECTED');
       this.emitProgress('Connected successfully');
@@ -652,110 +706,44 @@ export class MCPClient {
       }
     }
 
-    /**
-     * Determine which transports to try for finishing auth
-     * If transportType is set, use only that. Otherwise try streamable_http then sse.
-     */
-    const transportsToTry: TransportType[] = this.config.transportType
-      ? [this.config.transportType]
-      : ['streamable-http', 'sse'];
+    const currentType = this.getConfiguredTransportType();
 
-    let lastError: unknown;
-    let tokensExchanged = false;
-    let authenticatedStateEmitted = false;
+    try {
+      const transport = this.getTransport(currentType);
+      this.transport = transport;
 
-    for (const currentType of transportsToTry) {
-      const isLastAttempt = currentType === transportsToTry[transportsToTry.length - 1];
+      await transport.finishAuth(authCode);
+      this.emitStateChange('AUTHENTICATED');
+      this.emitStateChange('CONNECTING');
 
-      try {
-        const transport = this.getTransport(currentType);
-
-        /** Update local state with the transport we are about to try */
-        this.transport = transport;
-
-        if (!tokensExchanged) {
-          await transport.finishAuth(authCode);
-          tokensExchanged = true;
-        } else {
-          this.emitProgress(`Tokens already exchanged, skipping auth step for ${currentType}...`);
-        }
-
-        if (!authenticatedStateEmitted) {
-          this.emitStateChange('AUTHENTICATED');
-          authenticatedStateEmitted = true;
-        }
-
-        this.emitStateChange('CONNECTING');
-
-        // The SDK Client may still have a transport attached from a prior
-        // connect() that failed with UnauthorizedError; close it first so
-        // we can negotiate a fresh session with the newly-exchanged tokens.
-        if (this.client.transport) {
-          try { await this.client.close(); } catch {}
-        }
-
-        await this.client.connect(this.transport);
-
-        /** Capture server metadata from the initialize response */
-        this._serverInfo = this.client.getServerVersion();
-
-        /** Connection succeeded — lock in the transport type */
-        this.config.transportType = currentType;
-
-        this.emitStateChange('CONNECTED');
-        this._onObservabilityEvent.fire({
-          type: 'mcp:client:session_saved',
-          level: 'info',
-          message: `Saving active session ${this.config.sessionId} (OAuth complete)`,
-          sessionId: this.config.sessionId,
-          serverId: this.config.serverId,
-          timestamp: Date.now(),
-          id: nanoid(),
-        });
-        await this.saveSession('active');
-
-        return; // Success, exit function
-
-      } catch (error) {
-        lastError = error;
-
-        const isAuthError = error instanceof SDKUnauthorizedError ||
-          (error instanceof Error && error.message.toLowerCase().includes('unauthorized'));
-
-        if (isAuthError) {
-          throw error;
-        }
-
-        const errorMessage = error instanceof Error ? error.message : String(error);
-
-        // Don't retry if the authorization code was rejected (it's one-time use)
-        if (!tokensExchanged && errorMessage.toLowerCase().includes('invalid authorization code')) {
-          const msg = error instanceof Error ? error.message : 'Authentication failed';
-          this.emitError(msg, 'auth');
-          this.emitStateChange('FAILED');
-          await this.deleteTransientSession();
-          throw error;
-        }
-
-        if (isLastAttempt) {
-          const msg = error instanceof Error ? error.message : 'Authentication failed';
-          this.emitError(msg, 'auth');
-          this.emitStateChange('FAILED');
-          await this.deleteTransientSession();
-          throw error;
-        }
-
-        // Log and retry
-        this.emitProgress(`Auth attempt with ${currentType} failed: ${errorMessage}. Retrying...`);
+      // The SDK Client may still have a transport attached from a prior
+      // connect() that failed with UnauthorizedError; close it first so
+      // we can negotiate a fresh session with the newly-exchanged tokens.
+      if (this.client.transport) {
+        try { await this.client.close(); } catch {}
       }
-    }
 
-    if (lastError) {
-      const errorMessage = lastError instanceof Error ? lastError.message : 'Authentication failed';
-      this.emitError(errorMessage, 'auth');
+      await this.client.connect(this.transport, this.getConnectOptions());
+      this.captureConnectionMetadata();
+      this.config.transport = { ...(this.config.transport ?? {}), type: currentType };
+
+      this.emitStateChange('CONNECTED');
+      this._onObservabilityEvent.fire({
+        type: 'mcp:client:session_saved',
+        level: 'info',
+        message: `Saving active session ${this.config.sessionId} (OAuth complete)`,
+        sessionId: this.config.sessionId,
+        serverId: this.config.serverId,
+        timestamp: Date.now(),
+        id: nanoid(),
+      });
+      await this.saveSession('active');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Authentication failed';
+      this.emitError(msg, 'auth');
       this.emitStateChange('FAILED');
       await this.deleteTransientSession();
-      throw lastError;
+      throw error;
     }
   }
 
@@ -1238,7 +1226,7 @@ export class MCPClient {
    * @returns Transport type (defaults to 'streamable-http')
    */
   getTransportType(): TransportType {
-    return this.config.transportType || 'streamable-http';
+    return this.getConfiguredTransportType();
   }
 
   /**
@@ -1248,6 +1236,20 @@ export class MCPClient {
    */
   getServerInfo(): Implementation | undefined {
     return this._serverInfo;
+  }
+  /** Gets the MCP protocol version negotiated by the SDK connection. */
+  getNegotiatedProtocolVersion(): string | undefined {
+    return this._negotiatedProtocolVersion;
+  }
+
+  /** Gets whether the SDK connected via the legacy initialize era or modern discover era. */
+  getProtocolEra(): ProtocolEra | undefined {
+    return this._protocolEra;
+  }
+
+  /** Gets the in-memory server/discover result from the SDK connection, when available. */
+  getDiscoverResult(): DiscoverResult | undefined {
+    return this._discoverResult;
   }
 
   /**

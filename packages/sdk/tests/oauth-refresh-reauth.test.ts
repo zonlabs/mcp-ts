@@ -35,7 +35,7 @@ test.describe('MCPClient refresh-token reauthorization', () => {
       serverName: 'Server One',
       serverUrl: 'https://example.com/mcp',
       callbackUrl: 'https://app.example.com/callback',
-      transportType: 'streamable-http',
+      transport: { type: 'streamable-http' },
     });
 
     expect('refreshToken' in client).toBe(false);
@@ -64,7 +64,7 @@ test.describe('MCPClient refresh-token reauthorization', () => {
       serverName: 'Server Two',
       serverUrl: 'https://example.com/mcp',
       callbackUrl: 'https://app.example.com/callback',
-      transportType: 'streamable-http',
+      transport: { type: 'streamable-http' },
     });
     client.onConnectionEvent((event) => events.push(event));
 

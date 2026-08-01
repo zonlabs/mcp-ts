@@ -121,7 +121,7 @@ async function test() {
     serverName: 'Test Server',
     serverUrl: 'https://example.com',
     callbackUrl: 'https://example.com/callback',
-    transportType: 'streamable-http',
+    transport: { type: 'streamable-http' },
     status: 'active',
     createdAt: Date.now(),
   });

@@ -60,7 +60,7 @@ await sessions.create({
   userId: 'user-456',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: 'https://app.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   toolPolicy: {
     mode: 'allowlist',
     toolIds: ['server-a::get_weather', 'server-a::send_email'],

@@ -42,7 +42,7 @@ export class SupabaseStorageBackend implements SessionStore {
             serverId: row.server_id,
             serverName: row.server_name,
             serverUrl: row.server_url,
-            transportType: row.transport_type,
+            serverOptions: row.server_options ?? undefined,
             callbackUrl: row.callback_url,
             createdAt: new Date(row.created_at).getTime(),
             updatedAt: new Date(row.updated_at ?? row.created_at).getTime(),
@@ -86,7 +86,7 @@ export class SupabaseStorageBackend implements SessionStore {
             server_id: session.serverId,
             server_name: session.serverName,
             server_url: session.serverUrl,
-            transport_type: session.transportType,
+            server_options: session.serverOptions ?? null,
             callback_url: session.callbackUrl,
             created_at: createdAt,
             updated_at: updatedAt,
@@ -122,7 +122,7 @@ export class SupabaseStorageBackend implements SessionStore {
         if ('serverId' in data) updateData.server_id = data.serverId;
         if ('serverName' in data) updateData.server_name = data.serverName;
         if ('serverUrl' in data) updateData.server_url = data.serverUrl;
-        if ('transportType' in data) updateData.transport_type = data.transportType;
+        if ('serverOptions' in data) updateData.server_options = data.serverOptions ?? null;
         if ('callbackUrl' in data) updateData.callback_url = data.callbackUrl;
         if ('status' in data) {
             const status = data.status ?? 'pending';
@@ -196,7 +196,7 @@ export class SupabaseStorageBackend implements SessionStore {
     async get(userId: string, sessionId: string, options?: GetOptions): Promise<SessionResult | null> {
         const selection = options?.includeCredentials
             ? '*'
-            : 'session_id, user_id, server_id, server_name, server_url, transport_type, callback_url, created_at, updated_at, expires_at, headers, auth_url, status, tool_policy, enabled';
+            : 'session_id, user_id, server_id, server_name, server_url, server_options, callback_url, created_at, updated_at, expires_at, headers, auth_url, status, tool_policy, enabled, server_options';
 
         const { data, error } = await this.supabase
             .from('mcp_sessions')
@@ -352,5 +352,3 @@ export class SupabaseStorageBackend implements SessionStore {
         // Supabase client handles its own connection pooling over HTTP.
     }
 }
-
-

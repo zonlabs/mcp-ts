@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.mcp_sessions (
     server_id TEXT,
     server_name TEXT,
     server_url TEXT NOT NULL,
-    transport_type TEXT NOT NULL,
+    server_options JSONB,
     callback_url TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -13,7 +13,7 @@ function activeSession(overrides: Record<string, unknown> = {}) {
     serverName: 'GitHub',
     serverUrl: 'https://example.com/mcp',
     callbackUrl: 'https://app.local/oauth/callback',
-    transportType: 'streamable-http' as const,
+    transport: { type: 'streamable-http' } as const,
     createdAt: Date.now(),
     status: 'active' as const,
     ...overrides,
@@ -340,5 +340,3 @@ test.describe('MCP session tool policy', () => {
     await manager.dispose();
   });
 });
-
-

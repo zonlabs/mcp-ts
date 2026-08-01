@@ -35,7 +35,7 @@ await sessions.create({
   userId: 'test-user',
   serverUrl: 'https://test.example.com',
   callbackUrl: 'https://test.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   status: 'active',
   createdAt: Date.now(),
 });
@@ -53,7 +53,7 @@ await memoryBackend.create({
   userId: 'test-user',
   serverUrl: 'https://test.example.com',
   callbackUrl: 'https://test.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   status: 'active',
   createdAt: Date.now(),
 });

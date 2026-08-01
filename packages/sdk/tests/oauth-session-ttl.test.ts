@@ -62,7 +62,7 @@ async function createPendingSession(client: MCPClient) {
       serverName: (client as any).config.serverName,
       serverUrl: (client as any).config.serverUrl,
       callbackUrl: (client as any).config.callbackUrl,
-      transportType: (client as any).config.transportType || 'streamable-http',
+      serverOptions: { transport: { type: (client as any).config.transport?.type || 'streamable-http' } },
       createdAt: Date.now(),
       status: 'pending',
     });
@@ -91,7 +91,7 @@ test.describe('MCPClient session expiration lifecycle', () => {
       (this as any).oauthProvider = { authUrl: '' };
       await createPendingSession(this as MCPClient);
     };
-    (MCPClient.prototype as any).tryConnect = async () => ({ transportType: 'streamable-http' });
+    (MCPClient.prototype as any).tryConnect = async () => ({ transport: { type: 'streamable-http' } });
 
     const client = new MCPClient({
       userId: 'user-1',
@@ -100,7 +100,7 @@ test.describe('MCPClient session expiration lifecycle', () => {
       serverName: 'Server One',
       serverUrl: 'https://example.com/mcp',
       callbackUrl: 'https://app.example.com/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
     });
 
     await client.connect();
@@ -133,7 +133,7 @@ test.describe('MCPClient session expiration lifecycle', () => {
       serverName: 'Server Two',
       serverUrl: 'https://example.com/mcp',
       callbackUrl: 'https://app.example.com/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
     });
 
     await expect(client.connect()).rejects.toBeInstanceOf(UnauthorizedError);
@@ -169,7 +169,7 @@ test.describe('MCPClient session expiration lifecycle', () => {
       serverName: 'Server Three',
       serverUrl: 'https://example.com/mcp',
       callbackUrl: 'https://app.example.com/callback',
-      transportType: 'streamable-http',
+      serverOptions: { transport: { type: 'streamable-http' } },
     });
 
     await client.finishAuth('auth-code');

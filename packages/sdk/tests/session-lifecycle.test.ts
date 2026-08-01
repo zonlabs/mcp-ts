@@ -37,7 +37,7 @@ test.describe('Session Lifecycle Management', () => {
                 tokens: async () => ({ access_token: 'valid' })
             };
         };
-        (client as any).tryConnect = async () => ({ transportType: 'sse' });
+        (client as any).tryConnect = async () => ({ transport: { type: 'sse' } });
 
         // First creation with status: pending occurs in initialize (mocked above, so let's verify saveSession call)
         // Actually, let's let the real connect run but mock the terminal operations
@@ -74,7 +74,7 @@ test.describe('Session Lifecycle Management', () => {
             serverId,
             serverUrl,
             callbackUrl,
-            transportType: 'streamable-http',
+            serverOptions: { transport: { type: 'streamable-http' } },
             createdAt: Date.now(),
             status: 'pending',
         });
@@ -110,7 +110,7 @@ test.describe('Session Lifecycle Management', () => {
             serverId,
             serverUrl,
             callbackUrl,
-            transportType: 'streamable-http',
+            serverOptions: { transport: { type: 'streamable-http' } },
             createdAt: Date.now(),
             status: 'active',
         });

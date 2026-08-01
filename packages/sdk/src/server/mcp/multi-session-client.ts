@@ -299,10 +299,12 @@ export class MultiSessionClient implements ToolClientProvider {
                     sessionId: session.sessionId,
                     serverId: session.serverId,
                     serverUrl: session.serverUrl,
-                    callbackUrl: session.callbackUrl,
-                    serverName: session.serverName,
-                    transportType: session.transportType,
+                    callbackUrl: session.callbackUrl,                    serverName: session.serverName,
+                    transport: session.serverOptions?.transport,
                     headers: session.headers,
+                    client: session.serverOptions?.client ?? undefined,
+                    serverOptions: session.serverOptions ?? undefined,
+                    discoverResult: session.serverOptions?.discoverResult ?? undefined,
                     hasSession: true,
                     cachedCredentials: { tokens: session.tokens ?? undefined },
                     sessionStore: this._store,
@@ -349,4 +351,3 @@ export class MultiSessionClient implements ToolClientProvider {
         );
     }
 }
-
