@@ -97,6 +97,54 @@ test.describe('MCPClient', () => {
             expect(provider.constructor.name).toBe('StorageOAuthClientProvider');
         });
 
+        test('uses custom oauthProvider when supplied in MCPOAuthClientOptions', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+
+            const customProvider: any = {
+                clientMetadata: { client_name: 'Custom' },
+                clientInformation: async () => ({ client_id: 'custom-id' }),
+            };
+
+            const client = new MCPClient({
+                userId: 'test-user',
+                sessionId: 'custom-provider-session',
+                serverId: 'custom-provider-server',
+                serverName: 'Custom Provider Server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+                oauthProvider: customProvider,
+            });
+
+            await (client as any).ensureSession();
+            expect(client.oauthProvider).toBe(customProvider);
+        });
+
+        test('passes clientInformation to StorageOAuthClientProvider when supplied in options', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+
+            const client = new MCPClient({
+                userId: 'test-user',
+                sessionId: 'client-info-session',
+                serverId: 'client-info-server',
+                serverName: 'Client Info Server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+                clientInformation: {
+                    client_id: 'my-manual-client-id',
+                    client_secret: 'my-manual-client-secret',
+                },
+            });
+
+            await (client as any).ensureSession();
+            const provider = client.oauthProvider as any;
+            expect(provider).toBeTruthy();
+            const info = await provider.clientInformation();
+            expect(info).toEqual({
+                client_id: 'my-manual-client-id',
+                client_secret: 'my-manual-client-secret',
+            });
+        });
+
         test('passes all headers including Authorization in requestInit', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 

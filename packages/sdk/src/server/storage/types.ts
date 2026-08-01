@@ -1,6 +1,12 @@
 
 import type { MCPClient } from '../mcp/oauth-client.js';
-import type { OAuthTokens, OAuthClientInformationMixed } from "@modelcontextprotocol/client";
+import type {
+    OAuthTokens,
+    OAuthClientInformationMixed,
+    StoredOAuthTokens,
+    StoredOAuthClientInformation,
+    OAuthDiscoveryState,
+} from "@modelcontextprotocol/client";
 
 export interface OAuthState {
     nonce: string;
@@ -45,8 +51,9 @@ export interface Session {
     toolPolicy?: ToolPolicy;
     /** When false, the session is excluded from agent tool discovery and RPC access. Defaults to true. */
     enabled?: boolean;
-    clientInformation?: OAuthClientInformationMixed | null;
-    tokens?: OAuthTokens | null;
+    clientInformation?: StoredOAuthClientInformation | OAuthClientInformationMixed | null;
+    tokens?: StoredOAuthTokens | OAuthTokens | null;
+    discoveryState?: OAuthDiscoveryState | null;
     codeVerifier?: string | null;
     codeVerifierChallenge?: string | null;
     codeVerifierNonce?: string | null;
@@ -57,8 +64,9 @@ export interface Session {
 export interface SessionCredentials {
     sessionId: string;
     userId: string;
-    clientInformation?: OAuthClientInformationMixed | null;
-    tokens?: OAuthTokens | null;
+    clientInformation?: StoredOAuthClientInformation | OAuthClientInformationMixed | null;
+    tokens?: StoredOAuthTokens | OAuthTokens | null;
+    discoveryState?: OAuthDiscoveryState | null;
     codeVerifier?: string | null;
     codeVerifierChallenge?: string | null;
     codeVerifierNonce?: string | null;

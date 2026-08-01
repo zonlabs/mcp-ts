@@ -57,6 +57,12 @@ export type {
   OAuthClientMetadata,
   OAuthClientInformation,
   OAuthClientInformationFull,
+  OAuthClientInformationMixed,
+  OAuthClientProvider,
+  OAuthClientInformationContext,
+  OAuthDiscoveryState,
+  StoredOAuthClientInformation,
+  StoredOAuthTokens,
   OAuthTokens,
 } from '@modelcontextprotocol/client';
 

@@ -1,6 +1,6 @@
 import { CallToolResultSchema, GetPromptResultSchema, ReadResourceResultSchema } from "@modelcontextprotocol/core";
 import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
-import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, ClientCapabilities } from "@modelcontextprotocol/client";
+import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, ClientCapabilities, StoredOAuthClientInformation, OAuthClientInformationMixed } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
@@ -34,14 +34,13 @@ export interface MCPOAuthClientOptions {
   serverId?: string; /** Optional - loaded from session if not provided */
   sessionId: string; /** Required - primary key for session lookup */
   transportType?: TransportType;
-  clientId?: string;
-  clientSecret?: string;
   headers?: Record<string, string>;
   /** OAuth Client Metadata (optional - user application info) */
   clientName?: string;
   clientUri?: string;
   logoUri?: string;
   policyUri?: string;
+  clientInformation?: StoredOAuthClientInformation | OAuthClientInformationMixed;
   /**
    * Credentials already loaded by the caller (e.g. via get({includeCredentials: true})).
    * When provided, the StorageOAuthClientProvider uses these cached values to
@@ -61,6 +60,10 @@ export interface MCPOAuthClientOptions {
    * Used for wrapping with DB observability or other decorators.
    */
   sessionStore?: SessionStore;
+  /**
+   * Custom OAuthClientProvider override (e.g. Cloudflare AgentMcpOAuthProvider or custom provider).
+   */
+  oauthProvider?: OAuthClientProvider;
 }
 
 /**
@@ -103,6 +106,9 @@ export class MCPClient {
   constructor(options: MCPOAuthClientOptions) {
     this.config = { ...options };
     this._store = options.sessionStore ?? sessions;
+    if (options.oauthProvider) {
+      this.oauthProvider = options.oauthProvider;
+    }
 
     this.client = new Client(
       {
@@ -307,7 +313,7 @@ export class MCPClient {
       throw new Error('Missing required connection metadata');
     }
 
-    this.oauthProvider = new StorageOAuthClientProvider({
+    this.oauthProvider = this.config.oauthProvider ?? new StorageOAuthClientProvider({
       userId: this.config.userId,
       serverId: this.config.serverId!,
       sessionId: this.config.sessionId,
@@ -316,8 +322,7 @@ export class MCPClient {
       clientUri: this.config.clientUri,
       logoUri: this.config.logoUri,
       policyUri: this.config.policyUri,
-      clientId: this.config.clientId,
-      clientSecret: this.config.clientSecret,
+      clientInformation: this.config.clientInformation,
       cachedTokens: this.config.cachedCredentials?.tokens,
       sessionStore: this._store,
       onRedirect: (redirectUrl: string) => {
@@ -359,10 +364,10 @@ export class MCPClient {
       });
     }
 
-    // Only persist credentials on first connect. Existing sessions already have
-    // credentials from the initial connect — no DB read needed to verify.
-    if (!existingSession && this.oauthProvider instanceof StorageOAuthClientProvider) {
-        await this.oauthProvider.initializeCredentials();
+    if (this.config.clientInformation?.client_id && this.oauthProvider?.saveClientInformation) {
+      await this.oauthProvider.saveClientInformation(
+        this.config.clientInformation as StoredOAuthClientInformation
+      );
     }
   }
 

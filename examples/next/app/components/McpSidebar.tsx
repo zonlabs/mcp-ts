@@ -64,6 +64,8 @@ export default function McpSidebar({ mcpClient, onCollapse }: McpSidebarProps) {
         callbackUrl: config.callbackUrl,
         transportType:
           config.transportType === "auto" ? undefined : config.transportType,
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
       });
     } catch (err) {
       setConnectError(

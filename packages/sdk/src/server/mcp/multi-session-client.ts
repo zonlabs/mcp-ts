@@ -304,6 +304,7 @@ export class MultiSessionClient implements ToolClientProvider {
                     transportType: session.transportType,
                     headers: session.headers,
                     hasSession: true,
+                    cachedCredentials: { tokens: session.tokens ?? undefined },
                     sessionStore: this._store,
                 });
 

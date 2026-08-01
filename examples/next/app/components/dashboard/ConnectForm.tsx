@@ -31,6 +31,9 @@ export default function ConnectForm({
   const [transportType, setTransportType] = useState<
     "sse" | "streamable-http" | "auto"
   >("auto");
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [showOAuth, setShowOAuth] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +43,13 @@ export default function ConnectForm({
       serverUrl,
       callbackUrl,
       transportType,
+      clientId: clientId.trim() || undefined,
+      clientSecret: clientSecret.trim() || undefined,
     });
     setServerName("");
     setServerUrl("");
+    setClientId("");
+    setClientSecret("");
   };
 
   const sseReady = status === "connected";
@@ -113,6 +120,57 @@ export default function ConnectForm({
           <p className="text-[11px] leading-snug text-muted-foreground">
             Auto lets the client negotiate the best transport.
           </p>
+        </div>
+
+        <div className="space-y-1.5 border-t border-border/40 pt-2">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setShowOAuth((prev) => !prev)}
+          >
+            <span className="text-[10px]">{showOAuth ? "▲" : "▼"}</span>
+            <span>OAuth Client Credentials (Optional - Bypass DCR)</span>
+          </button>
+          {showOAuth && (
+            <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/30 p-2.5">
+              <div className="space-y-1">
+                <label
+                  htmlFor="clientId"
+                  className="text-[11px] font-medium text-muted-foreground"
+                >
+                  Client ID
+                </label>
+                <Input
+                  id="clientId"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  placeholder="Pre-registered Client ID"
+                  disabled={connecting}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label
+                  htmlFor="clientSecret"
+                  className="text-[11px] font-medium text-muted-foreground"
+                >
+                  Client Secret
+                </label>
+                <Input
+                  id="clientSecret"
+                  type="password"
+                  value={clientSecret}
+                  onChange={(e) => setClientSecret(e.target.value)}
+                  placeholder="Pre-registered Client Secret"
+                  disabled={connecting}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                Providing Client ID bypasses Dynamic Client Registration (DCR).
+              </p>
+            </div>
+          )}
         </div>
 
         {error ? (

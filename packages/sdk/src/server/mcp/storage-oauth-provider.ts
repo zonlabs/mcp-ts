@@ -1,5 +1,14 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { OAuthClientProvider, OAuthClientInformationFull, OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from "@modelcontextprotocol/client";
+import type {
+    OAuthClientProvider,
+    OAuthClientMetadata,
+    OAuthClientInformationMixed,
+    OAuthTokens,
+    OAuthClientInformationContext,
+    OAuthDiscoveryState,
+    StoredOAuthClientInformation,
+    StoredOAuthTokens,
+} from "@modelcontextprotocol/client";
 import { nanoid } from "nanoid";
 import { sessions, type SessionCredentials, type SessionStore } from "../storage/index.js";
 import {
@@ -81,8 +90,7 @@ export interface StorageOAuthClientProviderOptions {
     clientUri?: string;
     logoUri?: string;
     policyUri?: string;
-    clientId?: string;
-    clientSecret?: string;
+    clientInformation?: StoredOAuthClientInformation | OAuthClientInformationMixed;
     cachedTokens?: OAuthTokens;
     sessionStore?: SessionStore;
     onRedirect?: (url: string) => void;
@@ -102,7 +110,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     private readonly clientUri?: string;
     private readonly logoUri?: string;
     private readonly policyUri?: string;
-    private readonly clientSecret?: string;
+    private readonly staticClientInformation?: StoredOAuthClientInformation;
 
     private _store: SessionStore;
     private _authUrl: string | undefined;
@@ -125,8 +133,10 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         this.clientUri = options.clientUri;
         this.logoUri = options.logoUri;
         this.policyUri = options.policyUri;
-        this._clientId = options.clientId;
-        this.clientSecret = options.clientSecret;
+        this.staticClientInformation = options.clientInformation as StoredOAuthClientInformation | undefined;
+        if (options.clientInformation?.client_id) {
+            this._clientId = options.clientInformation.client_id;
+        }
         this._cachedTokens = options.cachedTokens;
         this._store = options.sessionStore ?? sessions;
         this.onRedirectCallback = options.onRedirect;
@@ -141,7 +151,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
             grant_types: ["authorization_code", "refresh_token"],
             redirect_uris: [this.redirectUrl],
             response_types: ["code"],
-            token_endpoint_auth_method: this.clientSecret ? "client_secret_basic" : "none",
+            token_endpoint_auth_method: "none",
             software_id: SOFTWARE_ID,
             software_version: SOFTWARE_VERSION,
         };
@@ -180,12 +190,11 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     /**
      * Retrieves stored OAuth client information.
      */
-    async clientInformation(): Promise<OAuthClientInformationMixed | undefined> {
-        if (this._clientId) {
-            return {
-                client_id: this._clientId,
-                ...(this.clientSecret ? { client_secret: this.clientSecret } : {}),
-            };
+    async clientInformation(
+        _context?: OAuthClientInformationContext
+    ): Promise<StoredOAuthClientInformation | undefined> {
+        if (this.staticClientInformation) {
+            return this.staticClientInformation as StoredOAuthClientInformation;
         }
 
         const data = await this.getCredentials();
@@ -198,11 +207,10 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         if (data.clientId) {
             this._clientId = data.clientId;
             if (data.clientInformation) {
-                return data.clientInformation;
+                return data.clientInformation as StoredOAuthClientInformation;
             }
             return {
                 client_id: data.clientId,
-                ...(this.clientSecret ? { client_secret: this.clientSecret } : {}),
             };
         }
 
@@ -212,7 +220,10 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     /**
      * Stores OAuth client information
      */
-    async saveClientInformation(clientInformation: OAuthClientInformationFull): Promise<void> {
+    async saveClientInformation(
+        clientInformation: StoredOAuthClientInformation,
+        _context?: OAuthClientInformationContext
+    ): Promise<void> {
         await this.patchCredentials({
             clientInformation,
             clientId: clientInformation.client_id
@@ -223,26 +234,27 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     /**
      * Stores OAuth tokens
      */
-    async saveTokens(tokens: OAuthTokens): Promise<void> {
+    async saveTokens(
+        tokens: StoredOAuthTokens,
+        _context?: OAuthClientInformationContext
+    ): Promise<void> {
         await this.patchCredentials({ tokens });
         this._cachedTokens = tokens;
     }
 
     /**
-     * Persists static client credentials to DB immediately on creation.
-     * Ensures getOrCreateClient() finds them on rehydration, even when the
-     * server allows anonymous connect and never triggers DCR.
+     * Retrieves stored OAuth discovery state
      */
-    async initializeCredentials(): Promise<void> {
-        if (this._clientId) {
-            await this.patchCredentials({
-                clientId: this._clientId,
-                clientInformation: {
-                    client_id: this._clientId,
-                    ...(this.clientSecret ? { client_secret: this.clientSecret } : {}),
-                },
-            });
-        }
+    async discoveryState(): Promise<OAuthDiscoveryState | undefined> {
+        const data = await this.getCredentials();
+        return data.discoveryState ?? undefined;
+    }
+
+    /**
+     * Stores OAuth discovery state
+     */
+    async saveDiscoveryState(discoveryState: OAuthDiscoveryState): Promise<void> {
+        await this.patchCredentials({ discoveryState });
     }
 
     get authUrl() {
@@ -397,9 +409,9 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         });
     }
 
-    async tokens(): Promise<OAuthTokens | undefined> {
+    async tokens(_context?: OAuthClientInformationContext): Promise<StoredOAuthTokens | undefined> {
         if (this._cachedTokens !== undefined) {
-            return this._cachedTokens ?? undefined;
+            return (this._cachedTokens ?? undefined) as StoredOAuthTokens | undefined;
         }
 
         const data = await this.getCredentials();
@@ -410,6 +422,6 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
             this._clientId = data.clientId;
         }
 
-        return data.tokens ?? undefined;
+        return (data.tokens ?? undefined) as StoredOAuthTokens | undefined;
     }
 }

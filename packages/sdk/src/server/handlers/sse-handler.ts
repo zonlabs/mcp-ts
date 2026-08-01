@@ -13,6 +13,7 @@
  * @module sse-handler
  */
 
+import type { OAuthClientProvider } from '@modelcontextprotocol/client';
 import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/events.js';
 import type {
   McpRpcRequest,
@@ -66,6 +67,7 @@ export interface ClientMetadata {
   clientUri?: string;
   logoUri?: string;
   policyUri?: string;
+  oauthProvider?: OAuthClientProvider;
 }
 
 /** Options passed to {@link createSSEHandler}. */
@@ -411,6 +413,12 @@ export class SSEConnectionManager {
 
     const sessionId = await sessions.generateSessionId();
     const metadata  = await this.getResolvedClientMetadata();
+    const clientInformation = params.clientId
+      ? {
+          client_id: params.clientId,
+          ...(params.clientSecret ? { client_secret: params.clientSecret } : {}),
+        }
+      : undefined;
 
     const client = new MCPClient({
       userId:       this.userId,
@@ -421,6 +429,7 @@ export class SSEConnectionManager {
       callbackUrl:  params.callbackUrl,
       transportType: params.transportType,
       headers,
+      clientInformation,
       sessionStore: this.observedStore,
       ...metadata,
     });
@@ -450,6 +459,13 @@ export class SSEConnectionManager {
     }
 
     const metadata = await this.getResolvedClientMetadata();
+    const clientInformation = params.clientId
+      ? {
+          client_id: params.clientId,
+          ...(params.clientSecret ? { client_secret: params.clientSecret } : {}),
+        }
+      : undefined;
+
     const client = new MCPClient({
       userId:       this.userId,
       sessionId,
@@ -459,6 +475,7 @@ export class SSEConnectionManager {
       callbackUrl:  params.callbackUrl,
       transportType: params.transportType,
       headers,
+      clientInformation,
       sessionStore: this.observedStore,
       ...metadata,
     });
@@ -508,8 +525,7 @@ export class SSEConnectionManager {
     const session   = await this.requireSession(sessionId);
 
     try {
-      const clientId     = session.clientId ?? undefined;
-      const clientSecret = (session.clientInformation as any)?.client_secret ?? undefined;
+      const metadata = await this.getResolvedClientMetadata();
 
       const client = new MCPClient({
         userId:       this.userId,
@@ -519,11 +535,11 @@ export class SSEConnectionManager {
         serverUrl:    session.serverUrl,
         callbackUrl:  session.callbackUrl,
         headers:      session.headers,
-        clientId,
-        clientSecret,
+        oauthProvider: metadata.oauthProvider,
         hasSession:   true,
         cachedCredentials: { tokens: session.tokens ?? undefined },
         sessionStore: this.observedStore,
+        ...metadata,
       });
 
       this.attachClientEvents(client);
@@ -757,7 +773,8 @@ export class SSEConnectionManager {
     if (session.enabled === false) {
       throw new Error('Session is disabled — re-enable it via updateSession to access tools');
     }
-    const client  = this.restoreClient(session);
+    const metadata = await this.getResolvedClientMetadata();
+    const client   = this.restoreClient(session, metadata);
 
     this.attachClientEvents(client);
 
@@ -772,10 +789,7 @@ export class SSEConnectionManager {
    * fields and passes `hasSession: true` + `cachedCredentials` so the client
    * can skip redundant existence checks and credential reads.
    */
-  private restoreClient(session: Session): MCPClient {
-    const clientId     = session.clientId ?? undefined;
-    const clientSecret = (session.clientInformation as any)?.client_secret ?? undefined;
-
+  private restoreClient(session: Session, metadata?: ClientMetadata): MCPClient {
     return new MCPClient({
       userId:       this.userId,
       sessionId:     session.sessionId,
@@ -785,11 +799,12 @@ export class SSEConnectionManager {
       callbackUrl:   session.callbackUrl,
       transportType: session.transportType,
       headers:       session.headers,
-      clientId,
-      clientSecret,
+      oauthProvider: metadata?.oauthProvider,
       hasSession:    true,
       cachedCredentials: { tokens: session.tokens ?? undefined },
+      clientInformation: session.clientInformation ?? (session.clientId ? { client_id: session.clientId } : undefined),
       sessionStore:  this.observedStore,
+      ...metadata,
     });
   }
 

@@ -133,4 +133,24 @@ test.describe('StorageOAuthClientProvider OAuth state', () => {
 
     await expect(provider.codeVerifier()).resolves.toBe('fresh-verifier');
   });
+
+  test('saves and retrieves clientInformation from storage', async () => {
+    const provider = createProvider();
+
+    await provider.saveClientInformation({
+      client_id: 'registered-client-id',
+      client_secret: 'registered-client-secret',
+      redirect_uris: [redirectUrl],
+    });
+
+    const clientInfo = await provider.clientInformation();
+    expect(clientInfo).toEqual({
+      client_id: 'registered-client-id',
+      client_secret: 'registered-client-secret',
+      redirect_uris: [redirectUrl],
+    });
+
+    const stored = await sessions.getCredentials(userId, sessionId);
+    expect(stored?.clientId).toBe('registered-client-id');
+  });
 });
