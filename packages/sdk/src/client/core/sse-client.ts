@@ -141,8 +141,8 @@ export class SSEClient {
     return this.sendRequest<GetSessionResult>('getSession', { sessionId });
   }
 
-  async finishAuth(state: string, code: string): Promise<FinishAuthResult> {
-    return this.sendRequest<FinishAuthResult>('finishAuth', { state, code });
+  async finishAuth(state: string, code: string, iss?: string): Promise<FinishAuthResult> {
+    return this.sendRequest<FinishAuthResult>('finishAuth', { state, code, ...(iss && { iss }) });
   }
 
   async listPrompts(sessionId: string): Promise<ListPromptsResult> {

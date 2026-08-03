@@ -24,6 +24,7 @@ function PopupCallbackContent() {
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
   const state = searchParams.get("state");
+  const iss = searchParams.get("iss") || undefined;
 
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -61,7 +62,7 @@ function PopupCallbackContent() {
     channel?.addEventListener("message", handleResult);
     window.addEventListener("message", handleResult);
 
-    const payload = { type: AUTH_CODE_MESSAGE, code, state: resolvedState, sessionId: resolvedState };
+    const payload = { type: AUTH_CODE_MESSAGE, code, state: resolvedState, sessionId: resolvedState, iss };
 
     if (window.opener) {
       try {

@@ -28,6 +28,7 @@ function OAuthCallbackContent() {
 
     const code = searchParams.get("code");
     const state = searchParams.get("state");
+    const iss = searchParams.get("iss") || undefined;
     const errorParam = searchParams.get("error");
 
     if (errorParam) {
@@ -56,7 +57,7 @@ function OAuthCallbackContent() {
       return;
     }
 
-    finishAuth(oauthState, code)
+    finishAuth(oauthState, code, iss)
       .then(() => {
         setStatus("success");
         setTimeout(() => {

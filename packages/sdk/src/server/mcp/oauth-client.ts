@@ -678,11 +678,12 @@ export class MCPClient {
    * Completes OAuth authorization flow by exchanging authorization code for tokens
    * Creates new authenticated client and transport, then establishes connection
    * Saves active session after successful authentication
+   *
    * @param authCode - Authorization code received from OAuth callback
+   * @param state - Optional OAuth state parameter for state consumption and validation
+   * @param iss - Optional RFC 9207 issuer identifier received from OAuth callback
    */
-
-  // TODO: needs to be optimized
-  async finishAuth(authCode: string, state?: string): Promise<void> {
+  async finishAuth(authCode: string, state?: string, iss?: string): Promise<void> {
     this.emitStateChange('AUTHENTICATING');
     this.emitProgress('Exchanging authorization code for tokens...');
 
@@ -712,7 +713,11 @@ export class MCPClient {
       const transport = this.getTransport(currentType);
       this.transport = transport;
 
-      await transport.finishAuth(authCode);
+      const discovery = await this.oauthProvider.discoveryState?.();
+      const expectedIssuer = discovery?.authorizationServerMetadata?.issuer ?? discovery?.authorizationServerUrl;
+      const effectiveIss = iss ?? expectedIssuer;
+
+      await (transport as any).finishAuth(authCode, effectiveIss);
       this.emitStateChange('AUTHENTICATED');
       this.emitStateChange('CONNECTING');
 

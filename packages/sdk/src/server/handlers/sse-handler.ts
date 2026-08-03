@@ -601,7 +601,7 @@ export class SSEConnectionManager {
       this.attachClientEvents(client);
 
       await runWithCodeVerifierState(session.codeVerifier ?? '', 'S256', () =>
-        client.finishAuth(params.code, params.state),
+        client.finishAuth(params.code, params.state, params.iss),
       );
 
       this.clients.set(sessionId, client);

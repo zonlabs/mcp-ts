@@ -254,6 +254,7 @@ export interface ReadResourceParams {
 export interface FinishAuthParams {
   state: string;
   code: string;
+  iss?: string;
 }
 
 export interface SetToolPolicyParams {

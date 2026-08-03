@@ -151,7 +151,7 @@ export function createOAuthPopupRedirectHandler(
  */
 export function useMcpOAuthPopup<TConnection extends OAuthPopupConnectionLike>(
   connections: TConnection[],
-  finishAuth: (state: string, code: string) => Promise<unknown>
+  finishAuth: (state: string, code: string, iss?: string) => Promise<unknown>
 ): void {
   const pendingPopupsRef = useRef<Map<string, { popupWindow: WindowProxy | null; state: string }>>(new Map());
   const processingCodesRef = useRef<Set<string>>(new Set());
@@ -163,6 +163,7 @@ export function useMcpOAuthPopup<TConnection extends OAuthPopupConnectionLike>(
       }
 
       const code = typeof event.data?.code === 'string' ? event.data.code : '';
+      const iss = typeof event.data?.iss === 'string' ? event.data.iss : undefined;
       if (event.data?.type !== AUTH_CODE_MESSAGE || !code) {
         return;
       }
@@ -208,7 +209,7 @@ export function useMcpOAuthPopup<TConnection extends OAuthPopupConnectionLike>(
       processingCodesRef.current.add(codeKey);
 
       try {
-        await finishAuth(rawState, code);
+        await finishAuth(rawState, code, iss);
       } catch (error) {
         processingCodesRef.current.delete(codeKey);
         pendingPopupsRef.current.delete(targetSession.sessionId);
