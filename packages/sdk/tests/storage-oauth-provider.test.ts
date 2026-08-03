@@ -170,5 +170,9 @@ test.describe('StorageOAuthClientProvider OAuth state', () => {
 
     const stored = await sessions.getCredentials(userId, sessionId);
     expect(stored?.discoveryState).toEqual(mockDiscovery);
+
+    await provider.saveTokens({ access_token: 'test-token', token_type: 'bearer' });
+    const afterTokensRetrieved = await provider.discoveryState();
+    expect(afterTokensRetrieved).toBeUndefined();
   });
 });

@@ -232,13 +232,16 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     }
 
     /**
-     * Stores OAuth tokens
+     * Stores OAuth tokens and clears transient discovery state.
+     * Discovery is needed across the browser redirect, but once token issuance succeeds
+     * it must not pin later re-authorization to this AS so a subsequent 401 can re-read PRM.
      */
     async saveTokens(
         tokens: StoredOAuthTokens,
         _context?: OAuthClientInformationContext
     ): Promise<void> {
-        await this.patchCredentials({ tokens });
+        // Clear transient discovery state once tokens are saved so subsequent 401s re-read PRM
+        await this.patchCredentials({ tokens, discoveryState: null });
         this._cachedTokens = tokens;
     }
 
