@@ -54,6 +54,7 @@ export class SupabaseStorageBackend implements SessionStore {
             toolPolicy: normalizeToolPolicy(row.tool_policy),
             clientInformation: decryptObject(row.client_information),
             tokens: decryptObject(row.tokens),
+            discoveryState: decryptObject(row.discovery_state),
             codeVerifier: decryptObject(row.code_verifier),
             clientId: row.client_id,
             oauthState: row.oauth_state,
@@ -65,6 +66,7 @@ export class SupabaseStorageBackend implements SessionStore {
         return (
             'clientInformation' in data ||
             'tokens' in data ||
+            'discoveryState' in data ||
             'codeVerifier' in data ||
             'clientId' in data ||
             'oauthState' in data
@@ -178,6 +180,7 @@ export class SupabaseStorageBackend implements SessionStore {
 
         if ('clientInformation' in data) updateData.client_information = data.clientInformation == null ? null : encryptObject(data.clientInformation);
         if ('tokens' in data) updateData.tokens = data.tokens == null ? null : encryptObject(data.tokens);
+        if ('discoveryState' in data) updateData.discovery_state = data.discoveryState == null ? null : encryptObject(data.discoveryState);
         if ('codeVerifier' in data) updateData.code_verifier = data.codeVerifier == null ? null : encryptObject(data.codeVerifier);
         if ('clientId' in data) updateData.client_id = data.clientId ?? null;
         if ('oauthState' in data) updateData.oauth_state = data.oauthState ?? null;
@@ -218,7 +221,7 @@ export class SupabaseStorageBackend implements SessionStore {
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         const { data, error } = await this.supabase
             .from('mcp_sessions')
-            .select('client_information, tokens, code_verifier, client_id, oauth_state')
+            .select('client_information, tokens, discovery_state, code_verifier, client_id, oauth_state')
             .eq('user_id', userId)
             .eq('session_id', sessionId)
             .maybeSingle();
@@ -235,6 +238,7 @@ export class SupabaseStorageBackend implements SessionStore {
             userId,
             clientInformation: decryptObject(data.client_information),
             tokens: decryptObject(data.tokens),
+            discoveryState: decryptObject(data.discovery_state),
             codeVerifier: decryptObject(data.code_verifier),
             clientId: data.client_id,
             oauthState: data.oauth_state,
@@ -261,6 +265,7 @@ export class SupabaseStorageBackend implements SessionStore {
             .update({
                 client_information: null,
                 tokens: null,
+                discovery_state: null,
                 code_verifier: null,
                 client_id: null,
                 oauth_state: null,

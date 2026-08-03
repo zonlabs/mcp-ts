@@ -33,6 +33,7 @@ type NeonSessionRow = {
     tool_policy?: unknown;
     client_information?: unknown;
     tokens?: unknown;
+    discovery_state?: unknown;
     code_verifier?: unknown;
     client_id?: string | null;
     oauth_state?: unknown;
@@ -99,6 +100,7 @@ export class NeonStorageBackend implements SessionStore {
             toolPolicy: normalizeToolPolicy(row.tool_policy as Parameters<typeof normalizeToolPolicy>[0]),
             clientInformation: decryptObject(row.client_information),
             tokens: decryptObject(row.tokens),
+            discoveryState: decryptObject(row.discovery_state),
             codeVerifier: decryptObject(row.code_verifier),
             clientId: row.client_id ?? undefined,
             oauthState: row.oauth_state as Session['oauthState'],
@@ -110,6 +112,7 @@ export class NeonStorageBackend implements SessionStore {
         return (
             'clientInformation' in data ||
             'tokens' in data ||
+            'discoveryState' in data ||
             'codeVerifier' in data ||
             'clientId' in data ||
             'oauthState' in data
@@ -249,6 +252,9 @@ export class NeonStorageBackend implements SessionStore {
         if ('tokens' in data) {
             addSet('tokens', data.tokens == null ? null : encryptObject(data.tokens));
         }
+        if ('discoveryState' in data) {
+            addSet('discovery_state', data.discoveryState == null ? null : encryptObject(data.discoveryState));
+        }
         if ('codeVerifier' in data) {
             addSet('code_verifier', data.codeVerifier == null ? null : encryptObject(data.codeVerifier));
         }
@@ -296,7 +302,7 @@ export class NeonStorageBackend implements SessionStore {
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         try {
             const rows = await this.sql.query(
-                `SELECT client_information, tokens, code_verifier, client_id, oauth_state
+                `SELECT client_information, tokens, discovery_state, code_verifier, client_id, oauth_state
                  FROM ${this.tableName} WHERE user_id = $1 AND session_id = $2`,
                 [userId, sessionId]
             ) as NeonSessionRow[];
@@ -308,6 +314,7 @@ export class NeonStorageBackend implements SessionStore {
                 userId,
                 clientInformation: decryptObject(row.client_information),
                 tokens: decryptObject(row.tokens),
+                discoveryState: decryptObject(row.discovery_state),
                 codeVerifier: decryptObject(row.code_verifier),
                 clientId: row.client_id ?? undefined,
                 oauthState: row.oauth_state as SessionCredentials['oauthState'],

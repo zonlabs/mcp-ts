@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.mcp_sessions (
     -- Runtime OAuth credentials (stored in-session, no separate credentials table)
     client_information JSONB,
     tokens JSONB,
+    discovery_state JSONB,
     code_verifier TEXT,
     client_id TEXT,
     oauth_state JSONB,

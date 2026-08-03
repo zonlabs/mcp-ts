@@ -153,4 +153,22 @@ test.describe('StorageOAuthClientProvider OAuth state', () => {
     const stored = await sessions.getCredentials(userId, sessionId);
     expect(stored?.clientId).toBe('registered-client-id');
   });
+
+  test('saves and retrieves discoveryState across storage backends', async () => {
+    const provider = createProvider();
+
+    const mockDiscovery = {
+      authorizationServerUrl: 'https://api.supermemory.ai/api/auth',
+      authorizationEndpoint: 'https://api.supermemory.ai/api/auth/authorize',
+      tokenEndpoint: 'https://api.supermemory.ai/api/auth/token',
+    } as any;
+
+    await provider.saveDiscoveryState(mockDiscovery);
+
+    const retrieved = await provider.discoveryState();
+    expect(retrieved).toEqual(mockDiscovery);
+
+    const stored = await sessions.getCredentials(userId, sessionId);
+    expect(stored?.discoveryState).toEqual(mockDiscovery);
+  });
 });
