@@ -46,7 +46,7 @@ You can easily "eject" the required migration SQL into your own project using th
    ```bash
    npx mcp-ts supabase-init
    ```
-   This copies the provider migrations from `packages/sdk/migrations/supabase/` to your local `./supabase/migrations/` folder.
+   This copies the provider migrations from `packages/client/migrations/supabase/` to your local `./supabase/migrations/` folder.
 
 2. Link your project & push:
    ```bash
@@ -56,7 +56,7 @@ You can easily "eject" the required migration SQL into your own project using th
 
 ### Option B: SQL Editor (Manual)
 
-If you prefer manual setup, copy the SQL from the [migration file](https://github.com/zonlabs/mcp-ts/blob/main/packages/sdk/migrations/supabase/20260330195700_install_mcp_sessions.sql) and run it in the Supabase Dashboard SQL Editor.
+If you prefer manual setup, copy the SQL from the [migration file](https://github.com/zonlabs/mcp-ts/blob/main/packages/client/migrations/supabase/20260330195700_install_mcp_sessions.sql) and run it in the Supabase Dashboard SQL Editor.
 
 ### Why RLS?
 
@@ -66,7 +66,7 @@ The migration also defines RLS policies for Supabase's authenticated client path
 
 ## Schema
 
-The canonical Supabase migration is available at `packages/sdk/migrations/supabase/20260330195700_install_mcp_sessions.sql`.
+The canonical Supabase migration is available at `packages/client/migrations/supabase/20260330195700_install_mcp_sessions.sql`.
 
 Session connection metadata and OAuth runtime credentials live in a single `mcp_sessions` table:
 
@@ -179,7 +179,7 @@ WHERE status = 'active'
   AND updated_at < now() - interval '30 days';
 ```
 
-The cleanup cron migration is at `packages/sdk/migrations/supabase/20260421010000_add_session_cleanup_cron.sql` and is automatically applied when you run `npx mcp-ts supabase-init`.
+The cleanup cron migration is at `packages/client/migrations/supabase/20260421010000_add_session_cleanup_cron.sql` and is automatically applied when you run `npx mcp-ts supabase-init`.
 
 ## Encryption
 

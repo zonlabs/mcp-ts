@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMcpOAuthPopup } from '@mcp-ts/sdk/client/react';
+import { useMcpOAuthPopup } from '@mcp-ts/client/client/react';
 import { useMcpContext } from './mcp-provider';
 import { ConnectForm } from './connect-form';
 import { ConnectionList } from './connection-list';

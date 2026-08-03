@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   McpOAuthCallbackContent,
   McpOAuthCallbackFallback,
-} from '@mcp-ts/sdk/client/react';
+} from '@mcp-ts/client/client/react';
 
 function OAuthCallbackContent() {
   const searchParams = useSearchParams();

@@ -3,11 +3,11 @@
 ## What is this?
 
 mcp-ts is a TypeScript monorepo for building MCP (Model Context Protocol) applications. It provides:
-- `@mcp-ts/sdk` — core SDK with multi-backend session storage, OAuth 2.1, SSE handlers, React/Vue hooks, and agent framework adapters
+- `@mcp-ts/client` — core Client SDK with multi-backend session storage, OAuth 2.1, SSE handlers, React/Vue hooks, and agent framework adapters
 - `@mcp-ts/tool-router` — on-demand tool discovery to reduce LLM context bloat
 - `@mcp-ts/codemode` — sandboxed programmatic tool execution
 
-The SDK is consumed by [mcp-client](https://mcp-assistant.in) (Next.js, hosted on Vercel) and [mcp-server](https://api.mcp-assistant.in/mcp) (Hono, hosted on Railway).
+The Client package is consumed by [mcp-client](https://mcp-assistant.in) (Next.js, hosted on Vercel) and [mcp-server](https://api.mcp-assistant.in/mcp) (Hono, hosted on Railway).
 
 ## Repository Structure
 
@@ -18,10 +18,10 @@ mcp-ts/
   docs/                 # Mintlify documentation (docs.mcp-assistant.in)
   benchmarks/           # tool-router performance benchmarks
   AGENTS.md             # ← this file — project guide for AI agents and contributors
-  README.md             # public-facing readme (npm-published for SDK)
+  README.md             # public-facing readme (npm-published for Client)
   package.json          # npm workspace root ("workspaces": ["packages/*"])
   packages/
-    sdk/                # @mcp-ts/sdk
+    client/             # @mcp-ts/client
       src/
         server/
           storage/      # pluggable backends: neon, supabase, sqlite, redis, memory, file
@@ -80,25 +80,25 @@ Both implement the same `SessionStore` interface contract.
 # Install all workspace dependencies
 cd mcp-ts && npm install
 
-# Build the SDK
-npm run build -w @mcp-ts/sdk
+# Build the Client package
+npm run build -w @mcp-ts/client
 
 # Watch mode
-npm run dev -w @mcp-ts/sdk
+npm run dev -w @mcp-ts/client
 
 # Run all tests
-npm test -w @mcp-ts/sdk
+npm test -w @mcp-ts/client
 
 # Run specific tests
 npx playwright test tests/storage/neon-backend.test.ts
 
 # Type check
-npm run type-check -w @mcp-ts/sdk
+npm run type-check -w @mcp-ts/client
 ```
 
 ### Post-build sync
 
-After building the SDK, the `postbuild` script auto-syncs `dist/` to `mcp-client/node_modules/@mcp-ts/sdk` via `resolve-local-pkg.cjs`. Restart the mcp-client dev server to pick up changes.
+After building the Client package, the `postbuild` script auto-syncs `dist/` to `mcp-client/node_modules/@mcp-ts/client` via `resolve-local-pkg.cjs`. Restart the mcp-client dev server to pick up changes.
 
 ## Storage Backend Configuration
 
@@ -122,20 +122,20 @@ Test utilities in `tests/test-utils.ts`: `createMockSession()`, `createMockToken
 
 ## CI/CD
 
-`.github/workflows/release.yml` triggers on `packages/sdk/package.json` version bumps to `main`:
+`.github/workflows/release.yml` triggers on `packages/client/package.json` version bumps to `main`:
 - Detects which package.json changed
 - Builds the affected package
 - Publishes to npm with `--provenance`
-- Creates a git tag (`sdk-vX.Y.Z`, `tool-router-vX.Y.Z`, `codemode-vX.Y.Z`)
+- Creates a git tag (`client-vX.Y.Z`, `tool-router-vX.Y.Z`, `codemode-vX.Y.Z`)
 - Creates a GitHub Release
 
 ## Dependent Repos
 
-- **mcp-client** (Next.js, Vercel): imports `@mcp-ts/sdk` from npm. Local dev uses the postbuild sync script.
-- **mcp-server** (Hono, Railway): imports `@mcp-ts/sdk` and `@mcp-ts/codemode` from npm. For local dev, use `npm link`:
+- **mcp-client** (Next.js, Vercel): imports `@mcp-ts/client` from npm. Local dev uses the postbuild sync script.
+- **mcp-server** (Hono, Railway): imports `@mcp-ts/client` and `@mcp-ts/codemode` from npm. For local dev, use `npm link`:
   ```bash
-  cd mcp-ts/packages/sdk && npm link
-  cd mcp-server && npm link @mcp-ts/sdk
+  cd mcp-ts/packages/client && npm link
+  cd mcp-server && npm link @mcp-ts/client
   ```
 
 ## Naming Conventions

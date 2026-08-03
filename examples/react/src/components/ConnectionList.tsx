@@ -1,4 +1,4 @@
-import type { McpConnection, ToolInfo } from '@mcp-ts/sdk/shared';
+import type { McpConnection, ToolInfo } from '@mcp-ts/client/shared';
 import ConnectionCard from './ConnectionCard';
 
 interface ConnectionListProps {

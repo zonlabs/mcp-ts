@@ -61,6 +61,6 @@ If you are using a database-backed storage solution such as **Supabase**, **Neon
 
 You must run the provided database migrations to update your schema. 
 
-Migration scripts are located in the `migrations` directory of the `mcp-ts` repository (`mcp-ts/packages/sdk/migrations`). Be sure to apply the appropriate migration script for your specific storage backend before deploying v2.0.0 to production.
+Migration scripts are located in the `migrations` directory of the `mcp-ts` repository (`mcp-ts/packages/client/migrations`). Be sure to apply the appropriate migration script for your specific storage backend before deploying v2.0.0 to production.
 
 For more detailed information, see the [Storage Backends](/storage-backends/overview) documentation.

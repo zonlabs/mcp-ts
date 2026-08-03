@@ -61,7 +61,7 @@ This optional block limits table access to the dedicated backend role. The Neon 
 
 ## Schema
 
-The canonical base migration is at `packages/sdk/migrations/neon/20260513010000_install_mcp_sessions.sql`. Run it with an owner/admin role, then connect the application using the least-privilege role from the Security section.
+The canonical base migration is at `packages/client/migrations/neon/20260513010000_install_mcp_sessions.sql`. Run it with an owner/admin role, then connect the application using the least-privilege role from the Security section.
 
 Session connection metadata and OAuth runtime credentials live in a single `mcp_sessions` table:
 
@@ -165,7 +165,7 @@ const sessionList = await neonBackend.list('user-123');
 
 Expired pending sessions and dormant active sessions are removed when `sessions.cleanupExpired()` runs. Schedule that call from your application or platform cron if you want cleanup without database cron support.
 
-If your Neon project has `pg_cron` enabled, you can also run the optional migration at `packages/sdk/migrations/neon/20260513020000_add_session_cleanup_cron.sql`. Neon requires endpoint-level `cron.database_name` configuration before `pg_cron` can be installed and used. After that setup, the migration schedules:
+If your Neon project has `pg_cron` enabled, you can also run the optional migration at `packages/client/migrations/neon/20260513020000_add_session_cleanup_cron.sql`. Neon requires endpoint-level `cron.database_name` configuration before `pg_cron` can be installed and used. After that setup, the migration schedules:
 
 - `mcp-cleanup-transient-sessions`: every 5 minutes, removes inactive expired sessions.
 - `mcp-cleanup-dormant-sessions`: daily at midnight UTC, removes active sessions untouched for 30+ days.

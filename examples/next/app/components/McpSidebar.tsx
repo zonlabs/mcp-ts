@@ -3,7 +3,7 @@
 import { nanoid } from "nanoid";
 import { PanelLeftClose } from "lucide-react";
 import { useState } from "react";
-import { useMcpOAuthPopup, type McpClient } from "@mcp-ts/sdk/client/react";
+import { useMcpOAuthPopup, type McpClient } from "@mcp-ts/client/client/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import ConnectForm from "./dashboard/ConnectForm";

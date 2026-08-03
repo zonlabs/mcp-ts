@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMcp } from '@mcp-ts/sdk/client';
+import { useMcp } from '@mcp-ts/client/client';
 import ConnectionList from './components/ConnectionList';
 import ConnectForm from './components/ConnectForm';
 import './App.css';
