@@ -22,4 +22,6 @@ export interface ConnectConfig {
     serverUrl: string;
     callbackUrl: string;
     transportType: 'sse' | 'streamable-http' | 'auto';
+    clientId?: string;
+    clientSecret?: string;
 }

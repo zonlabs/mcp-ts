@@ -11,7 +11,7 @@ icon: "code"
 import type {
   McpConnectionState,
   McpConnectionEvent,
-} from '@mcp-ts/sdk/shared';
+} from '@mcp-ts/client/shared';
 
 type McpConnectionState =
   | 'DISCONNECTED'
@@ -36,7 +36,7 @@ type McpConnectionEvent =
 ### Tool Types
 
 ```typescript
-import type { ToolInfo } from '@mcp-ts/sdk/shared';
+import type { ToolInfo } from '@mcp-ts/client/shared';
 
 interface ToolInfo {
   name: string;
@@ -59,7 +59,11 @@ interface Session {
   serverName?: string;
   serverUrl: string;
   callbackUrl: string;
-  transportType: 'sse' | 'streamable-http';
+  serverOptions?: {
+    client?: StoredMcpSdkClientOptions;
+    transport?: { type?: 'sse' | 'streamable-http'; protocolVersion?: string };
+    discoverResult?: DiscoverResult;
+  } | null;
   status: 'pending' | 'active';
   createdAt: number;
   updatedAt?: number;
@@ -73,11 +77,13 @@ interface Session {
   clientId?: string | null;
   oauthState?: OAuthState | null;
 }
+```
 
+Durable session storage keeps v2 metadata under `serverOptions`. `SessionInfo`, `GetSessionResult`, and `FinishAuthResult` can still expose live protocol metadata when a client has connected.
 ### Tool Policy Types
 
 ```typescript
-import { createToolId, isToolAllowed, filterToolsByPolicy } from '@mcp-ts/sdk/server';
+import { createToolId, isToolAllowed, filterToolsByPolicy } from '@mcp-ts/client/server';
 
 interface ToolPolicy {
   mode: 'all' | 'allowlist' | 'denylist';
@@ -106,7 +112,7 @@ interface ToolPolicy {
 Thrown when OAuth authorization is required.
 
 ```typescript
-import { UnauthorizedError } from '@mcp-ts/sdk/server';
+import { UnauthorizedError } from '@mcp-ts/client/server';
 
 try {
   await client.connect();

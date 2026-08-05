@@ -61,7 +61,7 @@ This optional block limits table access to the dedicated backend role. The Neon 
 
 ## Schema
 
-The canonical base migration is at `packages/sdk/migrations/neon/20260513010000_install_mcp_sessions.sql`. Run it with an owner/admin role, then connect the application using the least-privilege role from the Security section.
+The canonical base migration is at `packages/client/migrations/neon/20260513010000_install_mcp_sessions.sql`. Run it with an owner/admin role, then connect the application using the least-privilege role from the Security section.
 
 Session connection metadata and OAuth runtime credentials live in a single `mcp_sessions` table:
 
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS public.mcp_sessions (
     server_id TEXT,
     server_name TEXT,
     server_url TEXT NOT NULL,
-    transport_type TEXT NOT NULL,
+    server_options JSONB,
     callback_url TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -140,7 +140,7 @@ WITH CHECK (true);
 When `MCP_TS_STORAGE_TYPE=neon` and `NEON_DATABASE_URL` are present in your environment, the global `sessions` proxy automatically uses the Neon backend.
 
 ```typescript
-import { sessions } from '@mcp-ts/sdk/server';
+import { sessions } from '@mcp-ts/client/server';
 
 // This will use Neon automatically if env vars are set
 const sessionList = await sessions.list('user-123');
@@ -152,7 +152,7 @@ If you want to manage the Neon SQL client yourself or use multiple storage backe
 
 ```typescript
 import { neon } from '@neondatabase/serverless';
-import { createNeonStorageBackend } from '@mcp-ts/sdk/server';
+import { createNeonStorageBackend } from '@mcp-ts/client/server';
 
 const sql = neon(process.env.NEON_DATABASE_URL!);
 const neonBackend = createNeonStorageBackend(sql);
@@ -165,7 +165,7 @@ const sessionList = await neonBackend.list('user-123');
 
 Expired pending sessions and dormant active sessions are removed when `sessions.cleanupExpired()` runs. Schedule that call from your application or platform cron if you want cleanup without database cron support.
 
-If your Neon project has `pg_cron` enabled, you can also run the optional migration at `packages/sdk/migrations/neon/20260513020000_add_session_cleanup_cron.sql`. Neon requires endpoint-level `cron.database_name` configuration before `pg_cron` can be installed and used. After that setup, the migration schedules:
+If your Neon project has `pg_cron` enabled, you can also run the optional migration at `packages/client/migrations/neon/20260513020000_add_session_cleanup_cron.sql`. Neon requires endpoint-level `cron.database_name` configuration before `pg_cron` can be installed and used. After that setup, the migration schedules:
 
 - `mcp-cleanup-transient-sessions`: every 5 minutes, removes inactive expired sessions.
 - `mcp-cleanup-dormant-sessions`: daily at midnight UTC, removes active sessions untouched for 30+ days.

@@ -28,14 +28,14 @@ MCP_TS_STORAGE_TYPE=memory
 The global `sessions` proxy uses the In-Memory backend by default if no other storage environment variables are configured.
 
 ```typescript
-import { sessions } from '@mcp-ts/sdk/server';
+import { sessions } from '@mcp-ts/client/server';
 
 await sessions.create({
   sessionId: 'test-123',
   userId: 'test-user',
   serverUrl: 'https://test.example.com',
   callbackUrl: 'https://test.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   status: 'active',
   createdAt: Date.now(),
 });
@@ -44,7 +44,7 @@ await sessions.create({
 ### Option 2: Manual Instantiation
 
 ```typescript
-import { MemoryStorageBackend } from '@mcp-ts/sdk/server';
+import { MemoryStorageBackend } from '@mcp-ts/client/server';
 
 const memoryBackend = new MemoryStorageBackend();
 
@@ -53,7 +53,7 @@ await memoryBackend.create({
   userId: 'test-user',
   serverUrl: 'https://test.example.com',
   callbackUrl: 'https://test.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   status: 'active',
   createdAt: Date.now(),
 });

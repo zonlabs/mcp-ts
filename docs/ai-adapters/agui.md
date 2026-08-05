@@ -9,7 +9,7 @@ The AG-UI adapter and middleware enable seamless execution of MCP tools with rem
 ## Installation
 
 ```bash
-npm install @mcp-ts/sdk @ag-ui/client rxjs
+npm install @mcp-ts/client @ag-ui/client rxjs
 ```
 
 ## AG-UI Adapter
@@ -17,8 +17,8 @@ npm install @mcp-ts/sdk @ag-ui/client rxjs
 The `AguiAdapter` converts MCP tools into the AG-UI protocol format.
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
+import { MultiSessionClient } from '@mcp-ts/client/server';
+import { AguiAdapter } from '@mcp-ts/client/adapters/agui-adapter';
 
 const client = new MultiSessionClient('user_123');
 await client.connect();
@@ -73,8 +73,8 @@ sequenceDiagram
 ```typescript
 import { NextRequest } from "next/server";
 import { HttpAgent } from "@ag-ui/client";
-import { AguiAdapter } from "@mcp-ts/sdk/adapters/agui-adapter";
-import { createMcpMiddleware } from "@mcp-ts/sdk/adapters/agui-middleware";
+import { AguiAdapter } from "@mcp-ts/client/adapters/agui-adapter";
+import { createMcpMiddleware } from "@mcp-ts/client/adapters/agui-middleware";
 
 export const POST = async (req: NextRequest) => {
   // Create remote agent connection
@@ -83,7 +83,7 @@ export const POST = async (req: NextRequest) => {
   });
 
   // Connect to MCP servers
-  const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
+  const { MultiSessionClient } = await import("@mcp-ts/client/server");
   const client = new MultiSessionClient("user_123");
   await client.connect();
 

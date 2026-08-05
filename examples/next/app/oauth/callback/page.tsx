@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useMcp } from "@mcp-ts/sdk/client/react";
+import { useMcp } from "@mcp-ts/client/client/react";
 
 function OAuthCallbackContent() {
   const searchParams = useSearchParams();
@@ -28,6 +28,7 @@ function OAuthCallbackContent() {
 
     const code = searchParams.get("code");
     const state = searchParams.get("state");
+    const iss = searchParams.get("iss") || undefined;
     const errorParam = searchParams.get("error");
 
     if (errorParam) {
@@ -56,7 +57,7 @@ function OAuthCallbackContent() {
       return;
     }
 
-    finishAuth(oauthState, code)
+    finishAuth(oauthState, code, iss)
       .then(() => {
         setStatus("success");
         setTimeout(() => {

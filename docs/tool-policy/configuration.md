@@ -60,7 +60,7 @@ await sessions.create({
   userId: 'user-456',
   serverUrl: 'https://mcp.example.com',
   callbackUrl: 'https://app.com/callback',
-  transportType: 'streamable-http',
+  transport: { type: 'streamable-http' },
   toolPolicy: {
     mode: 'allowlist',
     toolIds: ['server-a::get_weather', 'server-a::send_email'],
@@ -86,7 +86,7 @@ await sessions.update('user-456', 'sess-123', {
 Use the `ToolPolicyGateway` — it wraps a client and enforces the session's policy before every tool call:
 
 ```typescript
-import { ToolPolicyGateway } from '@mcp-ts/sdk/server';
+import { ToolPolicyGateway } from '@mcp-ts/client/server';
 
 const gateway = new ToolPolicyGateway(client, toolPolicy);
 

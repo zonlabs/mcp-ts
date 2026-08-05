@@ -10,7 +10,7 @@ This guide will help you set up a basic MCP connection using `mcp-ts`.
 ## 1. Install
 
 ```bash
-npm install @mcp-ts/sdk
+npm install @mcp-ts/client
 ```
 
 ## 2. Server-Side Setup (Next.js)
@@ -18,7 +18,7 @@ npm install @mcp-ts/sdk
 Create an API route at `app/api/mcp/route.ts` to handle MCP connections.
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client/server';
 
 export const { GET, POST } = createNextMcpHandler({
   getUserId: (req) => "user_123", // Replace with actual auth
@@ -31,7 +31,7 @@ Use the React `useMcp` hook in your component to connect and call tools.
 
 ```tsx
 'use client';
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/client/react';
 
 export function McpApp() {
   const { connections, connect, callTool, status } = useMcp({
