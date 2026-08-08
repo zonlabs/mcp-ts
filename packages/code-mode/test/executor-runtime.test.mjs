@@ -2,13 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createCodeModeRuntime } from "../dist/index.js";
 
+async function executeWithProviderGlobals(code, providers) {
+  const names = providers.map((provider) => provider.name);
+  const values = providers.map((provider) => provider.fns);
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const load = new AsyncFunction(...names, `return (${code});`);
+  const fn = await load(...values);
+  return fn();
+}
+
 test("executor runtime exposes tools as provider namespaces and records calls", async () => {
   const executorCalls = [];
   const executor = {
     async execute(code, providers) {
       executorCalls.push({ code, providers });
-      const github = providers.find((provider) => provider.name === "github");
-      const result = await github.fns.search_issues({ q: "bug" });
+      const result = await executeWithProviderGlobals(code, providers);
       return { result: { count: result.items.length }, logs: ["ran"] };
     },
   };
@@ -44,6 +52,44 @@ test("executor runtime exposes tools as provider namespaces and records calls", 
   assert.equal(result.toolCalls[0].toolName, "search_issues");
   assert.equal(result.toolCalls[0].ok, true);
   assert.match(executorCalls[0].code, /github/);
+});
+
+test("executor runtime exposes sanitized namespace and tool aliases", async () => {
+  const runtime = await createCodeModeRuntime({
+    runtime: "executor",
+    executor: {
+      async execute(code, providers) {
+        return {
+          result: await executeWithProviderGlobals(code, providers),
+          logs: [],
+        };
+      },
+    },
+    servers: [
+      {
+        serverId: "google-calendar",
+        serverName: "Google Calendar",
+        listTools: async () => ({
+          tools: [
+            {
+              name: "list-events",
+              description: "List events",
+              inputSchema: { type: "object", properties: { calendarId: { type: "string" } } },
+            },
+          ],
+        }),
+        callTool: async (_name, args) => ({ calendarId: args.calendarId, events: ["standup"] }),
+      },
+    ],
+  });
+
+  const result = await runtime.run("return await google_calendar.list_events({ calendarId: 'primary' })");
+
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.value, { calendarId: "primary", events: ["standup"] });
+  assert.equal(result.toolCalls.length, 1);
+  assert.equal(result.toolCalls[0].serverId, "google-calendar");
+  assert.equal(result.toolCalls[0].toolName, "list-events");
 });
 
 test("executor runtime reports executor errors without throwing", async () => {

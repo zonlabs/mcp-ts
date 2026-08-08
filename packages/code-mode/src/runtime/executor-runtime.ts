@@ -10,6 +10,7 @@ import { CodemodeError, classifyError } from "./errors.js";
 import { estimateJsonBytes, resolveLimits } from "./limits.js";
 import { resolveTool } from "./tool-index.js";
 import { BaseCodeModeRuntime } from "./base-runtime.js";
+import { sanitizeIdentifier } from "./sandbox-bridge.js";
 
 export interface ExecutorProvider {
   name: string;
@@ -55,9 +56,10 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
     const totalToolCallsRef = { value: 0 };
 
     try {
+      const binding = this.buildProviders(toolCalls, activeToolCallsRef, totalToolCallsRef, limits);
       const outcome = await this.#executor.execute(
-        this.wrapCode(code, input),
-        this.buildProviders(toolCalls, activeToolCallsRef, totalToolCallsRef, limits),
+        this.wrapCode(code, input, binding.serverAliases),
+        binding.providers,
         { timeoutMs: limits.timeoutMs },
       );
 
@@ -96,16 +98,21 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
     activeToolCallsRef: { value: number },
     totalToolCallsRef: { value: number },
     limits: Required<CodeModeLimits>,
-  ): ExecutorProvider[] {
+  ): { providers: ExecutorProvider[]; serverAliases: string[] } {
     const providers = new Map<string, ExecutorProvider>();
+    const serverAliases = new Set<string>();
 
     for (const tool of this.indexedTools) {
-      const provider = providers.get(tool.serverId) ?? {
-        name: tool.serverId,
+      const serverAlias = sanitizeIdentifier(tool.serverId);
+      const toolAlias = sanitizeIdentifier(tool.toolName);
+      serverAliases.add(serverAlias);
+
+      const provider = providers.get(serverAlias) ?? {
+        name: serverAlias,
         fns: {},
       };
 
-      provider.fns[tool.toolName] = async (args: unknown) => {
+      provider.fns[toolAlias] = async (args: unknown) => {
         const payload = await this.hostCallTool(
           tool.serverId,
           tool.toolName,
@@ -118,7 +125,7 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
         return JSON.parse(payload).result;
       };
 
-      providers.set(tool.serverId, provider);
+      providers.set(serverAlias, provider);
     }
 
     providers.set("codemode", {
@@ -176,24 +183,30 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
       },
     });
 
-    return [...providers.values()];
+    return {
+      providers: [...providers.values()],
+      serverAliases: [...serverAliases],
+    };
   }
 
-  private wrapCode(code: string, input: unknown): string {
+  private wrapCode(code: string, input: unknown, serverAliases: string[]): string {
     const body = code.trimStart().startsWith("return")
       ? code
       : `return await (async () => { ${code} })();`;
+    const serverMap = serverAliases
+      .map((alias) => `servers[${JSON.stringify(alias)}] = ${alias};`)
+      .join("\n");
 
-    return `
+    return `async () => {
       const input = ${JSON.stringify(input)};
+      const servers = {};
+      ${serverMap}
       const callTool = (serverId, toolName, args) => codemode.callTool({ serverId, toolName, args });
       const callToolRaw = (serverId, toolName, args) => codemode.callToolRaw({ serverId, toolName, args });
       const searchTools = (query, limit) => codemode.searchTools({ query, limit });
       const getToolSchema = (serverId, toolName) => codemode.getToolSchema({ serverId, toolName });
-      (async () => {
-        ${body}
-      })()
-    `;
+      ${body}
+    }`;
   }
 }
 
