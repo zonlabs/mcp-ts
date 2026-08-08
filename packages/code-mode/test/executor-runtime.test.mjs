@@ -63,3 +63,22 @@ test("executor runtime reports executor errors without throwing", async () => {
   assert.equal(result.error.code, "SANDBOX_ERROR");
   assert.match(result.error.message, /sandbox failed/);
 });
+
+test("executor runtime enforces maxResultBytes", async () => {
+  const runtime = await createCodeModeRuntime({
+    runtime: "executor",
+    executor: {
+      async execute() {
+        return { result: { text: "this result is too large" }, logs: [] };
+      },
+    },
+    limits: { maxResultBytes: 8 },
+    servers: [],
+  });
+
+  const result = await runtime.run("return { text: 'this result is too large' }");
+
+  assert.equal(result.value, undefined);
+  assert.equal(result.error.code, "RESULT_TOO_LARGE");
+  assert.match(result.error.message, /maxResultBytes 8 exceeded/);
+});

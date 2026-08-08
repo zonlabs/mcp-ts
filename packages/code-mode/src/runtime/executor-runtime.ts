@@ -6,8 +6,8 @@ import type {
   CodeModeRuntimeOptions,
   CodeModeToolCall,
 } from "../types.js";
-import { classifyError } from "./errors.js";
-import { resolveLimits } from "./limits.js";
+import { CodemodeError, classifyError } from "./errors.js";
+import { estimateJsonBytes, resolveLimits } from "./limits.js";
 import { resolveTool } from "./tool-index.js";
 import { BaseCodeModeRuntime } from "./base-runtime.js";
 
@@ -67,6 +67,12 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
 
       if (outcome.error) {
         throw new Error(outcome.error);
+      }
+
+      if (estimateJsonBytes(outcome.result) > limits.maxResultBytes) {
+        throw CodemodeError.resultTooLarge(
+          `Result too large: maxResultBytes ${limits.maxResultBytes} exceeded.`,
+        );
       }
 
       return {
