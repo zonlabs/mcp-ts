@@ -58,7 +58,7 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
     try {
       const binding = this.buildProviders(toolCalls, activeToolCallsRef, totalToolCallsRef, limits);
       const outcome = await this.#executor.execute(
-        this.wrapCode(code, input, binding.serverAliases),
+        this.wrapCode(code, input, binding.serverBindings),
         binding.providers,
         { timeoutMs: limits.timeoutMs },
       );
@@ -98,17 +98,22 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
     activeToolCallsRef: { value: number },
     totalToolCallsRef: { value: number },
     limits: Required<CodeModeLimits>,
-  ): { providers: ExecutorProvider[]; serverAliases: string[] } {
+  ): { providers: ExecutorProvider[]; serverBindings: ServerBinding[] } {
     const providers = new Map<string, ExecutorProvider>();
-    const serverAliases = new Set<string>();
+    const serverBindings = new Map<string, ServerBinding>();
 
     for (const tool of this.indexedTools) {
       const serverAlias = sanitizeIdentifier(tool.serverId);
       const toolAlias = sanitizeIdentifier(tool.toolName);
-      serverAliases.add(serverAlias);
+      const serverBinding = serverBindings.get(tool.serverId) ?? {
+        serverId: tool.serverId,
+        alias: serverAlias,
+        providerName: `__mcp_server_${serverBindings.size}`,
+      };
+      serverBindings.set(tool.serverId, serverBinding);
 
-      const provider = providers.get(serverAlias) ?? {
-        name: serverAlias,
+      const provider = providers.get(serverBinding.providerName) ?? {
+        name: serverBinding.providerName,
         fns: {},
       };
 
@@ -125,7 +130,7 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
         return JSON.parse(payload).result;
       };
 
-      providers.set(serverAlias, provider);
+      providers.set(serverBinding.providerName, provider);
     }
 
     providers.set("codemode", {
@@ -185,29 +190,57 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
 
     return {
       providers: [...providers.values()],
-      serverAliases: [...serverAliases],
+      serverBindings: [...serverBindings.values()],
     };
   }
 
-  private wrapCode(code: string, input: unknown, serverAliases: string[]): string {
+  private wrapCode(code: string, input: unknown, serverBindings: ServerBinding[]): string {
     const body = code.trimStart().startsWith("return")
       ? code
       : `return await (async () => { ${code} })();`;
-    const serverMap = serverAliases
-      .map((alias) => `servers[${JSON.stringify(alias)}] = ${alias};`)
+    const serverMap = serverBindings
+      .map((binding) => `__bindServer(${JSON.stringify(binding.serverId)}, ${JSON.stringify(binding.alias)}, ${binding.providerName});`)
       .join("\n");
 
     return `async () => {
       const input = ${JSON.stringify(input)};
       const servers = {};
+      const __globals = [];
+      const __bindServer = (serverId, alias, provider) => {
+        servers[serverId] = provider;
+        servers[alias] = provider;
+        __globals.push([
+          alias,
+          Object.prototype.hasOwnProperty.call(globalThis, alias),
+          globalThis[alias],
+        ]);
+        globalThis[alias] = provider;
+      };
       ${serverMap}
       const callTool = (serverId, toolName, args) => codemode.callTool({ serverId, toolName, args });
       const callToolRaw = (serverId, toolName, args) => codemode.callToolRaw({ serverId, toolName, args });
       const searchTools = (query, limit) => codemode.searchTools({ query, limit });
       const getToolSchema = (serverId, toolName) => codemode.getToolSchema({ serverId, toolName });
-      ${body}
+      try {
+        ${body}
+      } finally {
+        for (let i = __globals.length - 1; i >= 0; i--) {
+          const [alias, existed, previous] = __globals[i];
+          if (existed) {
+            globalThis[alias] = previous;
+          } else {
+            delete globalThis[alias];
+          }
+        }
+      }
     }`;
   }
+}
+
+interface ServerBinding {
+  serverId: string;
+  alias: string;
+  providerName: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

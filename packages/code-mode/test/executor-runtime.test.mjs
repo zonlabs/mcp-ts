@@ -92,6 +92,87 @@ test("executor runtime exposes sanitized namespace and tool aliases", async () =
   assert.equal(result.toolCalls[0].toolName, "list-events");
 });
 
+test("executor runtime exposes reserved server names through the servers map", async () => {
+  const executorCalls = [];
+  const runtime = await createCodeModeRuntime({
+    runtime: "executor",
+    executor: {
+      async execute(code, providers) {
+        executorCalls.push({ code, providers });
+        return {
+          result: await executeWithProviderGlobals(code, providers),
+          logs: [],
+        };
+      },
+    },
+    servers: [
+      {
+        serverId: "default",
+        serverName: "Reserved Server",
+        listTools: async () => ({
+          tools: [
+            {
+              name: "class",
+              description: "Reserved tool",
+              inputSchema: { type: "object", properties: { value: { type: "string" } } },
+            },
+          ],
+        }),
+        callTool: async (_name, args) => ({ value: args.value }),
+      },
+    ],
+  });
+
+  const result = await runtime.run("return await servers.default.class({ value: 'ok' })");
+
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.value, { value: "ok" });
+  assert.equal(executorCalls[0].providers[0].name, "__mcp_server_0");
+  assert.match(executorCalls[0].code, /servers\.default\.class/);
+});
+
+test("executor runtime restores global namespace aliases after execution", async () => {
+  const previousGithub = globalThis.github;
+  const hadGithub = Object.prototype.hasOwnProperty.call(globalThis, "github");
+
+  const runtime = await createCodeModeRuntime({
+    runtime: "executor",
+    executor: {
+      async execute(code, providers) {
+        return {
+          result: await executeWithProviderGlobals(code, providers),
+          logs: [],
+        };
+      },
+    },
+    servers: [
+      {
+        serverId: "github",
+        serverName: "GitHub",
+        listTools: async () => ({
+          tools: [
+            {
+              name: "search_issues",
+              description: "Search issues",
+              inputSchema: { type: "object", properties: { q: { type: "string" } } },
+            },
+          ],
+        }),
+        callTool: async (_name, args) => ({ items: [{ title: args.q }] }),
+      },
+    ],
+  });
+
+  const result = await runtime.run("return await github.search_issues({ q: 'leak-check' })");
+
+  assert.equal(result.error, undefined);
+  if (hadGithub) {
+    assert.equal(globalThis.github, previousGithub);
+  } else {
+    assert.equal(Object.prototype.hasOwnProperty.call(globalThis, "github"), false);
+  }
+});
+
 test("executor runtime reports executor errors without throwing", async () => {
   const runtime = await createCodeModeRuntime({
     runtime: "executor",
