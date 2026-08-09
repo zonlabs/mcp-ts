@@ -19,7 +19,7 @@ import { BaseCodeModeRuntime } from "./base-runtime.js";
 export { BaseCodeModeRuntime } from "./base-runtime.js";
 export { QuickJsCodeModeRuntime } from "./quickjs-runtime.js";
 export { ExecutorCodeModeRuntime } from "./executor-runtime.js";
-export type { ExecutorLike, ExecutorProvider } from "./executor-runtime.js";
+export type { CodeModeExecutor, ExecutorProvider } from "./executor-runtime.js";
 
 export class IsolatedVmCodeModeRuntime extends BaseCodeModeRuntime {
   async run(
@@ -223,7 +223,7 @@ export class IsolatedVmCodeModeRuntime extends BaseCodeModeRuntime {
 export async function createCodeModeRuntime(
   options: CodeModeRuntimeOptions & {
     runtime?: "isolated-vm" | "quickjs" | "executor";
-    executor?: import("./executor-runtime.js").ExecutorLike;
+    executor?: import("./executor-runtime.js").CodeModeExecutor;
   },
 ): Promise<CodeModeRuntime> {
   if (options.runtime === "executor") {

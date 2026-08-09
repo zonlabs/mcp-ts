@@ -18,7 +18,7 @@ export interface ExecutorProvider {
   prelude?: string;
 }
 
-export interface ExecutorLike {
+export interface CodeModeExecutor {
   execute(
     code: string,
     providers: ExecutorProvider[],
@@ -27,11 +27,11 @@ export interface ExecutorLike {
 }
 
 export interface ExecutorCodeModeRuntimeOptions extends CodeModeRuntimeOptions {
-  executor: ExecutorLike;
+  executor: CodeModeExecutor;
 }
 
 export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
-  readonly #executor: ExecutorLike;
+  readonly #executor: CodeModeExecutor;
 
   constructor(options: ExecutorCodeModeRuntimeOptions) {
     super(options);

@@ -1,6 +1,6 @@
 // Runtime
 export { createCodeModeRuntime, IsolatedVmCodeModeRuntime, BaseCodeModeRuntime, QuickJsCodeModeRuntime, ExecutorCodeModeRuntime } from "./runtime/runtime.js";
-export type { ExecutorLike, ExecutorProvider } from "./runtime/runtime.js";
+export type { CodeModeExecutor, ExecutorProvider } from "./runtime/runtime.js";
 // Error types and classification
 export { CodemodeError, classifyError } from "./runtime/errors.js";
 
