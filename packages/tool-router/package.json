@@ -30,7 +30,8 @@
   "scripts": {
     "build": "tsup",
     "prepublishOnly": "npm run build",
-    "test": "npm run build && node --test test/*.test.mjs",
+    "test": "npm run build && vitest run",
+    "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -44,7 +45,8 @@
   "devDependencies": {
     "@types/node": "^25.0.10",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "license": "MIT",
   "repository": {

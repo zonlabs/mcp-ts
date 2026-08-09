@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 const { mcpServer, mcpServers } = await import("../dist/index.js");
 

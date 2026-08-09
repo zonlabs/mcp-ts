@@ -27,19 +27,19 @@
     "build": "tsup",
     "postbuild": "node -e \"var fs=require('fs'),cp=require('child_process');['../../../mcp-server/scripts/resolve-local-pkg.cjs'].forEach(function(f){fs.existsSync(f)&&cp.execSync('node '+f,{cwd:__dirname,stdio:'inherit'})})\"",
     "prepublishOnly": "npm run build",
-    "test": "npm run build && node --test test/*.test.mjs",
-    "test:quickjs": "npm run build && node --test test/quickjs.test.mjs",
+    "test": "npm run build && vitest run",
+    "test:quickjs": "npm run build && vitest run tests/quickjs.test.ts",
+    "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {},
   "optionalDependencies": {
     "isolated-vm": "^6.1.2",
     "quickjs-emscripten": "^0.31.0"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.23.0",
-    "ai": "^6.0.0"
+    "ai": "^6.0.0",
+    "zod": "^3.23.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
@@ -55,7 +55,8 @@
   "devDependencies": {
     "@types/node": "^25.0.10",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "repository": {
     "type": "git",

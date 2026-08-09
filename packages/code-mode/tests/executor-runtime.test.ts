@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { createCodeModeRuntime } from "../dist/index.js";
 
-async function executeWithProviderGlobals(code, providers) {
+async function executeWithProviderGlobals(code: string, providers: any[]) {
   const names = providers.map((provider) => provider.name);
   const values = providers.map((provider) => provider.fns);
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
@@ -12,9 +12,9 @@ async function executeWithProviderGlobals(code, providers) {
 }
 
 test("executor runtime exposes tools as provider namespaces and records calls", async () => {
-  const executorCalls = [];
+  const executorCalls: any[] = [];
   const executor = {
-    async execute(code, providers) {
+    async execute(code: string, providers: any[]) {
       executorCalls.push({ code, providers });
       const result = await executeWithProviderGlobals(code, providers);
       return { result: { count: result.items.length }, logs: ["ran"] };
@@ -37,7 +37,7 @@ test("executor runtime exposes tools as provider namespaces and records calls", 
             },
           ],
         }),
-        callTool: async (_name, args) => ({ items: [{ title: args.q }] }),
+        callTool: async (_name: string, args: any) => ({ items: [{ title: args.q }] }),
       },
     ],
   });
@@ -58,7 +58,7 @@ test("executor runtime keeps progressive discovery aliases disabled", async () =
   const runtime = await createCodeModeRuntime({
     runtime: "executor",
     executor: {
-      async execute(code, providers) {
+      async execute(code: string, providers: any[]) {
         return { result: await executeWithProviderGlobals(code, providers), logs: [] };
       },
     },
@@ -90,7 +90,7 @@ test("executor runtime exposes sanitized namespace and tool aliases", async () =
   const runtime = await createCodeModeRuntime({
     runtime: "executor",
     executor: {
-      async execute(code, providers) {
+      async execute(code: string, providers: any[]) {
         return {
           result: await executeWithProviderGlobals(code, providers),
           logs: [],
@@ -110,7 +110,7 @@ test("executor runtime exposes sanitized namespace and tool aliases", async () =
             },
           ],
         }),
-        callTool: async (_name, args) => ({ calendarId: args.calendarId, events: ["standup"] }),
+        callTool: async (_name: string, args: any) => ({ calendarId: args.calendarId, events: ["standup"] }),
       },
     ],
   });
@@ -125,11 +125,11 @@ test("executor runtime exposes sanitized namespace and tool aliases", async () =
 });
 
 test("executor runtime exposes reserved server names through the servers map", async () => {
-  const executorCalls = [];
+  const executorCalls: any[] = [];
   const runtime = await createCodeModeRuntime({
     runtime: "executor",
     executor: {
-      async execute(code, providers) {
+      async execute(code: string, providers: any[]) {
         executorCalls.push({ code, providers });
         return {
           result: await executeWithProviderGlobals(code, providers),
@@ -150,7 +150,7 @@ test("executor runtime exposes reserved server names through the servers map", a
             },
           ],
         }),
-        callTool: async (_name, args) => ({ value: args.value }),
+        callTool: async (_name: string, args: any) => ({ value: args.value }),
       },
     ],
   });
@@ -164,13 +164,13 @@ test("executor runtime exposes reserved server names through the servers map", a
 });
 
 test("executor runtime restores global namespace aliases after execution", async () => {
-  const previousGithub = globalThis.github;
+  const previousGithub = (globalThis as any).github;
   const hadGithub = Object.prototype.hasOwnProperty.call(globalThis, "github");
 
   const runtime = await createCodeModeRuntime({
     runtime: "executor",
     executor: {
-      async execute(code, providers) {
+      async execute(code: string, providers: any[]) {
         return {
           result: await executeWithProviderGlobals(code, providers),
           logs: [],
@@ -190,7 +190,7 @@ test("executor runtime restores global namespace aliases after execution", async
             },
           ],
         }),
-        callTool: async (_name, args) => ({ items: [{ title: args.q }] }),
+        callTool: async (_name: string, args: any) => ({ items: [{ title: args.q }] }),
       },
     ],
   });
@@ -199,7 +199,7 @@ test("executor runtime restores global namespace aliases after execution", async
 
   assert.equal(result.error, undefined);
   if (hadGithub) {
-    assert.equal(globalThis.github, previousGithub);
+    assert.equal((globalThis as any).github, previousGithub);
   } else {
     assert.equal(Object.prototype.hasOwnProperty.call(globalThis, "github"), false);
   }
@@ -233,8 +233,8 @@ test("executor runtime rejects same-server helper alias collisions before callin
   const result = await runtime.run("return 1");
 
   assert.equal(result.value, undefined);
-  assert.equal(result.error.code, "SANDBOX_ERROR");
-  assert.match(result.error.message, /helper alias collision.*foo_bar/i);
+  assert.equal(result.error!.code, "SANDBOX_ERROR");
+  assert.match(result.error!.message, /helper alias collision.*foo_bar/i);
   assert.equal(executeCalls, 0);
 });
 
@@ -252,8 +252,8 @@ test("executor runtime reports executor errors without throwing", async () => {
   const result = await runtime.run("return 1");
 
   assert.equal(result.value, undefined);
-  assert.equal(result.error.code, "SANDBOX_ERROR");
-  assert.match(result.error.message, /sandbox failed/);
+  assert.equal(result.error!.code, "SANDBOX_ERROR");
+  assert.match(result.error!.message, /sandbox failed/);
 });
 
 test("executor runtime enforces maxResultBytes", async () => {
@@ -271,6 +271,6 @@ test("executor runtime enforces maxResultBytes", async () => {
   const result = await runtime.run("return { text: 'this result is too large' }");
 
   assert.equal(result.value, undefined);
-  assert.equal(result.error.code, "RESULT_TOO_LARGE");
-  assert.match(result.error.message, /maxResultBytes 8 exceeded/);
+  assert.equal(result.error!.code, "RESULT_TOO_LARGE");
+  assert.match(result.error!.message, /maxResultBytes 8 exceeded/);
 });

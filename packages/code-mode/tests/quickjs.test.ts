@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 const hasQuickJs = await import("quickjs-emscripten").then(
   () => true,
   () => false
 );
 
-function fakeSource(serverId = "github", tools = undefined) {
-  const calls = [];
+function fakeSource(serverId = "github", tools: any = undefined) {
+  const calls: any[] = [];
   return {
     calls,
     source: {
@@ -40,7 +40,7 @@ function fakeSource(serverId = "github", tools = undefined) {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         return { name, args };
       }
@@ -49,7 +49,7 @@ function fakeSource(serverId = "github", tools = undefined) {
 }
 
 function fakeExaSource() {
-  const calls = [];
+  const calls: any[] = [];
   return {
     calls,
     source: {
@@ -70,7 +70,7 @@ function fakeExaSource() {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         return { results: [{ title: "Result 1", url: "https://example.com" }] };
       }
@@ -79,7 +79,7 @@ function fakeExaSource() {
 }
 
 function fakeMcpEnvelopeSource(serverId = "docs") {
-  const calls = [];
+  const calls: any[] = [];
   return {
     calls,
     source: {
@@ -119,7 +119,7 @@ function fakeMcpEnvelopeSource(serverId = "docs") {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         if (name === "structured_search") {
           return {
@@ -323,8 +323,9 @@ test("multi-source: github.get_issue() vs exa.web_search()", { skip: !hasQuickJs
   `);
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.issue, { name: "get_issue", args: { issue_number: 1 } });
-  assert.deepEqual(result.value.search, { results: [{ title: "Result 1", url: "https://example.com" }] });
+  const val325 = result.value as any;
+  assert.deepEqual(val325.issue, { name: "get_issue", args: { issue_number: 1 } });
+  assert.deepEqual(val325.search, { results: [{ title: "Result 1", url: "https://example.com" }] });
   assert.equal(github.calls.length, 1);
   assert.equal(exa.calls.length, 1);
 });
@@ -344,7 +345,7 @@ test("error handling: isError tool does not crash sandbox", { skip: !hasQuickJs 
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value.caught, "sandbox should detect the error");
+  assert.ok((result.value as any).caught, "sandbox should detect the error");
   assert.equal(result.toolCalls.length, 1);
   assert.equal(result.toolCalls[0].ok, false);
   assert.equal(result.toolCalls[0].error, "resource not found");
@@ -365,20 +366,21 @@ test("MCP envelopes are normalized to script-friendly values", { skip: !hasQuick
   `);
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.structured, {
+  const val368 = result.value as any;
+  assert.deepEqual(val368.structured, {
     structuredContent: { items: [{ title: "Structured result" }] },
     content: [{ type: "text", text: JSON.stringify({ ignored: true }) }],
     isError: false
   });
-  assert.deepEqual(result.value.jsonText, {
+  assert.deepEqual(val368.jsonText, {
     content: [{ type: "text", text: JSON.stringify({ items: [{ title: "JSON text result" }] }) }],
     isError: false
   });
-  assert.deepEqual(result.value.plainText, {
+  assert.deepEqual(val368.plainText, {
     content: [{ type: "text", text: "plain text result" }],
     isError: false
   });
-  assert.deepEqual(result.value.multipart, {
+  assert.deepEqual(val368.multipart, {
     content: [
       { type: "text", text: "first" },
       { type: "text", text: "second" }
@@ -399,7 +401,7 @@ test("error envelope: single text content preserves isError", { skip: !hasQuickJ
 
   assert.equal(result.error, undefined);
   assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.isError, true);
+  assert.equal((result.value as any).isError, true);
 });
 
 test("error envelope: JSON text content is parsed and isError preserved", { skip: !hasQuickJs }, async () => {
@@ -413,11 +415,12 @@ test("error envelope: JSON text content is parsed and isError preserved", { skip
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.isError, true);
-  assert.ok(Array.isArray(result.value.content));
-  assert.equal(result.value.content[0].type, "text");
-  assert.equal(result.value.content[0].text, JSON.stringify({ error: "invalid input", code: 400 }));
+  const val = result.value as any;
+  assert.ok(val !== null && typeof val === "object");
+  assert.equal(val.isError, true);
+  assert.ok(Array.isArray(val.content));
+  assert.equal(val.content[0].type, "text");
+  assert.equal(val.content[0].text, JSON.stringify({ error: "invalid input", code: 400 }));
 });
 
 test("error envelope: toolCalls[].ok is false with error message", { skip: !hasQuickJs }, async () => {
@@ -480,12 +483,13 @@ test("getToolSchema inside sandbox returns tool definition", { skip: !hasQuickJs
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.toolName, "get_issue");
-  assert.equal(result.value.serverId, "github");
-  assert.ok(result.value.inputSchema !== undefined);
-  assert.equal(result.value.inputSchema.type, "object");
-  assert.ok(result.value.inputSchema.properties.issue_number !== undefined);
+  const val = result.value as any;
+  assert.ok(val !== null && typeof val === "object");
+  assert.equal(val.toolName, "get_issue");
+  assert.equal(val.serverId, "github");
+  assert.ok(val.inputSchema !== undefined);
+  assert.equal(val.inputSchema.type, "object");
+  assert.ok(val.inputSchema.properties.issue_number !== undefined);
 });
 
 test("sequential awaited tool calls (issue #258 regression) do not crash the runtime", { skip: !hasQuickJs }, async () => {
@@ -508,13 +512,15 @@ test("sequential awaited tool calls (issue #258 regression) do not crash the run
   assert.equal(result.toolCalls[0].ok, true);
   assert.equal(result.toolCalls[1].toolName, "create_issue");
   assert.equal(result.toolCalls[1].ok, true);
-  assert.equal(result.value.a.args.issue_number, 1);
-  assert.equal(result.value.b.args.title, "sequential");
+  const valResult = result.value as any;
+  assert.equal(valResult.a.args.issue_number, 1);
+  assert.equal(valResult.b.args.title, "sequential");
 
   const second = await runtime.run(`return await github.get_issue({ issue_number: 3 });`);
   assert.equal(second.error, undefined);
   assert.equal(second.toolCalls.length, 1);
-  assert.equal(second.value.args.issue_number, 3);
+  const secondVal = second.value as any;
+  assert.equal(secondVal.args.issue_number, 3);
 });
 
 test("timeout: infinite loop is interrupted", { skip: !hasQuickJs }, async () => {
@@ -526,8 +532,8 @@ test("timeout: infinite loop is interrupted", { skip: !hasQuickJs }, async () =>
 
   assert.notEqual(result.error, undefined, "Expected an error from infinite loop");
   assert.ok(
-    result.error.message.toLowerCase().includes("timeout") ||
-      result.error.message.toLowerCase().includes("interrupt"),
-    `Expected error message about timeout/interrupt, got: ${result.error.message}`,
+    result.error!.message.toLowerCase().includes("timeout") ||
+      result.error!.message.toLowerCase().includes("interrupt"),
+    `Expected error message about timeout/interrupt, got: ${result.error!.message}`,
   );
 });
