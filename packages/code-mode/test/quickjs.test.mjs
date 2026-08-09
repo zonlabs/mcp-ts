@@ -514,6 +514,7 @@ test("sequential awaited tool calls (issue #258 regression) do not crash the run
   const second = await runtime.run(`return await github.get_issue({ issue_number: 3 });`);
   assert.equal(second.error, undefined);
   assert.equal(second.toolCalls.length, 1);
+  assert.equal(second.value.args.issue_number, 3);
 });
 
 test("timeout: infinite loop is interrupted", { skip: !hasQuickJs }, async () => {

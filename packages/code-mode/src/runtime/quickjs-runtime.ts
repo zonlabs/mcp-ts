@@ -50,7 +50,7 @@ export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
     let vm: QuickJSContext | undefined;
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     let guestSettled = true;
-    const execState: ExecState = { deadline: 0, pendingCancels: new Set<() => void>() };
+    const execState: ExecState = { deadline: Infinity, pendingCancels: new Set<() => void>() };
 
     const hostCallToolRaw = async (
       serverId: string,
@@ -88,7 +88,7 @@ export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
         for (const cancel of [...execState.pendingCancels]) cancel();
         execState.pendingCancels.clear();
         await new Promise((r) => setTimeout(r, 0));
-        execState.deadline = 0;
+        execState.deadline = Infinity;
       }
       if (guestSettled) {
         vm.dispose();
