@@ -54,7 +54,7 @@ test("executor runtime exposes tools as provider namespaces and records calls", 
   assert.match(executorCalls[0].code, /github/);
 });
 
-test("executor runtime exposes codemode.search inside executor scripts", async () => {
+test("executor runtime keeps progressive discovery aliases disabled", async () => {
   const runtime = await createCodeModeRuntime({
     runtime: "executor",
     executor: {
@@ -80,52 +80,10 @@ test("executor runtime exposes codemode.search inside executor scripts", async (
     ],
   });
 
-  const result = await runtime.run(`
-    const discovered = await codemode.search('issues', 1);
-    const compatibility = await searchTools('issues', 1);
-    return { discovered, compatibility };
-  `);
+  const result = await runtime.run("return { search: typeof codemode.search, describe: typeof codemode.describe }");
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.discovered, result.value.compatibility);
-});
-
-test("executor runtime exposes codemode.describe for generated helper aliases", async () => {
-  const runtime = await createCodeModeRuntime({
-    runtime: "executor",
-    executor: {
-      async execute(code, providers) {
-        return { result: await executeWithProviderGlobals(code, providers), logs: [] };
-      },
-    },
-    servers: [
-      {
-        serverId: "github",
-        serverName: "GitHub",
-        listTools: async () => ({
-          tools: [
-            {
-              name: "search_issues",
-              description: "Search issues",
-              inputSchema: { type: "object", properties: { q: { type: "string" } } },
-            },
-          ],
-        }),
-        callTool: async () => ({ items: [] }),
-      },
-    ],
-  });
-
-  const result = await runtime.run("return await codemode.describe('github.search_issues')");
-
-  assert.equal(result.error, undefined);
-  assert.deepEqual(result.value, {
-    serverId: "github",
-    serverName: "GitHub",
-    toolName: "search_issues",
-    description: "Search issues",
-    inputSchema: { type: "object", properties: { q: { type: "string" } } },
-  });
+  assert.deepEqual(result.value, { search: "undefined", describe: "undefined" });
 });
 
 test("executor runtime exposes sanitized namespace and tool aliases", async () => {

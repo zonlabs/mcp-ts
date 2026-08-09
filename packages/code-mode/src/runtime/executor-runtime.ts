@@ -14,7 +14,7 @@ import { sanitizeIdentifier } from "./sandbox-bridge.js";
 
 export interface ExecutorProvider {
   name: string;
-  fns: Record<string, (...args: unknown[]) => Promise<unknown>>;
+  fns: Record<string, (args: unknown) => Promise<unknown>>;
   prelude?: string;
 }
 
@@ -148,34 +148,6 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
     providers.set("codemode", {
       name: "codemode",
       fns: {
-        search: async (query: unknown, limit: unknown) => {
-          return JSON.parse(
-            this.hostSearchTools(
-              stringValue(query),
-              numberValue(limit, this.maxSearchResults),
-            ),
-          );
-        },
-        describe: async (target: unknown) => {
-          const targetValue = stringValue(target);
-          const separator = targetValue.indexOf(".");
-          if (separator <= 0 || separator === targetValue.length - 1) {
-            return { error: `Tool helper "${targetValue}" was not found.` };
-          }
-
-          const serverAlias = targetValue.slice(0, separator);
-          const toolAlias = targetValue.slice(separator + 1);
-          const tool = this.indexedTools.find(
-            (candidate) =>
-              sanitizeIdentifier(candidate.serverId) === serverAlias &&
-              sanitizeIdentifier(candidate.toolName) === toolAlias,
-          );
-          if (!tool) {
-            return { error: `Tool helper "${targetValue}" was not found.` };
-          }
-
-          return JSON.parse(this.hostGetToolSchema(tool.serverId, tool.toolName));
-        },
         searchTools: async (args: unknown) => {
           const inputArgs = asRecord(args);
           return JSON.parse(
