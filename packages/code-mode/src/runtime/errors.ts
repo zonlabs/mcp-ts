@@ -39,5 +39,6 @@ export function classifyError(error: unknown): CodeModeError {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
   if (lower.includes("timeout")) return { code: "TIMEOUT", message };
+  if (lower.includes("interrupted")) return { code: "TIMEOUT", message };
   return { code: "SANDBOX_ERROR", message };
 }
