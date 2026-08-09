@@ -3,5 +3,9 @@
   "private": true,
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@jitl/quickjs-singlefile-browser-release-asyncify": "^0.31.0",
+    "quickjs-emscripten-core": "^0.31.0"
+  }
 }

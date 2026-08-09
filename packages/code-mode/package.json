@@ -33,8 +33,9 @@
   },
   "dependencies": {},
   "optionalDependencies": {
+    "@jitl/quickjs-singlefile-browser-release-asyncify": "^0.31.0",
     "isolated-vm": "^6.1.2",
-    "quickjs-emscripten": "^0.23.0"
+    "quickjs-emscripten-core": "^0.31.0"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

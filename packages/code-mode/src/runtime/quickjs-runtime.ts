@@ -15,6 +15,8 @@ import {
 } from "./sandbox-bridge.js";
 import { BaseCodeModeRuntime } from "./base-runtime.js";
 
+type QuickJsAsyncContext = Awaited<ReturnType<Awaited<ReturnType<typeof loadQuickJs>>["newContext"]>>;
+
 export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
   async run(
     code: string,
@@ -33,12 +35,12 @@ export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
     const activeToolCallsRef = { value: 0 };
     const totalToolCallsRef = { value: 0 };
 
-    const { newAsyncContext } = await importQuickJs();
-    const ctx = await newAsyncContext();
-
+    let contextToDispose: QuickJsAsyncContext | undefined;
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
     try {
+      const ctx = await createQuickJsContext();
+      contextToDispose = ctx;
       ctx.runtime.setMemoryLimit(limits.memoryLimitMb * 1024 * 1024);
       const deadline = Date.now() + limits.timeoutMs;
       ctx.runtime.setInterruptHandler(() => Date.now() >= deadline);
@@ -221,18 +223,26 @@ export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
       };
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
-      ctx.dispose();
+      contextToDispose?.dispose();
     }
   }
 }
 
-async function importQuickJs(): Promise<typeof import("quickjs-emscripten")> {
+async function loadQuickJs() {
   try {
-    return await import("quickjs-emscripten");
+    const { newQuickJSAsyncWASMModuleFromVariant } = await import("quickjs-emscripten-core");
+    return newQuickJSAsyncWASMModuleFromVariant(
+      import("@jitl/quickjs-singlefile-browser-release-asyncify"),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `quickjs-emscripten is required to run codemode sandboxes but could not be loaded: ${message}`,
+      `QuickJS singlefile asyncify runtime is required to run codemode sandboxes but could not be loaded: ${message}`,
     );
   }
+}
+
+async function createQuickJsContext(): Promise<QuickJsAsyncContext> {
+  const quickJs = await loadQuickJs();
+  return quickJs.newContext();
 }

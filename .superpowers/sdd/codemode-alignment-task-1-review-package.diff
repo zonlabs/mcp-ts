@@ -1,0 +1,192 @@
+diff --git a/packages/code-mode/src/runtime/executor-runtime.ts b/packages/code-mode/src/runtime/executor-runtime.ts
+index 5908347..fd469ff 100644
+--- a/packages/code-mode/src/runtime/executor-runtime.ts
++++ b/packages/code-mode/src/runtime/executor-runtime.ts
+@@ -14,7 +14,7 @@ import { sanitizeIdentifier } from "./sandbox-bridge.js";
+ 
+ export interface ExecutorProvider {
+   name: string;
+-  fns: Record<string, (args: unknown) => Promise<unknown>>;
++  fns: Record<string, (...args: unknown[]) => Promise<unknown>>;
+   prelude?: string;
+ }
+ 
+@@ -117,6 +117,18 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
+         fns: {},
+       };
+ 
++      const existingTool = Object.entries(provider.fns).find(([alias]) => alias === toolAlias);
++      if (existingTool) {
++        const existingToolName = this.indexedTools.find(
++          (candidate) =>
++            candidate.serverId === tool.serverId &&
++            sanitizeIdentifier(candidate.toolName) === existingTool[0],
++        )?.toolName;
++        throw new Error(
++          `Code Mode helper alias collision on server "${tool.serverId}": tools "${existingToolName}" and "${tool.toolName}" both map to "${toolAlias}".`,
++        );
++      }
++
+       provider.fns[toolAlias] = async (args: unknown) => {
+         const payload = await this.hostCallTool(
+           tool.serverId,
+@@ -136,6 +148,34 @@ export class ExecutorCodeModeRuntime extends BaseCodeModeRuntime {
+     providers.set("codemode", {
+       name: "codemode",
+       fns: {
++        search: async (query: unknown, limit: unknown) => {
++          return JSON.parse(
++            this.hostSearchTools(
++              stringValue(query),
++              numberValue(limit, this.maxSearchResults),
++            ),
++          );
++        },
++        describe: async (target: unknown) => {
++          const targetValue = stringValue(target);
++          const separator = targetValue.indexOf(".");
++          if (separator <= 0 || separator === targetValue.length - 1) {
++            return { error: `Tool helper "${targetValue}" was not found.` };
++          }
++
++          const serverAlias = targetValue.slice(0, separator);
++          const toolAlias = targetValue.slice(separator + 1);
++          const tool = this.indexedTools.find(
++            (candidate) =>
++              sanitizeIdentifier(candidate.serverId) === serverAlias &&
++              sanitizeIdentifier(candidate.toolName) === toolAlias,
++          );
++          if (!tool) {
++            return { error: `Tool helper "${targetValue}" was not found.` };
++          }
++
++          return JSON.parse(this.hostGetToolSchema(tool.serverId, tool.toolName));
++        },
+         searchTools: async (args: unknown) => {
+           const inputArgs = asRecord(args);
+           return JSON.parse(
+diff --git a/packages/code-mode/test/executor-runtime.test.mjs b/packages/code-mode/test/executor-runtime.test.mjs
+index d234477..18be205 100644
+--- a/packages/code-mode/test/executor-runtime.test.mjs
++++ b/packages/code-mode/test/executor-runtime.test.mjs
+@@ -54,6 +54,80 @@ test("executor runtime exposes tools as provider namespaces and records calls",
+   assert.match(executorCalls[0].code, /github/);
+ });
+ 
++test("executor runtime exposes codemode.search inside executor scripts", async () => {
++  const runtime = await createCodeModeRuntime({
++    runtime: "executor",
++    executor: {
++      async execute(code, providers) {
++        return { result: await executeWithProviderGlobals(code, providers), logs: [] };
++      },
++    },
++    servers: [
++      {
++        serverId: "github",
++        serverName: "GitHub",
++        listTools: async () => ({
++          tools: [
++            {
++              name: "search_issues",
++              description: "Search issues",
++              inputSchema: { type: "object", properties: { q: { type: "string" } } },
++            },
++          ],
++        }),
++        callTool: async () => ({ items: [] }),
++      },
++    ],
++  });
++
++  const result = await runtime.run(`
++    const discovered = await codemode.search('issues', 1);
++    const compatibility = await searchTools('issues', 1);
++    return { discovered, compatibility };
++  `);
++
++  assert.equal(result.error, undefined);
++  assert.deepEqual(result.value.discovered, result.value.compatibility);
++});
++
++test("executor runtime exposes codemode.describe for generated helper aliases", async () => {
++  const runtime = await createCodeModeRuntime({
++    runtime: "executor",
++    executor: {
++      async execute(code, providers) {
++        return { result: await executeWithProviderGlobals(code, providers), logs: [] };
++      },
++    },
++    servers: [
++      {
++        serverId: "github",
++        serverName: "GitHub",
++        listTools: async () => ({
++          tools: [
++            {
++              name: "search_issues",
++              description: "Search issues",
++              inputSchema: { type: "object", properties: { q: { type: "string" } } },
++            },
++          ],
++        }),
++        callTool: async () => ({ items: [] }),
++      },
++    ],
++  });
++
++  const result = await runtime.run("return await codemode.describe('github.search_issues')");
++
++  assert.equal(result.error, undefined);
++  assert.deepEqual(result.value, {
++    serverId: "github",
++    serverName: "GitHub",
++    toolName: "search_issues",
++    description: "Search issues",
++    inputSchema: { type: "object", properties: { q: { type: "string" } } },
++  });
++});
++
+ test("executor runtime exposes sanitized namespace and tool aliases", async () => {
+   const runtime = await createCodeModeRuntime({
+     runtime: "executor",
+@@ -173,6 +247,39 @@ test("executor runtime restores global namespace aliases after execution", async
+   }
+ });
+ 
++test("executor runtime rejects same-server helper alias collisions before calling the executor", async () => {
++  let executeCalls = 0;
++  const runtime = await createCodeModeRuntime({
++    runtime: "executor",
++    executor: {
++      async execute() {
++        executeCalls += 1;
++        return { result: null, logs: [] };
++      },
++    },
++    servers: [
++      {
++        serverId: "github",
++        serverName: "GitHub",
++        listTools: async () => ({
++          tools: [
++            { name: "foo-bar", description: "First collision" },
++            { name: "foo.bar", description: "Second collision" },
++          ],
++        }),
++        callTool: async () => ({}),
++      },
++    ],
++  });
++
++  const result = await runtime.run("return 1");
++
++  assert.equal(result.value, undefined);
++  assert.equal(result.error.code, "SANDBOX_ERROR");
++  assert.match(result.error.message, /helper alias collision.*foo_bar/i);
++  assert.equal(executeCalls, 0);
++});
++
+ test("executor runtime reports executor errors without throwing", async () => {
+   const runtime = await createCodeModeRuntime({
+     runtime: "executor",
