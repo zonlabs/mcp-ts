@@ -6,7 +6,7 @@
   "main": "dist/src/index.js",
   "scripts": {
     "dev": "wrangler dev",
-    "build": "wrangler deploy --dry-run",
+    "build": "npm run build --prefix ../packages/sdk && npm run build --prefix ../packages/code-mode && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

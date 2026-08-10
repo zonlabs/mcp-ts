@@ -4,5 +4,8 @@
   "workspaces": [
     "packages/*",
     "mcp"
-  ]
+  ],
+  "scripts": {
+    "build": "npm run build --workspace packages/sdk --workspace packages/code-mode"
+  }
 }
