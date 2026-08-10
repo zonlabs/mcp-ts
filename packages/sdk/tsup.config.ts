@@ -38,7 +38,9 @@ export default defineConfig({
     'path',
     'rxjs',
     '@ag-ui/client',
+    'pkce-challenge',
   ],
+  noExternal: ['@modelcontextprotocol/ext-apps'],
   // Platform-specific bundles
   platform: 'neutral',
   target: 'es2020',
@@ -46,4 +48,11 @@ export default defineConfig({
   bundle: true,
   minify: false,
   shims: true,
+  esbuildOptions(options) {
+    options.alias = {
+      '@modelcontextprotocol/sdk/shared/protocol.js': '@modelcontextprotocol/client',
+      '@modelcontextprotocol/sdk/types.js': '@modelcontextprotocol/core',
+      '@modelcontextprotocol/sdk': '@modelcontextprotocol/core',
+    };
+  },
 });
