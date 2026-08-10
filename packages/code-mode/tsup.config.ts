@@ -13,6 +13,6 @@ export default defineConfig({
   bundle: true,
   minify: false,
   sourcemap: true,
-  external: ["isolated-vm", "quickjs-emscripten", "@modelcontextprotocol/sdk", "zod", "ai"],
+  external: ["isolated-vm", "quickjs-emscripten", "@modelcontextprotocol/client", "zod", "ai"],
   config: false
 });
