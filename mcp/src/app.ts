@@ -8,6 +8,13 @@ import { createMcpRoutes } from "./routes/mcp";
 export function createApp(): Hono {
   const app = new Hono();
 
+  app.use("*", async (c, next) => {
+    if (c.env && typeof c.env === "object") {
+      Object.assign(process.env, c.env);
+    }
+    await next();
+  });
+
   app.use(
     "*",
     cors({

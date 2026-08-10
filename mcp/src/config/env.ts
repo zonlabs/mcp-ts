@@ -7,6 +7,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3002),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  STORAGE_ENCRYPTION_KEY: z.string().optional(),
+  MCP_TS_STORAGE_TYPE: z.string().optional(),
   MCP_RESOURCE_URL: z.string().optional(),
   MCP_RESOURCE_DOC_URL: z.string().optional(),
   MCP_SCRIPT_TIMEOUT_MS: z.coerce.number().int().positive().default(240000),
