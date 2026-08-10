@@ -10,5 +10,8 @@
     {
       "binding": "LOADER"
     }
-  ]
+  ],
+  "build": {
+    "command": "npm run build --prefix ../packages/sdk && npm run build --prefix ../packages/code-mode"
+  }
 }
