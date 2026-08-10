@@ -23,7 +23,8 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@mcp-ts/sdk'],
   serverExternalPackages: [
     'ioredis',
-    '@modelcontextprotocol/sdk',
+    '@modelcontextprotocol/client',
+    '@modelcontextprotocol/core',
   ],
   poweredByHeader: false,
   reactStrictMode: true,

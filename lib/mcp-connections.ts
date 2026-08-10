@@ -20,12 +20,17 @@ function toConnectionRecord(
   session: SessionData,
   active: boolean,
 ): McpConnectionRecord {
+  const sessionRecord = session as unknown as Record<string, unknown>;
+  const legacyTransport = sessionRecord.transportType;
+
   return {
     sessionId: session.sessionId,
     serverId: session.serverId ?? "unknown",
     serverName: session.serverName ?? "Unknown",
     serverUrl: session.serverUrl,
-    transport: session.transportType ?? "streamable-http",
+    transport:
+      session.serverOptions?.transport?.type ??
+      (typeof legacyTransport === "string" ? legacyTransport : "streamable-http"),
     createdAt: session.createdAt ?? Date.now(),
     active,
     connectionStatus: active ? "READY" : "FAILED",
