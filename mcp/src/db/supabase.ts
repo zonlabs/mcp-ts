@@ -1,19 +1,29 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
+function getEnv(name: string): string {
+  return process.env[name] || "";
 }
 
-const supabaseUrl = requireEnv("SUPABASE_URL");
-const supabaseServiceKey = requireEnv("SUPABASE_SECRET_KEY");
+let _supabase: SupabaseClient | null = null;
 
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
+export function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = getEnv("SUPABASE_URL");
+    const key = getEnv("SUPABASE_SECRET_KEY") || getEnv("SUPABASE_SERVICE_ROLE_KEY");
+    _supabase = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+  }
+  return _supabase;
+}
+
+export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    const instance = getSupabase();
+    const value = Reflect.get(instance, prop, receiver);
+    return typeof value === "function" ? value.bind(instance) : value;
   },
 });
