@@ -36,7 +36,7 @@ MCP_TS_STORAGE_FILE=./sessions.json
 When `MCP_TS_STORAGE_FILE` is present in your environment, the global `sessions` proxy automatically uses the File System backend.
 
 ```typescript
-import { sessions } from '@mcp-ts/client/server';
+import { sessions } from '@mcp-ts/sdk/server';
 
 // This will use File System automatically if env vars are set
 const sessionList = await sessions.list('user-123');
@@ -48,7 +48,7 @@ console.log('Stored sessions:', sessionList);
 If you want to manage the File System backend yourself:
 
 ```typescript
-import { FileStorageBackend } from '@mcp-ts/client/server';
+import { FileStorageBackend } from '@mcp-ts/sdk/server';
 
 const fileBackend = new FileStorageBackend({ path: './sessions.json' });
 await fileBackend.init();

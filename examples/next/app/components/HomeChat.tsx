@@ -42,7 +42,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { RiRobot2Line } from "react-icons/ri";
 import type { ComponentType } from "react";
-import { McpAppRenderer, getMcpAppMetadata, type McpClient } from "@mcp-ts/client/client/react";
+import { McpAppRenderer, getMcpAppMetadata, type McpClient } from "@mcp-ts/sdk/client/react";
 import {
   AlertTriangleIcon,
   CheckIcon,

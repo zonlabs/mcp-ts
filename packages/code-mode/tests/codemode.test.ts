@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 const hasIsolatedVm = await import("isolated-vm").then(
   () => true,
@@ -9,13 +9,15 @@ const hasIsolatedVm = await import("isolated-vm").then(
 /**
  * Creates a fake ToolServer for testing.
  */
-function fakeSource(id = "github", tools = undefined) {
-  const calls = [];
+function fakeSource(id = "github", tools: any = undefined) {
+  const calls: any[] = [];
   return {
     calls,
     source: {
       id,
       name: id,
+      serverId: id,
+      serverName: id,
       listTools: async () => ({
         tools: tools ?? [
           {
@@ -43,7 +45,7 @@ function fakeSource(id = "github", tools = undefined) {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         return { name, args };
       }
@@ -52,12 +54,14 @@ function fakeSource(id = "github", tools = undefined) {
 }
 
 function fakeExaSource() {
-  const calls = [];
+  const calls: any[] = [];
   return {
     calls,
     source: {
       id: "exa",
       name: "exa",
+      serverId: "exa",
+      serverName: "exa",
       listTools: async () => ({
         tools: [
           {
@@ -73,7 +77,7 @@ function fakeExaSource() {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         return { results: [{ title: "Result 1", url: "https://example.com" }] };
       }
@@ -82,12 +86,14 @@ function fakeExaSource() {
 }
 
 function fakeMcpEnvelopeSource(id = "docs") {
-  const calls = [];
+  const calls: any[] = [];
   return {
     calls,
     source: {
       id,
       name: id,
+      serverId: id,
+      serverName: id,
       listTools: async () => ({
         tools: [
           {
@@ -122,7 +128,7 @@ function fakeMcpEnvelopeSource(id = "docs") {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         if (name === "structured_search") {
           return {
@@ -186,8 +192,9 @@ test("namespace bridging: github.get_issue(args) works without await", { skip: !
   `);
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.issue, { name: "get_issue", args: { issue_number: 42 } });
-  assert.equal(result.value.found, true);
+  const val195 = result.value as any;
+  assert.deepEqual(val195.issue, { name: "get_issue", args: { issue_number: 42 } });
+  assert.equal(val195.found, true);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].name, "get_issue");
 });
@@ -300,8 +307,9 @@ test("multi-source: github.get_issue() vs exa.web_search()", { skip: !hasIsolate
   `);
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.issue, { name: "get_issue", args: { issue_number: 1 } });
-  assert.deepEqual(result.value.search, { results: [{ title: "Result 1", url: "https://example.com" }] });
+  const val308 = result.value as any;
+  assert.deepEqual(val308.issue, { name: "get_issue", args: { issue_number: 1 } });
+  assert.deepEqual(val308.search, { results: [{ title: "Result 1", url: "https://example.com" }] });
   assert.equal(github.calls.length, 1);
   assert.equal(exa.calls.length, 1);
 });
@@ -405,14 +413,15 @@ test("MCP envelopes are normalized to script-friendly values", { skip: !hasIsola
   `);
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.structured, {
+  const val414 = result.value as any;
+  assert.deepEqual(val414.structured, {
     items: [{ title: "Structured result" }]
   });
-  assert.deepEqual(result.value.jsonText, {
+  assert.deepEqual(val414.jsonText, {
     items: [{ title: "JSON text result" }]
   });
-  assert.equal(result.value.plainText, "plain text result");
-  assert.deepEqual(result.value.multipart, {
+  assert.equal(val414.plainText, "plain text result");
+  assert.deepEqual(val414.multipart, {
     content: [
       { type: "text", text: "first" },
       { type: "text", text: "second" }
@@ -434,9 +443,10 @@ test("error envelope: single text content preserves isError", { skip: !hasIsolat
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.isError, true);
-  assert.equal(result.value.content, "resource not found");
+  const val444 = result.value as any;
+  assert.ok(val444 !== null && typeof val444 === "object");
+  assert.equal(val444.isError, true);
+  assert.equal(val444.content, "resource not found");
 });
 
 // -----------------------------------------------------------------------
@@ -452,11 +462,12 @@ test("error envelope: JSON text content is parsed and isError preserved", { skip
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.isError, true);
-  assert.ok(result.value.content !== null && typeof result.value.content === "object");
-  assert.equal(result.value.content.code, 400);
-  assert.equal(result.value.content.error, "invalid input");
+  const val = result.value as any;
+  assert.ok(val !== null && typeof val === "object");
+  assert.equal(val.isError, true);
+  assert.ok(val.content !== null && typeof val.content === "object");
+  assert.equal(val.content.code, 400);
+  assert.equal(val.content.error, "invalid input");
 });
 
 // -----------------------------------------------------------------------

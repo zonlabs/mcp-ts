@@ -35,3 +35,11 @@ skills-lock.json
 .codegraph
 .cursor/
 .next
+
+# Test coverage & runner caches
+coverage/
+*.lcov
+.vitest/
+
+# Local planning & review artifacts
+.superpowers/

@@ -18,6 +18,8 @@ import {
 import { BaseCodeModeRuntime } from "./base-runtime.js";
 export { BaseCodeModeRuntime } from "./base-runtime.js";
 export { QuickJsCodeModeRuntime } from "./quickjs-runtime.js";
+export { ExecutorCodeModeRuntime } from "./executor-runtime.js";
+export type { CodeModeExecutor, ExecutorProvider } from "./executor-runtime.js";
 
 export class IsolatedVmCodeModeRuntime extends BaseCodeModeRuntime {
   async run(
@@ -219,8 +221,24 @@ export class IsolatedVmCodeModeRuntime extends BaseCodeModeRuntime {
 }
 
 export async function createCodeModeRuntime(
-  options: CodeModeRuntimeOptions & { runtime?: 'isolated-vm' | 'quickjs' },
+  options: CodeModeRuntimeOptions & {
+    runtime?: "isolated-vm" | "quickjs" | "executor";
+    executor?: import("./executor-runtime.js").CodeModeExecutor;
+  },
 ): Promise<CodeModeRuntime> {
+  if (options.runtime === "executor") {
+    if (!options.executor) {
+      throw new Error('createCodeModeRuntime({ runtime: "executor" }) requires an executor.');
+    }
+    const { ExecutorCodeModeRuntime } = await import("./executor-runtime.js");
+    const runtime = new ExecutorCodeModeRuntime({
+      ...options,
+      executor: options.executor,
+    });
+    await runtime.searchTools("", 1);
+    return runtime;
+  }
+
   const runtimeType = options.runtime ?? await tryDetectRuntime();
   if (runtimeType === 'quickjs') {
     const { QuickJsCodeModeRuntime } = await import("./quickjs-runtime.js");

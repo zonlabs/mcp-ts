@@ -163,18 +163,25 @@ export function generateNamespaceBridgeCode(
       parts.push(`globalThis.${sanitizedServer} = globalThis.${sanitizedServer} || {};`);
     }
 
-    const callPattern = asyncPattern
-      ? `__callToolRef(${JSON.stringify(tool.serverId)}, ${JSON.stringify(tool.toolName)}, JSON.stringify(args || {}))`
-      : `__callToolRef.applySyncPromise(undefined, [${JSON.stringify(tool.serverId)}, ${JSON.stringify(tool.toolName)}, JSON.stringify(args || {})])`;
-
-    parts.push(`
-      globalThis.${sanitizedServer}.${sanitizedTool} = function(args) {
-        var resultJson = ${callPattern};
+    if (asyncPattern) {
+      parts.push(`
+      globalThis.${sanitizedServer}.${sanitizedTool} = async function(args) {
+        var resultJson = await __callToolRef(${JSON.stringify(tool.serverId)}, ${JSON.stringify(tool.toolName)}, JSON.stringify(args || {}));
         var parsed = JSON.parse(resultJson);
         if (!parsed.success) throw new Error(parsed.error);
         return parsed.result;
       };
     `);
+    } else {
+      parts.push(`
+      globalThis.${sanitizedServer}.${sanitizedTool} = function(args) {
+        var resultJson = __callToolRef.applySyncPromise(undefined, [${JSON.stringify(tool.serverId)}, ${JSON.stringify(tool.toolName)}, JSON.stringify(args || {})]);
+        var parsed = JSON.parse(resultJson);
+        if (!parsed.success) throw new Error(parsed.error);
+        return parsed.result;
+      };
+    `);
+    }
   }
 
   // servers map: also expose via keyed access (servers["id"].tool()) for dynamic lookups
@@ -208,27 +215,27 @@ globalThis.console = {
   info: function(...args) { ${callConsole("info", "__infoRef")} },
 };
 
-globalThis.callTool = function(serverId, toolName, args) {
-  var resultJson = __callToolRef(serverId, toolName, JSON.stringify(args || {}));
+globalThis.callTool = async function(serverId, toolName, args) {
+  var resultJson = await __callToolRef(serverId, toolName, JSON.stringify(args || {}));
   var parsed = JSON.parse(resultJson);
   if (!parsed.success) throw new Error(parsed.error);
   return parsed.result;
 };
 
-globalThis.callToolRaw = function(serverId, toolName, args) {
-  var resultJson = __callToolRawRef(serverId, toolName, JSON.stringify(args || {}));
+globalThis.callToolRaw = async function(serverId, toolName, args) {
+  var resultJson = await __callToolRawRef(serverId, toolName, JSON.stringify(args || {}));
   var parsed = JSON.parse(resultJson);
   if (!parsed.success) throw new Error(parsed.error);
   return parsed.result;
 };
 
-globalThis.searchTools = function(query, limit) {
-  var resultJson = __searchToolsRef(query || "", limit || 10);
+globalThis.searchTools = async function(query, limit) {
+  var resultJson = await __searchToolsRef(query || "", limit || 10);
   return JSON.parse(resultJson);
 };
 
-globalThis.getToolSchema = function(serverId, toolName) {
-  var resultJson = __getToolSchemaRef(serverId, toolName);
+globalThis.getToolSchema = async function(serverId, toolName) {
+  var resultJson = await __getToolSchemaRef(serverId, toolName);
   return JSON.parse(resultJson);
 };
 

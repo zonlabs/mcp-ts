@@ -12,8 +12,8 @@
  *
  * @example
  * ```ts
- * import { ToolRouter } from '@mcp-ts/client/shared';
- * import { AIAdapter } from '@mcp-ts/client/adapters/ai';
+ * import { ToolRouter } from '@mcp-ts/sdk/shared';
+ * import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
  *
  * const router = new ToolRouter(multiSessionClient, {
  *   strategy: 'search',

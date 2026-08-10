@@ -3,7 +3,7 @@
 ## What is this?
 
 mcp-ts is a TypeScript monorepo for building MCP (Model Context Protocol) applications. It provides:
-- `@mcp-ts/client` — core Client SDK with multi-backend session storage, OAuth 2.1, SSE handlers, React/Vue hooks, and agent framework adapters
+- `@mcp-ts/sdk` — core Client SDK with multi-backend session storage, OAuth 2.1, SSE handlers, React/Vue hooks, and agent framework adapters
 - `@mcp-ts/tool-router` — on-demand tool discovery to reduce LLM context bloat
 - `@mcp-ts/codemode` — sandboxed programmatic tool execution
 
@@ -21,7 +21,7 @@ mcp-ts/
   README.md             # public-facing readme (npm-published for Client)
   package.json          # npm workspace root ("workspaces": ["packages/*"])
   packages/
-    client/             # @mcp-ts/client
+    client/             # @mcp-ts/sdk
       src/
         server/
           storage/      # pluggable backends: neon, supabase, sqlite, redis, memory, file
@@ -81,24 +81,24 @@ Both implement the same `SessionStore` interface contract.
 cd mcp-ts && npm install
 
 # Build the Client package
-npm run build -w @mcp-ts/client
+npm run build -w @mcp-ts/sdk
 
 # Watch mode
-npm run dev -w @mcp-ts/client
+npm run dev -w @mcp-ts/sdk
 
 # Run all tests
-npm test -w @mcp-ts/client
+npm test -w @mcp-ts/sdk
 
 # Run specific tests
 npx playwright test tests/storage/neon-backend.test.ts
 
 # Type check
-npm run type-check -w @mcp-ts/client
+npm run type-check -w @mcp-ts/sdk
 ```
 
 ### Post-build sync
 
-After building the Client package, the `postbuild` script auto-syncs `dist/` to `mcp-client/node_modules/@mcp-ts/client` via `resolve-local-pkg.cjs`. Restart the mcp-client dev server to pick up changes.
+After building the Client package, the `postbuild` script auto-syncs `dist/` to `mcp-client/node_modules/@mcp-ts/sdk` via `resolve-local-pkg.cjs`. Restart the mcp-client dev server to pick up changes.
 
 ## Storage Backend Configuration
 
@@ -122,7 +122,7 @@ Test utilities in `tests/test-utils.ts`: `createMockSession()`, `createMockToken
 
 ## CI/CD
 
-`.github/workflows/release.yml` triggers on `packages/client/package.json` version bumps to `main`:
+`.github/workflows/release.yml` triggers on `packages/sdk/package.json` version bumps to `main`:
 - Detects which package.json changed
 - Builds the affected package
 - Publishes to npm with `--provenance`
@@ -131,11 +131,11 @@ Test utilities in `tests/test-utils.ts`: `createMockSession()`, `createMockToken
 
 ## Dependent Repos
 
-- **mcp-client** (Next.js, Vercel): imports `@mcp-ts/client` from npm. Local dev uses the postbuild sync script.
-- **mcp-server** (Hono, Railway): imports `@mcp-ts/client` and `@mcp-ts/codemode` from npm. For local dev, use `npm link`:
+- **mcp-client** (Next.js, Vercel): imports `@mcp-ts/sdk` from npm. Local dev uses the postbuild sync script.
+- **mcp-server** (Hono, Railway): imports `@mcp-ts/sdk` and `@mcp-ts/codemode` from npm. For local dev, use `npm link`:
   ```bash
-  cd mcp-ts/packages/client && npm link
-  cd mcp-server && npm link @mcp-ts/client
+  cd mcp-ts/packages/sdk && npm link
+  cd mcp-server && npm link @mcp-ts/sdk
   ```
 
 ## Naming Conventions

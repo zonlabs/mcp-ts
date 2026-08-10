@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import {
   createToolRouter,
   createToolServer
 } from "../dist/index.js";
 
-function fakeServer(id, tools) {
-  const calls = [];
+function fakeServer(id: string, tools: any[]) {
+  const calls: any[] = [];
   return {
     calls,
     server: createToolServer({
       id,
       name: id,
       listTools: async () => ({ tools }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         return { server: id, name, args };
       }
@@ -49,7 +49,7 @@ test("searches tools without exposing full schemas", async () => {
   assert.equal(results[0].toolId, "github::list_pull_requests");
   assert.equal(results[0].serverId, "github");
   assert.equal(results[0].toolName, "list_pull_requests");
-  assert.equal(results[0].inputSchema, undefined);
+  assert.equal((results[0] as any).inputSchema, undefined);
 });
 
 test("returns schemas and proxies calls to the selected server", async () => {
@@ -130,7 +130,7 @@ test("exposes meta tools for search, schema lookup, and proxy execution", async 
   assert.match(search.content[0].text, /list_pull_requests/);
   assert.match(search.content[0].text, /Server ID: github/);
   assert.match(search.content[0].text, /Server Name: github/);
-  assert.deepEqual(search.structuredContent.results.map((tool) => tool.toolId), [
+  assert.deepEqual((search.structuredContent as any).results.map((tool: any) => tool.toolId), [
     "github::list_pull_requests"
   ]);
 
@@ -141,7 +141,7 @@ test("exposes meta tools for search, schema lookup, and proxy execution", async 
   assert.match(schema.content[0].text, /Parameters/);
   assert.match(schema.content[0].text, /Server ID: github/);
   assert.match(schema.content[0].text, /Server Name: github/);
-  assert.deepEqual(schema.structuredContent.results.map((tool) => tool.toolId), [
+  assert.deepEqual((schema.structuredContent as any).results.map((tool: any) => tool.toolId), [
     "github::list_pull_requests"
   ]);
 
@@ -151,7 +151,7 @@ test("exposes meta tools for search, schema lookup, and proxy execution", async 
   });
   assert.equal(call.isError, false);
   assert.match(call.content[0].text, /open/);
-  assert.deepEqual(call.structuredContent.result, {
+  assert.deepEqual((call.structuredContent as any).result, {
     server: "github",
     name: "list_pull_requests",
     args: { state: "open" }
@@ -191,7 +191,7 @@ test("meta-tool execution is available as an isolated executor", async () => {
   assert.match(result.content[0].text, /github::get_issue/);
   assert.match(result.content[0].text, /Server ID: github/);
   assert.match(result.content[0].text, /Server Name: github/);
-  assert.deepEqual(result.structuredContent.results.map((tool) => tool.toolId), [
+  assert.deepEqual((result.structuredContent as any).results.map((tool: any) => tool.toolId), [
     "github::get_issue"
   ]);
 });
@@ -256,9 +256,9 @@ test("initializes schema lookup when using the async meta-tool path", async () =
 
 test("shares one initialization across concurrent first-use calls", async () => {
   let listCalls = 0;
-  let releaseList;
+  let releaseList: (() => void) | undefined;
   const listed = new Promise((resolve) => {
-    releaseList = resolve;
+    releaseList = resolve as any;
   });
 
   const server = createToolServer({
@@ -271,7 +271,7 @@ test("shares one initialization across concurrent first-use calls", async () => 
         tools: [{ name: "get_issue", description: "Get GitHub issue" }]
       };
     },
-    callTool: async (name, args) => ({ name, args })
+    callTool: async (name: string, args: any) => ({ name, args })
   });
 
   const { ToolRouter } = await import("../dist/index.js");
@@ -280,7 +280,7 @@ test("shares one initialization across concurrent first-use calls", async () => 
   const searchPromise = router.searchTools({ query: "issue" });
   const callPromise = router.callTool({ toolId: "github::get_issue", args: {} });
 
-  releaseList();
+  releaseList!();
 
   const [results, call] = await Promise.all([searchPromise, callPromise]);
   assert.equal(listCalls, 1);
@@ -305,13 +305,13 @@ test("refresh invalidates ai-sdk adapter tool cache", async () => {
       if (phase === 1) {
         return {
           get_issue: {
-            execute: async (args) => ({ tool: "get_issue", args })
+            execute: async (args: any) => ({ tool: "get_issue", args })
           }
         };
       }
       return {
         list_pull_requests: {
-          execute: async (args) => ({ tool: "list_pull_requests", args })
+          execute: async (args: any) => ({ tool: "list_pull_requests", args })
         }
       };
     }
@@ -355,7 +355,7 @@ test("concurrent refresh failures keep the last good catalog usable", async () =
         tools: [{ name: "get_issue", description: "Get GitHub issue" }]
       };
     },
-    callTool: async (name, args) => ({ name, args }),
+    callTool: async (name: string, args: any) => ({ name, args }),
     refresh: async () => {
       refreshCalls += 1;
     }
@@ -385,7 +385,7 @@ test("concurrent refresh failures keep the last good catalog usable", async () =
 
 test("mcpServer supports object-style callTool runtimes", async () => {
   const client = {
-    request(payload) {
+    request(payload: any) {
       return payload;
     },
     async listTools() {
@@ -393,7 +393,7 @@ test("mcpServer supports object-style callTool runtimes", async () => {
         tools: [{ name: "web_search_exa", description: "Search the web" }]
       };
     },
-    async callTool({ name, args }) {
+    async callTool({ name, args }: { name: string; args: any }) {
       return this.request({ name, args });
     }
   };
@@ -758,7 +758,7 @@ test("search meta tool does not expose annotations", async () => {
 
   assert.equal(search.isError, false);
   assert.doesNotMatch(search.content[0].text, /destructiveHint|Delete Repository/);
-  assert.deepEqual(search.structuredContent.results.map((tool) => tool.toolId), ["github::delete_repo"]);
+  assert.deepEqual((search.structuredContent as any).results.map((tool: any) => tool.toolId), ["github::delete_repo"]);
 });
 
 test("schema meta tool does not expose annotations", async () => {
@@ -790,8 +790,8 @@ test("schema meta tool does not expose annotations", async () => {
   assert.match(schema.content[0].text, /Returns/);
   assert.match(schema.content[0].text, /deleted/);
   assert.doesNotMatch(schema.content[0].text, /destructiveHint|Delete Repository/);
-  assert.deepEqual(schema.structuredContent.results.map((tool) => tool.toolId), ["github::delete_repo"]);
-  assert.deepEqual(schema.structuredContent.results[0].outputSchema, {
+  assert.deepEqual((schema.structuredContent as any).results.map((tool: any) => tool.toolId), ["github::delete_repo"]);
+  assert.deepEqual((schema.structuredContent as any).results[0].outputSchema, {
     type: "object",
     properties: {
       deleted: { type: "boolean" }
@@ -813,7 +813,7 @@ test("search and schema meta tools include server id and server name in text res
         }
       ]
     }),
-    callTool: async (name, args) => ({ name, args })
+    callTool: async (name: string, args: any) => ({ name, args })
   });
 
   const router = await createToolRouter({ servers: [server] });
@@ -826,10 +826,10 @@ test("search and schema meta tools include server id and server name in text res
   assert.match(search.content[0].text, /Server Name: GitHub Server/);
   assert.match(schema.content[0].text, /Server ID: github_server/);
   assert.match(schema.content[0].text, /Server Name: GitHub Server/);
-  assert.equal(search.structuredContent.results[0].serverId, "github_server");
-  assert.equal(search.structuredContent.results[0].serverName, "GitHub Server");
-  assert.equal(schema.structuredContent.results[0].serverId, "github_server");
-  assert.equal(schema.structuredContent.results[0].serverName, "GitHub Server");
+  assert.equal((search.structuredContent as any).results[0].serverId, "github_server");
+  assert.equal((search.structuredContent as any).results[0].serverName, "GitHub Server");
+  assert.equal((schema.structuredContent as any).results[0].serverId, "github_server");
+  assert.equal((schema.structuredContent as any).results[0].serverName, "GitHub Server");
 });
 
 test("search results expose canonical tool ids", async () => {

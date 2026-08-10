@@ -14,7 +14,7 @@ Complete guide for integrating mcp-ts with Next.js applications (App Router and 
 Create an API route handler at `app/api/mcp/route.ts`:
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/client/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -43,7 +43,7 @@ Create a component at `components/McpConnections.tsx`:
 ```typescript
 'use client';
 
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 export function McpConnections({ userId }: { userId: string }) {
   const {
@@ -131,8 +131,8 @@ To build agentic workflows that use tools from multiple MCP servers, use `MultiS
 
 ```typescript
 // app/api/chat/route.ts
-import { MultiSessionClient } from '@mcp-ts/client/server';
-import { AIAdapter } from '@mcp-ts/client/adapters/ai';
+import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
@@ -173,7 +173,7 @@ For more details, see the [AI SDK Adapter documentation](/ai-adapters/ai-sdk).
 Create `pages/api/mcp.ts`:
 
 ```typescript
-import { createSSEHandler } from '@mcp-ts/client/server';
+import { createSSEHandler } from '@mcp-ts/sdk/server';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(
@@ -225,7 +225,7 @@ Handle OAuth callbacks at `app/oauth/callback-popup/page.tsx` (for popups) or `a
 
 import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 export default function OAuthCallback() {
   const searchParams = useSearchParams();
@@ -273,7 +273,7 @@ import {
   McpOAuthCallbackFallback,
   useMcp,
   useMcpOAuthPopup,
-} from '@mcp-ts/client/client/react';
+} from '@mcp-ts/sdk/client/react';
 
 function McpPopupBridge() {
   const mcpClient = useMcp({
@@ -346,7 +346,7 @@ Ensure your platform supports:
 Here's a full working example:
 
 ```typescript title="app/api/mcp/route.ts"
-import { createNextMcpHandler } from '@mcp-ts/client/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -363,7 +363,7 @@ export const { GET, POST } = createNextMcpHandler({
 ```typescript title="components/McpClient.tsx"
 'use client';
 
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 import { useState } from 'react';
 
 export function McpClient({ userId }: { userId: string }) {

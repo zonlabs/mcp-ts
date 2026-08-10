@@ -1,4 +1,10 @@
 import type {
+  QuickJSContext,
+  QuickJSHandle,
+  QuickJSWASMModule,
+} from "quickjs-emscripten";
+import { getQuickJS } from "quickjs-emscripten";
+import type {
   CodeModeLogEntry,
   CodeModeResult,
   CodeModeRunOptions,
@@ -14,6 +20,14 @@ import {
   generateNamespaceBridgeCode,
 } from "./sandbox-bridge.js";
 import { BaseCodeModeRuntime } from "./base-runtime.js";
+
+interface ExecState {
+  deadline: number;
+  pendingCancels: Set<() => void>;
+}
+
+/** Grace window for cancellation continuations after a timeout. */
+const CANCEL_GRACE_MS = 100;
 
 export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
   async run(
@@ -33,186 +47,301 @@ export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
     const activeToolCallsRef = { value: 0 };
     const totalToolCallsRef = { value: 0 };
 
-    const { newAsyncContext } = await importQuickJs();
-    const ctx = await newAsyncContext();
-
+    let vm: QuickJSContext | undefined;
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let guestSettled = true;
+    const execState: ExecState = { deadline: Infinity, pendingCancels: new Set<() => void>() };
+
+    const hostCallToolRaw = async (
+      serverId: string,
+      toolName: string,
+      argsJson: string,
+    ): Promise<string> => {
+      const tool = resolveTool(this.indexedTools, toolName, serverId);
+      if (!tool) {
+        return JSON.stringify({ success: true, result: { error: `Tool "${toolName}" was not found on server "${serverId}".`, isError: true } });
+      }
+
+      const server = this.servers.get(tool.serverId);
+      if (!server) {
+        return JSON.stringify({ success: true, result: { error: `Server "${tool.serverId}" is no longer registered.`, isError: true } });
+      }
+
+      try {
+        const result = server.callToolRaw
+          ? await server.callToolRaw(toolName, JSON.parse(argsJson))
+          : await server.callTool(toolName, JSON.parse(argsJson));
+        return JSON.stringify({ success: true, result });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        return JSON.stringify({ success: true, result: { error: errorMsg, isError: true } });
+      }
+    };
+
+    // A timed-out run cancels every outstanding tool call so the guest program
+    // can settle and the VM can be disposed. Disposing a runtime that still
+    // holds an unsettled program promise aborts the shared WASM module.
+    const releaseVm = async () => {
+      if (!vm) return;
+      if (execState.pendingCancels.size > 0) {
+        execState.deadline = Date.now() + CANCEL_GRACE_MS;
+        for (const cancel of [...execState.pendingCancels]) cancel();
+        execState.pendingCancels.clear();
+        await new Promise((r) => setTimeout(r, 0));
+        execState.deadline = Infinity;
+      }
+      if (guestSettled) {
+        vm.dispose();
+      }
+      vm = undefined;
+    };
 
     try {
-      ctx.runtime.setMemoryLimit(limits.memoryLimitMb * 1024 * 1024);
-      const deadline = Date.now() + limits.timeoutMs;
-      ctx.runtime.setInterruptHandler(() => Date.now() >= deadline);
+      const QuickJS = await loadQuickJs();
+      vm = QuickJS.newContext();
+      const v = vm;
 
-      const hostCallTool = async (
-        serverId: string,
-        toolName: string,
-        argsJson: string,
-      ): Promise<string> => {
-        return this.hostCallTool(serverId, toolName, argsJson, toolCalls, activeToolCallsRef, totalToolCallsRef, limits);
+      v.runtime.setMemoryLimit(limits.memoryLimitMb * 1024 * 1024);
+      v.runtime.setMaxStackSize(512 * 1024);
+      v.runtime.setInterruptHandler(() => Date.now() > execState.deadline);
+
+      // Promise bridge instead of newAsyncifiedFunction: repeated asyncify
+      // suspensions corrupt QuickJS refcounts and abort the WASM module
+      // (https://github.com/justjake/quickjs-emscripten/issues/258). The
+      // bridge never suspends the WASM stack, so that bug cannot trigger.
+      const bridgeHostFunction = (
+        name: string,
+        read: (...handles: QuickJSHandle[]) => unknown[],
+        impl: (args: unknown[]) => string | Promise<string>,
+      ): void => {
+        const fn = v.newFunction(name, (...argHandles) => {
+          const promise = v.newPromise();
+          const resolveWithPayload = (payloadJson: string) => {
+            execState.pendingCancels.delete(cancel);
+            if (!v.alive || !promise.alive) return;
+            const payloadHandle = v.newString(payloadJson);
+            promise.resolve(payloadHandle);
+            payloadHandle.dispose();
+          };
+          const cancel = () =>
+            resolveWithPayload(
+              JSON.stringify({ success: false, error: "Execution timed out" }),
+            );
+          execState.pendingCancels.add(cancel);
+
+          let args: unknown[] = [];
+          let readFailed = false;
+          try {
+            args = read(...argHandles);
+          } catch (readError) {
+            readFailed = true;
+            const readMsg = readError instanceof Error ? readError.message : String(readError);
+            resolveWithPayload(JSON.stringify({ success: false, error: readMsg }));
+          }
+          if (!readFailed) {
+            void Promise.resolve()
+              .then(() => impl(args))
+              .then(resolveWithPayload, (error) => {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                resolveWithPayload(JSON.stringify({ success: false, error: errorMsg }));
+              });
+          }
+
+          void promise.settled.then(() => {
+            try {
+              if (v.alive && v.runtime.alive) {
+                const jobs = v.runtime.executePendingJobs();
+                if (jobs.error) {
+                  const dumped = JSON.stringify(v.dump(jobs.error));
+                  this.hostLog("error", [`uncaught error in sandboxed code: ${dumped}`], logs, limits);
+                  jobs.error.dispose();
+                }
+              }
+            } finally {
+              promise.dispose();
+            }
+          });
+
+          return promise.handle;
+        });
+        v.setProp(v.global, name, fn);
+        fn.dispose();
       };
 
-      const hostSearchTools = async (query: string, limit: number): Promise<string> => {
-        return this.hostSearchTools(query, limit);
-      };
-
-      const hostGetToolSchema = async (serverId: string, toolName: string): Promise<string> => {
-        return this.hostGetToolSchema(serverId, toolName);
-      };
-
-      const hostCallToolRaw = async (
-        serverId: string,
-        toolName: string,
-        argsJson: string,
-      ): Promise<string> => {
-        const tool = resolveTool(this.indexedTools, toolName, serverId);
-        if (!tool) {
-          return JSON.stringify({ success: true, result: { error: `Tool "${toolName}" was not found on server "${serverId}".`, isError: true } });
-        }
-
-        const server = this.servers.get(tool.serverId);
-        if (!server) {
-          return JSON.stringify({ success: true, result: { error: `Server "${tool.serverId}" is no longer registered.`, isError: true } });
-        }
-
-        try {
-          const result = server.callToolRaw
-            ? await server.callToolRaw(toolName, JSON.parse(argsJson))
-            : await server.callTool(toolName, JSON.parse(argsJson));
-          return JSON.stringify({ success: true, result });
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          return JSON.stringify({ success: true, result: { error: errorMsg, isError: true } });
-        }
-      };
-
-      const hostLog = (level: CodeModeLogEntry["level"], args: unknown[]) => {
-        this.hostLog(level, args, logs, limits);
-      };
-
-      // Register asyncified host functions
-      const logRef = ctx.newAsyncifiedFunction("__logRef", async (...hostArgs) => {
-        const msgs = hostArgs.map((a) => ctx.getString(a));
-        hostLog("log", msgs);
+      bridgeHostFunction("__logRef", (...handles) => handles.map((h) => v.getString(h)), (msgs) => {
+        this.hostLog("log", msgs, logs, limits);
+        return "";
       });
-      ctx.setProp(ctx.global, "__logRef", logRef);
-
-      const errorRef = ctx.newAsyncifiedFunction("__errorRef", async (...hostArgs) => {
-        const msgs = hostArgs.map((a) => ctx.getString(a));
-        hostLog("error", msgs);
+      bridgeHostFunction("__errorRef", (...handles) => handles.map((h) => v.getString(h)), (msgs) => {
+        this.hostLog("error", msgs, logs, limits);
+        return "";
       });
-      ctx.setProp(ctx.global, "__errorRef", errorRef);
-
-      const warnRef = ctx.newAsyncifiedFunction("__warnRef", async (...hostArgs) => {
-        const msgs = hostArgs.map((a) => ctx.getString(a));
-        hostLog("warn", msgs);
+      bridgeHostFunction("__warnRef", (...handles) => handles.map((h) => v.getString(h)), (msgs) => {
+        this.hostLog("warn", msgs, logs, limits);
+        return "";
       });
-      ctx.setProp(ctx.global, "__warnRef", warnRef);
-
-      const infoRef = ctx.newAsyncifiedFunction("__infoRef", async (...hostArgs) => {
-        const msgs = hostArgs.map((a) => ctx.getString(a));
-        hostLog("info", msgs);
+      bridgeHostFunction("__infoRef", (...handles) => handles.map((h) => v.getString(h)), (msgs) => {
+        this.hostLog("info", msgs, logs, limits);
+        return "";
       });
-      ctx.setProp(ctx.global, "__infoRef", infoRef);
 
-      const callToolRef = ctx.newAsyncifiedFunction("__callToolRef", async (serverId, toolName, argsJson) => {
-        const s = ctx.getString(serverId);
-        const t = ctx.getString(toolName);
-        const a = ctx.getString(argsJson);
-        const result = await hostCallTool(s, t, a);
-        return ctx.newString(result);
-      });
-      ctx.setProp(ctx.global, "__callToolRef", callToolRef);
+      bridgeHostFunction(
+        "__callToolRef",
+        (serverId, toolName, argsJson) => [
+          v.getString(serverId),
+          v.getString(toolName),
+          v.getString(argsJson),
+        ],
+        ([serverId, toolName, argsJson]) =>
+          this.hostCallTool(
+            serverId as string,
+            toolName as string,
+            argsJson as string,
+            toolCalls,
+            activeToolCallsRef,
+            totalToolCallsRef,
+            limits,
+          ),
+      );
 
-      const callToolRawRef = ctx.newAsyncifiedFunction("__callToolRawRef", async (serverId, toolName, argsJson) => {
-        const s = ctx.getString(serverId);
-        const t = ctx.getString(toolName);
-        const a = ctx.getString(argsJson);
-        const result = await hostCallToolRaw(s, t, a);
-        return ctx.newString(result);
-      });
-      ctx.setProp(ctx.global, "__callToolRawRef", callToolRawRef);
+      bridgeHostFunction(
+        "__callToolRawRef",
+        (serverId, toolName, argsJson) => [
+          v.getString(serverId),
+          v.getString(toolName),
+          v.getString(argsJson),
+        ],
+        ([serverId, toolName, argsJson]) =>
+          hostCallToolRaw(serverId as string, toolName as string, argsJson as string),
+      );
 
-      const searchToolsRef = ctx.newAsyncifiedFunction("__searchToolsRef", async (query, limit) => {
-        const q = ctx.getString(query);
-        const l = ctx.getNumber(limit);
-        const result = await hostSearchTools(q, l);
-        return ctx.newString(result);
-      });
-      ctx.setProp(ctx.global, "__searchToolsRef", searchToolsRef);
+      bridgeHostFunction(
+        "__searchToolsRef",
+        (query, limit) => [
+          v.getString(query),
+          limit && v.typeof(limit) !== "undefined" ? v.getNumber(limit) : 10,
+        ],
+        ([query, limit]) => this.hostSearchTools(query as string, limit as number),
+      );
 
-      const getToolSchemaRef = ctx.newAsyncifiedFunction("__getToolSchemaRef", async (serverId, toolName) => {
-        const s = ctx.getString(serverId);
-        const t = ctx.getString(toolName);
-        const result = await hostGetToolSchema(s, t);
-        return ctx.newString(result);
-      });
-      ctx.setProp(ctx.global, "__getToolSchemaRef", getToolSchemaRef);
+      bridgeHostFunction(
+        "__getToolSchemaRef",
+        (serverId, toolName) => [v.getString(serverId), v.getString(toolName)],
+        ([serverId, toolName]) => this.hostGetToolSchema(serverId as string, toolName as string),
+      );
 
-      // Input — serialize to JSON string, parse inside QuickJS
-      const inputHandle = ctx.newString(JSON.stringify(input));
-      ctx.setProp(ctx.global, "__input", inputHandle);
+      const inputHandle = v.newString(JSON.stringify(input));
+      v.setProp(v.global, "__input", inputHandle);
+      inputHandle.dispose();
 
-      // Generate interfaces
       const interfacesString = generateAllInterfaces(this.indexedTools);
-      const interfaceMap = generateInterfaceMap(this.indexedTools);
-      const interfaceMapJson = JSON.stringify(interfaceMap);
+      const interfaceMapJson = JSON.stringify(generateInterfaceMap(this.indexedTools));
 
-      // Bootstrap: console, callTool, searchTools, interfaces
+      execState.deadline = Date.now() + limits.timeoutMs;
+
       const bootstrapCode = generateBootstrapCode(interfacesString, interfaceMapJson, true);
-      const bootstrapResult = await ctx.evalCodeAsync(bootstrapCode);
+      const bootstrapResult = v.evalCode(bootstrapCode);
       if (bootstrapResult.error) {
-        const errMsg = ctx.dump(bootstrapResult.error);
+        const errMsg = v.dump(bootstrapResult.error);
+        bootstrapResult.error.dispose();
         throw new Error(`Bootstrap failed: ${errMsg?.message ?? String(errMsg)}`);
       }
+      bootstrapResult.value?.dispose();
 
-      // Namespace bridging: server.tool(args) functions
       const namespaceBridgeCode = generateNamespaceBridgeCode(this.indexedTools, this.servers, true);
       if (namespaceBridgeCode.trim()) {
-        const nsResult = await ctx.evalCodeAsync(namespaceBridgeCode);
+        const nsResult = v.evalCode(namespaceBridgeCode);
         if (nsResult.error) {
-          const errMsg = ctx.dump(nsResult.error);
+          const errMsg = v.dump(nsResult.error);
+          nsResult.error.dispose();
           throw new Error(`Namespace bridge failed: ${errMsg?.message ?? String(errMsg)}`);
         }
+        nsResult.value?.dispose();
       }
 
-      // Host-side timeout safety net
-      const timeoutPromise = new Promise<never>((_, reject) => {
+      const wrappedCode = `(async function() {
+  try {
+    const __userResult = await (async function() { ${code} })();
+    return JSON.stringify({ __result: __userResult === undefined ? null : __userResult });
+  } catch (__error) { throw __error; }
+})()`;
+
+      execState.deadline = Date.now() + limits.timeoutMs;
+
+      const evalResult = v.evalCode(wrappedCode);
+      if (evalResult.error) {
+        const errMsg = v.dump(evalResult.error);
+        evalResult.error.dispose();
+        throw new Error(errMsg?.message ?? String(errMsg));
+      }
+
+      const promiseHandle = v.unwrapResult(evalResult);
+      const nativePromise = v.resolvePromise(promiseHandle);
+      promiseHandle.dispose();
+
+      guestSettled = false;
+      void nativePromise.then(
+        () => { guestSettled = true; },
+        () => { guestSettled = true; },
+      );
+
+      const jobs = v.runtime.executePendingJobs();
+      if (jobs.error) {
+        const errMsg = v.dump(jobs.error);
+        jobs.error.dispose();
+        throw new Error(errMsg?.message ?? String(errMsg));
+      }
+
+      const deadline = Date.now() + limits.timeoutMs;
+      const settled = await new Promise<Awaited<ReturnType<typeof v.resolvePromise>>>((resolve, reject) => {
+        let timedOut = false;
         timeoutHandle = setTimeout(
-          () => reject(CodemodeError.timeout(`QuickJS execution timeout after ${limits.timeoutMs}ms`)),
-          limits.timeoutMs,
+          () => {
+            timedOut = true;
+            reject(CodemodeError.timeout(`QuickJS execution timeout after ${limits.timeoutMs}ms`));
+          },
+          Math.max(0, deadline - Date.now()),
+        );
+        nativePromise.then(
+          (result) => {
+            if (timedOut) {
+              try {
+                if (result.error) result.error.dispose();
+                else result.value.dispose();
+              } catch {}
+              return;
+            }
+            clearTimeout(timeoutHandle);
+            resolve(result);
+          },
+          (error) => {
+            if (timedOut) return;
+            clearTimeout(timeoutHandle);
+            reject(error);
+          },
         );
       });
-      timeoutPromise.catch(() => {});
 
-      // User code execution — wrap in IIFE only if code starts with `return` (Issue 2)
-      let codeToExecute = code;
-      if (code.trimStart().startsWith("return")) {
-        const codeBody = code.replace(/^\s*return\b\s*/, "");
-        codeToExecute = `(function() { return ${codeBody} })()`;
-      }
-      const userResult = await Promise.race([ctx.evalCodeAsync(codeToExecute), timeoutPromise]);
-      if (userResult.error) {
-        const errHandle = userResult.error;
-        const errMsg = ctx.dump(errHandle);
-        const message = errMsg?.message ?? String(errMsg);
-        const stack = errMsg?.stack;
-        const errorDetail = stack ? `${message}\n${stack}` : message;
-        throw new Error(errorDetail);
-      }
+      const valueHandle = v.unwrapResult(settled);
+      const raw = v.dump(valueHandle);
+      valueHandle.dispose();
 
-      const raw = ctx.dump(userResult.value);
+      const parsed = JSON.parse(raw) as { __result?: unknown };
+      const value = parsed.__result;
 
-      if (estimateJsonBytes(raw) > limits.maxResultBytes) {
+      if (estimateJsonBytes(value) > limits.maxResultBytes) {
         throw CodemodeError.resultTooLarge(`Result too large: maxResultBytes ${limits.maxResultBytes} exceeded.`);
       }
 
+      await releaseVm();
       return {
-        value: raw,
+        value,
         logs,
         toolCalls,
         durationMs: Date.now() - startedAt,
       };
     } catch (error) {
+      await releaseVm();
       return {
         logs,
         toolCalls,
@@ -221,14 +350,13 @@ export class QuickJsCodeModeRuntime extends BaseCodeModeRuntime {
       };
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
-      ctx.dispose();
     }
   }
 }
 
-async function importQuickJs(): Promise<typeof import("quickjs-emscripten")> {
+async function loadQuickJs(): Promise<QuickJSWASMModule> {
   try {
-    return await import("quickjs-emscripten");
+    return await getQuickJS();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(

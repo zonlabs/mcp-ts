@@ -1,4 +1,4 @@
-import { createNextMcpHandler } from '@mcp-ts/client/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

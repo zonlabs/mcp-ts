@@ -9,7 +9,7 @@ on:
     branches:
       - main
     paths:
-      - 'packages/client/package.json'
+      - 'packages/sdk/package.json'
       - 'packages/tool-router/package.json'
       - 'packages/code-mode/package.json'
 
@@ -47,7 +47,7 @@ jobs:
 
           printf '%s\n' "$CHANGED_FILES"
 
-          if printf '%s\n' "$CHANGED_FILES" | grep -Fxq 'packages/client/package.json'; then
+          if printf '%s\n' "$CHANGED_FILES" | grep -Fxq 'packages/sdk/package.json'; then
             echo 'client_changed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'client_changed=false' >> "$GITHUB_OUTPUT"
@@ -69,8 +69,8 @@ jobs:
         id: meta
         shell: bash
         run: |
-          CLIENT_NAME=$(node -p "require('./packages/client/package.json').name")
-          CLIENT_VERSION=$(node -p "require('./packages/client/package.json').version")
+          CLIENT_NAME=$(node -p "require('./packages/sdk/package.json').name")
+          CLIENT_VERSION=$(node -p "require('./packages/sdk/package.json').version")
           TOOL_ROUTER_NAME=$(node -p "require('./packages/tool-router/package.json').name")
           TOOL_ROUTER_VERSION=$(node -p "require('./packages/tool-router/package.json').version")
           CODEMODE_NAME=$(node -p "require('./packages/code-mode/package.json').name")
@@ -133,11 +133,11 @@ jobs:
 
       - name: Build Client package
         if: steps.publish.outputs.client_should_publish == 'true'
-        run: npm run build -w @mcp-ts/client
+        run: npm run build -w @mcp-ts/sdk
 
       - name: Publish Client package to npm
         if: steps.publish.outputs.client_should_publish == 'true'
-        working-directory: packages/client
+        working-directory: packages/sdk
         run: npm publish --ignore-scripts --provenance --access public
 
       - name: Create and push Client git tag

@@ -973,7 +973,7 @@ export class SSEConnectionManager {
  *
  * @example
  * ```ts
- * import { createSSEHandler } from '@mcp-ts/client/server';
+ * import { createSSEHandler } from '@mcp-ts/sdk/server';
  *
  * const handler = createSSEHandler({ userId: 'user-123' });
  * // Mount `handler` on both GET and POST for your HTTP framework.

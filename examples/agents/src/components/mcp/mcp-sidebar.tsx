@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMcpOAuthPopup } from '@mcp-ts/client/client/react';
+import { useMcpOAuthPopup } from '@mcp-ts/sdk/client/react';
 import { useMcpContext } from './mcp-provider';
 import { ConnectForm } from './connect-form';
 import { ConnectionList } from './connection-list';
@@ -40,7 +40,7 @@ export function McpSidebar(_props: McpSidebarProps = {}) {
         serverName: config.serverName,
         serverUrl: config.serverUrl,
         callbackUrl: config.callbackUrl,
-        transportType: config.transportType === 'auto' ? undefined : config.transportType
+        transport: config.transportType === 'auto' ? undefined : { type: config.transportType }
       });
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : 'Failed to connect');

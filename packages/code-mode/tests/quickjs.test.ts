@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 const hasQuickJs = await import("quickjs-emscripten").then(
   () => true,
   () => false
 );
 
-function fakeSource(serverId = "github", tools = undefined) {
-  const calls = [];
+function fakeSource(serverId = "github", tools: any = undefined) {
+  const calls: any[] = [];
   return {
     calls,
     source: {
@@ -40,7 +40,7 @@ function fakeSource(serverId = "github", tools = undefined) {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         return { name, args };
       }
@@ -49,7 +49,7 @@ function fakeSource(serverId = "github", tools = undefined) {
 }
 
 function fakeExaSource() {
-  const calls = [];
+  const calls: any[] = [];
   return {
     calls,
     source: {
@@ -70,7 +70,7 @@ function fakeExaSource() {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         return { results: [{ title: "Result 1", url: "https://example.com" }] };
       }
@@ -79,7 +79,7 @@ function fakeExaSource() {
 }
 
 function fakeMcpEnvelopeSource(serverId = "docs") {
-  const calls = [];
+  const calls: any[] = [];
   return {
     calls,
     source: {
@@ -119,7 +119,7 @@ function fakeMcpEnvelopeSource(serverId = "docs") {
           }
         ]
       }),
-      callTool: async (name, args) => {
+      callTool: async (name: string, args: any) => {
         calls.push({ name, args });
         if (name === "structured_search") {
           return {
@@ -176,20 +176,20 @@ test("basic execution: 1 + 2 returns 3", { skip: !hasQuickJs }, async () => {
   const { source } = fakeSource();
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
-  const result = await runtime.run(`1 + 2`);
+  const result = await runtime.run(`return await 1 + 2;`);
 
   assert.equal(result.error, undefined);
   assert.equal(result.value, 3);
 });
 
-test("namespace bridge: github.get_issue(args) works without await", { skip: !hasQuickJs }, async () => {
+test("namespace bridge: github.get_issue(args) works with await", { skip: !hasQuickJs }, async () => {
   const { createCodeModeRuntime } = await import("../dist/index.js");
   const { calls, source } = fakeSource();
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var issue = github.get_issue({ issue_number: 42 });
-    issue
+    var issue = await github.get_issue({ issue_number: 42 });
+    return issue;
   `);
 
   assert.equal(result.error, undefined);
@@ -198,14 +198,14 @@ test("namespace bridge: github.get_issue(args) works without await", { skip: !ha
   assert.equal(calls[0].name, "get_issue");
 });
 
-test("callTool() escape hatch works without await", { skip: !hasQuickJs }, async () => {
+test("callTool() escape hatch works with await", { skip: !hasQuickJs }, async () => {
   const { createCodeModeRuntime } = await import("../dist/index.js");
   const { calls, source } = fakeSource();
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var issue = callTool("github", "get_issue", { issue_number: 7 });
-    issue
+    var issue = await callTool("github", "get_issue", { issue_number: 7 });
+    return issue;
   `);
 
   assert.equal(result.error, undefined);
@@ -219,7 +219,7 @@ test("input passthrough works", { skip: !hasQuickJs }, async () => {
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    ({ doubled: input.value * 2 })
+    return await ({ doubled: input.value * 2 });
   `, { value: 21 });
 
   assert.equal(result.error, undefined);
@@ -235,7 +235,7 @@ test("console output is captured", { skip: !hasQuickJs }, async () => {
     console.log("hello");
     console.warn("caution");
     console.error("fail");
-    "done"
+    return await "done";
   `);
 
   assert.equal(result.error, undefined);
@@ -252,9 +252,9 @@ test("tool calls are tracked in result", { skip: !hasQuickJs }, async () => {
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    github.get_issue({ issue_number: 1 });
-    github.create_issue({ title: "test" });
-    "done"
+    await github.get_issue({ issue_number: 1 });
+    await github.create_issue({ title: "test" });
+    return await "done";
   `);
 
   assert.equal(result.error, undefined);
@@ -271,8 +271,8 @@ test("searchTools() inside sandbox returns results", { skip: !hasQuickJs }, asyn
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var tools = searchTools("issue");
-    tools.map(t => ({ serverId: t.serverId, toolName: t.toolName }))
+    var tools = await searchTools("issue");
+    return tools.map(t => ({ serverId: t.serverId, toolName: t.toolName }));
   `);
 
   assert.equal(result.error, undefined);
@@ -286,7 +286,7 @@ test("__interfaces contains TypeScript definitions", { skip: !hasQuickJs }, asyn
   const { source } = fakeSource();
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
-  const result = await runtime.run(`__interfaces`);
+  const result = await runtime.run(`return await __interfaces;`);
 
   assert.equal(result.error, undefined);
   assert.ok(typeof result.value === "string");
@@ -301,8 +301,8 @@ test("__getToolInterface() returns specific tool interface", { skip: !hasQuickJs
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var iface = __getToolInterface("github.get_issue");
-    iface
+    var iface = await __getToolInterface("github.get_issue");
+    return iface;
   `);
 
   assert.equal(result.error, undefined);
@@ -317,14 +317,15 @@ test("multi-source: github.get_issue() vs exa.web_search()", { skip: !hasQuickJs
   const runtime = await createCodeModeRuntime({ servers: [github.source, exa.source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var issue = github.get_issue({ issue_number: 1 });
-    var search = exa.web_search({ query: "hello" });
-    ({ issue, search })
+    var issue = await github.get_issue({ issue_number: 1 });
+    var search = await exa.web_search({ query: "hello" });
+    return { issue, search };
   `);
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.issue, { name: "get_issue", args: { issue_number: 1 } });
-  assert.deepEqual(result.value.search, { results: [{ title: "Result 1", url: "https://example.com" }] });
+  const val325 = result.value as any;
+  assert.deepEqual(val325.issue, { name: "get_issue", args: { issue_number: 1 } });
+  assert.deepEqual(val325.search, { results: [{ title: "Result 1", url: "https://example.com" }] });
   assert.equal(github.calls.length, 1);
   assert.equal(exa.calls.length, 1);
 });
@@ -336,15 +337,15 @@ test("error handling: isError tool does not crash sandbox", { skip: !hasQuickJs 
 
   const result = await runtime.run(`
     try {
-      var r = callTool("docs", "error_single_text", { query: "x" });
-      ({ caught: r.isError ? true : false, error: r.isError ? (r.content || "unknown") : String(r) })
+      var r = await callTool("docs", "error_single_text", { query: "x" });
+      return ({ caught: r.isError ? true : false, error: r.isError ? (r.content || "unknown") : String(r) });
     } catch (e) {
-      ({ caught: true, error: String(e) })
+      return ({ caught: true, error: String(e) });
     }
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value.caught, "sandbox should detect the error");
+  assert.ok((result.value as any).caught, "sandbox should detect the error");
   assert.equal(result.toolCalls.length, 1);
   assert.equal(result.toolCalls[0].ok, false);
   assert.equal(result.toolCalls[0].error, "resource not found");
@@ -356,29 +357,30 @@ test("MCP envelopes are normalized to script-friendly values", { skip: !hasQuick
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    ({
-      structured: docs.structured_search({ query: "a" }),
-      jsonText: callTool("docs", "json_text_search", { query: "b" }),
-      plainText: docs.plain_text_search({ query: "c" }),
-      multipart: callTool("docs", "multipart_search", { query: "d" })
-    })
+    return await ({
+      structured: await docs.structured_search({ query: "a" }),
+      jsonText: await callTool("docs", "json_text_search", { query: "b" }),
+      plainText: await docs.plain_text_search({ query: "c" }),
+      multipart: await callTool("docs", "multipart_search", { query: "d" })
+    });
   `);
 
   assert.equal(result.error, undefined);
-  assert.deepEqual(result.value.structured, {
+  const val368 = result.value as any;
+  assert.deepEqual(val368.structured, {
     structuredContent: { items: [{ title: "Structured result" }] },
     content: [{ type: "text", text: JSON.stringify({ ignored: true }) }],
     isError: false
   });
-  assert.deepEqual(result.value.jsonText, {
+  assert.deepEqual(val368.jsonText, {
     content: [{ type: "text", text: JSON.stringify({ items: [{ title: "JSON text result" }] }) }],
     isError: false
   });
-  assert.deepEqual(result.value.plainText, {
+  assert.deepEqual(val368.plainText, {
     content: [{ type: "text", text: "plain text result" }],
     isError: false
   });
-  assert.deepEqual(result.value.multipart, {
+  assert.deepEqual(val368.multipart, {
     content: [
       { type: "text", text: "first" },
       { type: "text", text: "second" }
@@ -393,13 +395,13 @@ test("error envelope: single text content preserves isError", { skip: !hasQuickJ
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var r = callTool("docs", "error_single_text", { query: "x" });
-    r
+    var r = await callTool("docs", "error_single_text", { query: "x" });
+    return r;
   `);
 
   assert.equal(result.error, undefined);
   assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.isError, true);
+  assert.equal((result.value as any).isError, true);
 });
 
 test("error envelope: JSON text content is parsed and isError preserved", { skip: !hasQuickJs }, async () => {
@@ -408,16 +410,17 @@ test("error envelope: JSON text content is parsed and isError preserved", { skip
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var r = callTool("docs", "error_json_text", { query: "x" });
-    r
+    var r = await callTool("docs", "error_json_text", { query: "x" });
+    return r;
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.isError, true);
-  assert.ok(Array.isArray(result.value.content));
-  assert.equal(result.value.content[0].type, "text");
-  assert.equal(result.value.content[0].text, JSON.stringify({ error: "invalid input", code: 400 }));
+  const val = result.value as any;
+  assert.ok(val !== null && typeof val === "object");
+  assert.equal(val.isError, true);
+  assert.ok(Array.isArray(val.content));
+  assert.equal(val.content[0].type, "text");
+  assert.equal(val.content[0].text, JSON.stringify({ error: "invalid input", code: 400 }));
 });
 
 test("error envelope: toolCalls[].ok is false with error message", { skip: !hasQuickJs }, async () => {
@@ -426,8 +429,8 @@ test("error envelope: toolCalls[].ok is false with error message", { skip: !hasQ
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    callTool("docs", "error_single_text", { query: "x" });
-    "done"
+    await callTool("docs", "error_single_text", { query: "x" });
+    return await "done";
   `);
 
   assert.equal(result.error, undefined);
@@ -445,9 +448,9 @@ test("error envelope: successful and failed calls are both tracked", { skip: !ha
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    docs.plain_text_search({ query: "ok" });
-    callTool("docs", "error_single_text", { query: "fail" });
-    "done"
+    await docs.plain_text_search({ query: "ok" });
+    await callTool("docs", "error_single_text", { query: "fail" });
+    return await "done";
   `);
 
   assert.equal(result.error, undefined);
@@ -463,7 +466,7 @@ test("auto-detect runtime when no runtime option specified", { skip: !hasQuickJs
   const { source } = fakeSource();
   const runtime = await createCodeModeRuntime({ servers: [source] });
 
-  const result = await runtime.run(`1 + 2`);
+  const result = await runtime.run(`return await 1 + 2;`);
 
   assert.equal(result.error, undefined);
   assert.equal(result.value, 3);
@@ -475,17 +478,49 @@ test("getToolSchema inside sandbox returns tool definition", { skip: !hasQuickJs
   const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
 
   const result = await runtime.run(`
-    var schema = getToolSchema("github", "get_issue");
-    schema
+    var schema = await getToolSchema("github", "get_issue");
+    return schema;
   `);
 
   assert.equal(result.error, undefined);
-  assert.ok(result.value !== null && typeof result.value === "object");
-  assert.equal(result.value.toolName, "get_issue");
-  assert.equal(result.value.serverId, "github");
-  assert.ok(result.value.inputSchema !== undefined);
-  assert.equal(result.value.inputSchema.type, "object");
-  assert.ok(result.value.inputSchema.properties.issue_number !== undefined);
+  const val = result.value as any;
+  assert.ok(val !== null && typeof val === "object");
+  assert.equal(val.toolName, "get_issue");
+  assert.equal(val.serverId, "github");
+  assert.ok(val.inputSchema !== undefined);
+  assert.equal(val.inputSchema.type, "object");
+  assert.ok(val.inputSchema.properties.issue_number !== undefined);
+});
+
+test("sequential awaited tool calls (issue #258 regression) do not crash the runtime", { skip: !hasQuickJs }, async () => {
+  // #258 regression: sequential awaits on asyncified QuickJS functions crashed the
+  // shared WASM module with "Lifetime not alive"; the promise-bridge runtime must
+  // not trigger that bug, and the module must survive re-use across runs.
+  const { createCodeModeRuntime } = await import("../dist/index.js");
+  const { source } = fakeSource();
+  const runtime = await createCodeModeRuntime({ servers: [source], runtime: QUICKJS_RUNTIME });
+
+  const result = await runtime.run(`
+    var a = await github.get_issue({ issue_number: 1 });
+    var b = await github.create_issue({ title: "sequential" });
+    return { a, b };
+  `);
+
+  assert.equal(result.error, undefined);
+  assert.equal(result.toolCalls.length, 2);
+  assert.equal(result.toolCalls[0].toolName, "get_issue");
+  assert.equal(result.toolCalls[0].ok, true);
+  assert.equal(result.toolCalls[1].toolName, "create_issue");
+  assert.equal(result.toolCalls[1].ok, true);
+  const valResult = result.value as any;
+  assert.equal(valResult.a.args.issue_number, 1);
+  assert.equal(valResult.b.args.title, "sequential");
+
+  const second = await runtime.run(`return await github.get_issue({ issue_number: 3 });`);
+  assert.equal(second.error, undefined);
+  assert.equal(second.toolCalls.length, 1);
+  const secondVal = second.value as any;
+  assert.equal(secondVal.args.issue_number, 3);
 });
 
 test("timeout: infinite loop is interrupted", { skip: !hasQuickJs }, async () => {
@@ -497,8 +532,8 @@ test("timeout: infinite loop is interrupted", { skip: !hasQuickJs }, async () =>
 
   assert.notEqual(result.error, undefined, "Expected an error from infinite loop");
   assert.ok(
-    result.error.message.toLowerCase().includes("timeout") ||
-      result.error.message.toLowerCase().includes("interrupt"),
-    `Expected error message about timeout/interrupt, got: ${result.error.message}`,
+    result.error!.message.toLowerCase().includes("timeout") ||
+      result.error!.message.toLowerCase().includes("interrupt"),
+    `Expected error message about timeout/interrupt, got: ${result.error!.message}`,
   );
 });

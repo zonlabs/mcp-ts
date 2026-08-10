@@ -5,14 +5,14 @@ description: "Integrate mcp-ts with Node.js and Express: mount the MCP handler, 
 icon: "node-js"
 ---
 
-The `@mcp-ts/client/server` package provides handlers for standard Node.js and Express applications.
+The `@mcp-ts/sdk/server` package provides handlers for standard Node.js and Express applications.
 
 ## Server-Side Setup
 
 ### Step 1: Install Dependencies
 
 ```bash
-npm install express @mcp-ts/client
+npm install express @mcp-ts/sdk
 ```
 
 ### Step 2: Create MCP Handler
@@ -21,7 +21,7 @@ Create a file named `mcp-handler.ts`:
 
 ```typescript
 import express from 'express';
-import { createSSEHandler } from '@mcp-ts/client/server';
+import { createSSEHandler } from '@mcp-ts/sdk/server';
 
 const router = express.Router();
 
@@ -70,7 +70,7 @@ You can use the React client in any frontend application that renders React.
 ### Using with React
 
 ```typescript
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 export function McpApp() {
   const { connections, connect, status } = useMcp({

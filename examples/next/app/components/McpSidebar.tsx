@@ -3,7 +3,7 @@
 import { nanoid } from "nanoid";
 import { PanelLeftClose } from "lucide-react";
 import { useState } from "react";
-import { useMcpOAuthPopup, type McpClient } from "@mcp-ts/client/client/react";
+import { useMcpOAuthPopup, type McpClient } from "@mcp-ts/sdk/client/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import ConnectForm from "./dashboard/ConnectForm";
@@ -62,8 +62,8 @@ export default function McpSidebar({ mcpClient, onCollapse }: McpSidebarProps) {
         serverName: config.serverName,
         serverUrl: config.serverUrl,
         callbackUrl: config.callbackUrl,
-        transportType:
-          config.transportType === "auto" ? undefined : config.transportType,
+        transport:
+          config.transportType === "auto" ? undefined : { type: config.transportType },
         clientId: config.clientId,
         clientSecret: config.clientSecret,
       });
@@ -90,8 +90,9 @@ export default function McpSidebar({ mcpClient, onCollapse }: McpSidebarProps) {
         serverName: connection.serverName,
         serverUrl: connection.serverUrl,
         callbackUrl,
-        transportType:
-          connection.transport === "streamable-http" ? "streamable-http" : "sse",
+        transport: {
+          type: connection.transport === "streamable-http" ? "streamable-http" : "sse",
+        },
       });
     } catch (err) {
       console.error("Failed to reconnect:", err);

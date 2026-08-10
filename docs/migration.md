@@ -11,7 +11,7 @@ In previous versions, session and connection management was handled through the 
 
 ### Before (v1.x)
 ```typescript
-import { storage } from '@mcp-ts/client';
+import { storage } from '@mcp-ts/sdk';
 
 // Accessing connections or sessions
 const userSessions = await storage.getSessions(userId);
@@ -19,7 +19,7 @@ const userSessions = await storage.getSessions(userId);
 
 ### After (v2.0.0)
 ```typescript
-import { sessions } from '@mcp-ts/client/server';
+import { sessions } from '@mcp-ts/sdk/server';
 
 // Use the new sessions API methods
 const sessionId = await sessions.generateSessionId();
@@ -39,7 +39,7 @@ The `useMcp` React hook has been updated to use `userId` instead of `identity`, 
 
 ### Before (v1.x)
 ```typescript
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 const { tools } = useMcp({
   identity: "user_123"
@@ -48,7 +48,7 @@ const { tools } = useMcp({
 
 ### After (v2.0.0)
 ```typescript
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 const { tools } = useMcp({
   userId: "user_123"
@@ -61,6 +61,6 @@ If you are using a database-backed storage solution such as **Supabase**, **Neon
 
 You must run the provided database migrations to update your schema. 
 
-Migration scripts are located in the `migrations` directory of the `mcp-ts` repository (`mcp-ts/packages/client/migrations`). Be sure to apply the appropriate migration script for your specific storage backend before deploying v2.0.0 to production.
+Migration scripts are located in the `migrations` directory of the `mcp-ts` repository (`mcp-ts/packages/sdk/migrations`). Be sure to apply the appropriate migration script for your specific storage backend before deploying v2.0.0 to production.
 
 For more detailed information, see the [Storage Backends](/storage-backends/overview) documentation.

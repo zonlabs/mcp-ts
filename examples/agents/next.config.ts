@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: [
     "@copilotkit/runtime",
-    "@mcp-ts/client",
+    "@mcp-ts/sdk",
     "ioredis",
     "@modelcontextprotocol/sdk",
   ],
