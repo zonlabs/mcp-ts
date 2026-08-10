@@ -48,9 +48,9 @@ jobs:
           printf '%s\n' "$CHANGED_FILES"
 
           if printf '%s\n' "$CHANGED_FILES" | grep -Fxq 'packages/sdk/package.json'; then
-            echo 'client_changed=true' >> "$GITHUB_OUTPUT"
+            echo 'sdk_changed=true' >> "$GITHUB_OUTPUT"
           else
-            echo 'client_changed=false' >> "$GITHUB_OUTPUT"
+            echo 'sdk_changed=false' >> "$GITHUB_OUTPUT"
           fi
 
           if printf '%s\n' "$CHANGED_FILES" | grep -Fxq 'packages/tool-router/package.json'; then
@@ -69,16 +69,16 @@ jobs:
         id: meta
         shell: bash
         run: |
-          CLIENT_NAME=$(node -p "require('./packages/sdk/package.json').name")
-          CLIENT_VERSION=$(node -p "require('./packages/sdk/package.json').version")
+          SDK_NAME=$(node -p "require('./packages/sdk/package.json').name")
+          SDK_VERSION=$(node -p "require('./packages/sdk/package.json').version")
           TOOL_ROUTER_NAME=$(node -p "require('./packages/tool-router/package.json').name")
           TOOL_ROUTER_VERSION=$(node -p "require('./packages/tool-router/package.json').version")
           CODEMODE_NAME=$(node -p "require('./packages/code-mode/package.json').name")
           CODEMODE_VERSION=$(node -p "require('./packages/code-mode/package.json').version")
 
-          echo "client_name=$CLIENT_NAME" >> "$GITHUB_OUTPUT"
-          echo "client_version=$CLIENT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "client_tag=client-v$CLIENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sdk_name=$SDK_NAME" >> "$GITHUB_OUTPUT"
+          echo "sdk_version=$SDK_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sdk_tag=sdk-v$SDK_VERSION" >> "$GITHUB_OUTPUT"
 
           echo "tool_router_name=$TOOL_ROUTER_NAME" >> "$GITHUB_OUTPUT"
           echo "tool_router_version=$TOOL_ROUTER_VERSION" >> "$GITHUB_OUTPUT"
@@ -94,15 +94,15 @@ jobs:
         run: |
           git fetch --tags --force
 
-          client_should_publish=false
-          if [ '${{ steps.changed.outputs.client_changed }}' = 'true' ]; then
-            if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.client_tag }}" >/dev/null; then
-              client_should_publish=false
+          sdk_should_publish=false
+          if [ '${{ steps.changed.outputs.sdk_changed }}' = 'true' ]; then
+            if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.sdk_tag }}" >/dev/null; then
+              sdk_should_publish=false
             else
-              client_should_publish=true
+              sdk_should_publish=true
             fi
           fi
-          echo "client_should_publish=$client_should_publish" >> "$GITHUB_OUTPUT"
+          echo "sdk_should_publish=$sdk_should_publish" >> "$GITHUB_OUTPUT"
 
           tool_router_should_publish=false
           if [ '${{ steps.changed.outputs.tool_router_changed }}' = 'true' ]; then
@@ -126,36 +126,36 @@ jobs:
 
       - name: Install root dependencies
         if: |
-          steps.publish.outputs.client_should_publish == 'true' ||
+          steps.publish.outputs.sdk_should_publish == 'true' ||
           steps.publish.outputs.tool_router_should_publish == 'true' ||
           steps.publish.outputs.codemode_should_publish == 'true'
         run: npm ci
 
-      - name: Build Client package
-        if: steps.publish.outputs.client_should_publish == 'true'
+      - name: Build SDK package
+        if: steps.publish.outputs.sdk_should_publish == 'true'
         run: npm run build -w @mcp-ts/sdk
 
-      - name: Publish Client package to npm
-        if: steps.publish.outputs.client_should_publish == 'true'
+      - name: Publish SDK package to npm
+        if: steps.publish.outputs.sdk_should_publish == 'true'
         working-directory: packages/sdk
         run: npm publish --ignore-scripts --provenance --access public
 
-      - name: Create and push Client git tag
-        if: steps.publish.outputs.client_should_publish == 'true'
+      - name: Create and push SDK git tag
+        if: steps.publish.outputs.sdk_should_publish == 'true'
         run: |
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git tag -a "${{ steps.meta.outputs.client_tag }}" -m "Release ${{ steps.meta.outputs.client_tag }}"
-          git push origin "refs/tags/${{ steps.meta.outputs.client_tag }}"
+          git tag -a "${{ steps.meta.outputs.sdk_tag }}" -m "Release ${{ steps.meta.outputs.sdk_tag }}"
+          git push origin "refs/tags/${{ steps.meta.outputs.sdk_tag }}"
 
-      - name: Create Client GitHub Release
-        if: steps.publish.outputs.client_should_publish == 'true'
+      - name: Create SDK GitHub Release
+        if: steps.publish.outputs.sdk_should_publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.client_tag }}
-          name: ${{ steps.meta.outputs.client_tag }}
+          tag_name: ${{ steps.meta.outputs.sdk_tag }}
+          name: ${{ steps.meta.outputs.sdk_tag }}
           generate_release_notes: true
-          body: "Release ${{ steps.meta.outputs.client_name }} ${{ steps.meta.outputs.client_tag }}"
+          body: "Release ${{ steps.meta.outputs.sdk_name }} ${{ steps.meta.outputs.sdk_tag }}"
 
       - name: Build tool-router package
         if: steps.publish.outputs.tool_router_should_publish == 'true'
