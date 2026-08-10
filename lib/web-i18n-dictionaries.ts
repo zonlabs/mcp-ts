@@ -30,7 +30,6 @@ export const en = {
   apps: "Apps",
   home: "Home",
   registry: "Registry",
-  workflows: "Workflows",
   chat: "Chat",
   docs: "Docs",
   help: "Help",

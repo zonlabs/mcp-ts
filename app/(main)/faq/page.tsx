@@ -68,10 +68,10 @@ const faqs = [
             <div className="space-y-2">
                 <p>With MCP Assistant you can:</p>
                 <ul className="list-disc pl-5 space-y-1">
-                    <li>Ã°Å¸â€â€” <strong>Connect instantly</strong> to remote MCP servers via URL</li>
-                    <li>Ã°Å¸â€ºÂ  <strong>Interact with MCP servers</strong> to execute tool calls and retrieve contextual data</li>
-                    <li>Ã°Å¸Â§Âª <strong>Explore and test MCP tools and workflows</strong> directly from your browser</li>
-                    <li>Ã°Å¸â€™Â¡ <strong>Use the AI Playground</strong> to experiment with agents connected to dynamic MCP toolsets</li>
+                    <li>🔗 <strong>Connect instantly</strong> to remote MCP servers via URL</li>
+                    <li>🛠️ <strong>Interact with MCP servers</strong> to execute tool calls and retrieve contextual data</li>
+                    <li>🧪 <strong>Explore and test MCP tools</strong> directly from your browser</li>
+                    <li>💡 <strong>Use the AI Playground</strong> to experiment with agents connected to dynamic MCP toolsets</li>
                 </ul>
             </div>
         ),
@@ -81,7 +81,7 @@ const faqs = [
         question: "How do I connect to an MCP server?",
         answer: (
             <p>
-                You connect using the <strong>MCP serverÃ¢â‚¬â„¢s URL</strong>. Once connected, MCP Assistant will establish communication with the server and make its tools available for interaction. Simply enter the server URL into the relevant connection field.
+                You connect using the <strong>MCP server's URL</strong>. Once connected, MCP Assistant will establish communication with the server and make its tools available for interaction. Simply enter the server URL into the relevant connection field.
             </p>
         ),
     },

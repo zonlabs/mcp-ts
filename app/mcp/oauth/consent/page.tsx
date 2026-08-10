@@ -12,7 +12,7 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function WorkflowOAuthConsentPage({ searchParams }: PageProps) {
+export default async function McpOAuthConsentPage({ searchParams }: PageProps) {
   const resolvedSearchParams = await searchParams;
   const requestError =
     typeof resolvedSearchParams.error === "string" ? resolvedSearchParams.error : undefined;

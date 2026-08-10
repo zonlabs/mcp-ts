@@ -62,7 +62,7 @@ export interface McpUsageHeatmapApp {
   serverIcons?: ServerIcon[] | null;
 }
 
-const ORCHESTRATOR_APP_KEYS = new Set(["mcp_assistant", "workflow_automation_engine"]);
+const ORCHESTRATOR_APP_KEYS = new Set(["mcp_assistant"]);
 
 const KNOWN_APP_NAMES: Record<string, string> = {
   asana: "Asana",
@@ -89,10 +89,6 @@ export function getMcpAppDisplayName(
 
   const displayName = serverName?.trim();
   if (displayName) {
-    const normalizedDisplay = normalizeAppKey(displayName);
-    if (normalizedDisplay === "workflow_automation_engine" || normalizedKey === "workflow_automation_engine") {
-      return "MCP Assistant";
-    }
     return displayName;
   }
 

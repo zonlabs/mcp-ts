@@ -12,7 +12,6 @@ export default function MainLayout({
 }>) {
     const pathname = usePathname();
     const isDashboard = pathname?.startsWith("/mcp") ||
-        pathname?.startsWith("/workflows") ||
         pathname?.startsWith("/gateway");
 
     const sidebarOpen = useMcpStore((state) => state.sidebarOpen);
