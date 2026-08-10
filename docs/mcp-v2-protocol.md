@@ -7,7 +7,7 @@ icon: "plug"
 
 ## What mcp-ts Does
 
-`@mcp-ts/client` uses the MCP SDK v2 split packages, `@modelcontextprotocol/client` and `@modelcontextprotocol/core`.
+`@mcp-ts/sdk` uses the MCP SDK v2 split packages, `@modelcontextprotocol/client` and `@modelcontextprotocol/core`.
 Server-side clients normalize SDK options before constructing the official SDK `Client`:
 
 ```typescript
@@ -39,7 +39,7 @@ serverOptions: {
 ## Configuring SDK v2 Options
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/client/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const { POST } = createNextMcpHandler({
   clientDefaults: {

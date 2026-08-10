@@ -11,7 +11,7 @@ icon: "code"
 import type {
   McpConnectionState,
   McpConnectionEvent,
-} from '@mcp-ts/client/shared';
+} from '@mcp-ts/sdk/shared';
 
 type McpConnectionState =
   | 'DISCONNECTED'
@@ -36,7 +36,7 @@ type McpConnectionEvent =
 ### Tool Types
 
 ```typescript
-import type { ToolInfo } from '@mcp-ts/client/shared';
+import type { ToolInfo } from '@mcp-ts/sdk/shared';
 
 interface ToolInfo {
   name: string;
@@ -83,7 +83,7 @@ Durable session storage keeps v2 metadata under `serverOptions`. `SessionInfo`, 
 ### Tool Policy Types
 
 ```typescript
-import { createToolId, isToolAllowed, filterToolsByPolicy } from '@mcp-ts/client/server';
+import { createToolId, isToolAllowed, filterToolsByPolicy } from '@mcp-ts/sdk/server';
 
 interface ToolPolicy {
   mode: 'all' | 'allowlist' | 'denylist';
@@ -112,7 +112,7 @@ interface ToolPolicy {
 Thrown when OAuth authorization is required.
 
 ```typescript
-import { UnauthorizedError } from '@mcp-ts/client/server';
+import { UnauthorizedError } from '@mcp-ts/sdk/server';
 
 try {
   await client.connect();

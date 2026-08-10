@@ -1,7 +1,7 @@
 "use client";
 
 import { useRenderToolCall, type ActionRenderPropsNoArgs } from "@copilotkit/react-core";
-import { useMcpApps, DEFAULT_MCP_APP_CSP } from "@mcp-ts/client/client/react";
+import { useMcpApps, DEFAULT_MCP_APP_CSP } from "@mcp-ts/sdk/client/react";
 import { useMcpContext } from "./mcp";
 import { MCPToolCall } from "./mcp-tool-call";
 

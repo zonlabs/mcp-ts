@@ -5,7 +5,7 @@ import * as path from 'path';
 /**
  * MCP-TS CLI Utility
  * 
- * Provides helper commands for users of the @mcp-ts/client library.
+ * Provides helper commands for users of the @mcp-ts/sdk library.
  */
 async function run() {
     const args = process.argv.slice(2);
@@ -42,7 +42,7 @@ async function initSupabase() {
     
     if (!fs.existsSync(sourceDir)) {
         console.error(`❌ Error: Could not find migration files in package at: ${sourceDir}`);
-        console.log('Please ensure you are running this from a project where @mcp-ts/client is installed.');
+        console.log('Please ensure you are running this from a project where @mcp-ts/sdk is installed.');
         process.exit(1);
     }
 

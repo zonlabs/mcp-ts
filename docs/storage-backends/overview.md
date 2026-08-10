@@ -70,7 +70,7 @@ import {
   MemoryStorageBackend,
   FileStorageBackend,
   NeonStorageBackend
-} from '@mcp-ts/client/server';
+} from '@mcp-ts/sdk/server';
 import { Redis } from 'ioredis';
 import { neon } from '@neondatabase/serverless';
 

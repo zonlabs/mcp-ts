@@ -1,18 +1,18 @@
-# @mcp-ts/client
+# @mcp-ts/sdk
 
 Core TypeScript SDK for building MCP applications.
 
 ```bash
-npm install @mcp-ts/client
+npm install @mcp-ts/sdk
 ```
 
 ## Entry Points
 
-- `@mcp-ts/client/server`: server-side handlers, `MCPClient`, `MultiSessionClient`, storage exports.
-- `@mcp-ts/client/client`: browser RPC client primitives.
-- `@mcp-ts/client/client/react`: React hooks and MCP Apps helpers.
-- `@mcp-ts/client/client/vue`: Vue composables.
-- `@mcp-ts/client/shared`: shared RPC/event/types utilities.
+- `@mcp-ts/sdk/server`: server-side handlers, `MCPClient`, `MultiSessionClient`, storage exports.
+- `@mcp-ts/sdk/client`: browser RPC client primitives.
+- `@mcp-ts/sdk/client/react`: React hooks and MCP Apps helpers.
+- `@mcp-ts/sdk/client/vue`: Vue composables.
+- `@mcp-ts/sdk/shared`: shared RPC/event/types utilities.
 
 ## MCP SDK v2
 
@@ -20,7 +20,7 @@ The package uses `@modelcontextprotocol/client` and `@modelcontextprotocol/core`
 Server-side clients default SDK protocol negotiation to `{ mode: 'auto' }`, persist Cloudflare-style server options on sessions, and leave SDK capabilities fully caller-owned.
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/client/server';
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const { POST } = createNextMcpHandler({
   clientDefaults: {

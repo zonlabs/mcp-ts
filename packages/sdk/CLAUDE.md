@@ -1,7 +1,7 @@
-# Developer Guide (@mcp-ts/client)
+# Developer Guide (@mcp-ts/sdk)
 
 ## Overview
-`@mcp-ts/client` is a TypeScript SDK for building Model Context Protocol (MCP) applications with support for streamed HTTP RPC, OAuth 2.1, multiple storage backends, MCP Apps, and production-ready integrations.
+`@mcp-ts/sdk` is a TypeScript SDK for building Model Context Protocol (MCP) applications with support for streamed HTTP RPC, OAuth 2.1, multiple storage backends, MCP Apps, and production-ready integrations.
 
 ## Architecture
 
@@ -52,7 +52,7 @@ Each backend implements `init()` for health checks and runtime validation.
 
 
 ### MCP SDK v2 Protocol Support
-- `McpSdkClientOptions` is exported from `@mcp-ts/client/server` as the supported allowlist of official SDK client options.
+- `McpSdkClientOptions` is exported from `@mcp-ts/sdk/server` as the supported allowlist of official SDK client options.
 - `normalizeMcpSdkClientOptions()` defaults `versionNegotiation` to `{ mode: 'auto' }` and does not inject SDK capabilities.
 - Sessions persist Cloudflare-style `serverOptions`: `client`, `transport`, and `discoverResult` in one JSON object.
 - Restored clients pass `connect({ prior })` when protocol metadata is available.
@@ -78,7 +78,7 @@ npm test            # Run Playwright tests
 ### Key Conventions
 - **Imports**: Use explicit `.js` extensions for ESM compatibility when modifying imports.
 - **Exports**: Define exports in both `package.json` and `tsup.config.ts`.
-- **Client imports**: React APIs live under `@mcp-ts/client/client/react`; Vue APIs live under `@mcp-ts/client/client/vue`.
+- **Client imports**: React APIs live under `@mcp-ts/sdk/client/react`; Vue APIs live under `@mcp-ts/sdk/client/vue`.
 - **Testing**: Use `playwright` for e2e and integration tests in `tests/`.
 
 ## Common Tasks

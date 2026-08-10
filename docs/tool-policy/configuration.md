@@ -86,7 +86,7 @@ await sessions.update('user-456', 'sess-123', {
 Use the `ToolPolicyGateway` — it wraps a client and enforces the session's policy before every tool call:
 
 ```typescript
-import { ToolPolicyGateway } from '@mcp-ts/client/server';
+import { ToolPolicyGateway } from '@mcp-ts/sdk/server';
 
 const gateway = new ToolPolicyGateway(client, toolPolicy);
 

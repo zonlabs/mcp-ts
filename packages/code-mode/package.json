@@ -1,6 +1,6 @@
 {
   "name": "@mcp-ts/codemode",
-  "version": "0.3.0-b.0",
+  "version": "0.3.0",
   "publishConfig": {
     "access": "public"
   },

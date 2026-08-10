@@ -1,5 +1,5 @@
 {
-  "name": "@mcp-ts/client",
+  "name": "@mcp-ts/sdk",
   "version": "3.0.0",
   "publishConfig": {
     "access": "public"

@@ -87,7 +87,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 
 | Package | Description | Install |
 | :--- | :--- | :--- |
-| **[@mcp-ts/client](packages/client)** | Core TypeScript/JavaScript SDK for client applications. | `npm i @mcp-ts/client` |
+| **[@mcp-ts/sdk](packages/sdk)** | Core TypeScript/JavaScript SDK for client applications. | `npm i @mcp-ts/sdk` |
 | **[@mcp-ts/tool-router](packages/tool-router)** | ToolRouter for dynamic tool discovery across many MCP servers. | `npm i @mcp-ts/tool-router` |
 | **[@mcp-ts/codemode](packages/code-mode)** | CodeMode: sandboxed program execution for tool calling. | `npm i @mcp-ts/codemode` |
 | **[mcpassistant-gateway](packages/local-gateway)** | Python bridge for local MCP support in remote apps. | `pip install mcpassistant-gateway` |
@@ -569,7 +569,7 @@ For more details, refer to the documentation and follow the **installation guide
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](packages/client/CONTRIBUTING.md) for guidelines on how to contribute.
+Contributions are welcome! Please read [CONTRIBUTING.md](packages/sdk/CONTRIBUTING.md) for guidelines on how to contribute.
 
 
 <br />

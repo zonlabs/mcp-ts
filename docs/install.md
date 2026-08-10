@@ -1,7 +1,7 @@
 ---
 title: "Installation"
 sidebarTitle: "Installation"
-description: "Install the @mcp-ts/client package with npm, yarn, or pnpm and configure a storage backend (Redis, file system, SQLite, Supabase, Neon, or memory) for MCP sessions."
+description: "Install the @mcp-ts/sdk package with npm, yarn, or pnpm and configure a storage backend (Redis, file system, SQLite, Supabase, Neon, or memory) for MCP sessions."
 icon: "download"
 ---
 
@@ -23,7 +23,7 @@ Before installing, ensure you have:
 Choose your preferred package manager:
 
 ```bash npm2yarn
-npm install @mcp-ts/client
+npm install @mcp-ts/sdk
 ```
 
 ## Configure Storage Backend
@@ -108,7 +108,7 @@ Test your setup with a simple script:
 
 ```typescript
 // test-mcp.ts
-import { sessions } from '@mcp-ts/client/server';
+import { sessions } from '@mcp-ts/sdk/server';
 
 async function test() {
   const sessionId = await sessions.generateSessionId();

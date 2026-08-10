@@ -10,7 +10,7 @@ The `useMcp` hook provides a simple way to manage MCP connections in React appli
 ## Basic Usage
 
 ```typescript
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 function MyComponent() {
   const { connections, connect, disconnect, status } = useMcp({
@@ -345,7 +345,7 @@ import {
   McpOAuthCallbackFallback,
   useMcp,
   useMcpOAuthPopup,
-} from '@mcp-ts/client/client/react';
+} from '@mcp-ts/sdk/client/react';
 
 function App() {
   const handleOAuthRedirect = useMemo(
@@ -406,7 +406,7 @@ Use this when you want branded popup visuals without rebuilding the
 
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useMcp } from '@mcp-ts/client/client/react';
+import { useMcp } from '@mcp-ts/sdk/client/react';
 
 export default function OAuthCallbackPage() {
   const searchParams = useSearchParams();
@@ -438,7 +438,7 @@ import type {
   McpConnectionState,
   McpConnectionEvent,
   ToolInfo,
-} from '@mcp-ts/client/shared';
+} from '@mcp-ts/sdk/shared';
 ```
 
 ## Next Steps

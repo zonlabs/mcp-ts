@@ -12,7 +12,7 @@
     "@ai-sdk/deepseek": "^2.0.29",
     "@ai-sdk/mcp": "^1.0.42",
     "@ai-sdk/react": "^3.0.170",
-    "@mcp-ts/sdk": "file:../..",
+    "@mcp-ts/sdk": "file:../../packages/sdk",
     "@mcp-ts/tool-router": "file:../../packages/tool-router",
     "@mcp-ts/codemode": "file:../../packages/codemode",
     "isolated-vm": "^6.1.2",

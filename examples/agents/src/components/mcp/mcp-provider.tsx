@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo } from 'react';
-import { createOAuthPopupRedirectHandler, useMcp, type McpClient } from '@mcp-ts/client/client/react';
+import { createOAuthPopupRedirectHandler, useMcp, type McpClient } from '@mcp-ts/sdk/client/react';
 
 interface McpContextValue {
     mcpClient: McpClient;

@@ -15,7 +15,7 @@ Redis provides distributed, persistent storage with automatic expiration managem
 ## Installation
 
 ```bash
-npm install @mcp-ts/client ioredis
+npm install @mcp-ts/sdk ioredis
 ```
 
 ## Configuration
@@ -45,7 +45,7 @@ REDIS_URL=rediss://default:password@host.upstash.io:6379
 When `REDIS_URL` is present in your environment, the global `sessions` proxy automatically uses the Redis backend.
 
 ```typescript
-import { sessions } from '@mcp-ts/client/server';
+import { sessions } from '@mcp-ts/sdk/server';
 
 // This will use Redis automatically if env vars are set
 const sessionId = await sessions.generateSessionId();
@@ -67,7 +67,7 @@ If you want to manage the Redis client yourself or use multiple storage backends
 
 ```typescript
 import Redis from 'ioredis';
-import { RedisStorageBackend } from '@mcp-ts/client/server';
+import { RedisStorageBackend } from '@mcp-ts/sdk/server';
 
 const redis = new Redis(process.env.REDIS_URL!);
 const redisBackend = new RedisStorageBackend(redis);
