@@ -1,0 +1,12 @@
+node_modules
+dist
+workflow-mcp-web
+.git
+.github
+coverage
+.vscode
+*.log
+.env
+.env.*
+!.env.example
+**/.DS_Store

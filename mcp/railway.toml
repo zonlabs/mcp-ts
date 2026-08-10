@@ -1,0 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+startCommand = "npm run mcp-server:prod"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 120

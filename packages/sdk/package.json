@@ -77,7 +77,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "postbuild": "node -e \"var fs=require('fs'),cp=require('child_process');['../../../mcp-client/scripts/resolve-local-pkg.cjs','../../../mcp-server/scripts/resolve-local-pkg.cjs'].forEach(function(f){fs.existsSync(f)&&cp.execSync('node '+f,{cwd:__dirname,stdio:'inherit'})})\"",
+    "postbuild": "node -e \"var fs=require('fs'),cp=require('child_process');['../../../mcp-client/scripts/resolve-local-pkg.cjs'].forEach(function(f){fs.existsSync(f)&&cp.execSync('node '+f,{cwd:__dirname,stdio:'inherit'})})\"",
     "dev": "tsup --watch",
     "type-check": "tsc --noEmit",
     "clean": "rimraf dist",

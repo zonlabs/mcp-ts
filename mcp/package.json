@@ -1,0 +1,45 @@
+{
+  "name": "@mcp-ts/mcp",
+  "version": "1.0.4",
+  "type": "module",
+  "description": "MCP server with Supabase integration",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cloudflare/codemode": "^0.5.1",
+    "@hono/node-server": "^2.0.5",
+    "@hono/zod-validator": "^0.8.0",
+    "@mcp-ts/sdk": "^3.0.2",
+    "@mcp-ts/codemode": "^0.3.0",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "agents": "^0.20.1",
+    "dotenv": "^16.3.1",
+    "hono": "^4.12.25",
+    "quickjs-emscripten": "^0.31.0",
+    "redis": "^4.6.11",
+    "supermemory": "^4.24.12",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2",
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.2",
+    "wrangler": "^4.113.0"
+  }
+}

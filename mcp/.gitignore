@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+coverage/
+build/
+.vercel
+.env*.local
+.codegraph
+.wrangler
+.dev.vars

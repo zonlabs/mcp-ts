@@ -2,9 +2,7 @@
   "name": "mcp-ts-workspace",
   "private": true,
   "workspaces": [
-    "packages/*"
-  ],
-  "dependencies": {
-    "quickjs-emscripten": "^0.31.0"
-  }
+    "packages/*",
+    "mcp"
+  ]
 }

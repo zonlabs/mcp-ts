@@ -1,0 +1,10 @@
+services:
+  mcp-server:
+    build: .
+    ports:
+      - "3002:3002"
+    env_file:
+      - .env
+    environment:
+      WORKFLOW_MCP_PORT: 3002
+      NODE_ENV: development
