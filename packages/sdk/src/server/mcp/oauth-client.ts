@@ -1,4 +1,4 @@
-import { CallToolResultSchema, GetPromptResultSchema, ReadResourceResultSchema } from "@modelcontextprotocol/core";
+import { GetPromptResultSchema, ReadResourceResultSchema } from "@modelcontextprotocol/core";
 import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
 import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
@@ -878,7 +878,7 @@ export class MCPClient {
 
     try {
       const result = await this.withRetry(() =>
-        this.client!.request(request, CallToolResultSchema)
+        this.client!.callTool(request.params)
       );
 
       this._onObservabilityEvent.fire({
