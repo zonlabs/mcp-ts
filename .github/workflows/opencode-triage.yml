@@ -39,7 +39,6 @@ jobs:
       - uses: anomalyco/opencode/github@latest
         if: steps.check.outputs.result == 'true'
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
           model: opencode/deepseek-v4-flash-free

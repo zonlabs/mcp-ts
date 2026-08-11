@@ -44,7 +44,9 @@ Go to **Repo → Settings → Secrets and variables → Actions**, add:
 |---|---|
 | `ZMA_APP_ID` | The app ID copied in Step 1.6 |
 | `ZMA_PRIVATE_KEY` | The **entire contents** of the `.pem` file (including `-----BEGIN RSA PRIVATE KEY-----` … `-----END RSA PRIVATE KEY-----`) |
-| `OPENCODE_API_KEY` | A free OpenCode Zen API key (from opencode.ai/auth) for the free `opencode/deepseek-v4-flash-free` model |
+
+> No API key is required: the free `opencode/deepseek-v4-flash-free` model runs
+> without authentication, so no `OPENCODE_API_KEY` secret is needed.
 
 > `ZMA_PRIVATE_KEY` is multiline — paste the full PEM. A common failure is a
 > truncated key that omits the trailing newline.
