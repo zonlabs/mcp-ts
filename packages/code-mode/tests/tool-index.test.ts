@@ -41,3 +41,25 @@ test("indexServers still throws on duplicate server ids", async () => {
 
   await assert.rejects(() => indexServers([a, b]), /Duplicate tool server id "github"/);
 });
+
+test("indexServers calls listTools on all servers concurrently", async () => {
+  let started = 0;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const make = (serverId: string, name: string): ToolServer =>
+    server(serverId, async () => {
+      started += 1;
+      if (started === 2) release();
+      await gate;
+      return { tools: [{ name }] };
+    });
+
+  const indexed = await indexServers([make("a", "do_a"), make("b", "do_b")], {
+    listToolsTimeoutMs: 500,
+  });
+
+  assert.equal(started, 2);
+  assert.equal(indexed.length, 2);
+});

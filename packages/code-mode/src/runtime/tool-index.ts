@@ -43,35 +43,46 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
  * Resolves tools from each server and flattens into a single list.
  * Each server's `listTools` is isolated: a per-server timeout and a failure
  * only skip that server (with a warning) instead of failing the entire index.
+ * All `listTools` calls run concurrently via `Promise.allSettled`, so the whole
+ * index is bounded by the slowest server rather than the sum of all servers.
  */
 export async function indexServers(
   servers: ToolServer[],
   options: { listToolsTimeoutMs?: number } = {},
 ): Promise<IndexedTool[]> {
-  const indexed: IndexedTool[] = [];
-  const seenServerIds = new Set<string>();
   const listToolsTimeoutMs = options.listToolsTimeoutMs ?? DEFAULT_LIST_TOOLS_TIMEOUT_MS;
 
+  const entries: Array<{ serverId: string; server: ToolServer }> = [];
+  const seenServerIds = new Set<string>();
   for (const server of servers) {
     const serverId = normalizeServerId(server.serverId);
     if (seenServerIds.has(serverId)) {
       throw new Error(`Duplicate tool server id "${serverId}".`);
     }
     seenServerIds.add(serverId);
+    entries.push({ serverId, server });
+  }
 
-    let listed: { tools: ToolDefinition[] };
-    try {
-      listed = await withTimeout(server.listTools(), listToolsTimeoutMs, server.serverId);
-    } catch (error) {
+  const results = await Promise.allSettled(
+    entries.map(({ server, serverId }) =>
+      withTimeout(server.listTools(), listToolsTimeoutMs, server.serverId),
+    ),
+  );
+
+  const indexed: IndexedTool[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    const { serverId, server } = entries[i];
+    const result = results[i];
+    if (result.status === "rejected") {
       console.warn(
         `[code-mode] Skipping server "${server.serverId}": failed to list tools: ${
-          error instanceof Error ? error.message : String(error)
+          result.reason instanceof Error ? result.reason.message : String(result.reason)
         }`,
       );
       continue;
     }
 
-    for (const tool of listed.tools) {
+    for (const tool of result.value.tools) {
       indexed.push({
         serverId,
         serverName: server.serverName ?? serverId,
