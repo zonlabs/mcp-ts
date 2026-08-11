@@ -32,6 +32,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Configure git identity
+        run: |
+          git config user.name "zma-ai[bot]"
+          git config user.email "zma-ai[bot]@users.noreply.github.com"
+
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
         env:

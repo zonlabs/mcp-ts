@@ -36,6 +36,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Configure git identity
+        if: steps.check.outputs.result == 'true'
+        run: |
+          git config user.name "zma-ai[bot]"
+          git config user.email "zma-ai[bot]@users.noreply.github.com"
+
       - uses: anomalyco/opencode/github@latest
         if: steps.check.outputs.result == 'true'
         env:
