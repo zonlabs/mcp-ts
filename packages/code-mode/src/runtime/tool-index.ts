@@ -1,4 +1,4 @@
-import type { IndexedTool, ToolSearchResult, ToolServer } from "../types.js";
+import type { IndexedTool, ToolDefinition, ToolSearchResult, ToolServer } from "../types.js";
 
 /**
  * Normalizes a server ID to a safe, lowercase identifier.
@@ -11,12 +11,46 @@ export function normalizeServerId(value: string): string {
 }
 
 /**
+ * Default per-server timeout for `listTools` during indexing.
+ * Prevents a single slow or unreachable server from blocking the whole index.
+ */
+export const DEFAULT_LIST_TOOLS_TIMEOUT_MS = 15_000;
+
+/**
+ * Races a promise against a timeout so a hung call cannot block the caller.
+ * The underlying promise is not cancelled; it is simply no longer awaited.
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out after ${timeoutMs}ms listing tools for server "${label}".`));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
  * Indexes all tools from the given servers.
  * Resolves tools from each server and flattens into a single list.
+ * Each server's `listTools` is isolated: a per-server timeout and a failure
+ * only skip that server (with a warning) instead of failing the entire index.
  */
-export async function indexServers(servers: ToolServer[]): Promise<IndexedTool[]> {
+export async function indexServers(
+  servers: ToolServer[],
+  options: { listToolsTimeoutMs?: number } = {},
+): Promise<IndexedTool[]> {
   const indexed: IndexedTool[] = [];
   const seenServerIds = new Set<string>();
+  const listToolsTimeoutMs = options.listToolsTimeoutMs ?? DEFAULT_LIST_TOOLS_TIMEOUT_MS;
 
   for (const server of servers) {
     const serverId = normalizeServerId(server.serverId);
@@ -25,7 +59,18 @@ export async function indexServers(servers: ToolServer[]): Promise<IndexedTool[]
     }
     seenServerIds.add(serverId);
 
-    const listed = await server.listTools();
+    let listed: { tools: ToolDefinition[] };
+    try {
+      listed = await withTimeout(server.listTools(), listToolsTimeoutMs, server.serverId);
+    } catch (error) {
+      console.warn(
+        `[code-mode] Skipping server "${server.serverId}": failed to list tools: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      continue;
+    }
+
     for (const tool of listed.tools) {
       indexed.push({
         serverId,
