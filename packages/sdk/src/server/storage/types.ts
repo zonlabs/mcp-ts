@@ -25,6 +25,8 @@ export type StoredMcpTransportType = 'sse' | 'streamable-http';
 export interface StoredMcpTransportOptions {
     type?: StoredMcpTransportType;
     protocolVersion?: string;
+    /** Downstream server-assigned `mcp-session-id`, preserved to resume stateful sessions on restore. */
+    sessionId?: string;
 }
 
 export type StoredMcpSdkClientOptions = Pick<

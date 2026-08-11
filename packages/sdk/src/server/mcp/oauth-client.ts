@@ -1,4 +1,4 @@
-import { GetPromptResultSchema, ReadResourceResultSchema } from "@modelcontextprotocol/core";
+import { GetPromptResultSchema, ReadResourceResultSchema, ListToolsResultSchema, ListPromptsResultSchema, ListResourcesResultSchema, ListResourceTemplatesResultSchema } from "@modelcontextprotocol/core";
 import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
 import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
@@ -198,10 +198,15 @@ export class MCPClient {
   }
 
   private captureConnectionMetadata(): void {
-    this._serverInfo = this.client.getServerVersion();
-    this._negotiatedProtocolVersion = this.client.getNegotiatedProtocolVersion();
-    this._protocolEra = this.client.getProtocolEra();
-    this._discoverResult = this.client.getDiscoverResult();
+    // On a resumed session (preserved transport.sessionId) the SDK client
+    // attaches without initialize/discover, so the getters below are
+    // undefined — fall back to the persisted negotiation metadata.
+    this._serverInfo = this.client.getServerVersion() ?? this._serverInfo;
+    this._negotiatedProtocolVersion =
+      this.client.getNegotiatedProtocolVersion() ?? this.config.transport?.protocolVersion ?? this._negotiatedProtocolVersion;
+    this._protocolEra = this.client.getProtocolEra() ?? this._protocolEra;
+    this._discoverResult =
+      this.client.getDiscoverResult() ?? this.config.discoverResult ?? this._discoverResult;
   }
 
   private getConfiguredTransportType(): TransportType {
@@ -215,9 +220,51 @@ export class MCPClient {
         ...(this.config.transport ?? {}),
         type: this.getConfiguredTransportType(),
         protocolVersion: this._negotiatedProtocolVersion ?? this.config.transport?.protocolVersion,
+        sessionId: this.captureSessionId() ?? this.config.transport?.sessionId,
       },
       discoverResult: this._discoverResult ?? this.config.discoverResult ?? undefined,
     };
+  }
+
+  /**
+   * Reads the live transport's downstream `mcp-session-id`, if any.
+   * Only Streamable HTTP sessions carry a server-assigned session id.
+   * @private
+   */
+  private captureSessionId(): string | undefined {
+    return this.transport instanceof StreamableHTTPClientTransport
+      ? this.transport.sessionId
+      : undefined;
+  }
+
+  /**
+   * Returns restored transport options that let a fresh transport resume a
+   * previously-negotiated downstream session instead of re-running initialize.
+   *
+   * Only applied when the negotiated protocol version is known, and (mirroring
+   * the Cloudflare Agents SDK) the session id is dropped for stateless
+   * (2026-07-28) sessions that lack a persisted discover result — such sessions
+   * are resumed via `prior` rather than the raw session id.
+   * @private
+   */
+  private getResumedSessionOptions(): { sessionId?: string; protocolVersion?: string } {
+    const stored = this.config.transport ?? {};
+    // sessionId is only meaningful for Streamable HTTP transports (SSE
+    // sessions have no server-assigned session id). The stored transport type
+    // is derived at save time, so default to the configured/current type.
+    const transportType = this.getConfiguredTransportType();
+    if (transportType !== 'streamable-http') return {};
+
+    const sessionId = stored.sessionId;
+    const protocolVersion = stored.protocolVersion;
+    if (!sessionId || !protocolVersion) return {};
+    // The stateless (2026-07-28) era does not keep server-side session state;
+    // resuming via the raw session id is unnecessary (and Cloudflare drops it)
+    // when the modern `prior`/discover path is unavailable.
+    if (protocolVersion === '2026-07-28' && !this.getConnectOptions()) {
+      return {};
+    }
+    return { sessionId, protocolVersion };
   }
   private getConnectOptions(): { prior: { kind: 'modern'; discover: DiscoverResult } } | undefined {
     const discoverResult = this.config.discoverResult ?? this.config.serverOptions?.discoverResult;
@@ -347,6 +394,7 @@ export class MCPClient {
     const transportOptions: Record<string, any> = {
       ...(!hasAuthorizationHeader && { authProvider: this.oauthProvider }),
       ...(this.config.headers && { requestInit: { headers: this.config.headers } }),
+      ...this.getResumedSessionOptions(),
       /**
        * Custom fetch implementation to handle connection timeouts.
        * Observation: SDK 1.24.0+ connections may hang indefinitely in some environments.
@@ -779,11 +827,23 @@ export class MCPClient {
       return this.cachedTools;
     }
 
+    // When a session is resumed from a preserved transport.sessionId, the SDK
+    // client attaches the protocol layer without running initialize/discover,
+    // so getServerCapabilities() is undefined and client.listTools() would
+    // short-circuit to an empty list. Probe with a raw request instead.
+    const probe = !this.client.getServerCapabilities();
+
     let toolsAgg: Tool[] = [];
     let toolsResult: ListToolsResult = { tools: [] };
     do {
       toolsResult = await this.withRetry(() =>
-        this.client!.listTools({ cursor: toolsResult.nextCursor }).catch(
+        (probe
+          ? this.client!.request(
+              { method: 'tools/list', params: { cursor: toolsResult.nextCursor } },
+              ListToolsResultSchema
+            )
+          : this.client!.listTools({ cursor: toolsResult.nextCursor })
+        ).catch(
           this._capabilityErrorHandler({ tools: [] }, 'tools/list')
         )
       );
@@ -795,11 +855,18 @@ export class MCPClient {
   }
 
   async fetchPrompts(): Promise<Prompt[]> {
+    const probe = !this.client.getServerCapabilities();
     let promptsAgg: Prompt[] = [];
     let promptsResult: ListPromptsResult = { prompts: [] };
     do {
       promptsResult = await this.withRetry(() =>
-        this.client!.listPrompts({ cursor: promptsResult.nextCursor }).catch(
+        (probe
+          ? this.client!.request(
+              { method: 'prompts/list', params: { cursor: promptsResult.nextCursor } },
+              ListPromptsResultSchema
+            )
+          : this.client!.listPrompts({ cursor: promptsResult.nextCursor })
+        ).catch(
           this._capabilityErrorHandler({ prompts: [] }, 'prompts/list')
         )
       );
@@ -809,11 +876,18 @@ export class MCPClient {
   }
 
   async fetchResources(): Promise<Resource[]> {
+    const probe = !this.client.getServerCapabilities();
     let resourcesAgg: Resource[] = [];
     let resourcesResult: ListResourcesResult = { resources: [] };
     do {
       resourcesResult = await this.withRetry(() =>
-        this.client!.listResources({ cursor: resourcesResult.nextCursor }).catch(
+        (probe
+          ? this.client!.request(
+              { method: 'resources/list', params: { cursor: resourcesResult.nextCursor } },
+              ListResourcesResultSchema
+            )
+          : this.client!.listResources({ cursor: resourcesResult.nextCursor })
+        ).catch(
           this._capabilityErrorHandler({ resources: [] }, 'resources/list')
         )
       );
@@ -823,13 +897,20 @@ export class MCPClient {
   }
 
   async fetchResourceTemplates(): Promise<ResourceTemplateType[]> {
+    const probe = !this.client.getServerCapabilities();
     let templatesAgg: ResourceTemplateType[] = [];
     let templatesResult: ListResourceTemplatesResult = {
       resourceTemplates: [],
     };
     do {
       templatesResult = await this.withRetry(() =>
-        this.client!.listResourceTemplates({ cursor: templatesResult.nextCursor }).catch(
+        (probe
+          ? this.client!.request(
+              { method: 'resources/templates/list', params: { cursor: templatesResult.nextCursor } },
+              ListResourceTemplatesResultSchema
+            )
+          : this.client!.listResourceTemplates({ cursor: templatesResult.nextCursor })
+        ).catch(
           this._capabilityErrorHandler({ resourceTemplates: [] }, 'resources/templates/list')
         )
       );
@@ -1086,6 +1167,15 @@ export class MCPClient {
       return await fn();
     } catch (error) {
       if (!(error instanceof Error && error.message.includes('MCP_SESSION_EXPIRED'))) throw error;
+      // The downstream server no longer recognizes the resumed session id.
+      // Drop it so the reconnect negotiates a fresh session instead of
+      // replaying the stale id (mirrors the Cloudflare Agents SDK's
+      // clearResumedSession behavior). Copy-on-write so we don't mutate the
+      // caller/store-held Session's serverOptions object in place.
+      if (this.config.transport?.sessionId) {
+        this.config.transport = { ...this.config.transport };
+        delete this.config.transport.sessionId;
+      }
       if (this.client.transport) {
         try { await this.client.close(); } catch {}
         this.transport = null;
