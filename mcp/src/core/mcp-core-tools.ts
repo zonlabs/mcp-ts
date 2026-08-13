@@ -7,6 +7,12 @@ import { createWorkflowCodeModeRuntime } from "./codemode-runtime";
 import { getRequestContext } from "./request-context";
 import { asJsonObject, errorResponse, jsonResponse } from "./tool-result";
 import { recordSelectedDownstreamToolSchemaInspection } from "./instrumentation";
+import {
+  buildDeviceToolServers,
+  listDeviceServers,
+  resolveDeviceToolSchema,
+  searchDeviceTools,
+} from "./device-tools";
 
 const MCP_RESULT_EXTRACTION_HINT =
   "In CodeMode, `callTool(serverId, toolName, args)` and namespaced helpers return normalized tool results. Structured MCP payloads are unwrapped automatically; use raw helpers only when you explicitly need the MCP envelope.";
@@ -171,7 +177,7 @@ export function registerMcpCoreTools(server: McpServer): void {
     async () => {
       try {
         const userId = getRequestContext().userId!;
-        const servers = await withToolRouter(userId, async (router) => {
+        const connected = await withToolRouter(userId, async (router) => {
           const results = await router.listServers({});
           return results.map(({ serverName, serverId, toolCount }) => ({
             serverName,
@@ -179,8 +185,8 @@ export function registerMcpCoreTools(server: McpServer): void {
             toolCount,
           }));
         });
-
-        return jsonResponse({ servers });
+        const deviceServers = await listDeviceServers();
+        return jsonResponse({ servers: [...connected, ...deviceServers] });
       } catch (err) {
         const text = err instanceof Error ? err.message : "Failed to list MCP servers";
         return { content: [{ type: "text" as const, text }], isError: true };
@@ -226,11 +232,23 @@ export function registerMcpCoreTools(server: McpServer): void {
     async ({ query, limit, verbosity }) => {
       try {
         const userId = getRequestContext().userId!;
-        const tools = await withToolRouter(userId, async (router) => {
+        const connected = await withToolRouter(userId, async (router) => {
           const results = await router.searchTools(query, limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT);
           return results.map((tool) => toSearchResultTool(tool, verbosity ?? "compact"));
         });
-
+        const deviceHits = await searchDeviceTools(query, limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT);
+        const device = deviceHits.map((t) =>
+          toSearchResultTool(
+            {
+              name: t.name,
+              description: t.description,
+              serverId: t.serverId,
+              serverName: t.serverName,
+            },
+            verbosity ?? "compact"
+          )
+        );
+        const tools = [...connected, ...device];
         return jsonResponse({ tools, total: tools.length });
       } catch (err) {
         const text = err instanceof Error ? err.message : "Failed to search MCP tools";
@@ -285,6 +303,23 @@ export function registerMcpCoreTools(server: McpServer): void {
             durationMs: Date.now() - startedAt.getTime(),
           });
           return toNormalizedToolSchema(tool, verbosity ?? "compact");
+        }).catch(async () => {
+          const deviceTool = await resolveDeviceToolSchema(tool_name, server_id);
+          if (!deviceTool) {
+            throw new Error(`Tool "${tool_name}" was not found for server "${server_id}"`);
+          }
+          return toNormalizedToolSchema(
+            {
+              name: deviceTool.name,
+              description: deviceTool.description,
+              inputSchema: deviceTool.inputSchema,
+              outputSchema: deviceTool.outputSchema,
+              annotations: deviceTool.annotations,
+              serverId: deviceTool.serverId,
+              serverName: deviceTool.serverName,
+            },
+            verbosity ?? "compact"
+          );
         });
 
         return jsonResponse({ tool: normalized });
@@ -381,6 +416,7 @@ export function registerMcpCoreTools(server: McpServer): void {
 
         const timeoutMs = Number(timeout_ms ?? process.env.MCP_SCRIPT_TIMEOUT_MS ?? 240000);
         const requestContext = getRequestContext();
+        const deviceServers = await buildDeviceToolServers();
         const runtime = await createWorkflowCodeModeRuntime(
           multi,
           {
@@ -396,7 +432,8 @@ export function registerMcpCoreTools(server: McpServer): void {
           },
           {
             loader: requestContext.env?.LOADER,
-          }
+          },
+          deviceServers
         );
 
         const result = await runtime.run(normalizedScript, asJsonObject(input), { timeoutMs });

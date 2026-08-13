@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mcp-remote-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "workers_dev": false,
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "REPLACE_WITH_OAUTH_KV_ID" },
+    { "binding": "USERS", "id": "REPLACE_WITH_USERS_KV_ID" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "DEVICE_CONNECTION", "class_name": "DeviceConnection" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DeviceConnection"]
+    }
+  ],
+  "vars": {
+    "PUBLIC_MCP_URL": "https://linkos.in/mcp",
+    "SUPABASE_URL": "REPLACE_WITH_SUPABASE_URL",
+    "SUPABASE_ANON_KEY": "REPLACE_WITH_SUPABASE_ANON_KEY"
+  }
+}

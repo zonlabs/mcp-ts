@@ -22,7 +22,7 @@ type WorkerExecutionContext = {
 };
 
 export function createMcpRoutes(
-  createServer: (options?: { scopes?: string[] }) => McpServer
+  createServer: (options?: { scopes?: string[] }) => McpServer | Promise<McpServer>
 ): Hono<McpRouteEnv> {
   const app = new Hono<McpRouteEnv>();
 

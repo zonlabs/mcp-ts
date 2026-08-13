@@ -49,6 +49,27 @@ Admin identities can also receive `mcp:tools:admin` internally. That scope is us
 - `delete_mcp_server` - remove a server from the global MCP directory
 - `find_mcp_servers` - search the global MCP directory for servers to add
 
+## Local device bridge
+
+The gateway also serves the tools of **local MCP servers** running on a user's
+machines (via `@mcp-ts/local-gateway`), flat-merged into the same `/mcp`
+endpoint alongside the built-in platform tools. This lets remote MCP clients
+(ChatGPT, Claude, Claude Desktop) call tools that live on your own computer.
+
+- **`GET /connect`** — WebSocket upgrade endpoint for local gateways. It
+  authenticates with a Supabase access token (Bearer header or `token` query
+  param), links the requested `deviceId` to the authenticated user, and hands
+  the socket to the device's `DeviceConnection` Durable Object.
+- **`USERS` KV** — `user:<id>` → `{ userId, devices }`, `device:<id>` →
+  `{ deviceId, userId, servers }`.
+- **`DEVICE_CONNECTION` Durable Object** — holds each device's live WebSocket
+  and relays tool calls over it.
+- Device tools are registered with the `execute` scope and flat-merged;
+  collisions are prefixed `server:tool`, then `deviceId:server:tool`.
+
+> `@mcp-ts/remote-gateway` remains in the repo as a standalone/alternative
+> gateway implementation and is not required for this flow.
+
 ## Multi-Session Cache & Invalidation Flow
 
 To optimize performance and minimize database writes, the server caches active `MultiSessionClient` instances per user using an in-memory registry. This prevents having to establish TCP connections and fetch tool schemas from downstream MCP servers (e.g. GitHub, Notion) on every single tool call.

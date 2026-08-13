@@ -1,134 +1,98 @@
-# mcpassistant-gateway
+# @mcp-ts/local-gateway
 
-Async local bridge that connects outbound to the remote MCP bridge over WSS and forwards invoke requests to local MCP servers using the MCP Python client library.
+Local MCP gateway daemon. Runs your local MCP servers (stdio or HTTP/SSE),
+aggregates their tools into a single flat namespace, exposes a clean local MCP
+endpoint (`http://local.mcp-assistant.in/mcp`), and bridges outbound to a remote
+gateway so remote MCP clients (ChatGPT, Claude, etc.) can reach them over a
+single clean URL.
 
-## Run
+Built on the official MCP TypeScript SDK v2 (`@modelcontextprotocol/client`).
 
-```bash
-pip install -e .
-mcpassistant-gateway
-```
-
-`mcpassistant-gateway` now opens an interactive menu by default.
-Use `/start` inside the menu to start the gateway in the background.
-Use `/logs on` only when you want to inspect realtime logs.
-Press `Ctrl+C` while running to stop and return to the menu.
-
-You can also use the built-in CLI helpers instead of editing `mcp.json` manually:
+## Install
 
 ```bash
-mcpassistant-gateway run
-mcpassistant-gateway menu
-mcpassistant-gateway settings
-mcpassistant-gateway config show
-mcpassistant-gateway config set --request-timeout-seconds 120
-mcpassistant-gateway run --request-timeout-seconds 120
+npm install -g @mcp-ts/local-gateway
 ```
 
-Inside `mcpassistant-gateway menu`, use slash commands:
+Requires Node >= 21.
 
-```text
-/help
-/login
-/logout
-/show
-/set request_timeout_seconds 120
-/settings
-/run
+## Quick start
+
+```bash
+# 1. Create a default mcp.json
+mcp-gateway init
+
+# 2. Edit .mcpassistant/mcp.json — standard mcpServers format:
+#    { "mcpServers": { "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."] } } }
+
+# 3. Pair with a remote gateway (opens browser, sign in with your account)
+mcp-gateway link --remote https://api.mcp-assistant.in
+
+# 4. Run the daemon — starts local servers, serves local endpoint, bridges to remote
+mcp-gateway run
 ```
 
-`/login` behavior:
-- OAuth-first: starts remote OAuth session, opens browser, receives localhost callback, exchanges code, and saves JWT on success.
-- Legacy fallback: if OAuth endpoints are unavailable, falls back to `POST /manage/jwt/issue`.
+The remote gateway is the mcp-ts/mcp worker (`api.mcp-assistant.in/mcp`). Your
+local servers' tools are flat-merged into the same `/mcp` endpoint alongside
+the platform tools, so a single MCP URL exposes everything.
 
-For OAuth localhost callback, ensure your auth provider allows:
-- `http://127.0.0.1:43110/callback`
+## CLI
 
-`mcpassistant-gateway` initializes MCP client sessions for configured `mcpServers` (stdio) and opens the outbound bridge connection to the remote server.
+| Command | Description |
+|---|---|
+| `mcp-gateway init [--dir <path>]` | Write a default `mcp.json` |
+| `mcp-gateway link --remote <url> [--dir <path>]` | Sign in + bind this machine to your account |
+| `mcp-gateway run [--host h] [--port p] [--remote url] [--device-id id] [--token tok]` | Start the daemon |
 
-Startup token behavior:
-- If `AGENT_JWT` is already configured (env or runtime state), startup continues without prompting.
-- If `AGENT_JWT` is missing, the CLI shows a styled prompt and asks you to paste the token.
-- If WebSocket auth fails with `HTTP 403`, the CLI asks for a fresh `AGENT_JWT` and retries immediately.
-- `AGENT_ID` is auto-derived from JWT claims (or token fingerprint fallback), so no manual `AGENT_ID` prompt.
-- Prompted values are saved into the runtime state file, so next runs do not ask again.
+`link` registers an OAuth client, opens your browser to the remote gateway's
+`/authorize`, and signs you in with your existing account on the login app
+(no static registration key). The resulting user-bound device credential
+(`access_token` + `refresh_token` + `clientId`) is stored in the state file and
+used for the outbound WebSocket. Tokens are refreshed automatically before they
+expire.
 
-Set `START_MCP_SERVERS=false` if you only want the bridge process.
+Runtime settings (host/port/path/remote/deviceId/token) are read from the state
+file (`.mcpassistant/gateway-state.json`) and can be overridden by flags or env
+vars (`REMOTE_GATEWAY_URL`, `DEVICE_ID`, `DEVICE_TOKEN`).
 
-Configuration can be provided through `.env`, runtime state, and `mcp.json`.
+There is no interactive UI — run it as a daemon, logs go to stdout/stderr.
 
-If `mcp.json` does not exist, it is created automatically on first run at `.mcpassistant/mcp.json` with:
-- only an `mcpServers` object
-- a default `mcpServers.filesystem` entry scoped to your current working directory
+## mcp.json
 
-Minimal dynamic `.env`:
-
-```env
-REMOTE_SERVER_BASE_URL=https://your-remote-domain
-AGENT_JWT=your_agent_jwt
-```
-
-With this mode:
-- `REMOTE_WEBSOCKET_URL` is derived as `wss://.../connect`
-- `AGENT_ID` and `CAPABILITIES` are derived from JWT claims (`sub`, `capabilities`) if not explicitly set
-- Local MCP calls are handled via MCP client sessions for `mcpServers`
-
-## Troubleshooting: Gemini CLI
-
-Gemini CLI uses the official MCP Streamable HTTP transport (`@modelcontextprotocol/sdk`).
-Some versions may try to open an **optional GET SSE stream** by sending:
-
-- `GET <httpUrl>` with `Accept: text/event-stream`
-
-If your remote proxy responds with a short-lived SSE payload (instead of a real long-lived MCP message stream),
-Gemini may mark the server as **Disconnected**.
-
-Fix:
-- Ensure your remote proxy supports a proper long-lived MCP SSE message stream on `GET /mcp`
-  when `Accept: text/event-stream`, and make sure your reverse proxy does not buffer the stream.
-
-Gemini CLI config should use `httpUrl` (streamable HTTP), pointing at the `/mcp` endpoint:
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "httpUrl": "https://<your-host>/<subject>/filesystem/mcp",
-      "timeout": 30000
-    }
-  }
-}
-```
-
-If your server requires auth, add headers (Gemini supports custom headers per server).
-
-## mcpServers + mcpassistant-gateway-bridge
-
-You can run MCP servers from config (supergateway-style) and derive local HTTP endpoints:
+Standard MCP server config, located via `MCP_CONFIG_PATH` or by searching
+upward from the working directory for `mcp.json`.
 
 ```json
 {
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "supergateway", "--stdio", "npx", "-y", "@modelcontextprotocol/server-filesystem", "--port", "3004"],
-      "port": 3004
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    },
+    "remote-server": {
+      "url": "https://example.com/mcp",
+      "headers": { "Authorization": "Bearer xyz" }
     }
   }
 }
 ```
 
-Run one server:
+- **stdio** entries use `command` + `args` (+ optional `env`, `cwd`).
+- **HTTP/SSE** entries use `url` (+ optional `headers`); SSE URLs are detected
+  when the path matches `/sse`.
 
-```bash
-mcpassistant-gateway-bridge --config ./.mcpassistant/mcp.json --name filesystem
-```
+Tools from all servers are **flat-merged**; on name collision the tool is
+prefixed with its server name (`server:tool`, then `server:tool#2`, …).
 
-Run all servers in config:
+## How it works
 
-```bash
-mcpassistant-gateway-bridge --config ./.mcpassistant/mcp.json
-uv run --project ".\packages\mcp-local-agent" mcpassistant-gateway                                                       
-```
-
-
+1. `ServerManager` starts each configured server via
+   `StdioClientTransport` / `StreamableHTTPClientTransport` / `SSEClientTransport`
+   wrapped in a v2 `Client`, and caches `tools/list`.
+2. `LocalHttpServer` serves the aggregated tools over Streamable HTTP on the
+   configured host:port (default `0.0.0.0:8787/mcp`) using
+   `createMcpHandler` from `@modelcontextprotocol/server`.
+3. `RemoteBridge` keeps a persistent outbound WebSocket to
+   `<remote>/connect?deviceId=…&token=…`, registers the server catalog, and
+   services `invoke` messages by dispatching to the owning local server via
+   `client.callTool()` (SEP-2243 header mirroring handled by the SDK).

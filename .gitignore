@@ -43,3 +43,14 @@ coverage/
 
 # Local planning & review artifacts
 .superpowers/
+
+# Local gateway runtime state
+.mcpassistant/
+gateway-state.json
+
+# E2E / scratch test artifacts
+.scratch/
+
+# Wrangler local dev state + check artifacts
+.wrangler/
+.wrangler-check/

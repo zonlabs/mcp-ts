@@ -12,8 +12,23 @@
     }
   ],
   "vars": {
-    "MCP_TS_STORAGE_TYPE": "supabase"
+    "MCP_TS_STORAGE_TYPE": "supabase",
+    "SUPABASE_URL": "https://xrrlfpaongkcxkeevhhz.supabase.co"
   },
+  "kv_namespaces": [
+    { "binding": "USERS", "id": "f26b663ecf484ac9adb3fd6dbb7a954b" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "DEVICE_CONNECTION", "class_name": "DeviceConnection" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DeviceConnection"]
+    }
+  ],
   "build": {
     "command": "npm run build --prefix ../packages/sdk && npm run build --prefix ../packages/code-mode"
   }
