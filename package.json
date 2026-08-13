@@ -6,6 +6,6 @@
     "mcp"
   ],
   "scripts": {
-    "build": "npm run build --workspace packages/sdk --workspace packages/code-mode"
+    "build": "npm run build --workspace packages/sdk --workspace packages/code-mode --workspace packages/cli"
   }
 }

@@ -90,7 +90,23 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 | **[@mcp-ts/sdk](packages/sdk)** | Core TypeScript/JavaScript SDK for client applications. | `npm i @mcp-ts/sdk` |
 | **[@mcp-ts/tool-router](packages/tool-router)** | ToolRouter for dynamic tool discovery across many MCP servers. | `npm i @mcp-ts/tool-router` |
 | **[@mcp-ts/codemode](packages/code-mode)** | CodeMode: sandboxed program execution for tool calling. | `npm i @mcp-ts/codemode` |
+| **[@mcp-ts/cli](packages/cli)** | Explore, search, benchmark, and generate typed wrappers for remote MCP servers. | `npx @mcp-ts/cli --help` |
 | **[mcpassistant-gateway](packages/local-gateway)** | Python bridge for local MCP support in remote apps. | `pip install mcpassistant-gateway` |
+
+---
+
+### Developer CLI
+
+Use the CLI to inspect a Streamable HTTP MCP endpoint without building an application first:
+
+```bash
+npx @mcp-ts/cli connect https://api.example.com/mcp
+npx @mcp-ts/cli search https://api.example.com/mcp "send email"
+npx @mcp-ts/cli bench https://api.example.com/mcp
+npx @mcp-ts/cli codegen https://api.example.com/mcp --out ./src/mcp-tools.ts
+```
+
+The `connect` REPL supports `search`, `schema`, and `call` commands. See the [CLI package README](packages/cli) for details.
 
 ---
 
@@ -577,4 +593,3 @@ Contributions are welcome! Please read [CONTRIBUTING.md](packages/sdk/CONTRIBUTI
 <p align="center">
   <em>Thanks for visiting @mcp-ts!</em>
 </p>
-
