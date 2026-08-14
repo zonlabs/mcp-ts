@@ -20,13 +20,18 @@
   ],
   "durable_objects": {
     "bindings": [
-      { "name": "DEVICE_CONNECTION", "class_name": "DeviceConnection" }
+      { "name": "DEVICE_CONNECTION", "class_name": "DeviceConnection" },
+      { "name": "OAUTH_CODES", "class_name": "OAuthCodeStore" }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["DeviceConnection"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["OAuthCodeStore"]
     }
   ],
   "build": {

@@ -73,40 +73,10 @@ const {
   mockClientGetServerUrl: vi.fn(),
 }));
 
-const {
-  mockRuntimeRun,
-  mockCreateCodeModeRuntime,
-  mockGetMultiSessionClient,
-  getMultiSessionClientCache,
-} = vi.hoisted(() => {
-  const cache = new Map<
-    string,
-    {
-      connect: typeof mockMultiConnect;
-      disconnect: typeof mockMultiDisconnect;
-      getClients: typeof mockMultiGetClients;
-    }
-  >();
-  const mock = vi.fn(async (userId: string) => {
-    if (!cache.has(userId)) {
-      mockMultiSessionClientConstructor(userId);
-      const client = {
-        connect: mockMultiConnect,
-        disconnect: mockMultiDisconnect,
-        getClients: mockMultiGetClients,
-      };
-      cache.set(userId, client);
-      await mockMultiConnect();
-    }
-    return cache.get(userId);
-  });
-  return {
-    mockRuntimeRun: vi.fn(),
-    mockCreateCodeModeRuntime: vi.fn(),
-    mockGetMultiSessionClient: mock,
-    getMultiSessionClientCache: cache,
-  };
-});
+const { mockRuntimeRun, mockCreateCodeModeRuntime } = vi.hoisted(() => ({
+  mockRuntimeRun: vi.fn(),
+  mockCreateCodeModeRuntime: vi.fn(),
+}));
 
 vi.mock("../../src/db/supabase", () => ({
   supabase: { from: mockSupabaseFrom },
@@ -147,11 +117,6 @@ vi.mock("../../src/core/codemode-runtime", () => ({
   createWorkflowCodeModeRuntime: mockCreateCodeModeRuntime,
 }));
 
-vi.mock("../../src/core/multi-session-client-registry", () => ({
-  getMultiSessionClient: mockGetMultiSessionClient,
-  resetMultiSessionClientRegistryForTests: vi.fn(),
-}));
-
 import { registerMcpCoreTools } from "../../src/core/mcp-core-tools";
 
 function makeExtra(userId = "user-abc") {
@@ -161,7 +126,6 @@ function makeExtra(userId = "user-abc") {
 describe("mcp-core-tools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getMultiSessionClientCache.clear();
     mockMultiConnect.mockResolvedValue(undefined);
     mockMultiDisconnect.mockResolvedValue(undefined);
     mockClientGetServerId.mockReturnValue("docs-server");
@@ -195,34 +159,6 @@ describe("mcp-core-tools", () => {
   });
 
   describe("search_mcp_tools", () => {
-    it("reuses the same MultiSessionClient across repeated tool discovery requests for the same user", async () => {
-      mockToolRouterSearchTools.mockResolvedValue([
-        {
-          name: "search_docs",
-          serverId: "docs-server",
-          serverName: "Docs",
-          description: "Search documentation",
-        },
-      ]);
-
-      const handlers = new Map<string, Function>();
-      const server = {
-        registerTool: (name: string, _config: unknown, handler: Function) =>
-          handlers.set(name, handler),
-      };
-
-      registerMcpCoreTools(server as never);
-      const handler = handlers.get("search_mcp_tools");
-
-      const first = await handler?.({ query: "docs" }, makeExtra());
-      const second = await handler?.({ query: "docs" }, makeExtra());
-
-      expect((first as any)?.structuredContent).toEqual((second as any)?.structuredContent);
-      expect(mockMultiSessionClientConstructor).toHaveBeenCalledTimes(1);
-      expect(mockMultiConnect).toHaveBeenCalledTimes(1);
-      expect(mockMultiDisconnect).not.toHaveBeenCalled();
-    });
-
     it("searches connected MCP tools with normalized results", async () => {
       mockToolRouterSearchTools.mockResolvedValue([
         {
@@ -284,7 +220,7 @@ describe("mcp-core-tools", () => {
       const handler = handlers.get("search_mcp_tools");
       await handler?.({ query: "docs" }, makeExtra());
 
-      expect(configs.get("search_mcp_tools")?.inputSchema.limit.description).toContain(
+      expect(configs.get("search_mcp_tools")?.inputSchema.shape.limit.description).toContain(
         "Defaults to 5"
       );
       expect(mockToolRouterSearchTools).toHaveBeenCalledWith("docs", 5);
@@ -1007,7 +943,8 @@ describe("mcp-core-tools", () => {
         },
         {
           loader: "worker-loader",
-        }
+        },
+        expect.anything()
       );
     });
   });

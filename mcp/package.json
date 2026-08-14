@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@cloudflare/codemode": "^0.5.1",
-    "@hono/node-server": "^2.0.5",
     "@hono/zod-validator": "^0.8.0",
     "@mcp-ts/sdk": "^3.0.2",
     "@mcp-ts/codemode": "^0.3.0",
@@ -24,7 +23,6 @@
     "@modelcontextprotocol/server": "^2.0.0",
     "@supabase/supabase-js": "^2.38.0",
     "agents": "^0.20.1",
-    "dotenv": "^16.3.1",
     "hono": "^4.12.25",
     "quickjs-emscripten": "^0.31.0",
     "redis": "^4.6.11",

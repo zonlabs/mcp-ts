@@ -52,7 +52,7 @@ Admin identities can also receive `mcp:tools:admin` internally. That scope is us
 ## Local device bridge
 
 The gateway also serves the tools of **local MCP servers** running on a user's
-machines (via `@mcp-ts/local-gateway`), flat-merged into the same `/mcp`
+machines (via `@mcp-ts/cli`'s `mcp-ts serve`), flat-merged into the same `/mcp`
 endpoint alongside the built-in platform tools. This lets remote MCP clients
 (ChatGPT, Claude, Claude Desktop) call tools that live on your own computer.
 
@@ -134,11 +134,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 MCP_OAUTH_CODE_SECRET=replace-with-a-long-random-secret
 MCP_OAUTH_ACCESS_TOKEN_SECRET=replace-with-a-long-random-secret
 REDIS_URL=redis://localhost:6379/0
-MCP_OAUTH_ISSUER=http://localhost:3002
+MCP_OAUTH_ISSUER=http://localhost:8788
 MCP_WEB_APP_URL=http://localhost:3000
-MCP_RESOURCE_URL=http://localhost:3002/mcp
-MCP_RESOURCE_DOC_URL=http://localhost:3002/.well-known/oauth-protected-resource
-PORT=3002
+MCP_RESOURCE_URL=http://localhost:8788/mcp
+MCP_RESOURCE_DOC_URL=http://localhost:8788/.well-known/oauth-protected-resource
 NODE_ENV=development
 LOG_LEVEL=info
 ```
@@ -147,24 +146,14 @@ LOG_LEVEL=info
 
 ```bash
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-The server listens on `http://localhost:3002` by default.
+This runs the Worker locally with `wrangler dev` (default `http://localhost:8788`).
 
-## Docker
+## Cloudflare Workers deployment
 
-```bash
-docker compose up --build
-```
-
-The compose file starts only the MCP server container.
-
-## Railway deployment
-
-Railway uses the `Dockerfile` in this folder and `railway.toml`.
-The health check path is `/healthz`.
+Deploy with `wrangler deploy` (the `mcp-assistant` worker). The health check path is `/healthz`.
 
 ## Endpoints
 
@@ -188,6 +177,4 @@ The health check path is `/healthz`.
 
 ## Notes
 
-- `docker-compose.yml` is local-only and intentionally minimal.
-- `database.sql` is retained for Supabase schema/bootstrap reference.
-- Redis and Postgres are not started by the compose file.
+- The Worker uses Supabase for storage (`MCP_TS_STORAGE_TYPE=supabase`).

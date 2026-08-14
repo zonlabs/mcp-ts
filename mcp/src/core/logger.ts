@@ -37,7 +37,6 @@ export class StructuredLogger {
       requestId: context?.requestId,
       userId: context?.userId,
       mcpSessionId: context?.mcpSessionId,
-      railwayReplica: process.env.RAILWAY_REPLICA_ID || process.env.RAILWAY_STATIC_URL || undefined,
     };
   }
 

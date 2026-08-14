@@ -8,8 +8,8 @@ const valid = {
 
 describe("environment configuration", () => {
   it("rejects invalid configuration without exposing secret values", () => {
-    expect(() => parseEnv({ ...valid, PORT: "70000", SUPABASE_URL: "not-a-url" })).toThrow(
-      /PORT, SUPABASE_URL/
+    expect(() => parseEnv({ ...valid, LOG_LEVEL: "verbose", SUPABASE_URL: "not-a-url" })).toThrow(
+      /LOG_LEVEL, SUPABASE_URL/
     );
     expect(() => parseEnv({ ...valid, SUPABASE_SERVICE_ROLE_KEY: "" })).not.toThrow(/service-key/);
   });

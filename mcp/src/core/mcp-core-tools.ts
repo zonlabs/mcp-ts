@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
+import type { McpObservabilityEvent } from "@mcp-ts/sdk/server";
 import { ToolRouter } from "@mcp-ts/sdk/shared";
 import { z } from "zod";
-import { getMultiSessionClient } from "./multi-session-client-registry";
 import { createWorkflowCodeModeRuntime } from "./codemode-runtime";
 import { getRequestContext } from "./request-context";
 import { asJsonObject, errorResponse, jsonResponse } from "./tool-result";
@@ -16,6 +16,36 @@ import {
 
 const MCP_RESULT_EXTRACTION_HINT =
   "In CodeMode, `callTool(serverId, toolName, args)` and namespaced helpers return normalized tool results. Structured MCP payloads are unwrapped automatically; use raw helpers only when you explicitly need the MCP envelope.";
+
+function handleObservability(event: McpObservabilityEvent): void {
+  if (event.type === "db:read" || event.type === "db:write") {
+    console.log(
+      `[mcp-db][${event.type}] ${event.message} ${event.payload?.durationMs?.toFixed?.(1) ?? ""}ms`
+    );
+    return;
+  }
+
+  const prefix = event.serverId ? `[${event.serverId}]` : "[mcp]";
+  const msg = event.message ?? "";
+  switch (event.level) {
+    case "error":
+      console.error(`${prefix} ${msg}`);
+      break;
+    case "warn":
+      console.warn(`${prefix} ${msg}`);
+      break;
+    default:
+      console.log(`${prefix} ${msg}`);
+  }
+}
+
+export async function getMultiSessionClient(userId: string): Promise<MultiSessionClient> {
+  const client = new MultiSessionClient(userId, {
+    onObservabilityEvent: handleObservability,
+  });
+  await client.connect();
+  return client;
+}
 
 type ResponseVerbosity = "compact" | "full";
 
@@ -164,7 +194,7 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "List all connected MCP servers and the number of tools each provides. " +
         "Use this when `search_mcp_tools` returns no response or irrelevant results, to see if there is an active/connected server that might be relevant.",
-      inputSchema: {},
+      inputSchema: z.object({}),
       annotations: {
         title: "List MCP Servers",
         readOnlyHint: true,
@@ -201,7 +231,7 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "Search connected MCP tools for the authenticated user and return normalized discovery results. " +
         "Use this to find candidate MCP tools before execution. Next, pass the chosen result to `get_mcp_tool_schema` to inspect the exact schema, then call the tool from `codemode_run` or a saved workflow script.",
-      inputSchema: {
+      inputSchema: z.object({
         query: z
           .string()
           .describe(
@@ -219,7 +249,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           .describe(
             "Controls description size. Defaults to compact; use full only when exact downstream documentation is needed."
           ),
-      },
+      }),
       annotations: {
         title: "Search MCP Tools",
         readOnlyHint: true,
@@ -264,14 +294,14 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "Retrieve a normalized schema payload for a connected MCP tool. " +
         "Use this to inspect the exact input schema, output schema when available, and the CodeMode result extraction hint. Then call that MCP tool from `codemode_run` or a saved workflow script once the args match the schema.",
-      inputSchema: {
+      inputSchema: z.object({
         server_id: z.string().describe("The MCP server ID returned by `search_mcp_tools`."),
         tool_name: z.string().describe("The exact tool name returned by `search_mcp_tools`."),
         verbosity: z
           .enum(["compact", "full"])
           .optional()
           .describe("Controls description size in returned schemas. Defaults to compact."),
-      },
+      }),
       annotations: {
         title: "Get MCP Tool Schema",
         readOnlyHint: true,
@@ -377,7 +407,7 @@ export function registerMcpCoreTools(server: McpServer): void {
         "\n" +
         "## Timeout\n" +
         "Default: 240s (4 min). For long multi-step workflows, save progress by returning intermediate state between calls.",
-      inputSchema: {
+      inputSchema: z.object({
         script: z.string().describe("Code to execute inside CodeMode runtime."),
         input: z
           .record(z.string(), z.any())
@@ -393,7 +423,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           .describe(
             "Defaults to final. Use debug to also include logs."
           ),
-      },
+      }),
       annotations: {
         title: "Run CodeMode Script",
         readOnlyHint: false,
@@ -479,7 +509,7 @@ export function registerMcpCoreTools(server: McpServer): void {
         "Index a new MCP server or update an existing one in the global MCP directory. " +
         "Before calling this tool, the AI assistant must research the MCP server's name and URL, determine what it does, and generate relevant keywords/tags to categorize it. " +
         "If a server with the same name already exists, it will be overwritten with the new URL, description, and keywords.",
-      inputSchema: {
+      inputSchema: z.object({
         name: z
           .string()
           .describe("The user-friendly name of the MCP server (e.g. 'Supabase' or 'Playwright')."),
@@ -497,7 +527,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           .describe(
             "Search keywords and categorization tags for vector matching (e.g. ['database', 'postgres', 'sql'])."
           ),
-      },
+      }),
       annotations: {
         title: "Index MCP Server",
         readOnlyHint: false,
@@ -553,9 +583,9 @@ export function registerMcpCoreTools(server: McpServer): void {
     {
       title: "Delete MCP Server",
       description: "Delete an indexed MCP server from the global MCP directory using its name.",
-      inputSchema: {
+      inputSchema: z.object({
         name: z.string().describe("The exact name of the MCP server to delete (e.g. 'Supabase')."),
-      },
+      }),
       annotations: {
         title: "Delete MCP Server",
         readOnlyHint: false,
@@ -590,11 +620,11 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "Search the global MCP directory for appropriate MCP servers matching the query (e.g. databases, browser automation, etc.). " +
         "Use this when the user requests features or integrations that are not supported by the currently connected MCP tools, to discover which MCP servers could be added.",
-      inputSchema: {
+      inputSchema: z.object({
         query: z
           .string()
           .describe("The search query or keyword (e.g. 'postgres' or 'web scraping')."),
-      },
+      }),
       annotations: {
         title: "Find MCP Servers",
         readOnlyHint: true,
