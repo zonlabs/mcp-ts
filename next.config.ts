@@ -22,7 +22,6 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: ['@mcp-ts/sdk'],
   serverExternalPackages: [
-    'ioredis',
     '@modelcontextprotocol/client',
     '@modelcontextprotocol/core',
   ],
