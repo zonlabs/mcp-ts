@@ -13,7 +13,9 @@
   ],
   "vars": {
     "MCP_TS_STORAGE_TYPE": "supabase",
-    "SUPABASE_URL": "https://xrrlfpaongkcxkeevhhz.supabase.co"
+    "SUPABASE_URL": "https://xrrlfpaongkcxkeevhhz.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_kuj29AQSUepxHBJbVrye0A_v6b5uIaH",
+    "OAUTH_ALLOWED_REDIRECT_HOSTS": "linkos.in"
   },
   "kv_namespaces": [
     { "binding": "USERS", "id": "f26b663ecf484ac9adb3fd6dbb7a954b" }
