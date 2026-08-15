@@ -7,7 +7,7 @@ export function deviceServerId(deviceId: string, serverName: string): string {
   return `device:${deviceId}:${serverName}`;
 }
 
-type DeviceToolEntry = {
+export type DeviceToolEntry = {
   name: string;
   description?: string;
   inputSchema?: unknown;
@@ -70,6 +70,11 @@ async function loadDeviceEntries(): Promise<DeviceToolEntry[]> {
     }
   }
   return entries;
+}
+
+/** All device tools for the authenticated user (full live catalog). */
+export async function listDeviceTools(): Promise<DeviceToolEntry[]> {
+  return loadDeviceEntries();
 }
 
 /** Device servers for the authenticated user (tool-router view). */

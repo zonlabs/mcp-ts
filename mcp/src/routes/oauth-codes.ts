@@ -71,6 +71,27 @@ p{color:#475569;font-size:15px;line-height:1.5;margin:0 0 24px;word-break:break-
   });
 }
 
+/**
+ * Decode a JWT's `exp` (seconds) without verifying it. Supabase access tokens
+ * are JWTs whose real lifetime is ~1h — far longer than the 60s one-time code
+ * TTL — so the CLI must learn the token's own expiry, not the code's.
+ */
+function jwtExpiresAt(token: string): number | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder().decode(bytes)) as { exp?: unknown };
+    return typeof payload.exp === "number" && Number.isFinite(payload.exp)
+      ? payload.exp * 1000
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 app.post("/codes/exchange", async (c) => {
   const body = await c.req.json().catch(() => null);
   const code = body?.code;
@@ -81,7 +102,8 @@ app.post("/codes/exchange", async (c) => {
   if (!record) {
     return c.json({ error: "Invalid or expired code" }, 404);
   }
-  return c.json({ token: record.token, expiresAt: record.expiresAt });
+  const expiresAt = jwtExpiresAt(record.token) ?? record.expiresAt;
+  return c.json({ token: record.token, expiresAt });
 });
 
 /**

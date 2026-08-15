@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { MultiSessionClient } from "@mcp-ts/sdk/server";
 import type { McpObservabilityEvent } from "@mcp-ts/sdk/server";
-import { ToolRouter } from "@mcp-ts/sdk/shared";
+import { ToolIndex, ToolRouter, type IndexedTool } from "@mcp-ts/sdk/shared";
 import { z } from "zod";
 import { createWorkflowCodeModeRuntime } from "./codemode-runtime";
 import { getRequestContext } from "./request-context";
@@ -10,8 +10,8 @@ import { recordSelectedDownstreamToolSchemaInspection } from "./instrumentation"
 import {
   buildDeviceToolServers,
   listDeviceServers,
+  listDeviceTools,
   resolveDeviceToolSchema,
-  searchDeviceTools,
 } from "./device-tools";
 
 const MCP_RESULT_EXTRACTION_HINT =
@@ -262,23 +262,32 @@ export function registerMcpCoreTools(server: McpServer): void {
     async ({ query, limit, verbosity }) => {
       try {
         const userId = getRequestContext().userId!;
-        const connected = await withToolRouter(userId, async (router) => {
-          const results = await router.searchTools(query, limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT);
-          return results.map((tool) => toSearchResultTool(tool, verbosity ?? "compact"));
-        });
-        const deviceHits = await searchDeviceTools(query, limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT);
-        const device = deviceHits.map((t) =>
-          toSearchResultTool(
-            {
-              name: t.name,
-              description: t.description,
-              serverId: t.serverId,
-              serverName: t.serverName,
-            },
-            verbosity ?? "compact"
-          )
-        );
-        const tools = [...connected, ...device];
+        const limitN = limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT;
+        const verbosityN = verbosity ?? "compact";
+        const [connectedTools, deviceTools] = await Promise.all([
+          withToolRouter(userId, async (router) => {
+            const res = await router.listTools({ limit: Number.MAX_SAFE_INTEGER });
+            return res.tools as IndexedTool[];
+          }),
+          listDeviceTools().then((tools) =>
+            tools.map(
+              (t) =>
+                ({
+                  name: t.name,
+                  description: t.description,
+                  inputSchema: t.inputSchema,
+                  outputSchema: t.outputSchema,
+                  serverId: t.serverId,
+                  serverName: t.serverName,
+                  sessionId: t.sessionId,
+                }) as IndexedTool
+            )
+          ),
+        ]);
+        const index = new ToolIndex();
+        await index.buildIndex([...connectedTools, ...deviceTools]);
+        const hits = await index.search(query, limitN);
+        const tools = hits.map((tool) => toSearchResultTool(tool, verbosityN));
         return jsonResponse({ tools, total: tools.length });
       } catch (err) {
         const text = err instanceof Error ? err.message : "Failed to search MCP tools";

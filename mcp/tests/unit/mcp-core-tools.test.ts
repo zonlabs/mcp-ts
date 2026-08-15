@@ -52,6 +52,7 @@ const {
   mockClientGetSessionId,
   mockClientGetServerUrl,
   mockToolRouterSearchTools,
+  mockToolRouterListTools,
   mockToolRouterGetToolSchema,
   mockToolRouterResolveToolSchema,
   mockToolRouterListServers,
@@ -66,6 +67,7 @@ const {
   mockClientGetServerName: vi.fn(),
   mockClientGetSessionId: vi.fn(),
   mockToolRouterSearchTools: vi.fn(),
+  mockToolRouterListTools: vi.fn(),
   mockToolRouterGetToolSchema: vi.fn(),
   mockToolRouterResolveToolSchema: vi.fn(),
   mockToolRouterListServers: vi.fn(),
@@ -101,17 +103,22 @@ vi.mock("@mcp-ts/sdk/server", () => ({
   }),
 }));
 
-vi.mock("@mcp-ts/sdk/shared", () => ({
-  ToolRouter: vi.fn().mockImplementation(function (client: unknown, options: unknown) {
-    mockToolRouterConstructor(client, options);
-    return {
-      searchTools: mockToolRouterSearchTools,
-      getToolSchema: mockToolRouterGetToolSchema,
-      resolveToolSchema: mockToolRouterResolveToolSchema,
-      listServers: mockToolRouterListServers,
-    };
-  }),
-}));
+vi.mock("@mcp-ts/sdk/shared", async () => {
+  const actual = await import("@mcp-ts/sdk/shared");
+  return {
+    ...actual,
+    ToolRouter: vi.fn().mockImplementation(function (client: unknown, options: unknown) {
+      mockToolRouterConstructor(client, options);
+      return {
+        searchTools: mockToolRouterSearchTools,
+        listTools: mockToolRouterListTools,
+        getToolSchema: mockToolRouterGetToolSchema,
+        resolveToolSchema: mockToolRouterResolveToolSchema,
+        listServers: mockToolRouterListServers,
+      };
+    }),
+  };
+});
 
 vi.mock("../../src/core/codemode-runtime", () => ({
   createWorkflowCodeModeRuntime: mockCreateCodeModeRuntime,
@@ -133,6 +140,14 @@ describe("mcp-core-tools", () => {
     mockClientGetSessionId.mockReturnValue("sess-docs");
     mockClientGetServerUrl.mockReturnValue("https://docs.example.com");
     mockToolRouterSearchTools.mockReset();
+    mockToolRouterListTools.mockReset();
+    mockToolRouterListTools.mockResolvedValue({
+      tools: [],
+      totalCount: 0,
+      returnedCount: 0,
+      nextCursor: null,
+      servers: [],
+    });
     mockToolRouterGetToolSchema.mockReset();
     mockToolRouterResolveToolSchema.mockReset();
     mockToolRouterListServers.mockReset();
@@ -160,15 +175,21 @@ describe("mcp-core-tools", () => {
 
   describe("search_mcp_tools", () => {
     it("searches connected MCP tools with normalized results", async () => {
-      mockToolRouterSearchTools.mockResolvedValue([
-        {
-          name: "search_docs",
-          description: "Search product documentation",
-          serverId: "docs-server",
-          serverName: "Docs",
-          sessionId: "sess-docs",
-        },
-      ]);
+      mockToolRouterListTools.mockResolvedValue({
+        tools: [
+          {
+            name: "search_docs",
+            description: "Search product documentation",
+            serverId: "docs-server",
+            serverName: "Docs",
+            sessionId: "sess-docs",
+          },
+        ],
+        totalCount: 1,
+        returnedCount: 1,
+        nextCursor: null,
+        servers: [],
+      });
 
       const configs = new Map<string, Record<string, any>>();
       const handlers = new Map<string, Function>();
@@ -186,7 +207,7 @@ describe("mcp-core-tools", () => {
       expect(configs.get("search_mcp_tools")?.description).toContain("connected MCP tools");
       expect(mockMultiConnect).toHaveBeenCalled();
       expect(mockToolRouterConstructor).toHaveBeenCalled();
-      expect(mockToolRouterSearchTools).toHaveBeenCalledWith("docs", 5);
+      expect(mockToolRouterListTools).toHaveBeenCalledWith({ limit: Number.MAX_SAFE_INTEGER });
       expect(mockMultiDisconnect).not.toHaveBeenCalled();
       expect(getContent(result!)).toEqual({
         tools: [
@@ -205,8 +226,6 @@ describe("mcp-core-tools", () => {
     });
 
     it("uses a conservative default limit for connected MCP tool search", async () => {
-      mockToolRouterSearchTools.mockResolvedValue([]);
-
       const configs = new Map<string, Record<string, any>>();
       const handlers = new Map<string, Function>();
       const server = {
@@ -223,21 +242,27 @@ describe("mcp-core-tools", () => {
       expect(configs.get("search_mcp_tools")?.inputSchema.shape.limit.description).toContain(
         "Defaults to 5"
       );
-      expect(mockToolRouterSearchTools).toHaveBeenCalledWith("docs", 5);
+      expect(mockToolRouterListTools).toHaveBeenCalled();
     });
 
     it("compacts connected MCP tool search results by default", async () => {
       const longDescription = "A".repeat(1200);
-      mockToolRouterSearchTools.mockResolvedValue([
-        {
-          name: "create_page",
-          description: longDescription,
-          serverId: "notion-server",
-          serverName: "Notion",
-          sessionId: "sess-notion",
-          annotations: { readOnlyHint: false },
-        },
-      ]);
+      mockToolRouterListTools.mockResolvedValue({
+        tools: [
+          {
+            name: "create_page",
+            description: longDescription,
+            serverId: "notion-server",
+            serverName: "Notion",
+            sessionId: "sess-notion",
+            annotations: { readOnlyHint: false },
+          },
+        ],
+        totalCount: 1,
+        returnedCount: 1,
+        nextCursor: null,
+        servers: [],
+      });
 
       const handlers = new Map<string, Function>();
       const server = {
@@ -259,15 +284,21 @@ describe("mcp-core-tools", () => {
 
     it("can return full search descriptions when explicitly requested", async () => {
       const longDescription = "B".repeat(1200);
-      mockToolRouterSearchTools.mockResolvedValue([
-        {
-          name: "create_page",
-          description: longDescription,
-          serverId: "notion-server",
-          serverName: "Notion",
-          sessionId: "sess-notion",
-        },
-      ]);
+      mockToolRouterListTools.mockResolvedValue({
+        tools: [
+          {
+            name: "create_page",
+            description: longDescription,
+            serverId: "notion-server",
+            serverName: "Notion",
+            sessionId: "sess-notion",
+          },
+        ],
+        totalCount: 1,
+        returnedCount: 1,
+        nextCursor: null,
+        servers: [],
+      });
 
       const handlers = new Map<string, Function>();
       const server = {
@@ -288,7 +319,6 @@ describe("mcp-core-tools", () => {
 
     it("does not include workflow-local tools in codemode search results", async () => {
       mockMultiGetClients.mockReturnValue([]);
-      mockToolRouterSearchTools.mockResolvedValue([]);
 
       const handlers = new Map<string, Function>();
       const server = {
@@ -674,15 +704,21 @@ describe("mcp-core-tools", () => {
     });
 
     it("returns normalized discovery results for search matches", async () => {
-      mockToolRouterSearchTools.mockResolvedValue([
-        {
-          name: "search_issues",
-          serverId: "github-server",
-          serverName: "GitHub",
-          sessionId: "sess-github",
-          description: "Search repository issues",
-        },
-      ]);
+      mockToolRouterListTools.mockResolvedValue({
+        tools: [
+          {
+            name: "search_issues",
+            serverId: "github-server",
+            serverName: "GitHub",
+            sessionId: "sess-github",
+            description: "Search repository issues",
+          },
+        ],
+        totalCount: 1,
+        returnedCount: 1,
+        nextCursor: null,
+        servers: [],
+      });
 
       const handlers = new Map<string, Function>();
       const server = {
