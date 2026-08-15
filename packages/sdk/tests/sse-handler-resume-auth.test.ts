@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { SSEConnectionManager } from '../src/server/handlers/sse-handler';
 import { _setStorageInstanceForTesting } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
-import { MCPClient } from '../src/server/mcp/oauth-client';
+import { McpClient } from '../src/server/mcp/client';
 
 test.describe('SSEConnectionManager connect duplicate handling', () => {
   test.afterEach(() => {
@@ -155,8 +155,8 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       () => { }
     );
 
-    const originalConnect = (MCPClient.prototype as any).connect;
-    const originalReadResource = (MCPClient.prototype as any).readResource;
+    const originalConnect = (McpClient.prototype as any).connect;
+    const originalReadResource = (McpClient.prototype as any).readResource;
 
     const seenOptions: Array<{
       serverId?: string;
@@ -166,7 +166,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       transport?: { type?: string };
     }> = [];
 
-    (MCPClient.prototype as any).connect = async function () {
+    (McpClient.prototype as any).connect = async function () {
       seenOptions.push({
         serverId: (this as any).config.serverId,
         serverName: (this as any).config.serverName,
@@ -176,7 +176,7 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       });
     };
 
-    (MCPClient.prototype as any).readResource = async function (uri: string) {
+    (McpClient.prototype as any).readResource = async function (uri: string) {
       return { contents: [{ uri, text: 'ok' }] };
     };
 
@@ -202,8 +202,8 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
         transport: { type: 'streamable-http' },
       }]);
     } finally {
-      (MCPClient.prototype as any).connect = originalConnect;
-      (MCPClient.prototype as any).readResource = originalReadResource;
+      (McpClient.prototype as any).connect = originalConnect;
+      (McpClient.prototype as any).readResource = originalReadResource;
       manager.dispose();
     }
   });
@@ -217,13 +217,13 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       () => { }
     );
 
-    const originalConnect = (MCPClient.prototype as any).connect;
-    const originalListTools = (MCPClient.prototype as any).listTools;
-    const originalFetchTools = (MCPClient.prototype as any).fetchTools;
+    const originalConnect = (McpClient.prototype as any).connect;
+    const originalListTools = (McpClient.prototype as any).listTools;
+    const originalFetchTools = (McpClient.prototype as any).fetchTools;
 
     let seenHeaders: Record<string, string> | undefined;
 
-    (MCPClient.prototype as any).connect = async function () {
+    (McpClient.prototype as any).connect = async function () {
       seenHeaders = (this as any).config.headers;
       await storage.create({
         sessionId: (this as any).config.sessionId,
@@ -237,11 +237,11 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       });
     };
 
-    (MCPClient.prototype as any).listTools = async function () {
+    (McpClient.prototype as any).listTools = async function () {
       return { tools: [] };
     };
 
-    (MCPClient.prototype as any).fetchTools = async function () {
+    (McpClient.prototype as any).fetchTools = async function () {
       return { tools: [] };
     };
 
@@ -266,9 +266,9 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
         Authorization: 'Bearer github_pat_test',
       });
     } finally {
-      (MCPClient.prototype as any).connect = originalConnect;
-      (MCPClient.prototype as any).listTools = originalListTools;
-      (MCPClient.prototype as any).fetchTools = originalFetchTools;
+      (McpClient.prototype as any).connect = originalConnect;
+      (McpClient.prototype as any).listTools = originalListTools;
+      (McpClient.prototype as any).fetchTools = originalFetchTools;
       manager.dispose();
     }
   });
@@ -302,22 +302,22 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       () => { }
     );
 
-    const originalFinishAuth = (MCPClient.prototype as any).finishAuth;
-    const originalListTools = (MCPClient.prototype as any).listTools;
-    const originalFetchTools = (MCPClient.prototype as any).fetchTools;
+    const originalFinishAuth = (McpClient.prototype as any).finishAuth;
+    const originalListTools = (McpClient.prototype as any).listTools;
+    const originalFetchTools = (McpClient.prototype as any).fetchTools;
     let seenCode: string | undefined;
     let seenState: string | undefined;
 
-    (MCPClient.prototype as any).finishAuth = async function (code: string, state?: string) {
+    (McpClient.prototype as any).finishAuth = async function (code: string, state?: string) {
       seenCode = code;
       seenState = state;
     };
 
-    (MCPClient.prototype as any).listTools = async function () {
+    (McpClient.prototype as any).listTools = async function () {
       return { tools: [] };
     };
 
-    (MCPClient.prototype as any).fetchTools = async function () {
+    (McpClient.prototype as any).fetchTools = async function () {
       return { tools: [] };
     };
 
@@ -336,14 +336,14 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       expect(seenCode).toBe('auth-code');
       expect(seenState).toBe('nonce123.auth-session');
     } finally {
-      (MCPClient.prototype as any).finishAuth = originalFinishAuth;
-      (MCPClient.prototype as any).listTools = originalListTools;
-      (MCPClient.prototype as any).fetchTools = originalFetchTools;
+      (McpClient.prototype as any).finishAuth = originalFinishAuth;
+      (McpClient.prototype as any).listTools = originalListTools;
+      (McpClient.prototype as any).fetchTools = originalFetchTools;
       manager.dispose();
     }
   });
 
-  test('dispatches listResourceTemplates to MCPClient', async () => {
+  test('dispatches listResourceTemplates to McpClient', async () => {
     const storage = new MemoryStorageBackend();
     _setStorageInstanceForTesting(storage);
 
@@ -364,12 +364,12 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       () => { }
     );
 
-    const originalConnect = (MCPClient.prototype as any).connect;
-    const originalListResourceTemplates = (MCPClient.prototype as any).listResourceTemplates;
+    const originalConnect = (McpClient.prototype as any).connect;
+    const originalListResourceTemplates = (McpClient.prototype as any).listResourceTemplates;
 
-    (MCPClient.prototype as any).connect = async function () { };
+    (McpClient.prototype as any).connect = async function () { };
 
-    (MCPClient.prototype as any).listResourceTemplates = async function () {
+    (McpClient.prototype as any).listResourceTemplates = async function () {
       return {
         resourceTemplates: [
           {
@@ -401,8 +401,8 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
         ],
       });
     } finally {
-      (MCPClient.prototype as any).connect = originalConnect;
-      (MCPClient.prototype as any).listResourceTemplates = originalListResourceTemplates;
+      (McpClient.prototype as any).connect = originalConnect;
+      (McpClient.prototype as any).listResourceTemplates = originalListResourceTemplates;
       manager.dispose();
     }
   });
@@ -428,12 +428,12 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       () => { }
     );
 
-    const originalConnect = (MCPClient.prototype as any).connect;
-    const originalListResourceTemplates = (MCPClient.prototype as any).listResourceTemplates;
+    const originalConnect = (McpClient.prototype as any).connect;
+    const originalListResourceTemplates = (McpClient.prototype as any).listResourceTemplates;
 
-    (MCPClient.prototype as any).connect = async function () { };
+    (McpClient.prototype as any).connect = async function () { };
 
-    (MCPClient.prototype as any).listResourceTemplates = async function () {
+    (McpClient.prototype as any).listResourceTemplates = async function () {
       return { resourceTemplates: [] };
     };
 
@@ -447,8 +447,8 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       expect((response as any).error).toBeUndefined();
       expect((response as any).result).toEqual({ resourceTemplates: [] });
     } finally {
-      (MCPClient.prototype as any).connect = originalConnect;
-      (MCPClient.prototype as any).listResourceTemplates = originalListResourceTemplates;
+      (McpClient.prototype as any).connect = originalConnect;
+      (McpClient.prototype as any).listResourceTemplates = originalListResourceTemplates;
       manager.dispose();
     }
   });

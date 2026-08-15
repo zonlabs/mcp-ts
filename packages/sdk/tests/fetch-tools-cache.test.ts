@@ -1,5 +1,5 @@
 /**
- * Tests for the fetchTools() in-memory cache introduced on MCPClient.
+ * Tests for the fetchTools() in-memory cache introduced on McpClient.
  *
  * Changes covered:
  * - `cachedTools` is null on construction.
@@ -10,12 +10,12 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { MCPClient } from '../src/server/mcp/oauth-client';
+import { McpClient } from '../src/server/mcp/client';
 import { _setStorageInstanceForTesting } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
 
 function makeMcpClient() {
-  return new MCPClient({
+  return new McpClient({
     userId: 'cache-user',
     sessionId: 'cache-session',
     serverId: 'cache-server',
@@ -24,7 +24,7 @@ function makeMcpClient() {
   });
 }
 
-test.describe('MCPClient.fetchTools cache', () => {
+test.describe('McpClient.fetchTools cache', () => {
   test.beforeEach(() => {
     _setStorageInstanceForTesting(new MemoryStorageBackend());
   });

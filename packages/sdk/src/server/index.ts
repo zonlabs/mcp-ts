@@ -4,11 +4,40 @@
  */
 
 /** Core MCP client and session management */
-export { MCPClient, normalizeMcpSdkClientOptions, type McpSdkClientOptions } from './mcp/oauth-client.js';
+export {
+  McpClient,
+  normalizeMcpSdkClientOptions,
+  type McpSdkClientOptions,
+  type McpClientOptions,
+  type MCPOAuthClientOptions,
+} from './mcp/client.js';
 export { UnauthorizedError } from '../shared/errors.js';
-export { sessions, onSessionMutation, withDbObservability, type SessionStore } from './storage/index.js';
+export {
+  sessions,
+  onSessionMutation,
+  withDbObservability,
+  FileStorageBackend,
+  SqliteStorage,
+  MemoryStorageBackend,
+  RedisStorageBackend,
+  SupabaseStorageBackend,
+  NeonStorageBackend,
+  type SessionStore,
+} from './storage/index.js';
 export { StorageOAuthClientProvider } from './mcp/storage-oauth-provider.js';
-export { MultiSessionClient } from './mcp/multi-session-client.js';
+export {
+  Mcp,
+  mcp,
+  McpUser,
+  type McpOptions,
+  type McpUserOptions,
+  type AddMcpServerOptions,
+  type AddMcpServerResult,
+} from './mcp/mcp.js';
+export {
+  McpManager,
+  type McpManagerOptions,
+} from './mcp/manager.js';
 
 /** SSE handler for real-time connections */
 export { createSSEHandler, SSEConnectionManager, type SSEHandlerOptions, type ClientMetadata } from './handlers/sse-handler.js';
@@ -33,6 +62,8 @@ export type {
 } from '../shared/events';
 
 export type {
+  BaseClient,
+  BaseClientProvider,
   ToolClient,
   ToolClientProvider,
   ToolInfo,

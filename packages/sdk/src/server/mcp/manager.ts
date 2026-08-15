@@ -1,6 +1,6 @@
-import { MCPClient } from './oauth-client.js';
+import { McpClient } from './client.js';
 import { sessions, withDbObservability, type Session, type SessionStore } from '../storage/index.js';
-import type { ToolClient, ToolClientProvider } from '../../shared/types.js';
+import type { BaseClient, BaseClientProvider, ToolClient, ToolClientProvider } from '../../shared/types.js';
 import { createToolPolicyGateway } from './tool-policy-gateway.js';
 
 // ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ const CONNECTION_BATCH_SIZE = 5;
 // Types
 // ---------------------------------------------------------------------------
 
-export interface MultiSessionOptions {
+export interface McpManagerOptions {
     /**
      * Connection timeout in milliseconds.
      * @default 15000
@@ -53,7 +53,7 @@ export interface MultiSessionOptions {
     sessionProvider?: () => Promise<Session[]>;
 
     /**
-     * Attached to each MCPClient before connect() so all connection lifecycle
+     * Attached to each McpClient before connect() so all connection lifecycle
      * events (INITIALIZING, CONNECTING, CONNECTED, etc.) are captured.
      */
     onObservabilityEvent?: McpObservabilityEventHandler;
@@ -61,7 +61,7 @@ export interface MultiSessionOptions {
     /**
      * Called after a session is successfully connected.
      */
-    onSessionConnected?: (sessionId: string, client: MCPClient) => void;
+    onSessionConnected?: (sessionId: string, client: McpClient) => void;
 
     /**
      * Called when a session is evicted from the in-memory client list
@@ -79,31 +79,36 @@ export interface MultiSessionOptions {
 type McpObservabilityEventHandler = (event: import('../../shared/events.js').McpObservabilityEvent) => void;
 
 // ---------------------------------------------------------------------------
-// MultiSessionClient
+// McpManager
 // ---------------------------------------------------------------------------
 
 /**
- * Manages multiple MCP client connections for a single user.
+ * Manages all active MCP client connections for a single user.
  *
- * Cached instances stay alive between requests on long-running servers.
- * On serverless, the underlying session data persists in storage — the
- * client rehydrates from `sessionProvider` (or the default storage backend)
- * each time `connect()` is called.
+ * Automatically restores sessions from durable storage, performs batch
+ * connections with retry handling, and provides unified tool aggregation
+ * and access policy routing across all connected servers.
  *
- * @implements {ToolClientProvider}
+ * @implements {BaseClientProvider}
+ * @example
+ * ```ts
+ * const manager = new McpManager("user_123");
+ * await manager.connect();
+ * const clients = manager.getClients();
+ * ```
  */
-export class MultiSessionClient implements ToolClientProvider {
-    private clients: MCPClient[] = [];
+export class McpManager implements BaseClientProvider {
+    private clients: McpClient[] = [];
     private connectionPromises = new Map<string, Promise<void>>();
     private userId: string;
-    private options: Required<Pick<MultiSessionOptions, 'timeout' | 'maxRetries' | 'retryDelay'>> &
-        Pick<MultiSessionOptions, 'sessionProvider' | 'onObservabilityEvent' | 'onSessionConnected' | 'onSessionEvicted' | 'onSessionFailed'>;
+    private options: Required<Pick<McpManagerOptions, 'timeout' | 'maxRetries' | 'retryDelay'>> &
+        Pick<McpManagerOptions, 'sessionProvider' | 'onObservabilityEvent' | 'onSessionConnected' | 'onSessionEvicted' | 'onSessionFailed'>;
 
     /**
      * @param userId - Unique identifier for the user (e.g. user ID or email).
      * @param options - Optional tuning and lifecycle hooks.
      */
-    constructor(userId: string, options: MultiSessionOptions = {}) {
+    constructor(userId: string, options: McpManagerOptions = {}) {
         this.userId = userId;
         this.options = {
             timeout: DEFAULT_TIMEOUT_MS,
@@ -127,7 +132,7 @@ export class MultiSessionClient implements ToolClientProvider {
      * Fetches active sessions and establishes connections to all of them.
      *
      * Call this once after creating the client. On long-running servers you
-     * can cache the `MultiSessionClient` instance and call `connect()` on
+     * can cache the `McpManager` instance and call `connect()` on
      * each request — already-connected sessions are skipped internally.
      */
     async connect(): Promise<void> {
@@ -145,7 +150,7 @@ export class MultiSessionClient implements ToolClientProvider {
     }
 
     /**
-     * Drops all cached `MCPClient` instances and reconnects fresh from storage.
+     * Drops all cached `McpClient` instances and reconnects fresh from storage.
      *
      * Call this when downstream MCP servers have expired their transport sessions
      * (e.g. after a remote server restart) and subsequent tool calls return
@@ -160,12 +165,12 @@ export class MultiSessionClient implements ToolClientProvider {
     }
 
     /**
-     * Returns all currently connected `MCPClient` instances.
+     * Returns all currently connected `BaseClient` instances.
      *
      * Use this to enumerate available tools across all connected servers,
      * or to route a tool call to the right client by `serverId`.
      */
-    getClients(): ToolClient[] {
+    getClients(): BaseClient[] {
         return this.clients.map((client) =>
             createToolPolicyGateway(this.userId, client.getSessionId(), client)
         );
@@ -294,12 +299,13 @@ export class MultiSessionClient implements ToolClientProvider {
 
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                const client = new MCPClient({
+                const client = new McpClient({
                     userId: this.userId,
                     sessionId: session.sessionId,
                     serverId: session.serverId,
                     serverUrl: session.serverUrl,
-                    callbackUrl: session.callbackUrl,                    serverName: session.serverName,
+                    callbackUrl: session.callbackUrl,
+                    serverName: session.serverName,
                     transport: session.serverOptions?.transport,
                     headers: session.headers,
                     client: session.serverOptions?.client ?? undefined,
@@ -345,7 +351,7 @@ export class MultiSessionClient implements ToolClientProvider {
 
         this.options.onSessionFailed?.(session.sessionId, lastError);
         console.error(
-            `[MultiSessionClient] Failed to connect to session ${session.sessionId} ` +
+            `[McpManager] Failed to connect to session ${session.sessionId} ` +
             `after ${maxRetries + 1} attempts:`,
             lastError,
         );

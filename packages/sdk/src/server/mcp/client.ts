@@ -137,12 +137,25 @@ export interface MCPOAuthClientOptions {
   discoverResult?: DiscoverResult | null;
 }
 
+export type McpClientOptions = MCPOAuthClientOptions;
+
 /**
- * MCP Client with OAuth 2.1 authentication support
- * Manages connections to MCP servers with automatic token refresh and session restoration
- * Emits connection lifecycle events for observability
+ * Modern MCP client with OAuth 2.1 (PKCE & DCR) authentication support.
+ * Manages connections to an MCP server with automatic token refresh,
+ * durable session restoration, and real-time observability.
+ *
+ * @example
+ * ```ts
+ * const client = new McpClient({
+ *   serverUrl: "https://mcp.tavily.com/mcp",
+ *   userId: "user_123",
+ *   sessionId: "sess_tavily",
+ * });
+ * await client.connect();
+ * const { tools } = await client.listTools();
+ * ```
  */
-export class MCPClient {
+export class McpClient {
   private client: Client;
   public oauthProvider: OAuthClientProvider | null = null;
   private transport: StreamableHTTPClientTransport | SSEClientTransport | null = null;

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { AIAdapter } from '../../src/adapters/ai-adapter';
-import { MCPClient } from '../../src/server/mcp/oauth-client';
+import { McpClient } from '../../src/server/mcp/client';
 import { ToolRouter } from '../../src/shared/tool-router';
 
 class MockMCPClient {
@@ -47,7 +47,7 @@ class MockMCPClient {
 
 test.describe('AIAdapter', () => {
     test('should transform tools correctly', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         const adapter = new AIAdapter(mockClient);
 
         const tools = await adapter.getTools();
@@ -57,7 +57,7 @@ test.describe('AIAdapter', () => {
     });
 
     test('should use custom prefix', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         const adapter = new AIAdapter(mockClient, { prefix: 'custom' });
 
         const tools = await adapter.getTools();
@@ -66,7 +66,7 @@ test.describe('AIAdapter', () => {
     });
 
     test('should handle disconnected client', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         (mockClient as any).connected = false;
 
         const adapter = new AIAdapter(mockClient);
@@ -76,7 +76,7 @@ test.describe('AIAdapter', () => {
     });
 
     test('static getTools should work', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         const tools = await AIAdapter.getTools(mockClient);
 
         expect(Object.keys(tools)).toHaveLength(1);

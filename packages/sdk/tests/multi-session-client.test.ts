@@ -1,45 +1,45 @@
 import { test, expect } from '@playwright/test';
-import { MultiSessionClient, type MultiSessionOptions } from '../src/server/mcp/multi-session-client';
-import { MCPClient } from '../src/server/mcp/oauth-client';
+import { McpManager, type McpManagerOptions } from '../src/server/mcp/manager';
+import { McpClient } from '../src/server/mcp/client';
 import { sessions, _setStorageInstanceForTesting } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
 import type { Session } from '../src/server/storage/types';
 
-test.describe('MultiSessionClient', () => {
+test.describe('McpManager', () => {
     const userId = 'test-userId';
     
-    // Save original MCPClient methods to restore later
-    const originalConnect = (MCPClient.prototype as any).connect;
-    const originalDisconnect = (MCPClient.prototype as any).disconnect;
-    const originalIsConnected = (MCPClient.prototype as any).isConnected;
-    const originalGetSessionId = (MCPClient.prototype as any).getSessionId;
+    // Save original McpClient methods to restore later
+    const originalConnect = (McpClient.prototype as any).connect;
+    const originalDisconnect = (McpClient.prototype as any).disconnect;
+    const originalIsConnected = (McpClient.prototype as any).isConnected;
+    const originalGetSessionId = (McpClient.prototype as any).getSessionId;
 
     test.beforeEach(() => {
         // Mock getSessionId to read from the internal state created in constructor
-        (MCPClient.prototype as any).getSessionId = function() {
+        (McpClient.prototype as any).getSessionId = function() {
             return (this as any).config?.sessionId || (this as any).sessionId;
         };
-        (MCPClient.prototype as any).isConnected = function() {
+        (McpClient.prototype as any).isConnected = function() {
             return (this as any)._mockConnected || false;
         };
-        (MCPClient.prototype as any).disconnect = function() {
+        (McpClient.prototype as any).disconnect = function() {
             (this as any)._mockConnected = false;
         };
     });
 
     test.afterEach(() => {
         _setStorageInstanceForTesting(null);
-        (MCPClient.prototype as any).connect = originalConnect;
-        (MCPClient.prototype as any).disconnect = originalDisconnect;
-        (MCPClient.prototype as any).isConnected = originalIsConnected;
-        (MCPClient.prototype as any).getSessionId = originalGetSessionId;
+        (McpClient.prototype as any).connect = originalConnect;
+        (McpClient.prototype as any).disconnect = originalDisconnect;
+        (McpClient.prototype as any).isConnected = originalIsConnected;
+        (McpClient.prototype as any).getSessionId = originalGetSessionId;
     });
 
     test('should fetch active sessions and establish connections in batches', async () => {
         let connectCallCount = 0;
         
         // Mock connect to succeed automatically
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             connectCallCount++;
             (this as any)._mockConnected = true;
         };
@@ -58,7 +58,7 @@ test.describe('MultiSessionClient', () => {
         mockStorage.list = async () => mockSessions as any;
         _setStorageInstanceForTesting(mockStorage);
 
-        const multiClient = new MultiSessionClient(userId);
+        const multiClient = new McpManager(userId);
         await multiClient.connect();
 
         const clients = multiClient.getClients();
@@ -74,13 +74,13 @@ test.describe('MultiSessionClient', () => {
         const lockPromise = new Promise<void>(r => { releaseLock = r; });
 
         // Mock connect to wait for the explicit release to guarantee overlapping
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             connectCallCount++;
             await lockPromise; 
             (this as any)._mockConnected = true;
         };
 
-        const multiClient = new MultiSessionClient(userId, { timeout: 10000 });
+        const multiClient = new McpManager(userId, { timeout: 10000 });
         
         const testSession = {
             sessionId: 'concurrent-session',
@@ -106,7 +106,7 @@ test.describe('MultiSessionClient', () => {
     test('should apply retry logic when connections fail', async () => {
         let attemptCount = 0;
         
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             attemptCount++;
             if (attemptCount < 2) {
                 // Fail on the first attempt
@@ -116,7 +116,7 @@ test.describe('MultiSessionClient', () => {
             (this as any)._mockConnected = true;
         };
 
-        const multiClient = new MultiSessionClient(userId, { maxRetries: 2, retryDelay: 50 });
+        const multiClient = new McpManager(userId, { maxRetries: 2, retryDelay: 50 });
         
         const testSession = {
             sessionId: 'retry-session',
@@ -138,7 +138,7 @@ test.describe('MultiSessionClient', () => {
     test('should give up and log error if max retries are exceeded', async () => {
         let attemptCount = 0;
         
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             attemptCount++;
             throw new Error('Persistent failure');
         };
@@ -149,7 +149,7 @@ test.describe('MultiSessionClient', () => {
         console.error = () => { loggedErrors++; };
 
         try {
-            const multiClient = new MultiSessionClient(userId, { maxRetries: 1, retryDelay: 10 });
+            const multiClient = new McpManager(userId, { maxRetries: 1, retryDelay: 10 });
             
             const testSession = {
                 sessionId: 'fail-session',
@@ -170,7 +170,7 @@ test.describe('MultiSessionClient', () => {
     });
 
     test('should properly disconnect and clear client cache', async () => {
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             (this as any)._mockConnected = true;
         };
 
@@ -181,7 +181,7 @@ test.describe('MultiSessionClient', () => {
             callbackUrl: 'url'
         } as any;
 
-        const multiClient = new MultiSessionClient(userId);
+        const multiClient = new McpManager(userId);
         await (multiClient as any).connectSession(testSession);
         
         const client = multiClient.getClients()[0];
@@ -194,7 +194,7 @@ test.describe('MultiSessionClient', () => {
     });
 
     test('should use sessionProvider instead of storage when provided', async () => {
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             (this as any)._mockConnected = true;
         };
 
@@ -212,7 +212,7 @@ test.describe('MultiSessionClient', () => {
         ];
 
         let providerCalled = false;
-        const multiClient = new MultiSessionClient(userId, {
+        const multiClient = new McpManager(userId, {
             sessionProvider: async () => {
                 providerCalled = true;
                 return providerSessions;
@@ -227,12 +227,12 @@ test.describe('MultiSessionClient', () => {
     });
 
     test('should invoke onSessionConnected after successful connection', async () => {
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             (this as any)._mockConnected = true;
         };
 
         const connectedSessions: string[] = [];
-        const multiClient = new MultiSessionClient(userId, {
+        const multiClient = new McpManager(userId, {
             sessionProvider: async () => [{
                 sessionId: 'cb-session',
                 userId,
@@ -254,14 +254,14 @@ test.describe('MultiSessionClient', () => {
     });
 
     test('should invoke onSessionEvicted when stale clients are pruned', async () => {
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             (this as any)._mockConnected = true;
         };
 
         const evictedSessions: string[] = [];
 
         // Connect with one session
-        const multiClient = new MultiSessionClient(userId, {
+        const multiClient = new McpManager(userId, {
             sessionProvider: async () => [{
                 sessionId: 'stale-session',
                 userId,
@@ -281,7 +281,7 @@ test.describe('MultiSessionClient', () => {
         expect(multiClient.getClients().length).toBe(1);
 
         // Now reconnect with a different session — the old client should be evicted
-        const multiClient2 = new MultiSessionClient(userId, {
+        const multiClient2 = new McpManager(userId, {
             sessionProvider: async () => [], // No active sessions
             onSessionEvicted: (sessionId) => {
                 evictedSessions.push(sessionId);
@@ -298,7 +298,7 @@ test.describe('MultiSessionClient', () => {
 
     test('should invoke onSessionFailed when all retries are exhausted', async () => {
         let attemptCount = 0;
-        (MCPClient.prototype as any).connect = async function() {
+        (McpClient.prototype as any).connect = async function() {
             attemptCount++;
             throw new Error('Persistent failure');
         };
@@ -309,7 +309,7 @@ test.describe('MultiSessionClient', () => {
         const failedSessions: Array<{ sessionId: string; error: unknown }> = [];
 
         try {
-            const multiClient = new MultiSessionClient(userId, {
+            const multiClient = new McpManager(userId, {
                 maxRetries: 1,
                 retryDelay: 10,
                 sessionProvider: async () => [{

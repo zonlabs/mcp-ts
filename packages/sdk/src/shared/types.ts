@@ -13,9 +13,9 @@ import type { DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
  *
  * This is the structural interface that `ToolRouter`, adapters, and other
  * consumers use to interact with any MCP client implementation.
- * Both `MCPClient` and `createMcpClient()` satisfy this interface.
+ * Both `McpClient` and `RemoteToolClient` satisfy this interface.
  */
-export interface ToolClient {
+export interface BaseClient {
   isConnected(): boolean;
   listTools(options?: { filtered?: boolean }): Promise<{ tools: Tool[] }>;
   callTool(name: string, args: Record<string, unknown>): Promise<any>;
@@ -25,15 +25,21 @@ export interface ToolClient {
   getSessionId?(): string;
 }
 
+/** Alias for `BaseClient` */
+export type ToolClient = BaseClient;
+
 /**
- * A provider that manages multiple `ToolClient` instances.
+ * A provider that manages multiple `BaseClient` instances.
  *
- * `MultiSessionClient` satisfies this interface. Pass it directly
+ * `McpManager` satisfies this interface. Pass it directly
  * to `ToolRouter` or adapters to aggregate tools from all connected servers.
  */
-export interface ToolClientProvider {
-  getClients(): ToolClient[];
+export interface BaseClientProvider {
+  getClients(): BaseClient[];
 }
+
+/** Alias for `BaseClientProvider` */
+export type ToolClientProvider = BaseClientProvider;
 
 // Connect API types
 export interface ConnectRequest {

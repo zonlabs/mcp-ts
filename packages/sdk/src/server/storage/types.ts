@@ -1,5 +1,5 @@
 
-import type { MCPClient } from '../mcp/oauth-client.js';
+import type { McpClient } from '../mcp/client.js';
 import type {
     OAuthTokens,
     OAuthClientInformationMixed,
@@ -116,7 +116,7 @@ export interface SetClientOptions {
     sessionId: string;
     serverId?: string; // Database server ID
     serverName?: string; // Human-readable server name
-    client?: MCPClient;
+    client?: McpClient;
     serverUrl?: string;
     callbackUrl?: string;
     serverOptions?: StoredMcpServerOptions | null;

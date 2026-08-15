@@ -1,6 +1,4 @@
-import { MCPClient } from '../server/mcp/oauth-client';
-import { MultiSessionClient } from '../server/mcp/multi-session-client';
-import type { ToolClient } from '../shared/types.js';
+import type { BaseClient, BaseClientProvider, ToolClient } from '../shared/types.js';
 import type { z } from 'zod';
 
 export interface MastraAdapterOptions {
@@ -29,7 +27,7 @@ export class MastraAdapter {
     private z: typeof z | undefined;
 
     constructor(
-        private client: MCPClient | MultiSessionClient,
+        private client: BaseClient | BaseClientProvider,
         private options: MastraAdapterOptions = {}
     ) { }
 
@@ -104,10 +102,10 @@ export class MastraAdapter {
      */
     async getTools(): Promise<Record<string, MastraTool>> {
         // Use duck typing instead of instanceof to handle module bundling issues
-        const isMultiSession = typeof (this.client as any).getClients === 'function';
-        const clients = isMultiSession
-            ? (this.client as MultiSessionClient).getClients()
-            : [this.client as MCPClient];
+        const isProvider = typeof (this.client as BaseClientProvider).getClients === 'function';
+        const clients = isProvider
+            ? (this.client as BaseClientProvider).getClients()
+            : [this.client as BaseClient];
 
         const results = await Promise.all(
             clients.map(async (client) => {
@@ -125,7 +123,7 @@ export class MastraAdapter {
     /**
      * Convenience static method to fetch tools in a single line.
      */
-    static async getTools(client: MCPClient | MultiSessionClient, options: MastraAdapterOptions = {}): Promise<Record<string, MastraTool>> {
+    static async getTools(client: BaseClient | BaseClientProvider, options: MastraAdapterOptions = {}): Promise<Record<string, MastraTool>> {
         return new MastraAdapter(client, options).getTools();
     }
 }

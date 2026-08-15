@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { MCPClient } from '../src/server/mcp/oauth-client';
+import { McpClient } from '../src/server/mcp/client';
 import { SSEConnectionManager } from '../src/server/handlers/sse-handler';
 import { _setStorageInstanceForTesting } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
 
-test.describe('MCPClient', () => {
+test.describe('McpClient', () => {
     test.afterEach(() => {
         _setStorageInstanceForTesting(null);
     });
@@ -13,7 +13,7 @@ test.describe('MCPClient', () => {
         test('creates SDK Client eagerly in constructor', () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'test-session',
                 serverId: 'test-server',
@@ -29,7 +29,7 @@ test.describe('MCPClient', () => {
         test('defaults SDK protocol negotiation to auto', () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'protocol-auto-session',
                 serverId: 'protocol-auto-server',
@@ -43,7 +43,7 @@ test.describe('MCPClient', () => {
         test('allows callers to override SDK protocol negotiation to legacy', () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'protocol-legacy-session',
                 serverId: 'protocol-legacy-server',
@@ -60,7 +60,7 @@ test.describe('MCPClient', () => {
         test('allows callers to pin SDK protocol negotiation', () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'protocol-pin-session',
                 serverId: 'protocol-pin-server',
@@ -79,7 +79,7 @@ test.describe('MCPClient', () => {
         test('passes caller SDK capabilities without injecting UI extensions', () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'custom-capabilities-session',
                 serverId: 'custom-capabilities-server',
@@ -147,7 +147,7 @@ test.describe('MCPClient', () => {
         test('creates oauthProvider when missing', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'setup-session-test',
                 serverId: 'test-server',
@@ -182,7 +182,7 @@ test.describe('MCPClient', () => {
                 status: 'active',
             });
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'persisted-client-options-session',
                 sessionStore: storage,
@@ -211,7 +211,7 @@ test.describe('MCPClient', () => {
                 status: 'active',
             });
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'persisted-transport-options-session',
                 sessionStore: storage,
@@ -224,7 +224,7 @@ test.describe('MCPClient', () => {
         test('is idempotent when called multiple times', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'idempotent-test',
                 serverId: 'test-server',
@@ -241,7 +241,7 @@ test.describe('MCPClient', () => {
         test('throws when session not found and no config provided', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'nonexistent-session',
             });
@@ -254,7 +254,7 @@ test.describe('MCPClient', () => {
         test('creates StorageOAuthClientProvider even with Authorization header present', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'static-auth-session',
                 serverId: 'static-auth-server',
@@ -282,7 +282,7 @@ test.describe('MCPClient', () => {
                 clientInformation: async () => ({ client_id: 'custom-id' }),
             };
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'custom-provider-session',
                 serverId: 'custom-provider-server',
@@ -299,7 +299,7 @@ test.describe('MCPClient', () => {
         test('passes clientInformation to StorageOAuthClientProvider when supplied in options', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'client-info-session',
                 serverId: 'client-info-server',
@@ -325,7 +325,7 @@ test.describe('MCPClient', () => {
         test('passes all headers including Authorization in requestInit', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'custom-headers-session',
                 serverId: 'custom-headers-server',
@@ -351,7 +351,7 @@ test.describe('MCPClient', () => {
         test('includes only Authorization header in requestInit when present alone', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'no-auth-custom-headers',
                 serverId: 'no-auth-custom-headers-server',
@@ -446,7 +446,7 @@ test.describe('MCPClient', () => {
                 status: 'active',
             });
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'protocol-restore-session',
                 sessionStore: storage,
@@ -489,7 +489,7 @@ test.describe('MCPClient', () => {
         test('does not automatically fall back to SSE when transport is omitted', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'no-sse-fallback-session',
                 serverId: 'no-sse-fallback-server',
@@ -511,7 +511,7 @@ test.describe('MCPClient', () => {
         test('still allows explicit SSE transport selection for legacy callers', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'explicit-sse-session',
                 serverId: 'explicit-sse-server',
@@ -545,7 +545,7 @@ test.describe('MCPClient', () => {
         test('preserves client instance after disconnect', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'disconnect-test',
                 serverId: 'test-server',
@@ -561,7 +561,7 @@ test.describe('MCPClient', () => {
         test('disconnects without throwing when never connected', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'never-connected-test',
                 serverId: 'test-server',
@@ -577,7 +577,7 @@ test.describe('MCPClient', () => {
         test('returns false when never connected', () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'isconnected-test',
                 serverId: 'test-server',
@@ -591,7 +591,7 @@ test.describe('MCPClient', () => {
         test('returns false after disconnect', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'isconnected-disconnect-test',
                 serverId: 'test-server',
@@ -608,7 +608,7 @@ test.describe('MCPClient', () => {
         test('passes through non-MCP_SESSION_EXPIRED errors', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'retry-nonexpired-test',
                 serverId: 'test-server',
@@ -626,7 +626,7 @@ test.describe('MCPClient', () => {
         test('recovers from MCP_SESSION_EXPIRED and retries', async () => {
             _setStorageInstanceForTesting(new MemoryStorageBackend());
 
-            const client = new MCPClient({
+            const client = new McpClient({
                 userId: 'test-user',
                 sessionId: 'retry-session-expired-test',
                 serverId: 'test-server',

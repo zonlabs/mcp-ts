@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { LangChainAdapter } from '../../src/adapters/langchain-adapter';
-import { MCPClient } from '../../src/server/mcp/oauth-client';
+import { McpClient } from '../../src/server/mcp/client';
 
 class MockMCPClient {
     private connected = true;
@@ -46,7 +46,7 @@ class MockMCPClient {
 
 test.describe('LangChainAdapter', () => {
     test('should transform tools correctly', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         const adapter = new LangChainAdapter(mockClient);
 
         const tools = await adapter.getTools();
@@ -56,7 +56,7 @@ test.describe('LangChainAdapter', () => {
     });
 
     test('should use custom prefix', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         const adapter = new LangChainAdapter(mockClient, { prefix: 'custom' });
 
         const tools = await adapter.getTools();
@@ -65,7 +65,7 @@ test.describe('LangChainAdapter', () => {
     });
 
     test('should handle disconnected client', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         (mockClient as any).connected = false;
 
         const adapter = new LangChainAdapter(mockClient);
@@ -75,14 +75,14 @@ test.describe('LangChainAdapter', () => {
     });
 
     test('static getTools should work', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         const tools = await LangChainAdapter.getTools(mockClient);
 
         expect(tools).toHaveLength(1);
     });
 
     test('should handle errors gracefully with simplifyErrors option', async () => {
-        const mockClient = new MockMCPClient() as unknown as MCPClient;
+        const mockClient = new MockMCPClient() as unknown as McpClient;
         (mockClient as any).callTool = async () => {
             throw new Error('Test error');
         };

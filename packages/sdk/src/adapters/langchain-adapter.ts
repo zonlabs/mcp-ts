@@ -1,9 +1,7 @@
-import { MCPClient } from '../server/mcp/oauth-client';
-import { MultiSessionClient } from '../server/mcp/multi-session-client';
 import type { DynamicStructuredTool, StructuredTool } from '@langchain/core/tools';
 import type { z } from 'zod';
 import { ToolRouter } from '../shared/tool-router.js';
-import type { ToolClient } from '../shared/types.js';
+import type { BaseClient, BaseClientProvider, ToolClient } from '../shared/types.js';
 import { executeMetaTool, isMetaTool } from '../shared/meta-tools.js';
 
 export interface LangChainAdapterOptions {
@@ -35,7 +33,7 @@ export class LangChainAdapter {
     private z: typeof z | undefined;
 
     constructor(
-        private client: MCPClient | MultiSessionClient,
+        private client: BaseClient | BaseClientProvider,
         private options: LangChainAdapterOptions = {}
     ) { }
 
@@ -118,10 +116,10 @@ export class LangChainAdapter {
         }
 
         // Use duck typing instead of instanceof to handle module bundling issues
-        const isMultiSession = typeof (this.client as any).getClients === 'function';
-        const clients = isMultiSession
-            ? (this.client as MultiSessionClient).getClients()
-            : [this.client as MCPClient];
+        const isProvider = typeof (this.client as BaseClientProvider).getClients === 'function';
+        const clients = isProvider
+            ? (this.client as BaseClientProvider).getClients()
+            : [this.client as BaseClient];
 
         const results = await Promise.all(
             clients.map(async (client) => {
@@ -200,7 +198,7 @@ export class LangChainAdapter {
     /**
      * Convenience static method to fetch tools in a single line.
      */
-    static async getTools(client: MCPClient | MultiSessionClient, options: LangChainAdapterOptions = {}): Promise<StructuredTool[]> {
+    static async getTools(client: BaseClient | BaseClientProvider, options: LangChainAdapterOptions = {}): Promise<StructuredTool[]> {
         return new LangChainAdapter(client, options).getTools();
     }
 }

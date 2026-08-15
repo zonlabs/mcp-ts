@@ -22,6 +22,8 @@ export * from './errors';
 
 // Types
 export type {
+  BaseClient,
+  BaseClientProvider,
   ToolClient,
   ToolClientProvider,
   ToolInfo,

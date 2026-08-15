@@ -1,9 +1,7 @@
-import { MCPClient } from '../server/mcp/oauth-client';
-import { MultiSessionClient } from '../server/mcp/multi-session-client';
 import type { JSONSchema7 } from 'json-schema';
 import type { ToolSet } from 'ai';
 import { ToolRouter } from '../shared/tool-router.js';
-import type { ToolClient } from '../shared/types.js';
+import type { BaseClient, BaseClientProvider, ToolClient } from '../shared/types.js';
 import { executeMetaTool, isMetaTool } from '../shared/meta-tools.js';
 
 export interface AIAdapterOptions {
@@ -39,7 +37,7 @@ export class AIAdapter {
     private jsonSchema: typeof import('ai').jsonSchema | undefined;
 
     constructor(
-        private client: MCPClient | MultiSessionClient,
+        private client: BaseClient | BaseClientProvider,
         private options: AIAdapterOptions = {}
     ) { }
 
@@ -112,11 +110,10 @@ export class AIAdapter {
         }
 
         // Use duck typing instead of instanceof to handle module bundling issues
-        // MultiSessionClient has getClients(), MCPClient does not
-        const isMultiSession = typeof (this.client as any).getClients === 'function';
-        const clients = isMultiSession
-            ? (this.client as MultiSessionClient).getClients()
-            : [this.client as MCPClient];
+        const isProvider = typeof (this.client as BaseClientProvider).getClients === 'function';
+        const clients = isProvider
+            ? (this.client as BaseClientProvider).getClients()
+            : [this.client as BaseClient];
 
         const results = await Promise.all(
             clients.map(async (client) => {
@@ -214,7 +211,7 @@ export class AIAdapter {
     /**
      * Convenience static method to fetch tools in a single line.
      */
-    static async getTools(client: MCPClient | MultiSessionClient, options: AIAdapterOptions = {}): Promise<ToolSet> {
+    static async getTools(client: BaseClient | BaseClientProvider, options: AIAdapterOptions = {}): Promise<ToolSet> {
         return new AIAdapter(client, options).getTools();
     }
 }

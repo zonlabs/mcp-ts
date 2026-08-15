@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { MCPClient } from '../src/server/mcp/oauth-client';
+import { McpClient } from '../src/server/mcp/client';
 import { _setStorageInstanceForTesting } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
 import { UnauthorizedError as SDKUnauthorizedError } from "@modelcontextprotocol/client";
@@ -23,7 +23,7 @@ test.describe('Session Lifecycle Management', () => {
     });
 
     test('Scenario 1: Successful Connection Promotion (status: active)', async () => {
-        const client = new MCPClient({
+        const client = new McpClient({
             userId,
             sessionId,
             serverId,
@@ -60,7 +60,7 @@ test.describe('Session Lifecycle Management', () => {
     });
 
     test('Scenario 2: Generic error removes transient session', async () => {
-        const client = new MCPClient({
+        const client = new McpClient({
             userId,
             sessionId,
             serverId,
@@ -96,7 +96,7 @@ test.describe('Session Lifecycle Management', () => {
     });
 
     test('Scenario 2b: Generic reconnect error preserves active session credentials', async () => {
-        const client = new MCPClient({
+        const client = new McpClient({
             userId,
             sessionId,
             serverId,
@@ -134,7 +134,7 @@ test.describe('Session Lifecycle Management', () => {
     });
 
     test('Scenario 3: Terminal Auth Failure (no URL) removes session', async () => {
-        const client = new MCPClient({
+        const client = new McpClient({
             userId,
             sessionId,
             serverId,
@@ -159,7 +159,7 @@ test.describe('Session Lifecycle Management', () => {
     });
 
     test('Scenario 4: Short-lived Pending State (status: pending)', async () => {
-        const client = new MCPClient({
+        const client = new McpClient({
             userId,
             sessionId,
             serverId,

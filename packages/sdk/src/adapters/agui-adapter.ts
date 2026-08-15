@@ -26,10 +26,8 @@
  * ```
  */
 
-import { MCPClient } from '../server/mcp/oauth-client.js';
-import { MultiSessionClient } from '../server/mcp/multi-session-client.js';
 import { ToolRouter } from '../shared/tool-router.js';
-import type { ToolClient } from '../shared/types.js';
+import type { BaseClient, BaseClientProvider, ToolClient } from '../shared/types.js';
 import { executeMetaTool, isMetaTool } from '../shared/meta-tools.js';
 
 /**
@@ -132,7 +130,7 @@ export interface AguiToolDefinition {
  */
 export class AguiAdapter {
     constructor(
-        private client: MCPClient | MultiSessionClient,
+        private client: BaseClient | BaseClientProvider,
         private options: AguiAdapterOptions = {}
     ) { }
 
@@ -144,15 +142,15 @@ export class AguiAdapter {
             return this.getToolsViaRouter(this.options.toolRouter);
         }
 
-        if (this.isMultiSession()) {
-            const clients = (this.client as MultiSessionClient).getClients();
+        if (this.isProvider()) {
+            const clients = (this.client as BaseClientProvider).getClients();
             const allTools: AguiTool[] = [];
             for (const client of clients) {
                 allTools.push(...await this.transformTools(client));
             }
             return allTools;
         }
-        return this.transformTools(this.client as MCPClient);
+        return this.transformTools(this.client as BaseClient);
     }
 
     /**
@@ -163,15 +161,15 @@ export class AguiAdapter {
             return this.getToolDefinitionsViaRouter(this.options.toolRouter);
         }
 
-        if (this.isMultiSession()) {
-            const clients = (this.client as MultiSessionClient).getClients();
+        if (this.isProvider()) {
+            const clients = (this.client as BaseClientProvider).getClients();
             const allTools: AguiToolDefinition[] = [];
             for (const client of clients) {
                 allTools.push(...await this.transformToolDefinitions(client));
             }
             return allTools;
         }
-        return this.transformToolDefinitions(this.client as MCPClient);
+        return this.transformToolDefinitions(this.client as BaseClient);
     }
 
     /**
@@ -181,8 +179,8 @@ export class AguiAdapter {
         return () => this.getTools();
     }
 
-    private isMultiSession(): boolean {
-        return typeof (this.client as any).getClients === 'function';
+    private isProvider(): boolean {
+        return typeof (this.client as BaseClientProvider).getClients === 'function';
     }
 
     private async transformTools(client: ToolClient): Promise<AguiTool[]> {

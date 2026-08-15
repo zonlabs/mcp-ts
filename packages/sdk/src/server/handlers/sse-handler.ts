@@ -46,7 +46,7 @@ import type {
 import { RpcErrorCodes, UnauthorizedError } from '../../shared/errors.js';
 import { isConnectionEvent, isRpcResponseEvent } from '../../shared/event-routing.js';
 import { parseOAuthState } from '../../shared/utils.js';
-import { MCPClient, type McpSdkClientOptions } from '../mcp/oauth-client.js';
+import { McpClient, type McpSdkClientOptions } from '../mcp/client.js';
 import { sessions, generateServerId, withDbObservability, type Session, type SessionStore } from '../storage/index.js';
 import {
   createToolId,
@@ -217,7 +217,7 @@ function connectionErrorEvent(
  * ## Responsibilities
  * - RPC method dispatch (`connect`, `disconnect`, `callTool`, `listTools`, …)
  * - Session lifecycle: create, restore, re-validate, OAuth completion
- * - In-memory client cache (`Map<string, MCPClient>`) for active transports
+ * - In-memory client cache (`Map<string, McpClient>`) for active transports
  * - SSE event emission for connection state, tool discovery, and errors
  * - Periodic heartbeat to prevent proxy/CDN timeouts
  * - Unified observability: RPC timing, DB operations, connection lifecycle
@@ -233,8 +233,8 @@ export class SSEConnectionManager {
   private readonly userId: string;
 
   /** Active MCP transports keyed by sessionId. */
-  private readonly clients = new Map<string, MCPClient>();
-  private readonly pendingClients = new Map<string, Promise<MCPClient>>();
+  private readonly clients = new Map<string, McpClient>();
+  private readonly pendingClients = new Map<string, Promise<McpClient>>();
 
   /** Instrumented session store — always wraps `sessions` with DB observability. */
   private readonly observedStore: SessionStore;
@@ -478,7 +478,7 @@ export class SSEConnectionManager {
         }
       : undefined;
 
-    const client = new MCPClient({
+    const client = new McpClient({
       userId:       this.userId,
       sessionId,
       serverId,
@@ -524,7 +524,7 @@ export class SSEConnectionManager {
         }
       : undefined;
 
-    const client = new MCPClient({
+    const client = new McpClient({
       userId:       this.userId,
       sessionId,
       serverId,
@@ -568,7 +568,7 @@ export class SSEConnectionManager {
   /**
    * Completes the OAuth 2.1 authorization code flow for a pending session.
    *
-   * Loads the stored session (with credentials), creates a fresh `MCPClient`,
+   * Loads the stored session (with credentials), creates a fresh `McpClient`,
    * and calls `finishAuth` inside a {@link runWithCodeVerifierState} context
    * so the PKCE code verifier is available without a DB read.
    *
@@ -583,7 +583,7 @@ export class SSEConnectionManager {
     try {
       const metadata = await this.getResolvedClientMetadata();
 
-      const client = new MCPClient({
+      const client = new McpClient({
         userId:       this.userId,
         sessionId,
         serverId:     session.serverId,
@@ -804,7 +804,7 @@ export class SSEConnectionManager {
    * Returns the cached in-memory transport for `sessionId`, or creates one
    * from the persisted session row (with credentials) and connects it.
    */
-  private async getOrCreateClient(sessionId: string): Promise<MCPClient> {
+  private async getOrCreateClient(sessionId: string): Promise<McpClient> {
     const existing = this.clients.get(sessionId);
     if (existing) return existing;
 
@@ -823,7 +823,7 @@ export class SSEConnectionManager {
     }
   }
 
-  private async createClient(sessionId: string): Promise<MCPClient> {
+  private async createClient(sessionId: string): Promise<McpClient> {
     const session = await this.requireSession(sessionId);
 
     if (session.enabled === false) {
@@ -839,14 +839,14 @@ export class SSEConnectionManager {
   }
 
   /**
-   * Builds an `MCPClient` from a stored session row.
+   * Builds an `McpClient` from a stored session row.
    *
    * Extracts `clientId` and `clientSecret` from the session's credential
    * fields and passes `hasSession: true` + `cachedCredentials` so the client
    * can skip redundant existence checks and credential reads.
    */
-  private restoreClient(session: Session, metadata?: ClientMetadata): MCPClient {
-    return new MCPClient({
+  private restoreClient(session: Session, metadata?: ClientMetadata): McpClient {
+    return new McpClient({
       userId:       this.userId,
       sessionId:     session.sessionId,
       serverId:      session.serverId,
@@ -873,7 +873,7 @@ export class SSEConnectionManager {
    * (SSE stream); observability events go to `emitObs` (user callback
    * + SSE stream).
    */
-  private attachClientEvents(client: MCPClient): void {
+  private attachClientEvents(client: McpClient): void {
     client.onConnectionEvent((e) => this.sendEvent(e));
     client.onObservabilityEvent((e) => this.sendEvent(e));
   }
@@ -882,7 +882,7 @@ export class SSEConnectionManager {
    * Registers the client in the in-memory cache and attaches its event
    * listeners to the unified observability channel.
    */
-  private cacheClient(sessionId: string, client: MCPClient): void {
+  private cacheClient(sessionId: string, client: McpClient): void {
     this.attachClientEvents(client);
     this.clients.set(sessionId, client);
   }
@@ -898,7 +898,7 @@ export class SSEConnectionManager {
    * client is removed from the in-memory cache before re-throwing.
    */
   private async connectAndDiscover(
-    client: MCPClient,
+    client: McpClient,
     sessionId: string,
     serverId: string,
   ): Promise<ConnectResult> {

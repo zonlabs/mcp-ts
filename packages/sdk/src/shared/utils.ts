@@ -58,7 +58,7 @@ export function parseOAuthState(state: string): ParsedOAuthState | undefined {
 
   const nonce = state.slice(0, separatorIndex);
   const sessionId = state.slice(separatorIndex + 1);
-  if (!nonce || !sessionId || sessionId.includes(OAUTH_STATE_SEPARATOR)) {
+  if (!nonce || !sessionId) {
     return undefined;
   }
 

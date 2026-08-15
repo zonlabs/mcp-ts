@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { Client } from "@modelcontextprotocol/client";
-import { MCPClient } from '../src/server/mcp/oauth-client';
+import { McpClient } from '../src/server/mcp/client';
 import { _setStorageInstanceForTesting, sessions } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
 import { STATE_EXPIRATION_MS } from '../src/shared/constants';
@@ -49,7 +49,7 @@ function expectPendingExpiration(expiresAt: unknown) {
   expect(expiresAt as number).toBeLessThanOrEqual(Date.now() + STATE_EXPIRATION_MS + 1000);
 }
 
-async function createPendingSession(client: MCPClient) {
+async function createPendingSession(client: McpClient) {
   const userId = (client as any).config.userId;
   const sessionId = (client as any).config.sessionId;
   const existing = await sessions.get(userId, sessionId);
@@ -69,16 +69,16 @@ async function createPendingSession(client: MCPClient) {
   }
 }
 
-test.describe('MCPClient session expiration lifecycle', () => {
-  const originalEnsureSession = (MCPClient.prototype as any).ensureSession;
-  const originalTryConnect = (MCPClient.prototype as any).tryConnect;
-  const originalGetTransport = (MCPClient.prototype as any).getTransport;
+test.describe('McpClient session expiration lifecycle', () => {
+  const originalEnsureSession = (McpClient.prototype as any).ensureSession;
+  const originalTryConnect = (McpClient.prototype as any).tryConnect;
+  const originalGetTransport = (McpClient.prototype as any).getTransport;
   const originalClientConnect = (Client.prototype as any).connect;
 
   test.afterEach(() => {
-    (MCPClient.prototype as any).ensureSession = originalEnsureSession;
-    (MCPClient.prototype as any).tryConnect = originalTryConnect;
-    (MCPClient.prototype as any).getTransport = originalGetTransport;
+    (McpClient.prototype as any).ensureSession = originalEnsureSession;
+    (McpClient.prototype as any).tryConnect = originalTryConnect;
+    (McpClient.prototype as any).getTransport = originalGetTransport;
     (Client.prototype as any).connect = originalClientConnect;
     _setStorageInstanceForTesting(null);
   });
@@ -87,13 +87,13 @@ test.describe('MCPClient session expiration lifecycle', () => {
     const mockStorage = new TrackingMemoryStorage();
     _setStorageInstanceForTesting(mockStorage);
 
-    (MCPClient.prototype as any).ensureSession = async function () {
+    (McpClient.prototype as any).ensureSession = async function () {
       (this as any).oauthProvider = { authUrl: '' };
-      await createPendingSession(this as MCPClient);
+      await createPendingSession(this as McpClient);
     };
-    (MCPClient.prototype as any).tryConnect = async () => ({ transport: { type: 'streamable-http' } });
+    (McpClient.prototype as any).tryConnect = async () => ({ transport: { type: 'streamable-http' } });
 
-    const client = new MCPClient({
+    const client = new McpClient({
       userId: 'user-1',
       sessionId: 's-1',
       serverId: 'srv-1',
@@ -118,15 +118,15 @@ test.describe('MCPClient session expiration lifecycle', () => {
     const mockStorage = new TrackingMemoryStorage();
     _setStorageInstanceForTesting(mockStorage);
 
-    (MCPClient.prototype as any).ensureSession = async function () {
+    (McpClient.prototype as any).ensureSession = async function () {
       (this as any).oauthProvider = { authUrl: 'https://auth.example.com' };
-      await createPendingSession(this as MCPClient);
+      await createPendingSession(this as McpClient);
     };
-    (MCPClient.prototype as any).tryConnect = async () => {
+    (McpClient.prototype as any).tryConnect = async () => {
       throw new Error('unauthorized');
     };
 
-    const client = new MCPClient({
+    const client = new McpClient({
       userId: 'user-2',
       sessionId: 's-2',
       serverId: 'srv-2',
@@ -149,12 +149,12 @@ test.describe('MCPClient session expiration lifecycle', () => {
     const mockStorage = new TrackingMemoryStorage();
     _setStorageInstanceForTesting(mockStorage);
 
-    (MCPClient.prototype as any).ensureSession = async function () {
+    (McpClient.prototype as any).ensureSession = async function () {
       (this as any).oauthProvider = { authUrl: 'https://auth.example.com' };
-      await createPendingSession(this as MCPClient);
+      await createPendingSession(this as McpClient);
     };
 
-    (MCPClient.prototype as any).getTransport = function () {
+    (McpClient.prototype as any).getTransport = function () {
       return {
         finishAuth: async () => { },
       };
@@ -162,7 +162,7 @@ test.describe('MCPClient session expiration lifecycle', () => {
 
     (Client.prototype as any).connect = async () => { };
 
-    const client = new MCPClient({
+    const client = new McpClient({
       userId: 'user-3',
       sessionId: 's-3',
       serverId: 'srv-3',
@@ -186,15 +186,15 @@ test.describe('MCPClient session expiration lifecycle', () => {
     const mockStorage = new TrackingMemoryStorage();
     _setStorageInstanceForTesting(mockStorage);
 
-    (MCPClient.prototype as any).ensureSession = async function () {
+    (McpClient.prototype as any).ensureSession = async function () {
       (this as any).oauthProvider = { authUrl: 'https://auth.example.com' };
-      await createPendingSession(this as MCPClient);
+      await createPendingSession(this as McpClient);
     };
 
     const connectAttempts: string[] = [];
     const finishAuthAttempts: string[] = [];
 
-    (MCPClient.prototype as any).getTransport = function (type: string) {
+    (McpClient.prototype as any).getTransport = function (type: string) {
       return {
         finishAuth: async () => {
           finishAuthAttempts.push(type);
@@ -213,7 +213,7 @@ test.describe('MCPClient session expiration lifecycle', () => {
       return transport;
     };
 
-    const client = new MCPClient({
+    const client = new McpClient({
       userId: 'user-4',
       sessionId: 's-4',
       serverId: 'srv-4',
