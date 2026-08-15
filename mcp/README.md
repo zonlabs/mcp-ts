@@ -67,9 +67,6 @@ endpoint alongside the built-in platform tools. This lets remote MCP clients
 - Device tools are registered with the `execute` scope and flat-merged;
   collisions are prefixed `server:tool`, then `deviceId:server:tool`.
 
-> `@mcp-ts/remote-gateway` remains in the repo as a standalone/alternative
-> gateway implementation and is not required for this flow.
-
 ## Multi-Session Cache & Invalidation Flow
 
 To optimize performance and minimize database writes, the server caches active `MultiSessionClient` instances per user using an in-memory registry. This prevents having to establish TCP connections and fetch tool schemas from downstream MCP servers (e.g. GitHub, Notion) on every single tool call.

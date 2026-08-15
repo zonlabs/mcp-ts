@@ -4,7 +4,6 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SECRET_KEY: z.string().min(1),
   SUPABASE_ANON_KEY: z.string().optional(),
-  OAUTH_ALLOWED_REDIRECT_HOSTS: z.string().optional(),
   REDIS_URL: z.string().optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),

@@ -3,8 +3,6 @@ import { OAuthCodeStore, OAuthCodeStoreEnv } from "../oauth-codes";
 
 const app = new Hono();
 
-const ISSUE_SECRET_HEADER = "x-oauth-code-secret";
-
 function codeStore(c: { env: unknown }): DurableObjectNamespace<OAuthCodeStore> {
   return (c.env as unknown as OAuthCodeStoreEnv).OAUTH_CODES;
 }
@@ -34,7 +32,7 @@ async function generateChallenge(verifier: string): Promise<string> {
   return base64url(new Uint8Array(digest));
 }
 
-/** Only loopback URLs and explicitly allowed gateway hosts may receive a code. */
+/** Only loopback URLs (the CLI's local callback) may receive a code. */
 function isAllowedRedirect(next: string): boolean {
   let url: URL;
   try {
@@ -43,12 +41,7 @@ function isAllowedRedirect(next: string): boolean {
     return false;
   }
   const loopback = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-  if (loopback.has(url.hostname)) return true;
-  const allowed = (process.env.OAUTH_ALLOWED_REDIRECT_HOSTS ?? "linkos.in")
-    .split(",")
-    .map((h) => h.trim())
-    .filter(Boolean);
-  return allowed.includes(url.hostname);
+  return loopback.has(url.hostname);
 }
 
 function renderLoginError(message: string): Response {
@@ -89,21 +82,6 @@ app.post("/codes/exchange", async (c) => {
     return c.json({ error: "Invalid or expired code" }, 404);
   }
   return c.json({ token: record.token, expiresAt: record.expiresAt });
-});
-
-app.post("/codes", async (c) => {
-  const issueSecret = (process.env.OAUTH_CODE_ISSUE_SECRET ?? "").trim();
-  const provided = c.req.header(ISSUE_SECRET_HEADER) ?? "";
-  if (!issueSecret || provided !== issueSecret) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-  const body = await c.req.json().catch(() => null);
-  const token = body?.token;
-  if (typeof token !== "string" || !token) {
-    return c.json({ error: "Missing token" }, 400);
-  }
-  const code = await codeStub(c).issue(token);
-  return c.json({ code });
 });
 
 /**
