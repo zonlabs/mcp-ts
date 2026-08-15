@@ -1,20 +1,14 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/cli.ts"],
+  entry: { index: "src/index.ts", "bin/mcp-ts": "src/bin/mcp-ts.ts" },
   format: ["esm"],
   clean: true,
-  dts: false,
+  dts: true,
   platform: "node",
   target: "node20",
   bundle: true,
   minify: false,
   sourcemap: true,
-  external: [
-    "@modelcontextprotocol/client",
-    "@modelcontextprotocol/server",
-    "zod",
-    "ws",
-  ],
-  config: false,
+  external: ["@mcp-ts/sdk", "@modelcontextprotocol/client", "@modelcontextprotocol/server"]
 });

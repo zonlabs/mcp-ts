@@ -11,6 +11,8 @@ import type {
   StdioServerConfig,
   ToolInfo,
 } from "./types.js";
+import { error as uxError, serverLog } from "../ux.js";
+import type { Traffic } from "../traffic.js";
 
 export interface ManagedServerHandle {
   name: string;
@@ -73,14 +75,29 @@ export class ManagedServer {
       args: this.config.args ?? [],
       env: this.config.env,
       cwd: this.config.cwd,
+      stderr: "pipe",
+    });
+  }
+
+  /**
+   * Capture the child process's stderr (piped in buildTransport) and re-emit it
+   * prefixed + dimmed so server chatter doesn't bleed raw into the CLI output.
+   */
+  private forwardStderr(transport: ManagedServerHandle["transport"]): void {
+    if (!(transport instanceof StdioClientTransport)) return;
+    const stream = (transport as unknown as { stderr?: NodeJS.ReadableStream }).stderr;
+    if (!stream) return;
+    stream.on("data", (chunk: unknown) => {
+      serverLog(this.name, String(chunk));
     });
   }
 
   async start(): Promise<void> {
     if (this.client) return;
     const transport = this.buildTransport();
+    this.forwardStderr(transport);
     const client = new Client(
-      { name: "@mcp-ts/local-gateway", version: "0.1.0" },
+      { name: "@mcp-ts/cli", version: "0.1.0" },
       {},
     );
     await client.connect(transport);
@@ -148,7 +165,10 @@ export class ServerManager {
   /** Aggregated view: exposedName -> { server, originalName } */
   private index = new Map<string, { server: string; originalName: string }>();
 
-  constructor(private configs: Record<string, StdioServerConfig & { url?: string }>) {}
+  constructor(
+    private configs: Record<string, StdioServerConfig & { url?: string }>,
+    private traffic: Traffic,
+  ) {}
 
   async start(): Promise<void> {
     for (const [name, cfg] of Object.entries(this.configs)) {
@@ -157,7 +177,7 @@ export class ServerManager {
         await server.start();
         this.servers.set(name, server);
       } catch (err) {
-        console.error(`[local-gateway] failed to start MCP server "${name}": ${(err as Error).message}`);
+        uxError(`Failed to start MCP server "${name}": ${(err as Error).message}`);
       }
     }
     this.rebuildIndex();
@@ -210,7 +230,15 @@ export class ServerManager {
     if (!server.hasTool(toolName)) {
       throw new Error(`Server "${serverName}" has no tool "${toolName}".`);
     }
-    return server.callTool(toolName, args);
+    const started = Date.now();
+    try {
+      const result = await server.callTool(toolName, args);
+      this.traffic.recordCall(serverName, toolName, Date.now() - started, true);
+      return result;
+    } catch (err) {
+      this.traffic.recordCall(serverName, toolName, Date.now() - started, false);
+      throw err;
+    }
   }
 
   /** Dispatch a call to the owning server by exposed tool name. */
@@ -224,7 +252,15 @@ export class ServerManager {
     }
     const server = this.servers.get(entry.server);
     if (!server) throw new Error(`Server "${entry.server}" is not running.`);
-    return server.callTool(entry.originalName, args);
+    const started = Date.now();
+    try {
+      const result = await server.callTool(entry.originalName, args);
+      this.traffic.recordCall(entry.server, entry.originalName, Date.now() - started, true);
+      return result;
+    } catch (err) {
+      this.traffic.recordCall(entry.server, entry.originalName, Date.now() - started, false);
+      throw err;
+    }
   }
 
   async close(): Promise<void> {

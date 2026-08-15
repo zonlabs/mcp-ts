@@ -1,5 +1,7 @@
 import type { ServerManager } from "./server-manager.js";
 import type { InvokeRequest, InvokeResult, RegisterMessage } from "./types.js";
+import type { Traffic } from "../traffic.js";
+import { serverLog } from "../ux.js";
 
 export interface BridgeOptions {
   remoteUrl: string;
@@ -7,6 +9,7 @@ export interface BridgeOptions {
   token: string;
   reconnectInitialDelayMs?: number;
   reconnectMaxDelayMs?: number;
+  traffic?: Traffic;
 }
 
 interface Logger {
@@ -16,9 +19,9 @@ interface Logger {
 }
 
 const defaultLogger: Logger = {
-  info: (m) => console.log(`[local-gateway] ${m}`),
-  warn: (m) => console.warn(`[local-gateway] ${m}`),
-  error: (m) => console.error(`[local-gateway] ${m}`),
+  info: (m) => serverLog("bridge", m),
+  warn: (m) => serverLog("bridge", m),
+  error: (m) => serverLog("bridge", m),
 };
 
 /**
@@ -120,15 +123,27 @@ export class RemoteBridge {
     }
     if ((msg as { type?: string }).type !== "invoke") return;
     const invoke = msg as InvokeRequest;
+    const started = Date.now();
     try {
       const result = await this.manager.callToolByServer(
         invoke.mcp_server,
         invoke.tool,
         (invoke.payload?.arguments ?? {}) as Record<string, unknown>,
       );
+      this.options.traffic?.recordIncoming(
+        "invoke",
+        `${invoke.mcp_server}::${invoke.tool}`,
+        Date.now() - started,
+      );
       const out: InvokeResult = { type: "result", requestId: invoke.requestId, result };
       this.ws.send(JSON.stringify(out));
     } catch (err) {
+      this.options.traffic?.recordIncoming(
+        "invoke",
+        `${invoke.mcp_server}::${invoke.tool}`,
+        Date.now() - started,
+        500,
+      );
       const out: InvokeResult = {
         type: "result",
         requestId: invoke.requestId,

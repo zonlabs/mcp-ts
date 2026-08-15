@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/server";
 import type { CallToolResult } from "@modelcontextprotocol/client";
 import type { ServerManager } from "./server-manager.js";
+import type { Traffic } from "../traffic.js";
 
 function toWebRequest(req: IncomingMessage): Promise<Request> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -81,27 +82,55 @@ export class LocalHttpServer {
   constructor(
     private manager: ServerManager,
     private options: LocalHttpServerOptions,
+    private traffic: Traffic,
   ) {}
 
   async start(): Promise<string> {
     this.server = createServer(async (req, res) => {
       try {
-        const request = await toWebRequest(req);
+        let request = await toWebRequest(req);
         if (!request.url.includes(this.options.path)) {
           res.writeHead(404, { "content-type": "application/json" });
           res.end(JSON.stringify({ error: "Not found" }));
           return;
         }
+        const started = Date.now();
+        let method: string | undefined;
+        let tool: string | undefined;
+        if (request.method !== "GET" && request.method !== "HEAD") {
+          const text = await request.text();
+          if (text) {
+            try {
+              const parsed = JSON.parse(text) as {
+                method?: string;
+                params?: { name?: string };
+              };
+              method = parsed.method;
+              tool = parsed.params?.name;
+            } catch {
+              // not JSON; log the request without method/tool detail
+            }
+            request = new Request(request, { body: text });
+          }
+        }
         const webRes = await this.handler.fetch(request);
+        this.traffic.recordIncoming(
+          method ?? "http",
+          tool ?? "",
+          Date.now() - started,
+          webRes.status,
+        );
         await sendWebResponse(res, webRes);
       } catch (err) {
+        this.traffic.recordError("local endpoint", (err as Error).message);
         res.writeHead(500, { "content-type": "application/json" });
         res.end(JSON.stringify({ error: (err as Error).message }));
       }
     });
-    await new Promise<void>((resolve) =>
-      this.server!.listen(this.options.port, this.options.host, resolve),
-    );
+    await new Promise<void>((resolve, reject) => {
+      this.server!.once("error", reject);
+      this.server!.listen(this.options.port, this.options.host, resolve);
+    });
     return `http://${this.options.host}:${this.options.port}${this.options.path}`;
   }
 

@@ -5,11 +5,10 @@
     "moduleResolution": "NodeNext",
     "outDir": "./dist",
     "strict": true,
+    "types": ["node"],
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types"]
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "tests/**/*"]
 }

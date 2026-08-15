@@ -90,8 +90,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 | **[@mcp-ts/sdk](packages/sdk)** | Core TypeScript/JavaScript SDK for client applications. | `npm i @mcp-ts/sdk` |
 | **[@mcp-ts/tool-router](packages/tool-router)** | ToolRouter for dynamic tool discovery across many MCP servers. | `npm i @mcp-ts/tool-router` |
 | **[@mcp-ts/codemode](packages/code-mode)** | CodeMode: sandboxed program execution for tool calling. | `npm i @mcp-ts/codemode` |
-| **[@mcp-ts/local-gateway](packages/local-gateway)** | Local MCP gateway daemon (Node) — runs your local MCP servers and bridges them outbound. | `npm i @mcp-ts/local-gateway` |
-| **[@mcp-ts/remote-gateway](packages/remote-gateway)** | Cloudflare Worker MCP gateway — single clean OAuth-protected `/mcp` endpoint. | (deploy via `wrangler`) |
+| **[@mcp-ts/cli](packages/cli)** | Explore, search, benchmark, codegen, and run a local MCP gateway daemon (`mcp-ts`). | `npm i @mcp-ts/cli` |
 
 ---
 
@@ -490,24 +489,20 @@ The **MCP Gateway** lets local MCP servers be accessed by remote applications
 endpoint). It is built on the official MCP TypeScript SDK v2 and has no
 interactive UI — it runs as a daemon.
 
-- **`@mcp-ts/local-gateway`** (Node) — reads a single `mcp.json`, starts your
+- **`mcp-ts serve`** (`@mcp-ts/cli`) — reads a single `mcp.json`, starts your
   local MCP servers (stdio or HTTP/SSE), aggregates their tools, serves
-  `http://local.mcp-assistant.in/mcp`, and bridges outbound to the remote
-  gateway over a persistent WebSocket.
-- **`@mcp-ts/remote-gateway`** (Cloudflare Worker) — exposes a single clean,
-  OAuth 2.1-protected MCP endpoint (`https://linkos.in/mcp`) that any MCP client
-  (ChatGPT, Claude, Claude Desktop) can connect to. Tool calls are relayed over
-  the device's WebSocket to the correct local server.
+  `http://local.mcp-assistant.in/mcp`, and bridges outbound to the MCP
+  Assistant gateway (`https://api.mcp-assistant.in`) over a persistent WebSocket.
 
 <a id="installation-1"></a>
 
 ### 📦 Installation
 
 ```bash
-npm install -g @mcp-ts/local-gateway
+npm install -g @mcp-ts/cli
 ```
 
-Requires Node >= 21.
+Requires Node >= 20.
 
 ### 🚀 Usage
 
@@ -515,13 +510,13 @@ Requires Node >= 21.
 
 ```bash
 # Write a default mcp.json
-mcp-gateway init
+mcp-ts init
 
-# Pair this machine with the remote gateway
-mcp-gateway link --remote https://linkos.in --key <registration-key>
+# Pair this machine with the MCP Assistant gateway
+mcp-ts link
 
 # Run the daemon (local endpoint + remote bridge)
-mcp-gateway run
+mcp-ts serve
 ```
 
 ---
@@ -553,8 +548,8 @@ graph LR
     subgraph Bridge["Remote Bridge Flow (Cloudflare)"]
         direction TB
         Spacer[" "]
-        Worker[remote-gateway Worker + DO]
-        Local[local-gateway daemon]
+        Worker[mcp-assistant Worker + DO]
+        Local[local-gateway daemon (mcp-ts serve)]
         LocalMcp[Local MCP Servers]
 
         Spacer --- Worker
@@ -565,7 +560,7 @@ graph LR
 ```
 
 - **Direct SDK flow**: Browser clients use `useMcp` over HTTP + SSE to a server route backed by `MultiSessionClient`.
-- **Bridge flow**: the local `@mcp-ts/local-gateway` daemon keeps an outbound authenticated WebSocket to the Cloudflare `@mcp-ts/remote-gateway`, which exposes a single clean OAuth-protected `/mcp` URL. Remote MCP clients (ChatGPT, Claude) connect there and their tool calls are forwarded to local MCP servers.
+- **Bridge flow**: the local `mcp-ts serve` daemon (`@mcp-ts/cli`) keeps an outbound authenticated WebSocket to the MCP Assistant gateway (`@mcp-ts/mcp`, deployed at `https://api.mcp-assistant.in`). Remote MCP clients (ChatGPT, Claude) connect to its aggregated `/mcp` endpoint and their tool calls are forwarded to local MCP servers.
 - **Storage**: Session state and connection metadata persist in Redis, File, SQLite, or Memory backends.
 
 > [!NOTE]

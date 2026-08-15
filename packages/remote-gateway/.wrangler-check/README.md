@@ -1,1 +1,0 @@
-This folder contains the built output assets for the worker "mcp-remote-gateway" generated at 2026-08-13T11:24:55.853Z.

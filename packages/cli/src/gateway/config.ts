@@ -4,7 +4,7 @@ import type { GatewayConfig, McpServersConfig } from "./types.js";
 
 export type { GatewayConfig }; 
 export const CONFIG_FILENAME = "mcp.json";
-export const STATE_FILENAME = "gateway-state.json";
+export const STATE_FILENAME = "auth.json";
 
 const DEFAULT_CONFIG_DIR = ".mcpassistant";
 
@@ -23,8 +23,9 @@ export function findMcpJson(startDir: string = process.cwd()): string | null {
   }
   let dir = resolve(startDir);
   for (;;) {
-    const candidate = join(dir, CONFIG_FILENAME);
-    if (existsSync(candidate)) return candidate;
+    for (const candidate of [join(dir, CONFIG_FILENAME), join(dir, DEFAULT_CONFIG_DIR, CONFIG_FILENAME)]) {
+      if (existsSync(candidate)) return candidate;
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -32,13 +33,19 @@ export function findMcpJson(startDir: string = process.cwd()): string | null {
   return null;
 }
 
-export function loadMcpJson(startDir: string = process.cwd()): LoadedConfig {  const path = findMcpJson(startDir);
+export function loadMcpJson(startDir: string = process.cwd()): LoadedConfig {
+  const path = findMcpJson(startDir);
   if (!path) {
     throw new Error(
-      `No ${CONFIG_FILENAME} found. Create one or run "mcp-gateway init".`,
+      `No ${CONFIG_FILENAME} found. Create one or run "mcp-ts init".`,
     );
   }
-  const raw = JSON.parse(readFileSync(path, "utf8")) as McpServersConfig;
+  let raw: McpServersConfig;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8")) as McpServersConfig;
+  } catch {
+    throw new Error(`${path} is empty or not valid JSON.`);
+  }
   return { path, config: raw };
 }
 
