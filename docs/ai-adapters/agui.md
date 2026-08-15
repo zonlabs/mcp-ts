@@ -17,10 +17,10 @@ npm install @mcp-ts/sdk @ag-ui/client rxjs
 The `AguiAdapter` converts MCP tools into the AG-UI protocol format.
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { McpManager } from '@mcp-ts/sdk/server';
 import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
 
-const client = new MultiSessionClient('user_123');
+const client = new McpManager('user_123');
 await client.connect();
 
 const adapter = new AguiAdapter(client);
@@ -83,8 +83,8 @@ export const POST = async (req: NextRequest) => {
   });
 
   // Connect to MCP servers
-  const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
-  const client = new MultiSessionClient("user_123");
+  const { McpManager } = await import("@mcp-ts/sdk/server");
+  const client = new McpManager("user_123");
   await client.connect();
 
   // Create adapter and get tools

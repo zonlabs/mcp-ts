@@ -10,22 +10,25 @@ import type { McpConnectionEvent, McpObservabilityEvent } from '../../shared/eve
 import { isConnectionEvent, isRpcResponseEvent } from '../../shared/event-routing.js';
 import type { McpRpcResponse } from '../../shared/types.js';
 
+/** Resolved user identity for an authenticated request. */
+export interface AuthenticatedUser {
+  /** User / tenant identifier. */
+  userId: string;
+}
+
 export interface NextMcpHandlerOptions {
   /**
-   * Extract userId from request (default: from 'userId' query param)
+   * Resolve the authenticated user from the request.
+   * Return `{ userId }` to authorize the request, or `null` to reject with 401.
+   *
+   * Default: trusts the client — reads the `x-mcp-user-id` header (and an optional
+   * `Authorization: Bearer` token) from the request. This is convenient for local
+   * development and apps without server-side auth.
+   *
+   * Override to make identity server-authoritative — ignore client-supplied headers
+   * and resolve from your own session/cookie/JWT. Return `null` when unauthenticated.
    */
-  getUserId?: (request: Request) => string | null;
-
-  /**
-   * Extract auth token from request (default: from 'token' query param or Authorization header)
-   */
-  getAuthToken?: (request: Request) => string | null;
-
-  /**
-   * Authenticate user and verify access (optional)
-   * Return true if user is authenticated, false otherwise
-   */
-  authenticate?: (userId: string, token: string | null) => Promise<boolean> | boolean;
+  authenticate?: (request: Request) => AuthenticatedUser | null | Promise<AuthenticatedUser | null>;
 
   /**
    * Heartbeat interval in milliseconds (default: 30000)
@@ -45,15 +48,10 @@ export interface NextMcpHandlerOptions {
 
 export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
   const {
-    getUserId = (request: Request) => request.headers.get('x-mcp-user-id'),
-    getAuthToken = (request: Request) => {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader?.toLowerCase().startsWith('bearer ')) {
-        return authHeader.slice(7);
-      }
-      return authHeader;
+    authenticate = (request: Request): AuthenticatedUser | null => {
+      const userId = request.headers.get('x-mcp-user-id');
+      return userId ? { userId } : null;
     },
-    authenticate = () => true,
     heartbeatInterval = 30000,
     clientDefaults,
     getClientMetadata,
@@ -83,18 +81,14 @@ export function createNextMcpHandler(options: NextMcpHandlerOptions = {}) {
   }
 
   async function POST(request: Request): Promise<Response> {
-    const userId = getUserId(request);
-    const authToken = getAuthToken(request);
+    const user = await authenticate(request);
     const acceptsEventStream = (request.headers.get('accept') || '').toLowerCase().includes('text/event-stream');
 
-    if (!userId) {
-      return Response.json({ error: { code: 'MISSING_userId', message: 'Missing userId' } }, { status: 400 });
-    }
-
-    const isAuthorized = await authenticate(userId, authToken);
-    if (!isAuthorized) {
+    if (!user?.userId) {
       return Response.json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 401 });
     }
+
+    const { userId } = user;
 
     let rawBody = '';
     try {

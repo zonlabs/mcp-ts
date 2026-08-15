@@ -29,7 +29,7 @@ export interface UseMcpOptions {
     /**
      * User/Client identifier
      */
-    userId: string;
+    userId?: string;
 
     /**
      * Optional auth token

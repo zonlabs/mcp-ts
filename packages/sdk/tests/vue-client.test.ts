@@ -90,6 +90,111 @@ test.describe('Vue Client useMcp', () => {
             });
         });
 
+        // Mock zod
+        await page.route('https://esm.sh/zod@4.0.0*', async route => {
+            const z2Matches = clientCode.match(/z[0-9_]*\.([a-zA-Z0-9_$]+)/g) || [];
+            const z2Names = Array.from(new Set(z2Matches.map(m => m.split('.')[1])));
+            const reserved = new Set(['null', 'undefined', 'default', 'function', 'class', 'import', 'export', 'var', 'let', 'const', 'return', 'case', 'switch', 'typeof', 'void', 'delete', 'enum', 'instanceof']);
+            const exportLines = z2Names.map(n => {
+                if (reserved.has(n)) {
+                    return `const _${n} = createSchema();\nexport { _${n} as ${n} };`;
+                }
+                return `export const ${n} = createSchema();`;
+            }).join('\n');
+
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/javascript',
+                body: `
+                    const createSchema = () => {
+                        const fn = (...args) => createSchema();
+                        return new Proxy(fn, {
+                            get: (t, prop) => {
+                                if (prop === 'parse') return (v) => v;
+                                if (prop === 'safeParse') return (v) => ({ success: true, data: v });
+                                return createSchema();
+                            },
+                            apply: () => createSchema()
+                        });
+                    };
+                    ${exportLines}
+                    export const z = createSchema();
+                    export default z;
+                `
+            });
+        });
+
+        // Mock core internal
+        await page.route('https://esm.sh/@modelcontextprotocol/core@1.0.1/internal', async route => {
+            console.log('Route matched: core internal');
+            const coreMatch = clientCode.match(/import\s*\{([^}]+)\}\s*from\s*['"]@modelcontextprotocol\/core\/internal['"]/);
+            const coreExports = coreMatch
+                ? coreMatch[1].split(',').map(s => s.trim().split(/\s+as\s+/)[0]).filter(Boolean)
+                : [];
+            const body = `
+                const createSchema = () => {
+                    const fn = (...args) => createSchema();
+                    return new Proxy(fn, {
+                        get: (t, prop) => {
+                            if (prop === 'parse') return (v) => v;
+                            if (prop === 'safeParse') return (v) => ({ success: true, data: v });
+                            if (prop === 'options') return [];
+                            return createSchema();
+                        },
+                        apply: () => createSchema()
+                    });
+                };
+                const dummy = createSchema();
+                ${coreExports.map(n => `export const ${n} = dummy;`).join('\n')}
+                export const BAGGAGE_META_KEY = "baggage";
+                export const DEFAULT_NEGOTIATED_PROTOCOL_VERSION = "2024-11-05";
+                export const INTERNAL_ERROR = -32603;
+                export const INVALID_PARAMS = -32602;
+                export const INVALID_REQUEST = -32600;
+                export const JSONRPC_VERSION = "2.0";
+                export const LATEST_PROTOCOL_VERSION = "2024-11-05";
+                export const METHOD_NOT_FOUND = -32601;
+                export const PARSE_ERROR = -32700;
+                export const RELATED_TASK_META_KEY = "related_task";
+                export const SUBSCRIPTION_ID_META_KEY = "subscription_id";
+                export const TRACEPARENT_META_KEY = "traceparent";
+                export const TRACESTATE_META_KEY = "tracestate";
+                export default dummy;
+            `;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/javascript',
+                body
+            });
+        });
+
+        // Mock client shims
+        await page.route('https://esm.sh/@modelcontextprotocol/client@1.0.1/_shims', async route => {
+            console.log('Route matched: client shims');
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/javascript',
+                body: `
+                    export const CORS_IS_POSSIBLE = true;
+                    export const DefaultJsonSchemaValidator = () => () => true;
+                `
+            });
+        });
+
+        // Mock pkce-challenge
+        await page.route('https://esm.sh/pkce-challenge@4.1.0', async route => {
+            console.log('Route matched: pkce-challenge');
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/javascript',
+                body: `
+                    export default function pkceChallenge() {
+                        return { code_verifier: 'test-verifier', code_challenge: 'test-challenge' };
+                    }
+                `
+            });
+        });
+
         // Serve the built client code locally (polyfill not needed if we mock process in head)
         await page.route('**/pkg/vue-client.mjs', async route => {
             console.log('Route matched: vue-client.mjs');
@@ -121,7 +226,15 @@ test.describe('Vue Client useMcp', () => {
                             "imports": {
                                 "vue": "https://esm.sh/vue@3.5.27",
                                 "nanoid": "https://esm.sh/nanoid@5.1.6",
-                                "@modelcontextprotocol/ext-apps/app-bridge": "https://esm.sh/@modelcontextprotocol/ext-apps@1.0.1/app-bridge"
+                                "@modelcontextprotocol/ext-apps/app-bridge": "https://esm.sh/@modelcontextprotocol/ext-apps@1.0.1/app-bridge",
+                                "zod": "https://esm.sh/zod@4.0.0",
+                                "zod/v3": "https://esm.sh/zod@4.0.0",
+                                "zod/v4": "https://esm.sh/zod@4.0.0",
+                                "zod/v4-mini": "https://esm.sh/zod@4.0.0",
+                                "zod/v4-core": "https://esm.sh/zod@4.0.0",
+                                "@modelcontextprotocol/core/internal": "https://esm.sh/@modelcontextprotocol/core@1.0.1/internal",
+                                "@modelcontextprotocol/client/_shims": "https://esm.sh/@modelcontextprotocol/client@1.0.1/_shims",
+                                "pkce-challenge": "https://esm.sh/pkce-challenge@4.1.0"
                             }
                         }
                         </script>

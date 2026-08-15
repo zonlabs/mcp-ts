@@ -1,8 +1,8 @@
-import { GetPromptResultSchema, ReadResourceResultSchema } from "@modelcontextprotocol/core";
 import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
 import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
+import { isTransportNotImplemented } from './errors.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 import { sessions } from '../storage/index.js';
@@ -140,9 +140,9 @@ export interface MCPOAuthClientOptions {
 export type McpClientOptions = MCPOAuthClientOptions;
 
 /**
- * Modern MCP client with OAuth 2.1 (PKCE & DCR) authentication support.
- * Manages connections to an MCP server with automatic token refresh,
- * durable session restoration, and real-time observability.
+ * MCP client with OAuth 2.1 (PKCE & DCR) lifecycle support.
+ * Handles SSE and Streamable HTTP transports, session durability,
+ * automatic token refresh, and real-time observability.
  *
  * @example
  * ```ts
@@ -529,20 +529,34 @@ export class McpClient {
     }
   }
 
+
   /**
-   * Connects using the configured transport. Defaults to Streamable HTTP.
-   * @returns The transport type object if successful.
+   * Connects using the configured transport with automatic fallback (Streamable HTTP -> SSE).
+   * @returns The transport type that successfully connected.
    * @private
    */
   private async tryConnect(): Promise<{ transport: TransportType }> {
     const currentType = this.getConfiguredTransportType();
     const transport = this.getTransport(currentType);
-
     this.transport = transport;
-    await this.client!.connect(transport, this.getConnectOptions());
-    this.captureConnectionMetadata();
 
-    return { transport: currentType };
+    try {
+      await this.client.connect(transport, this.getConnectOptions());
+      this.captureConnectionMetadata();
+      return { transport: currentType };
+    } catch (connectError) {
+      if (currentType === 'streamable-http' && isTransportNotImplemented(connectError)) {
+        if (this.client.transport) {
+          try { await this.client.close(); } catch {}
+        }
+        const sseTransport = this.getTransport('sse');
+        this.transport = sseTransport;
+        await this.client.connect(sseTransport, this.getConnectOptions());
+        this.captureConnectionMetadata();
+        return { transport: 'sse' };
+      }
+      throw connectError;
+    }
   }
 
   /**
@@ -605,8 +619,9 @@ export class McpClient {
       });
       await this.saveSession('active');
     } catch (error) {
-      /** Handle Authentication Errors */
+      /** Handle 401 Unauthorized / OAuth Redirect */
       if (
+        error instanceof UnauthorizedError ||
         error instanceof SDKUnauthorizedError ||
         (error instanceof Error && error.message.toLowerCase().includes('unauthorized'))
       ) {
@@ -723,27 +738,25 @@ export class McpClient {
     const currentType = this.getConfiguredTransportType();
 
     try {
-      const transport = this.getTransport(currentType);
-      this.transport = transport;
-
       const discovery = await this.oauthProvider.discoveryState?.();
       const expectedIssuer = discovery?.authorizationServerMetadata?.issuer ?? discovery?.authorizationServerUrl;
       const effectiveIss = iss ?? expectedIssuer;
 
-      await (transport as any).finishAuth(authCode, effectiveIss);
+      // Finish auth on the active transport (preserving WWW-Authenticate challenge metadata)
+      // or instantiate a fresh transport if none was previously initialized.
+      const authTransport = this.transport ?? this.getTransport(currentType);
+      await (authTransport as any).finishAuth(authCode, effectiveIss);
+      
       this.emitStateChange('AUTHENTICATED');
       this.emitStateChange('CONNECTING');
 
-      // The SDK Client may still have a transport attached from a prior
-      // connect() that failed with UnauthorizedError; close it first so
-      // we can negotiate a fresh session with the newly-exchanged tokens.
+      // Detach any prior unauthenticated transport from the SDK Client
       if (this.client.transport) {
         try { await this.client.close(); } catch {}
       }
 
-      await this.client.connect(this.transport, this.getConnectOptions());
-      this.captureConnectionMetadata();
-      this.config.transport = { ...(this.config.transport ?? {}), type: currentType };
+      const { transport } = await this.tryConnect();
+      this.config.transport = { ...(this.config.transport ?? {}), type: transport };
 
       this.emitStateChange('CONNECTED');
       this._onObservabilityEvent.fire({
@@ -975,7 +988,7 @@ export class McpClient {
     };
 
     return await this.withRetry(() =>
-      this.client!.request(request, GetPromptResultSchema)
+      this.client!.request(request) as Promise<GetPromptResult>
     );
   }
 
@@ -1080,7 +1093,7 @@ export class McpClient {
     };
 
     return await this.withRetry(() =>
-      this.client!.request(request, ReadResourceResultSchema)
+      this.client!.request(request) as Promise<ReadResourceResult>
     );
   }
 
@@ -1260,7 +1273,7 @@ export class McpClient {
     return this._negotiatedProtocolVersion;
   }
 
-  /** Gets whether the SDK connected via the legacy initialize era or modern discover era. */
+  /** Gets whether the client connected via the legacy initialize era or discover era. */
   getProtocolEra(): ProtocolEra | undefined {
     return this._protocolEra;
   }

@@ -21,7 +21,8 @@ Create an API route at `app/api/mcp/route.ts` to handle MCP connections.
 import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 export const { GET, POST } = createNextMcpHandler({
-  getUserId: (req) => "user_123", // Replace with actual auth
+  // Resolve the user server-side. Return null to reject with 401.
+  authenticate: (req) => ({ userId: "user_123" }), // Replace with actual auth
 });
 ```
 

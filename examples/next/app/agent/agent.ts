@@ -1,5 +1,5 @@
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from "ai";
-import { MultiSessionClient } from "@mcp-ts/sdk/server";
+import { mcp, type McpUser } from "@mcp-ts/sdk";
 import type { McpObservabilityEvent } from "@mcp-ts/sdk/shared";
 import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
 import { createDeepSeek } from "@ai-sdk/deepseek";
@@ -19,15 +19,15 @@ If the user denies a tool call, acknowledge their decision and suggest alternati
 // ----------------------------------------------------------------------
 // 2. Client Management (cached per user for long-running servers)
 // ----------------------------------------------------------------------
-// Reusing the `MultiSessionClient` instance across requests keeps live
+// Reusing the `McpUser` instance across requests keeps live
 // transport connections alive — `connect()` skips already-connected
 // sessions, so this is safe to call on every request.
-const mcpClientCache = new Map<string, MultiSessionClient>();
+const mcpUserCache = new Map<string, McpUser>();
 
-function getMcpClient(userId: string): MultiSessionClient {
-  let client = mcpClientCache.get(userId);
-  if (!client) {
-    client = new MultiSessionClient(userId, {
+function getMcpUser(userId: string): McpUser {
+  let connection = mcpUserCache.get(userId);
+  if (!connection) {
+    connection = mcp.user(userId, {
       onObservabilityEvent: (event: McpObservabilityEvent) => {
         // One handler for everything — DB reads/writes, client lifecycle, per-session progress.
         // Use event.type to filter: 'db:read' | 'db:write' | 'connect' | etc.
@@ -47,9 +47,9 @@ function getMcpClient(userId: string): MultiSessionClient {
         }
       },
     });
-    mcpClientCache.set(userId, client);
+    mcpUserCache.set(userId, connection);
   }
-  return client;
+  return connection;
 }
 
 // ----------------------------------------------------------------------
@@ -84,19 +84,19 @@ function requiresApproval(tool: any, args: any, router: any): boolean {
 // 4. Agent Initialization
 // ----------------------------------------------------------------------
 export async function createMcpAgent(userId: string = process.env.NEXT_PUBLIC_MCP_USER_ID!) {
-  const client = getMcpClient(userId);
+  const connection = getMcpUser(userId);
 
   // Always call connect to synchronize with the database.
-  // MultiSessionClient safely skips already-connected sessions.
+  // McpUser safely skips already-connected sessions.
   try {
-    await client.connect();
+    await connection.connect();
   } catch (error) {
     console.error("[McpAgent] Failed to connect MCP client:", error);
   }
 
   // Set up Tool Router and Adapter
-  const router = new ToolRouter(client, { strategy: "search", maxTools: 5 });
-  const adapter = new AIAdapter(client, {
+  const router = new ToolRouter(connection, { strategy: "search", maxTools: 5 });
+  const adapter = new AIAdapter(connection, {
     toolRouter: router,
     needsApproval: (tool, args) => requiresApproval(tool, args, router),
   });

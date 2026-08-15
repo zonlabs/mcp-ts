@@ -13,7 +13,6 @@ export default defineConfig({
     'adapters/mastra-adapter': 'src/adapters/mastra-adapter.ts',
     'adapters/agui-adapter': 'src/adapters/agui-adapter.ts',
     'adapters/agui-middleware': 'src/adapters/agui-middleware.ts',
-    'bin/mcp-ts': 'src/bin/mcp-ts.ts',
   },
   format: ['cjs', 'esm'],
   dts: {
@@ -32,7 +31,6 @@ export default defineConfig({
     'vue',
     'ioredis',
     '@modelcontextprotocol/client',
-    '@modelcontextprotocol/core',
     '@neondatabase/serverless',
     'fs',
     'path',
@@ -42,17 +40,10 @@ export default defineConfig({
   ],
   noExternal: ['@modelcontextprotocol/ext-apps'],
   // Platform-specific bundles
-  platform: 'neutral',
+  platform: 'node',
   target: 'es2020',
   // Preserve module structure for better tree-shaking
   bundle: true,
   minify: false,
   shims: true,
-  esbuildOptions(options) {
-    options.alias = {
-      '@modelcontextprotocol/sdk/shared/protocol.js': '@modelcontextprotocol/client',
-      '@modelcontextprotocol/sdk/types.js': '@modelcontextprotocol/core',
-      '@modelcontextprotocol/sdk': '@modelcontextprotocol/core',
-    };
-  },
 });

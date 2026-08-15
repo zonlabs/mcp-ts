@@ -37,7 +37,7 @@ export interface SSEClientOptions {
   url: string;
 
   /** User/Client identifier */
-  userId: string;
+  userId?: string;
 
   /** Optional auth token for authenticated requests */
   authToken?: string;
@@ -346,8 +346,11 @@ export class SSEClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
-      'x-mcp-user-id': this.options.userId,
     };
+
+    if (this.options.userId) {
+      headers['x-mcp-user-id'] = this.options.userId;
+    }
 
     if (this.options.authToken) {
       headers['Authorization'] = `Bearer ${this.options.authToken}`;

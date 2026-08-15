@@ -15,10 +15,10 @@ npm install @mcp-ts/sdk @langchain/core zod
 ## Usage
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { McpManager } from '@mcp-ts/sdk/server';
 import { LangChainAdapter } from '@mcp-ts/sdk/adapters/langchain';
 
-const client = new MultiSessionClient('user_123');
+const client = new McpManager('user_123');
 await client.connect();
 
 const adapter = new LangChainAdapter(client);

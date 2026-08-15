@@ -1,7 +1,7 @@
 ---
 title: "Server-Side API"
 sidebarTitle: "Server-Side"
-description: "API reference for mcp-ts server-side primitives, including MCPClient, MultiSessionClient, framework handlers, and session storage."
+description: "API reference for mcp-ts server-side primitives, including McpClient, McpManager, framework handlers, and session storage."
 icon: "server"
 ---
 
@@ -13,14 +13,16 @@ Creates handlers for Next.js App Router API routes.
 import { createNextMcpHandler } from '@mcp-ts/sdk/server';
 
 const { GET, POST } = createNextMcpHandler({
-  getUserId?: (request) => string | null,
-  getAuthToken?: (request) => string | null,
-  authenticate?: (userId, token) => Promise<boolean> | boolean,
+  authenticate?: (request) => AuthenticatedUser | null | Promise<AuthenticatedUser | null>,
   heartbeatInterval?: number,
   clientDefaults?: ClientMetadata,
   getClientMetadata?: (request) => ClientMetadata | Promise<ClientMetadata>,
 });
 ```
+
+Where `AuthenticatedUser` is `{ userId: string }`.
+
+`authenticate` resolves the user from the request and returns `null` to reject with 401. By default it trusts the client's `x-mcp-user-id` header; override it to resolve identity server-side from your own session/cookie/JWT and ignore client-supplied identifiers. Read credentials (e.g. `Authorization` header) directly from the request inside the callback.
 
 **Returns:** `{ GET, POST }`
 
@@ -128,14 +130,14 @@ const client = new MCPClient({
 
 ---
 
-### `MultiSessionClient`
+### `McpManager`
 
 Manages multiple MCP connections for a single user.
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { McpManager } from '@mcp-ts/sdk/server';
 
-const mcp = new MultiSessionClient(userId, {
+const mcp = new McpManager(userId, {
   timeout: 15000,
   maxRetries: 2,
   retryDelay: 1000,
@@ -145,7 +147,7 @@ const mcp = new MultiSessionClient(userId, {
 #### Common methods
 
 - `connect(): Promise<void>`
-- `getClients(): MCPClient[]`
+- `getClients(): McpClient[]`
 - `disconnect(): void`
 
 ---

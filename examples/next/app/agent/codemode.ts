@@ -1,5 +1,5 @@
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from "ai";
-import { MultiSessionClient } from "@mcp-ts/sdk/server";
+import { McpManager } from "@mcp-ts/sdk/server";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createCodeModeRuntime, mcpServers, createCodemodeAITools } from "@mcp-ts/codemode";
 
@@ -28,16 +28,16 @@ When writing code for 'call_tool_chain':
 // ----------------------------------------------------------------------
 // 2. Client Management (Singleton per userId)
 // ----------------------------------------------------------------------
-const globalForMcp = globalThis as unknown as { mcpClientMap?: Map<string, MultiSessionClient> };
+const globalForMcp = globalThis as unknown as { mcpClientMap?: Map<string, McpManager> };
 
-function getMcpClient(userId: string): MultiSessionClient {
+function getMcpClient(userId: string): McpManager {
   if (!globalForMcp.mcpClientMap) {
     globalForMcp.mcpClientMap = new Map();
   }
   
   let client = globalForMcp.mcpClientMap.get(userId);
   if (!client) {
-    client = new MultiSessionClient(userId);
+    client = new McpManager(userId);
     globalForMcp.mcpClientMap.set(userId, client);
   }
   

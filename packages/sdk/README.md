@@ -1,39 +1,200 @@
 # @mcp-ts/sdk
 
-Core TypeScript SDK for building MCP applications.
+High-performance Model Context Protocol (MCP) SDK for TypeScript and Node.js with OAuth 2.1 lifecycle management, multi-tenant durable sessions across Redis, SQLite, Neon, and Supabase, dynamic context-window optimization via `ToolRouter`, and first-class AI framework adapters.
 
 ```bash
-npm install @mcp-ts/sdk
+npm install @mcp-ts/sdk @modelcontextprotocol/client @modelcontextprotocol/core
 ```
 
-## Entry Points
+---
 
-- `@mcp-ts/sdk/server`: server-side handlers, `MCPClient`, `MultiSessionClient`, storage exports.
-- `@mcp-ts/sdk/client`: browser RPC client primitives.
-- `@mcp-ts/sdk/client/react`: React hooks and MCP Apps helpers.
-- `@mcp-ts/sdk/client/vue`: Vue composables.
-- `@mcp-ts/sdk/shared`: shared RPC/event/types utilities.
+## Architecture & Core Concepts
 
-## MCP SDK v2
+```
+┌────────────────────────────────────────────────────────┐
+│                          mcp                           │  App / Storage root
+│         (Configures durable storage & tenants)         │
+└───────────────────────────┬────────────────────────────┘
+                            │ .user(userId)
+┌───────────────────────────▼────────────────────────────┐
+│                        McpUser                         │  User / Tenant context
+│  (addMcpServer, listMcpServers, finishAuth, listTools) │
+└─────────────┬───────────────────────────┬──────────────┘
+              │                           │
+┌─────────────▼───────────────┐ ┌─────────▼──────────────┐
+│         McpManager          │ │       ToolRouter       │
+│  (Connection pool & cache)  │ │ (Context optimization) │
+└─────────────┬───────────────┘ └─────────┬──────────────┘
+              │                           │
+┌─────────────▼───────────────┐ ┌─────────▼──────────────┐
+│          McpClient          │ │      AI Adapters       │
+│   (OAuth 2.1, SSE/HTTP)     │ │ (AI SDK, LangChain...) │
+└─────────────────────────────┘ └────────────────────────┘
+```
 
-The package uses `@modelcontextprotocol/client` and `@modelcontextprotocol/core`.
-Server-side clients default SDK protocol negotiation to `{ mode: 'auto' }`, persist Cloudflare-style server options on sessions, and leave SDK capabilities fully caller-owned.
+| Class / Module | Purpose | Primary Use Case |
+| :--- | :--- | :--- |
+| **`Mcp`** | App & Storage Root | Zero-config instance or app-wide database configuration |
+| **`McpUser`** | User Context | Adding/listing MCP servers and running tools per user |
+| **`McpClient`** | Single Connection | Direct connection to a single remote MCP server |
+| **`McpManager`** | Connection Pool | High-throughput batch connection management |
+| **`ToolRouter`** | Dynamic Optimization | 80–95% token savings using smart tool discovery |
+| **`AIAdapter`** | Framework Bindings | Turn MCP servers into tools for Vercel AI SDK, LangChain, etc. |
+
+---
+
+## Quick Start
+
+### 1. User-Scoped Multi-Server Management
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { mcp } from '@mcp-ts/sdk';
 
-export const { POST } = createNextMcpHandler({
-  clientDefaults: {
-    client: {
-      capabilities: { sampling: {} },
-      inputRequired: { autoFulfill: true },
-      cachePartition: 'user-id',
-      defaultCacheTtlMs: 30000,
-    },
-  },
+const user = mcp.user('user_123');
+
+// Connect an MCP server (supports SSE & Streamable HTTP)
+const result = await user.addMcpServer('https://mcp.tavily.com/mcp');
+
+if (result.authRequired) {
+  // Server requires OAuth 2.1 browser sign-in
+  console.log('Redirect user to:', result.authUrl);
+} else {
+  console.log('Server connected! Session ID:', result.sessionId);
+}
+
+// In your OAuth callback route:
+await user.finishAuth(code, state, iss);
+
+// List all active user tools across connected servers
+const { tools } = await user.listTools();
+
+// Execute a tool directly
+const response = await user.callTool('tavily_search', { query: 'Model Context Protocol' });
+```
+
+---
+
+### 2. Vercel AI SDK Integration
+
+Seamlessly pass all user MCP servers to `generateText` or `streamText`:
+
+```typescript
+import { mcp } from '@mcp-ts/sdk';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { openai } from '@ai-sdk/openai';
+import { generateText } from 'ai';
+
+const user = mcp.user('user_123');
+
+const { text } = await generateText({
+  model: openai('gpt-4o'),
+  prompt: 'What are the top news headlines today?',
+  tools: await AIAdapter.getTools(user),
 });
 ```
 
-See [MCP SDK v2 Protocol Support](../../docs/mcp-v2-protocol.md) for the implementation checklist, persisted metadata behavior, response cache notes, and SSE compatibility status.
+---
 
-See the [main README](https://github.com/zonlabs/mcp-ts) for full documentation, quick start, and architecture details.
+### 3. Dynamic Tool Routing (`ToolRouter`)
+
+For users with dozens or hundreds of tools, `ToolRouter` dynamically injects discovery meta-tools (`mcp_search_tools`, `mcp_execute_tool`) into the LLM context, reducing token usage by up to 95%:
+
+```typescript
+import { mcp } from '@mcp-ts/sdk';
+import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+
+const user = mcp.user('user_123');
+
+// LLM only receives lightweight discovery tools until execution
+const tools = await AIAdapter.getTools(user, {
+  strategy: 'all',
+  enableSmartRouting: true,
+});
+```
+
+---
+
+### 4. Direct Single Server Connection (`McpClient`)
+
+For low-level single-server connections without user storage:
+
+```typescript
+import { McpClient } from '@mcp-ts/sdk';
+
+const client = new McpClient({
+  userId: 'user_123',
+  sessionId: 'sess_custom_1',
+  serverId: 'tavily',
+  serverUrl: 'https://mcp.tavily.com/mcp',
+  callbackUrl: 'http://localhost:3000/oauth/callback',
+});
+
+await client.connect();
+const { tools } = await client.listTools();
+const result = await client.callTool('tavily_search', { query: 'MCP SDK' });
+```
+
+---
+
+### 5. Durable Storage Backends
+
+Persist user credentials and sessions across server restarts:
+
+```typescript
+import { Mcp } from '@mcp-ts/sdk';
+import { RedisStorageBackend, sessions } from '@mcp-ts/sdk/server';
+
+// Custom Redis storage
+const mcp = new Mcp({
+  storage: sessions.use('redis', {
+    redisUrl: process.env.REDIS_URL,
+  }),
+});
+
+// Or Supabase / Neon / SQLite
+const user = mcp.user('user_123');
+```
+
+Supported storage backends:
+- **`sqlite`** (Default for local Node.js environments)
+- **`redis`** (Redis & Upstash)
+- **`neon`** (Neon Serverless Postgres)
+- **`supabase`** (Supabase Postgres)
+- **`memory`** (In-memory transient store)
+
+---
+
+## SDK Entry Points
+
+| Entry Point | Description |
+| :--- | :--- |
+| **`@mcp-ts/sdk`** | Root exports: `mcp`, `Mcp`, `McpUser`, `McpClient`, `McpManager`, `ToolRouter` |
+| **`@mcp-ts/sdk/server`** | Server-side handlers (`createNextMcpHandler`), storage engines, and middleware |
+| **`@mcp-ts/sdk/adapters/ai`** | Vercel AI SDK integration (`AIAdapter.getTools`) |
+| **`@mcp-ts/sdk/adapters/langchain`** | LangChain / LangGraph tool binding (`LangChainAdapter.getTools`) |
+| **`@mcp-ts/sdk/adapters/mastra`** | Mastra agent framework adapter (`MastraAdapter.getTools`) |
+| **`@mcp-ts/sdk/adapters/agui-adapter`** | AG-UI Client adapter |
+| **`@mcp-ts/sdk/adapters/agui-middleware`** | AG-UI chat & streaming middleware |
+| **`@mcp-ts/sdk/client`** | Browser JSON-RPC client primitives |
+| **`@mcp-ts/sdk/client/react`** | React hooks (`useMcp`, `useMcpApps`, `useMcpOAuthPopup`) |
+| **`@mcp-ts/sdk/client/vue`** | Vue composables (`useMcp`) |
+| **`@mcp-ts/sdk/shared`** | Shared types, interfaces (`BaseClient`, `ToolClient`), and event emitters |
+
+---
+
+## Next.js SSE Route Handler
+
+Expose a full MCP bridge endpoint for your frontend in 5 lines:
+
+```typescript
+// app/api/mcp/sse/route.ts
+import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+
+export const { GET, POST } = createNextMcpHandler();
+```
+
+---
+
+## License
+
+MIT © [ZonLabs](https://github.com/zonlabs)

@@ -43,7 +43,7 @@ export {
 export { createSSEHandler, SSEConnectionManager, type SSEHandlerOptions, type ClientMetadata } from './handlers/sse-handler.js';
 
 /** Next.js App Router handler (recommended for Next.js 13+) */
-export { createNextMcpHandler, type NextMcpHandlerOptions } from './handlers/nextjs-handler.js';
+export { createNextMcpHandler, type NextMcpHandlerOptions, type AuthenticatedUser } from './handlers/nextjs-handler.js';
 
 /** Session provider abstraction */
 

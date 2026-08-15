@@ -8,9 +8,6 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "mcp-ts": "./dist/bin/mcp-ts.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -128,6 +125,8 @@
   "peerDependencies": {
     "@ag-ui/client": ">=0.0.40",
     "@langchain/core": "^1.1.39",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@neondatabase/serverless": "^1.1.0",
     "@supabase/supabase-js": "^2.0.0",
     "ai": "^6.0.0",
@@ -139,6 +138,9 @@
     "zod": "^3.23.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@modelcontextprotocol/ext-apps": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
@@ -174,15 +176,15 @@
     }
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "^2.0.0",
-    "@modelcontextprotocol/core": "^2.0.0",
-    "@modelcontextprotocol/ext-apps": "^1.7.5",
     "json-schema": "^0.4.0",
     "nanoid": "^5.1.6"
   },
   "devDependencies": {
     "@ag-ui/client": "^0.0.52",
     "@langchain/core": "^1.1.39",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@neondatabase/serverless": "^1.1.0",
     "@playwright/test": "^1.58.0",
     "@supabase/supabase-js": "^2.48.0",

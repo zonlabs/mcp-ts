@@ -29,13 +29,13 @@ const adapter = new AIAdapter(client, {
 
 ### Single Client vs. Multi-Session
 
-Adapters work with both individual `MCPClient` instances andaggregated `MultiSessionClient`.
+Adapters work with both individual `McpClient` instances and aggregated `McpManager`.
 
 #### Single Client
 ```typescript
-import { MCPClient } from '@mcp-ts/sdk/server';
+import { McpClient } from '@mcp-ts/sdk/server';
 
-const client = new MCPClient({
+const client = new McpClient({
   userId: 'user_123',
   sessionId: 'session_abc',
   serverUrl: 'https://mcp-server.com',
@@ -48,7 +48,7 @@ const adapter = new AIAdapter(client);
 
 #### Multi-Session
 ```typescript
-const client = new MultiSessionClient('user_123');
+const client = new McpManager('user_123');
 
 // Connect to multiple servers
 await client.connect();
