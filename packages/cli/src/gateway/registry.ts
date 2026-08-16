@@ -76,7 +76,7 @@ class LocalMcpConnection {
         headers: this.config.headers,
         transport: /\/sse(?:\/|$)/.test(url.pathname) ? "sse" : "streamable-http",
       });
-      await this.refreshTools();
+      await this.loadTools();
       return;
     }
     const transport = this.createTransport();
@@ -87,10 +87,10 @@ class LocalMcpConnection {
     await client.connect(transport);
     this.transport = transport;
     this.client = client;
-    await this.refreshTools();
+    await this.loadTools();
   }
 
-  async refreshTools(): Promise<void> {
+  async loadTools(): Promise<void> {
     const result = this.httpConnection
       ? await this.httpConnection.listTools()
       : await this.client?.listTools();

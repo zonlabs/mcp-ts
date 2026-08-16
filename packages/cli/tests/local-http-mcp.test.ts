@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { MCP_META_TOOL_NAMES } from "../src/gateway/http-gateway.js";
+import { MCP_META_TOOL_NAMES } from "../src/gateway/local-http-mcp.js";
 
-describe("HttpMcpGateway", () => {
+describe("LocalHttpMcp", () => {
   it("uses the remote MCP discovery vocabulary", () => {
     expect(MCP_META_TOOL_NAMES).toEqual({
       listServers: "list_mcp_servers",

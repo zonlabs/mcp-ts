@@ -12,7 +12,7 @@ export const MCP_META_TOOL_NAMES = {
   callTool: "call_mcp_tool",
 } as const;
 
-export interface HttpMcpGatewayOptions {
+export interface LocalHttpMcpOptions {
   host: string;
   port: number;
   path: string;
@@ -58,7 +58,7 @@ function textResult(value: unknown, isError = false): CallToolResult {
   };
 }
 
-export class HttpMcpGateway {
+export class LocalHttpMcp {
   private server: ReturnType<typeof createServer> | null = null;
   private readonly handler = createMcpHandler(async () => {
     const mcp = new McpServer(
@@ -219,7 +219,7 @@ export class HttpMcpGateway {
 
   constructor(
     private readonly registry: McpGatewayRegistry,
-    private readonly options: HttpMcpGatewayOptions,
+    private readonly options: LocalHttpMcpOptions,
     private readonly traffic: Traffic,
   ) {}
 

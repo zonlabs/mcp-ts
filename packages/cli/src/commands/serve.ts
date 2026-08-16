@@ -1,6 +1,6 @@
 import pc from "picocolors";
 import { McpGatewayRegistry } from "../gateway/registry.js";
-import { HttpMcpGateway } from "../gateway/http-gateway.js";
+import { LocalHttpMcp } from "../gateway/local-http-mcp.js";
 import { RemoteBridgeClient } from "../gateway/bridge-client.js";
 import { Traffic } from "../traffic.js";
 import { loadMcpJson, loadState } from "../gateway/config.js";
@@ -36,10 +36,64 @@ export interface ServeArgs {
   mode?: "all" | "search" | "auto";
 }
 
+interface ShutdownHandlerOptions {
+  cleanup(): Promise<void>;
+  exit?: (code: number) => void;
+  onSignal?: (signal: string) => void;
+  forceAfterMs?: number;
+}
+
+export function createShutdownHandler(options: ShutdownHandlerOptions) {
+  let shuttingDown = false;
+  let forced = false;
+  const exit = options.exit ?? ((code: number) => process.exit(code));
+
+  return async (signal: string): Promise<void> => {
+    if (shuttingDown) {
+      forced = true;
+      exit(130);
+      return;
+    }
+    shuttingDown = true;
+    options.onSignal?.(signal);
+    const forceExit = setTimeout(() => {
+      forced = true;
+      exit(130);
+    }, options.forceAfterMs ?? 3_000);
+
+    try {
+      await options.cleanup();
+    } finally {
+      clearTimeout(forceExit);
+      if (!forced) exit(0);
+    }
+  };
+}
+
 export async function cmdServe(args: ServeArgs): Promise<void> {
   printBanner();
   intro(pc.bold("mcpa serve"));
   const target = process.cwd();
+  let registry: McpGatewayRegistry | null = null;
+  let localHttpMcp: LocalHttpMcp | null = null;
+  let bridge: RemoteBridgeClient | null = null;
+  const shutdown = createShutdownHandler({
+    onSignal: (signal) => {
+      clearTicker();
+      warn(`Received ${signal}, shutting down...`);
+    },
+    cleanup: async () => {
+      await bridge?.stop();
+      await localHttpMcp?.close();
+      await registry?.close();
+    },
+  });
+  const handleSigint = () => void shutdown("SIGINT");
+  const handleSigterm = () => void shutdown("SIGTERM");
+  process.on("SIGINT", handleSigint);
+  process.on("SIGTERM", handleSigterm);
+  process.on("exit", clearTicker);
+
   let localConfig: Record<string, any> = {};
   let strategyFromConfig: ServeArgs["mode"];
   try {
@@ -52,7 +106,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
   info(`Loaded configuration with ${pc.bold(String(Object.keys(localConfig).length))} local server(s)`);
   const traffic = new Traffic({ onUpdate: () => ticker(traffic.render()) });
-  const registry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
+  registry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
   const startSpin = spinner();
   startSpin.start("Starting local MCP servers...");
   await registry.start();
@@ -71,10 +125,10 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   const port = args.port ?? state.port ?? 8787;
   const path = args.path ?? state.path ?? "/mcp";
   const mode = args.mode ?? strategyFromConfig ?? "auto";
-  const httpGateway = new HttpMcpGateway(registry, { host, port, path, mode }, traffic);
+  localHttpMcp = new LocalHttpMcp(registry, { host, port, path, mode }, traffic);
   let localUrl: string;
   try {
-    localUrl = await httpGateway.start();
+    localUrl = await localHttpMcp.start();
   } catch (cause) {
     error(`Could not start local endpoint on ${host}:${port}${path}: ${(cause as Error).message}`);
     await registry.close();
@@ -95,7 +149,6 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
-  let bridge: RemoteBridgeClient | null = null;
   if (loadAuthSession(remote)) {
     bridge = new RemoteBridgeClient(registry, {
       remoteUrl: remote,
@@ -113,27 +166,6 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   } else {
     warn("No remote session available. Local endpoint only.");
   }
-
-  let shuttingDown = false;
-  const shutdown = async (signal: string) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    clearTicker();
-    warn(`Received ${signal}, shutting down...`);
-    const forceExit = setTimeout(() => process.exit(0), 3_000);
-    forceExit.unref?.();
-    try {
-      await bridge?.stop();
-      await httpGateway.close();
-      await registry.close();
-    } finally {
-      clearTimeout(forceExit);
-      process.exit(0);
-    }
-  };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
-  process.on("exit", () => clearTicker());
 
   treeSummary("Gateway summary", [
     { label: "Local", value: pc.cyan(localUrl) },

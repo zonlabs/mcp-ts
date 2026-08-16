@@ -1,9 +1,12 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 
 const bundledPackages = ["@mcp-ts/bridge-protocol", "@mcp-ts/tool-router"] as const;
+const execFileAsync = promisify(execFile);
 
 async function distributableFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -31,5 +34,13 @@ describe("published CLI package", () => {
     for (const packageName of bundledPackages) {
       expect(contents.join("\n")).not.toContain(packageName);
     }
+  });
+
+  test("reports the published package version", async () => {
+    const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    const bin = fileURLToPath(new URL("../dist/bin/mcp-ts.js", import.meta.url));
+    const { stdout } = await execFileAsync(process.execPath, [bin, "--version"]);
+
+    expect(stdout.trim()).toBe(`@mcp-ts/cli v${packageJson.version}`);
   });
 });

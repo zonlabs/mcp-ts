@@ -10,7 +10,7 @@ export {
 } from "./core.js";
 export { estimateTextTokens, estimateToolTokens, estimateToolsTokens } from "./token-estimator.js";
 export { McpGatewayRegistry, canonicalToolId } from "./gateway/registry.js";
-export { HttpMcpGateway, type HttpMcpGatewayOptions } from "./gateway/http-gateway.js";
+export { LocalHttpMcp, type LocalHttpMcpOptions } from "./gateway/local-http-mcp.js";
 export { RemoteBridgeClient, type RemoteBridgeClientOptions } from "./gateway/bridge-client.js";
 export {
   findMcpJson,
