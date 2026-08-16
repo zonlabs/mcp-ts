@@ -1,6 +1,6 @@
 {
   "name": "@mcp-ts/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Explore, search, benchmark, codegen, and run a local MCP gateway (mcp-ts serve).",
   "type": "module",
   "bin": { "mcp-ts": "./dist/bin/mcp-ts.js" },
