@@ -135,6 +135,8 @@ export interface MCPOAuthClientOptions {
   serverOptions?: StoredMcpServerOptions | null;
   /** Persisted server/discover result used for v2 restore optimization. */
   discoverResult?: DiscoverResult | null;
+  /** Called after the server emits notifications/tools/list_changed. */
+  onToolsChanged?: () => void;
 }
 
 export type McpClientOptions = MCPOAuthClientOptions;
@@ -201,12 +203,23 @@ export class McpClient {
   }
 
   private createSdkClient(): Client {
+    const options = normalizeMcpSdkClientOptions(this.config.client);
     return new Client(
       {
         name: MCP_CLIENT_NAME,
         version: MCP_CLIENT_VERSION,
       },
-      normalizeMcpSdkClientOptions(this.config.client)
+      {
+        ...options,
+        listChanged: {
+          tools: {
+            onChanged: () => {
+              this.cachedTools = null;
+              this.config.onToolsChanged?.();
+            },
+          },
+        },
+      },
     );
   }
 

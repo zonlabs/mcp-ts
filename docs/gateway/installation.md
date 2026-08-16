@@ -1,7 +1,7 @@
 ---
 title: "Gateway Installation"
 sidebarTitle: "Installation"
-description: "Install the @mcp-ts/cli (mcpa / mcp-ts) and run the local gateway daemon to bridge stdio/HTTP MCP servers to cloud clients."
+description: "Install the @mcp-ts/cli (mcpa / mcp-ts) and run the local gateway daemon to bridge stdio/HTTP MCP servers to remote clients."
 icon: "download"
 ---
 
@@ -37,9 +37,9 @@ Follow these quick steps to get your gateway up and running:
 
 2. **Authenticate with MCP Assistant**:
    ```bash
-   mcpa link
+   mcpa login
    ```
-   This opens your browser for a one-time Google/OAuth sign-in and securely saves your device credential.
+   This opens your browser for an OAuth + PKCE sign-in and saves the rotating CLI session in your platform user-config directory.
 
 3. **Start the Gateway**:
    ```bash

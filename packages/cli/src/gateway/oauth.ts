@@ -1,153 +1,90 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { exec } from "node:child_process";
-import { loadState, saveState, stateFilePath } from "./config.js";
-import { info, success, dim, treeNote, pc } from "../ux.js";
+import { execFile } from "node:child_process";
+import {
+  authFilePath,
+  clearAuthSession,
+  loadAuthSession,
+  normalizeRemoteOrigin,
+  saveAuthSession,
+  type AuthSession,
+} from "./auth-store.js";
+import { info, success, treeNote, pc } from "../ux.js";
 
 const DEFAULT_CALLBACK_PORT = 43110;
-export const DEFAULT_LOGIN_BASE_URL = "https://api.mcp-assistant.in";
-
-const BRAND_LOGO_SVG = `<svg class='logo' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' width='56' height='56' role='img' aria-label='MCP Assistant'><rect width='256' height='256' rx='56' fill='#d30000'/><g fill='none' stroke='#ffffff' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'><path d='M58 209 V47 L128 77 L198 47 V129'/><path d='M128 77 V157'/></g></svg>`;
-
-function base64url(input: Buffer): string {
-  return input.toString("base64url");
-}
-
 function openBrowser(url: string): void {
-  const platform = process.platform;
-  if (platform === "win32") {
-    exec(`start "" "${url}"`);
-  } else if (platform === "darwin") {
-    exec(`open "${url}"`);
-  } else {
-    exec(`xdg-open "${url}"`);
-  }
+  if (process.platform === "win32") execFile("rundll32", ["url.dll,FileProtocolHandler", url]);
+  else if (process.platform === "darwin") execFile("open", [url]);
+  else execFile("xdg-open", [url]);
 }
 
-export interface LinkResult {
-  token: string;
-  tokenExpiresAt: number;
-}
-
-/**
- * Pair this machine with a remote gateway by signing in on the MCP Assistant
- * worker (api.mcp-assistant.in — the same Supabase identity used by
- * mcp-assistant.in).
- *
- * The browser opens the worker's OAuth login route, which bounces to Supabase's
- * hosted Google OAuth (PKCE). After the user signs in the worker issues a
- * short-lived one-time code and redirects to a loopback URL with it. `link`
- * captures the code, exchanges it for the access token via the worker, and
- * stores the token as the device credential. The token itself never appears in
- * a URL.
- */
-export async function linkToRemote(
+export async function loginToRemote(
   remote: string,
-  deviceId: string,
-  dir?: string,
-  loginBase: string = process.env.LOGIN_BASE_URL || DEFAULT_LOGIN_BASE_URL,
-): Promise<LinkResult> {
-  const cwd = dir ?? process.cwd();
-  const state = loadState(cwd);
-  const port = DEFAULT_CALLBACK_PORT;
-  const redirectUri = `http://127.0.0.1:${port}/callback`;
-  const stateParam = base64url(randomBytes(16));
-
-  // Loopback HTTP server that captures the one-time code from the redirect.
-  const server = createServer((req, res) => {
-    const reqUrl = new URL(req.url ?? "/", `http://${req.headers.host ?? "127.0.0.1"}`);
-    if (reqUrl.pathname !== "/callback") {
-      res.writeHead(404).end("Not found");
+  loginBase?: string,
+): Promise<AuthSession> {
+  const authOrigin = loginBase ?? process.env.LOGIN_BASE_URL ?? normalizeRemoteOrigin(remote);
+  const callbackUrl = `http://127.0.0.1:${DEFAULT_CALLBACK_PORT}/callback`;
+  const state = randomBytes(16).toString("base64url");
+  let resolveCallback!: (value: { code: string; state: string }) => void;
+  const callback = new Promise<{ code: string; state: string }>((resolve) => {
+    resolveCallback = resolve;
+  });
+  const server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
+    if (url.pathname !== "/callback") {
+      response.writeHead(404).end("Not found");
       return;
     }
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(
-      `<!doctype html><html lang='en'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'/><title>MCP Assistant Login Successful</title><style>*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;background:#fff;color:#111;font-family:Segoe UI,-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;text-align:center}main{display:flex;flex-direction:column;align-items:center;padding:24px}.logo{width:56px;height:56px;margin:0 auto 16px;display:block}h2{margin:0 0 8px;font-size:1.35rem;font-weight:600}p{margin:0;color:#555;font-size:.98rem}.link{display:inline-block;margin-top:12px;color:#111;text-decoration:underline}</style></head><body><main>${BRAND_LOGO_SVG}<h2>Login successful!</h2><p>You can close the tab.</p><a class='link' href='https://mcp-assistant.in' target='_blank' rel='noreferrer noopener'>mcp-assistant.in</a></main></body></html>`,
-    );
-    server.close();
-    const code = reqUrl.searchParams.get("code") ?? "";
-    const st = reqUrl.searchParams.get("state") ?? "";
-    resolve({ code, state: st });
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end("<!doctype html><title>MCP Assistant</title><p>Login successful. You can close this tab.</p>");
+    resolveCallback({ code: url.searchParams.get("code") ?? "", state: url.searchParams.get("state") ?? "" });
   });
-  server.listen(port, "127.0.0.1");
+  server.listen(DEFAULT_CALLBACK_PORT, "127.0.0.1");
 
-  let resolve!: (v: { code: string; state: string }) => void;
-  const gotCallback = new Promise<{ code: string; state: string }>((r) => (resolve = r));
-  const closeServer = () => {
-    server.close();
-  };
+  const loginUrl = new URL("/oauth/login", authOrigin.replace(/\/$/, ""));
+  loginUrl.searchParams.set("next", `${callbackUrl}?state=${state}`);
+  info("Opening browser for sign-in...");
+  treeNote([pc.dim("If the browser does not open, visit:"), pc.cyan(loginUrl.toString())]);
+  openBrowser(loginUrl.toString());
 
-  const bounce = new URL("/oauth/login", loginBase.replace(/\/$/, ""));
-  bounce.searchParams.set("next", `${redirectUri}?state=${stateParam}`);
-
-  info("Opening browser for sign-in…");
-  treeNote([
-    pc.dim("If the browser does not open, visit:"),
-    pc.cyan(bounce.toString()),
-  ]);
-  openBrowser(bounce.toString());
-
-  const result = await Promise.race([
-    gotCallback,
-    once(server, "error").then(() => Promise.reject(new Error("callback server error"))),
-  ]);
-
-  if (result.state !== stateParam) {
-    closeServer();
-    throw new Error("State mismatch in authorization callback");
-  }
-  if (!result.code) {
-    closeServer();
-    throw new Error("No authorization code returned from sign-in");
-  }
-
-  // Exchange the one-time code for the device credential.
-  let token: string;
-  let tokenExpiresAt: number;
   try {
-    const exchange = await fetch(
-      `${loginBase.replace(/\/$/, "")}/oauth/codes/exchange`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code: result.code }),
-      },
-    );
-    const body = (await exchange.json().catch(() => ({}))) as {
-      token?: string;
-      expiresAt?: number;
-      error?: string;
-    };
-    if (!exchange.ok || !body.token) {
-      throw new Error(body.error ?? `exchange failed (${exchange.status})`);
-    }
-    token = body.token;
-    tokenExpiresAt = body.expiresAt ?? Date.now() + 3600 * 1000;
-  } catch (err) {
-    closeServer();
-    throw new Error(`Code exchange failed: ${(err as Error).message}`);
-  }
+    const result = await Promise.race([
+      callback,
+      once(server, "error").then(() => Promise.reject(new Error("callback server error"))),
+    ]);
+    if (result.state !== state) throw new Error("State mismatch in authorization callback");
+    if (!result.code) throw new Error("No authorization code returned from sign-in");
 
-  saveState({ ...state, remote, deviceId, token, tokenExpiresAt }, cwd);
-  closeServer();
-  success(`Linked device ${pc.bold(deviceId)} with ${remote}`);
-  treeNote(pc.dim(`Auth state saved to ${stateFilePath(cwd)}`));
-  return { token, tokenExpiresAt };
+    const response = await fetch(`${authOrigin.replace(/\/$/, "")}/oauth/codes/exchange`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: result.code }),
+    });
+    const session = (await response.json().catch(() => null)) as AuthSession | null;
+    if (!response.ok || !session?.accessToken || !session.refreshToken) {
+      throw new Error(`Code exchange failed (${response.status})`);
+    }
+    saveAuthSession(remote, session);
+    success(`Signed in to ${normalizeRemoteOrigin(remote)}`);
+    treeNote(pc.dim(`Auth state saved to ${authFilePath()}`));
+    return session;
+  } finally {
+    server.close();
+  }
 }
 
-/**
- * Returns the current stored token (mcp-ts/mcp validates Supabase JWTs
- * directly; re-run `link` if the token has expired).
- */
-export async function refreshTokenIfNeeded(dir?: string): Promise<{
-  token: string;
-  tokenExpiresAt: number;
-}> {
-  const cwd = dir ?? process.cwd();
-  const state = loadState(cwd);
-  return {
-    token: state.token ?? "",
-    tokenExpiresAt: state.tokenExpiresAt ?? 0,
-  };
+export async function logoutFromRemote(remote: string): Promise<void> {
+  const session = loadAuthSession(remote);
+  try {
+    if (session) {
+      await fetch(`${normalizeRemoteOrigin(remote)}/oauth/logout`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${session.accessToken}`, "content-type": "application/json" },
+        body: JSON.stringify({ refreshToken: session.refreshToken }),
+      });
+    }
+  } finally {
+    clearAuthSession(remote);
+  }
 }

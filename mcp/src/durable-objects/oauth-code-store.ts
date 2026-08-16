@@ -6,8 +6,13 @@ export interface OAuthCodeStoreEnv {
 
 export const OAUTH_CODE_TTL_SECONDS = 60;
 
-interface OAuthCodeRecord {
-  token: string;
+export interface OAuthCliSession {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: number;
+}
+
+interface OAuthCodeRecord extends OAuthCliSession {
   expiresAt: number;
 }
 
@@ -23,14 +28,14 @@ export const OAUTH_SIGN_IN_TTL_SECONDS = 600;
  * One-time authorization-code store.
  *
  * Codes are issued for a short TTL and consumed at most once. Backed by the
- * Durable Object SQLite storage so that issue + exchange are serialized on a
- * single instance — reliable across Vercel's serverless instances.
+ * Durable Object storage so that issue + exchange are serialized on a
+ * single instance.
  */
 export class OAuthCodeStore extends DurableObject<OAuthCodeStoreEnv> {
-  async issue(token: string, ttlSeconds: number = OAUTH_CODE_TTL_SECONDS): Promise<string> {
+  async issue(session: OAuthCliSession, ttlSeconds: number = OAUTH_CODE_TTL_SECONDS): Promise<string> {
     const code = crypto.randomUUID().replace(/-/g, "");
     const record: OAuthCodeRecord = {
-      token,
+      ...session,
       expiresAt: Date.now() + ttlSeconds * 1000,
     };
     await this.ctx.storage.put<OAuthCodeRecord>(code, record, {

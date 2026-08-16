@@ -7,12 +7,15 @@ import { createWorkflowCodeModeRuntime } from "./codemode-runtime";
 import { getRequestContext } from "./request-context";
 import { asJsonObject, errorResponse, jsonResponse } from "./tool-result";
 import { recordSelectedDownstreamToolSchemaInspection } from "./instrumentation";
+import { publishRemoteCatalogForUser } from "./bridge-session-access";
+import { buildRemoteCatalogFromClients } from "./remote-catalog";
 import {
-  buildDeviceToolServers,
-  listDeviceServers,
-  listDeviceTools,
-  resolveDeviceToolSchema,
-} from "./device-tools";
+  buildLocalToolServers,
+  listLocalServers,
+  listLocalTools,
+  invokeLocalTool,
+  resolveLocalToolSchema,
+} from "./local-bridge-tools";
 
 const MCP_RESULT_EXTRACTION_HINT =
   "In CodeMode, `callTool(serverId, toolName, args)` and namespaced helpers return normalized tool results. Structured MCP payloads are unwrapped automatically; use raw helpers only when you explicitly need the MCP envelope.";
@@ -40,10 +43,23 @@ function handleObservability(event: McpObservabilityEvent): void {
 }
 
 export async function getMcpManager(userId: string): Promise<McpManager> {
-  const manager = new McpManager(userId, {
+  const context = getRequestContext();
+  let manager!: McpManager;
+  const publishCatalog = async () => {
+    if (!context.env) return;
+    try {
+      const catalog = await buildRemoteCatalogFromClients(manager.getClients());
+      await publishRemoteCatalogForUser(context.env, userId, catalog);
+    } catch {
+      // A downstream catalog refresh is best effort.
+    }
+  };
+  manager = new McpManager(userId, {
     onObservabilityEvent: handleObservability,
+    onToolsChanged: () => void publishCatalog(),
   });
   await manager.connect();
+  await publishCatalog();
   return manager;
 }
 
@@ -156,6 +172,7 @@ async function withToolRouter<T>(
         "list_mcp_servers",
         "search_mcp_tools",
         "get_mcp_tool_schema",
+        "call_mcp_tool",
         "codemode_run",
         "index_mcp_server",
         "delete_mcp_server",
@@ -215,8 +232,8 @@ export function registerMcpCoreTools(server: McpServer): void {
             toolCount,
           }));
         });
-        const deviceServers = await listDeviceServers();
-        return jsonResponse({ servers: [...connected, ...deviceServers] });
+        const localServers = await listLocalServers();
+        return jsonResponse({ servers: [...connected, ...localServers] });
       } catch (err) {
         const text = err instanceof Error ? err.message : "Failed to list MCP servers";
         return { content: [{ type: "text" as const, text }], isError: true };
@@ -264,12 +281,12 @@ export function registerMcpCoreTools(server: McpServer): void {
         const userId = getRequestContext().userId!;
         const limitN = limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT;
         const verbosityN = verbosity ?? "compact";
-        const [connectedTools, deviceTools] = await Promise.all([
+        const [connectedTools, localTools] = await Promise.all([
           withToolRouter(userId, async (router) => {
             const res = await router.listTools({ limit: Number.MAX_SAFE_INTEGER });
             return res.tools as IndexedTool[];
           }),
-          listDeviceTools().then((tools) =>
+          listLocalTools().then((tools) =>
             tools.map(
               (t) =>
                 ({
@@ -285,7 +302,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           ),
         ]);
         const index = new ToolIndex();
-        await index.buildIndex([...connectedTools, ...deviceTools]);
+        await index.buildIndex([...connectedTools, ...localTools]);
         const hits = await index.search(query, limitN);
         const tools = hits.map((tool) => toSearchResultTool(tool, verbosityN));
         return jsonResponse({ tools, total: tools.length });
@@ -343,19 +360,19 @@ export function registerMcpCoreTools(server: McpServer): void {
           });
           return toNormalizedToolSchema(tool, verbosity ?? "compact");
         }).catch(async () => {
-          const deviceTool = await resolveDeviceToolSchema(tool_name, server_id);
-          if (!deviceTool) {
+          const localTool = await resolveLocalToolSchema(tool_name, server_id);
+          if (!localTool) {
             throw new Error(`Tool "${tool_name}" was not found for server "${server_id}"`);
           }
           return toNormalizedToolSchema(
             {
-              name: deviceTool.name,
-              description: deviceTool.description,
-              inputSchema: deviceTool.inputSchema,
-              outputSchema: deviceTool.outputSchema,
-              annotations: deviceTool.annotations,
-              serverId: deviceTool.serverId,
-              serverName: deviceTool.serverName,
+              name: localTool.name,
+              description: localTool.description,
+              inputSchema: localTool.inputSchema,
+              outputSchema: localTool.outputSchema,
+              annotations: localTool.annotations,
+              serverId: localTool.serverId,
+              serverName: localTool.serverName,
             },
             verbosity ?? "compact"
           );
@@ -367,6 +384,48 @@ export function registerMcpCoreTools(server: McpServer): void {
         return { content: [{ type: "text" as const, text }], isError: true };
       }
     }
+  );
+
+  server.registerTool(
+    "call_mcp_tool",
+    {
+      title: "Call MCP Tool",
+      description: "Call an exact tool on a connected local or remote MCP server.",
+      inputSchema: z.object({
+        server_id: z.string().describe("The exact server ID returned by MCP discovery."),
+        tool_name: z.string().describe("The exact MCP tool name."),
+        arguments: z.record(z.string(), z.unknown()).optional(),
+      }),
+      annotations: {
+        title: "Call MCP Tool",
+        readOnlyHint: false,
+        openWorldHint: true,
+      },
+      _meta: { tags: ["execute"] },
+    },
+    async ({ server_id, tool_name, arguments: toolArguments }) => {
+      try {
+        const userId = getRequestContext().userId!;
+        const remoteResult = await withMcpManager(userId, async (manager) => {
+          const client = manager
+            .getClients()
+            .find((candidate) =>
+              [candidate.getServerId?.(), candidate.getServerName?.()].includes(server_id),
+            );
+          return client
+            ? { found: true as const, result: await client.callTool(tool_name, toolArguments ?? {}) }
+            : { found: false as const };
+        });
+        if (remoteResult.found) return remoteResult.result as never;
+        return (await invokeLocalTool({
+          serverId: server_id,
+          toolName: tool_name,
+          arguments: toolArguments ?? {},
+        })) as never;
+      } catch (error) {
+        return errorResponse(error instanceof Error ? error.message : "MCP tool call failed");
+      }
+    },
   );
 
   server.registerTool(
@@ -455,7 +514,7 @@ export function registerMcpCoreTools(server: McpServer): void {
 
         const timeoutMs = Number(timeout_ms ?? process.env.MCP_SCRIPT_TIMEOUT_MS ?? 240000);
         const requestContext = getRequestContext();
-        const deviceServers = await buildDeviceToolServers();
+        const localServers = await buildLocalToolServers();
         const runtime = await createWorkflowCodeModeRuntime(
           manager,
           {
@@ -472,7 +531,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           {
             loader: requestContext.env?.LOADER,
           },
-          deviceServers
+          localServers
         );
 
         const result = await runtime.run(normalizedScript, asJsonObject(input), { timeoutMs });

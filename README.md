@@ -529,7 +529,7 @@ Requires Node >= 20. Provides both `mcpa` and `mcp-ts` global commands.
 mcpa init
 
 # Pair this machine with the MCP Assistant gateway (OAuth)
-mcpa link
+mcpa login
 
 # Run the daemon (local endpoint + remote bridge)
 mcpa serve
@@ -569,14 +569,14 @@ graph LR
         LocalMcp[Local MCP Servers]
 
         Spacer --- Worker
-        Local -- "WSS /connect (outbound)" --> Worker
+        Local -- "JSON-RPC 2.0 over WSS /bridge/connect" --> Worker
         Local <--> LocalMcp
         style Spacer fill:transparent,stroke:transparent,color:transparent
     end
 ```
 
 - **Direct SDK flow**: Browser clients use `useMcp` over HTTP + SSE to a server route backed by `McpManager`.
-- **Bridge flow**: the local `mcp-ts serve` daemon (`@mcp-ts/cli`) keeps an outbound authenticated WebSocket to the MCP Assistant gateway (`@mcp-ts/mcp`, deployed at `https://api.mcp-assistant.in`). Remote MCP clients (ChatGPT, Claude) connect to its aggregated `/mcp` endpoint and their tool calls are forwarded to local MCP servers.
+- **Bridge flow**: `mcpa serve` keeps an outbound Bearer-authenticated JSON-RPC WebSocket to MCP Assistant. Remote MCP clients connect to `/mcp`; calls can flow to hosted remote servers or through the account's single active local gateway.
 - **Storage**: Session state and connection metadata persist in Redis, File, SQLite, or Memory backends.
 
 > [!NOTE]

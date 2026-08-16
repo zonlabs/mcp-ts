@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { ToolClient } from "@mcp-ts/client/shared";
+import type { ToolClient } from "@mcp-ts/tool-router";
 import type { Tool } from "@modelcontextprotocol/client";
 import { benchmarkStrategies, createRouter, generateWrappers, resolveTool, searchTools } from "../src/core.js";
 
@@ -32,13 +32,11 @@ const tools: Tool[] = [
 
 function fakeClient(): ToolClient {
   return {
-    isConnected: () => true,
     listTools: async () => ({ tools }),
     callTool: async (name, args) => ({ name, args }),
     getServerId: () => "example",
     getServerName: () => "Example Server",
     getServerUrl: () => "https://example.test/mcp",
-    getSessionId: () => "cli:example"
   };
 }
 
@@ -53,7 +51,10 @@ test("searches the catalog and reports schema token estimates", async () => {
 
 test("routes an explicit tool call to the connected client", async () => {
   const router = await createRouter(fakeClient());
-  const result = await router.callTool("send_email", { to: "dev@example.test" }, "example");
+  const result = await router.callTool({
+    toolId: "example::send_email",
+    args: { to: "dev@example.test" },
+  });
   assert.deepEqual(result, {
     name: "send_email",
     args: { to: "dev@example.test" }
@@ -99,4 +100,17 @@ test("renders banner, tree formatters and reports version", async () => {
   });
   assert.equal(code, 0);
   assert.ok(output.includes(CLI_VERSION));
+
+  let helpOutput = "";
+  const helpCode = await runCli(["--help"], {
+    input: process.stdin,
+    output: { write: (s: string) => { helpOutput += s; return true; } } as any,
+    error: process.stderr,
+  });
+  assert.equal(helpCode, 0);
+  assert.ok(helpOutput.includes("mcpa call"));
+  assert.ok(helpOutput.includes("mcpa search"));
+  assert.ok(helpOutput.includes("mcpa schema"));
+  assert.ok(helpOutput.includes("mcpa list"));
+  assert.ok(helpOutput.includes("--mode"));
 });

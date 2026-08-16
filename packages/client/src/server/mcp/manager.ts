@@ -73,6 +73,8 @@ export interface McpManagerOptions {
      * Called when all retry attempts for a session have been exhausted.
      */
     onSessionFailed?: (sessionId: string, error: unknown) => void;
+    /** Called when a connected server reports a changed tool list. */
+    onToolsChanged?: (sessionId: string) => void;
 }
 
 /** @internal */
@@ -102,7 +104,7 @@ export class McpManager implements BaseClientProvider {
     private connectionPromises = new Map<string, Promise<void>>();
     private userId: string;
     private options: Required<Pick<McpManagerOptions, 'timeout' | 'maxRetries' | 'retryDelay'>> &
-        Pick<McpManagerOptions, 'sessionProvider' | 'onObservabilityEvent' | 'onSessionConnected' | 'onSessionEvicted' | 'onSessionFailed'>;
+        Pick<McpManagerOptions, 'sessionProvider' | 'onObservabilityEvent' | 'onSessionConnected' | 'onSessionEvicted' | 'onSessionFailed' | 'onToolsChanged'>;
 
     /**
      * @param userId - Unique identifier for the user (e.g. user ID or email).
@@ -314,6 +316,7 @@ export class McpManager implements BaseClientProvider {
                     hasSession: true,
                     cachedCredentials: { tokens: session.tokens ?? undefined },
                     sessionStore: this._store,
+                    onToolsChanged: () => this.options.onToolsChanged?.(session.sessionId),
                 });
 
                 // Attach observability listener BEFORE connect to capture all lifecycle events

@@ -675,6 +675,7 @@ describe("mcp-core-tools", () => {
       expect(configs.has("list_mcp_servers")).toBe(true);
       expect(configs.has("search_mcp_tools")).toBe(true);
       expect(configs.has("get_mcp_tool_schema")).toBe(true);
+      expect(configs.has("call_mcp_tool")).toBe(true);
       expect(configs.has("codemode_run")).toBe(true);
     });
 

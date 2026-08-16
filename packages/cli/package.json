@@ -20,12 +20,16 @@
   "dependencies": {
     "@clack/prompts": "^0.10.0",
     "@mcp-ts/client": "^4.0.0",
+    "@mcp-ts/tool-router": "^0.5.1",
     "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@mcp-ts/bridge-protocol": "0.1.0",
     "@types/node": "^25.0.10",
+    "@types/ws": "^8.18.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

@@ -1,7 +1,7 @@
 ---
 title: "CLI Commands"
 sidebarTitle: "Commands"
-description: "Complete command reference for the @mcp-ts/cli (mcpa / mcp-ts), including serve, link, init, connect, search, bench, and codegen."
+description: "Complete command reference for the @mcp-ts/cli (mcpa / mcp-ts), including call, search, schema, list, serve, login, logout, init, connect, bench, and codegen."
 icon: "list-check"
 ---
 
@@ -28,34 +28,89 @@ mcp-ts <command> [options]
 ## Commands
 
 ### `serve`
-Run the local MCP gateway daemon. Starts local MCP servers defined in `mcp.json`, exposes a local HTTP endpoint, and bridges outbound to the remote gateway.
+Run the local MCP gateway daemon. Starts local MCP servers defined in `mcp.json`, exposes a local HTTP endpoint (`http://127.0.0.1:8787/mcp`), and optionally bridges outbound to the remote gateway.
 
 ```bash
 mcpa serve [options]
 ```
 
 #### Options:
+- `--mode <all|search|auto>`: Tool exposure strategy for connected IDE agents (default: `auto`).
+  - `auto`: Uses progressive discovery if total tool count exceeds 15.
+  - `search`: Exposes `list_mcp_servers`, `search_mcp_tools`, `get_mcp_tool_schema`, and `call_mcp_tool` to minimize LLM context bloat.
+  - `all`: Exposes all raw tool schemas directly.
 - `--host <host>`: Local host interface (default: `0.0.0.0`).
 - `--port <port>`: Local port number (default: `8787`).
 - `--path <path>`: Local HTTP route path (default: `/mcp`).
 - `--remote <url>`: Remote gateway URL (default: `https://api.mcp-assistant.in`).
-- `--device-id <id>`: Override device identity identifier.
-- `--token <token>`: Override authentication token.
 - `--verbose`: Stream all child process startup stderr logs.
 
 ---
 
-### `link`
-Pair this machine with your remote MCP Assistant account. Opens an interactive browser OAuth flow and saves device credentials to `.mcpassistant/auth.json`.
+### `call`
+Execute a local MCP tool directly from the terminal without keeping a daemon running. Ideal for shell-based coding agents (Claude Code, Antigravity, OpenCode, Aider) or CI scripts.
 
 ```bash
-mcpa link [options]
+mcpa call <tool> [jsonArgs]
+```
+
+```bash
+# Read a file via local filesystem MCP server
+mcpa call filesystem:read_file '{"path":"package.json"}'
+
+# List repository issues
+mcpa call github:list_issues '{"repo":"zonlabs/mcp-ts"}'
+```
+
+---
+
+### `search`
+Search across local or remote tool catalogs using BM25 token ranking.
+
+```bash
+# Search local tools from mcp.json
+mcpa search "create pull request"
+
+# Search a remote MCP server catalog
+mcpa search https://api.mcp-assistant.in/mcp "send email" --limit 5
+```
+
+---
+
+### `schema`
+Inspect the full JSON input and output schemas for a specific tool.
+
+```bash
+mcpa schema filesystem:read_file
+```
+
+---
+
+### `list` / `servers`
+List all configured local MCP servers and their available tools.
+
+```bash
+mcpa list
+```
+
+---
+
+### `login`
+Sign in to a remote MCP Assistant origin using browser Authorization Code + PKCE. Credentials are stored in the platform user-config directory, separately from project configuration.
+
+```bash
+mcpa login [options]
 ```
 
 #### Options:
-- `--remote <url>`: Gateway URL to pair with (default: `https://api.mcp-assistant.in`).
-- `--dir <path>`: Working directory to read/save configuration.
-- `--login <url>`: Custom login worker base URL.
+- `--remote <url>`: Remote origin (default: `https://api.mcp-assistant.in`).
+
+### `logout`
+Revoke the saved CLI session, disconnect its active bridge, and remove local credentials.
+
+```bash
+mcpa logout [--remote <url>]
+```
 
 ---
 
@@ -81,19 +136,6 @@ mcpa connect <url>
 - `call <tool> <json>`: Execute a tool call with a JSON argument payload.
 - `help`: Display REPL help commands.
 - `exit` / `quit`: Disconnect and exit REPL.
-
----
-
-### `search`
-Search a remote tool catalog directly from your terminal using BM25 token routing.
-
-```bash
-mcpa search <url> <query> [--limit <count>]
-```
-
-```bash
-mcpa search https://api.mcp-assistant.in/mcp "send slack message" --limit 5
-```
 
 ---
 

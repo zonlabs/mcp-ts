@@ -3,10 +3,10 @@ import fs from 'fs';
 import path from 'path';
 
 // Read the built Vue client code
-const clientDistPath = path.resolve(__dirname, '../dist/client/vue.mjs');
+const clientDistPath = path.resolve(__dirname, '../dist/vue.mjs');
 // Ensure build exists
 if (!fs.existsSync(clientDistPath)) {
-    throw new Error('Build artifact dist/client/vue.mjs not found. Run "npm run build" first.');
+    throw new Error('Build artifact dist/vue.mjs not found. Run "npm run build" first.');
 }
 const clientCode = fs.readFileSync(clientDistPath, 'utf-8');
 

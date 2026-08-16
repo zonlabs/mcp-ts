@@ -4,7 +4,7 @@ import type { GatewayConfig, McpServersConfig } from "./types.js";
 
 export type { GatewayConfig }; 
 export const CONFIG_FILENAME = "mcp.json";
-export const STATE_FILENAME = "auth.json";
+export const STATE_FILENAME = "gateway.json";
 
 const DEFAULT_CONFIG_DIR = ".mcpassistant";
 

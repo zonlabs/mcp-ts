@@ -1,5 +1,11 @@
 import { Hono } from "hono";
-import { OAuthCodeStore, OAuthCodeStoreEnv } from "../oauth-codes";
+import {
+  OAuthCodeStore,
+  OAuthCodeStoreEnv,
+  type OAuthCliSession,
+} from "../durable-objects/oauth-code-store";
+import { resolveCredentialAndScopes } from "../core/auth";
+import type { BridgeSession, BridgeSessionEnv } from "../durable-objects/bridge-session";
 
 const app = new Hono();
 
@@ -92,6 +98,33 @@ function jwtExpiresAt(token: string): number | null {
   }
 }
 
+type SupabaseAuthPayload = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number;
+  expires_in?: number;
+  error?: string;
+  error_description?: string;
+};
+
+export function normalizeAuthSession(body: SupabaseAuthPayload): OAuthCliSession {
+  if (!body.access_token || !body.refresh_token) {
+    throw new Error("Supabase did not return a complete authentication session");
+  }
+  const accessTokenExpiresAt =
+    (typeof body.expires_at === "number" ? body.expires_at * 1000 : null) ??
+    (typeof body.expires_in === "number" ? Date.now() + body.expires_in * 1000 : null) ??
+    jwtExpiresAt(body.access_token);
+  if (!accessTokenExpiresAt) {
+    throw new Error("Supabase did not return an access token expiry");
+  }
+  return {
+    accessToken: body.access_token,
+    refreshToken: body.refresh_token,
+    accessTokenExpiresAt,
+  };
+}
+
 app.post("/codes/exchange", async (c) => {
   const body = await c.req.json().catch(() => null);
   const code = body?.code;
@@ -102,8 +135,60 @@ app.post("/codes/exchange", async (c) => {
   if (!record) {
     return c.json({ error: "Invalid or expired code" }, 404);
   }
-  const expiresAt = jwtExpiresAt(record.token) ?? record.expiresAt;
-  return c.json({ token: record.token, expiresAt });
+  return c.json({
+    accessToken: record.accessToken,
+    refreshToken: record.refreshToken,
+    accessTokenExpiresAt: record.accessTokenExpiresAt,
+  });
+});
+
+app.post("/token/refresh", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (typeof body?.refreshToken !== "string" || !body.refreshToken) {
+    return c.json({ error: "Missing refresh token" }, 400);
+  }
+  const supabaseUrl = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
+  const anonKey = process.env.SUPABASE_ANON_KEY ?? "";
+  if (!supabaseUrl || !anonKey) return c.json({ error: "Sign-in is not configured" }, 503);
+
+  const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: anonKey, "content-type": "application/json" },
+    body: JSON.stringify({ refresh_token: body.refreshToken }),
+  });
+  const refreshed = (await response.json().catch(() => ({}))) as SupabaseAuthPayload;
+  if (!response.ok) {
+    return c.json({ error: refreshed.error_description ?? refreshed.error ?? "Refresh failed" }, 401);
+  }
+  try {
+    return c.json(normalizeAuthSession(refreshed));
+  } catch (error) {
+    return c.json({ error: (error as Error).message }, 502);
+  }
+});
+
+app.post("/logout", async (c) => {
+  const authorization = c.req.header("authorization") ?? "";
+  const match = /^Bearer\s+(.+)$/i.exec(authorization);
+  if (!match) return c.json({ error: "Unauthorized" }, 401);
+  const auth = await resolveCredentialAndScopes(match[1]);
+  if (!auth) return c.json({ error: "Unauthorized" }, 401);
+
+  const supabaseUrl = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
+  const anonKey = process.env.SUPABASE_ANON_KEY ?? "";
+  if (supabaseUrl && anonKey) {
+    await fetch(`${supabaseUrl}/auth/v1/logout?scope=local`, {
+      method: "POST",
+      headers: { apikey: anonKey, authorization: `Bearer ${match[1]}` },
+    }).catch(() => undefined);
+  }
+
+  const namespace = (c.env as unknown as BridgeSessionEnv).BRIDGE_SESSION;
+  if (namespace) {
+    const stub = namespace.get(namespace.idFromName(auth.userId)) as DurableObjectStub<BridgeSession>;
+    await stub.disconnect();
+  }
+  return c.body(null, 204);
 });
 
 /**
@@ -160,18 +245,20 @@ app.get("/callback", async (c) => {
     headers: { apikey: anonKey, "content-type": "application/json" },
     body: JSON.stringify({ auth_code: code, code_verifier: signIn.verifier }),
   });
-  const body = (await res.json().catch(() => ({}))) as {
-    access_token?: string;
-    error?: string;
-    error_description?: string;
-  };
-  if (!res.ok || !body.access_token) {
+  const body = (await res.json().catch(() => ({}))) as SupabaseAuthPayload;
+  if (!res.ok) {
     return renderLoginError(
       `Sign-in failed: ${body.error_description ?? body.error ?? res.status}`,
     );
   }
 
-  const oneTimeCode = await codeStub(c).issue(body.access_token);
+  let session: OAuthCliSession;
+  try {
+    session = normalizeAuthSession(body);
+  } catch (error) {
+    return renderLoginError((error as Error).message);
+  }
+  const oneTimeCode = await codeStub(c).issue(session);
   const target = new URL(signIn.next);
   target.searchParams.set("code", oneTimeCode);
   return Response.redirect(target.toString(), 302);
