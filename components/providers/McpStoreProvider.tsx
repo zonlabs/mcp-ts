@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useMcpStore, type McpStore } from '@/lib/stores/mcp-store';
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/react';
 import type { ToolAccessResult, ToolPolicy } from '@/types/mcp';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { openAuthPopup } from '@/lib/auth-popup-utils';

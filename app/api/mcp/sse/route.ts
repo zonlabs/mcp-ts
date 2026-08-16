@@ -1,4 +1,4 @@
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client';
 
 /**
  * MCP SSE endpoint

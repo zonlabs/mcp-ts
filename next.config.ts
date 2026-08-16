@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
-  transpilePackages: ['@mcp-ts/sdk'],
+  transpilePackages: ['@mcp-ts/client'],
   serverExternalPackages: [
     '@modelcontextprotocol/client',
     '@modelcontextprotocol/core',

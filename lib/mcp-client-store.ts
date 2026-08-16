@@ -1,6 +1,6 @@
 'use client';
 
-import type { McpClient } from '@mcp-ts/sdk/client/react';
+import type { McpClient } from '@mcp-ts/client/react';
 
 type StoredMcpClient = Pick<McpClient, 'connections' | 'sseClient'>;
 

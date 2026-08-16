@@ -2,9 +2,9 @@ import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
 import { searchMcpServers } from "@/tool/search-mcp-servers";
 import { createOpenAI } from "@ai-sdk/openai";
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, type LanguageModelUsage, type ToolSet } from "ai";
-import { MultiSessionClient } from "@mcp-ts/sdk/server";
-import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
-import { ToolRouter } from "@mcp-ts/sdk/shared";
+import { McpManager } from "@mcp-ts/client";
+import { AIAdapter } from "@mcp-ts/client/adapters/ai";
+import { ToolRouter } from "@mcp-ts/client/shared";
 import { z } from "zod";
 import { buildChatAgentInstructions, PINNED_REMOTE_TOOLS } from "@/agent/chat-agent-instructions";
 import type { GatewayServerSelection } from "@/lib/gateway-access";
@@ -97,10 +97,10 @@ function shortenToolKeysForProvider(tools: Record<string, any>): Record<string, 
 
 async function getRemoteMcpTools(
   userId: string,
-  client?: MultiSessionClient,
+  client?: McpManager,
   agentPreferences: Partial<AgentPreferences> = {}
 ) {
-  const manager = client || new MultiSessionClient(userId);
+  const manager = client || new McpManager(userId);
 
   if (!client) {
     try {

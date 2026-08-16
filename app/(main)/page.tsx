@@ -93,7 +93,7 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
 
   const copyInstallCommand = async () => {
-    const command = "npm install @mcp-ts/sdk";
+    const command = "npm install @mcp-ts/client";
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(command);
@@ -292,7 +292,7 @@ export default function Home() {
                 {[
                   {
                     icon: <Layers className="h-5 w-5" />,
-                    title: "@mcp-ts/sdk",
+                    title: "@mcp-ts/client",
                     desc: "Core SDK with multi-backend session storage, OAuth 2.1 handling, SSE support, React and Vue hooks, and adapters for AI SDK, LangChain, and Mastra.",
                     href: "https://github.com/zonlabs/mcp-ts/tree/main/packages/sdk"
                   },
@@ -516,7 +516,7 @@ export default function Home() {
                 <div className="rounded-xl border border-border/60 bg-[#1e1e1e] overflow-hidden">
                   <div className="flex items-center justify-between px-5 py-3">
                     <code className="font-mono text-sm">
-                      <span className="text-[#d4d4d4]">npm install @mcp-ts/sdk</span>
+                      <span className="text-[#d4d4d4]">npm install @mcp-ts/client</span>
                     </code>
                     <TooltipProvider delayDuration={120}>
                       <Tooltip>
@@ -552,7 +552,7 @@ export default function Home() {
                       <span className="text-[#dcdcaa]">useMcp</span>
                       <span className="text-[#d4d4d4]">{' } '}</span>
                       <span className="text-[#c586c0]">from </span>
-                      <span className="text-[#ce9178]">"@mcp-ts/sdk/client/react"</span>
+                      <span className="text-[#ce9178]">"@mcp-ts/client/react"</span>
                       <br />
                       <br />
                       <span className="text-[#569cd6]">const </span>

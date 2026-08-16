@@ -1,4 +1,4 @@
-import { sessions } from "@mcp-ts/sdk/server";
+import { sessions } from "@mcp-ts/client";
 import type { ToolPolicy } from "@/types/mcp";
 
 type SessionData = Awaited<ReturnType<typeof sessions.list>>[number];

@@ -5,7 +5,7 @@ import {
   McpAppRenderer as SdkMcpAppRenderer,
   DEFAULT_MCP_APP_CSP,
   getMcpAppMetadata,
-} from '@mcp-ts/sdk/client/react';
+} from '@mcp-ts/client/react';
 import { getMcpClient, subscribeToMcpClient } from '@/lib/mcp-client-store';
 
 interface ToolCallRendererProps {

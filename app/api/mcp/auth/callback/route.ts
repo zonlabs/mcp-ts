@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MCPClient } from '@mcp-ts/sdk/server';
+import { McpClient } from '@mcp-ts/client';
 import { createClient } from "@/lib/supabase/server";
 import { getAppUrl } from '@/lib/url';
 export async function GET(request: NextRequest) {
@@ -58,7 +58,7 @@ async function handleCallback(request: NextRequest) {
     const userId = user.id;
 
     // Create MCP client - it will load serverId from session
-    const client = new MCPClient({
+    const client = new McpClient({
       userId,
       sessionId,
     });
