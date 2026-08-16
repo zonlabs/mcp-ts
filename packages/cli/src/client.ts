@@ -3,7 +3,7 @@ import {
   StreamableHTTPClientTransport,
   type Tool
 } from "@modelcontextprotocol/client";
-import type { ToolClient } from "@mcp-ts/sdk/shared";
+import type { ToolClient } from "@mcp-ts/client/shared";
 
 function serverIdFor(url: URL): string {
   const path = url.pathname.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
