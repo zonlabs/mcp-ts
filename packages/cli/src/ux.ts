@@ -1,7 +1,40 @@
 import pc from "picocolors";
 import { intro, outro, log, spinner } from "@clack/prompts";
 
+declare const __CLI_VERSION__: string | undefined;
+export const CLI_VERSION: string =
+  typeof __CLI_VERSION__ !== "undefined" ? __CLI_VERSION__ : "0.1.3";
+
 export { pc, intro, outro, spinner };
+
+/**
+ * Returns a high-impact, professional block ASCII banner for mcp-ts.
+ */
+export function renderBanner(version: string = CLI_VERSION): string {
+  // Vibrant TrueColor crimson red (rgb 225, 29, 38) matching MCP Assistant brand
+  const isColorSupported = !process.env.NO_COLOR && (process.stdout.isTTY || process.env.FORCE_COLOR);
+  const r = (s: string) => (isColorSupported ? `\x1b[38;2;225;29;38m\x1b[1m${s}\x1b[0m` : pc.red(pc.bold(s)));
+  const w = (s: string) => (isColorSupported ? `\x1b[38;2;255;255;255m\x1b[1m${s}\x1b[0m` : pc.white(pc.bold(s)));
+  const d = (s: string) => pc.dim(s);
+  const tag = pc.bold(pc.cyan(`v${version}`));
+
+  return [
+    "",
+    "  " + r("███╗   ███╗  ██████╗ ██████╗ ") + "         " + w("██████████╗ ███████╗ "),
+    "  " + r("████╗ ████║ ██╔════╝ ██╔══██╗") + "         " + w("╚═══██╔═══╝ ██╔════╝ "),
+    "  " + r("██╔████╔██║ ██║      ██████╔╝") + "  " + w("█████╗") + "     " + w("██║     ╚██████╗ "),
+    "  " + r("██║╚██╔╝██║ ██║      ██╔═══╝ ") + "  " + w("╚════╝") + "     " + w("██║      ╚════██╗"),
+    "  " + r("██║ ╚═╝ ██║ ╚██████╗ ██║     ") + "             " + w("██║     ███████╔╝"),
+    "  " + r("╚═╝     ╚═╝  ╚═════╝ ╚═╝     ") + "             " + w("╚═╝     ╚══════╝ ") + "  " + tag,
+    "",
+    "  " + d("MCP Assistant Gateway & Local Tool Engine") + "  " + pc.underline(d("https://mcp-assistant.in")),
+    "",
+  ].join("\n");
+}
+
+export function printBanner(version: string = CLI_VERSION): void {
+  process.stdout.write(`${renderBanner(version)}\n`);
+}
 
 export function step(message: string): void {
   log.step(message);
@@ -28,6 +61,33 @@ export function dim(message: string): void {
   process.stdout.write(`${pc.dim(message)}\n`);
 }
 
+/** Print tree-connected notes along Clack's left vertical rule. */
+export function treeNote(lines: string | string[]): void {
+  const arr = Array.isArray(lines) ? lines : [lines];
+  for (const line of arr) {
+    process.stdout.write(`${pc.dim("│")}  ${line}\n`);
+  }
+}
+
+/** Print a structured section with bullet points connected to Clack's tree. */
+export function treeSummary(
+  title: string,
+  items: Array<{ label?: string; value: string } | string>,
+): void {
+  log.info(pc.bold(title));
+  for (const item of items) {
+    if (typeof item === "string") {
+      treeNote(`${pc.dim("•")} ${item}`);
+    } else if (item.label) {
+      treeNote(
+        `${pc.dim("•")} ${pc.dim(item.label.padEnd(9))} ${item.value}`,
+      );
+    } else {
+      treeNote(`${pc.dim("•")} ${item.value}`);
+    }
+  }
+}
+
 let tickerMessage = "";
 const tickerTTY = Boolean(process.stderr.isTTY);
 
@@ -38,8 +98,9 @@ const tickerTTY = Boolean(process.stderr.isTTY);
  */
 export function ticker(message: string): void {
   tickerMessage = message;
-  if (tickerTTY) process.stderr.write(`\r\x1b[K${message}`);
-  else process.stderr.write(`${message}\n`);
+  const formatted = `  ${pc.dim("[traffic]")} ${message}`;
+  if (tickerTTY) process.stderr.write(`\r\x1b[K${formatted}`);
+  else process.stderr.write(`${formatted}\n`);
 }
 
 /** Erase the ticker line on screen (keeps the message so it can be redrawn). */
@@ -59,33 +120,16 @@ export function clearTicker(): void {
 }
 
 /**
- * Forward a single line of a child MCP server's stderr, prefixed and dimmed,
- * so server chatter no longer bleeds raw into the CLI output. The live ticker
- * is cleared first and redrawn afterwards so both stay intact.
+ * Forward a single line of a child MCP server's stderr if verbose is enabled.
  */
-export function serverLog(server: string, line: string): void {
+export function serverLog(server: string, line: string, verbose = false): void {
+  if (!verbose) return;
   clearTickerLine();
   for (const part of line.split(/\r?\n/)) {
     const trimmed = part.trim();
     if (trimmed) {
-      process.stdout.write(`${pc.dim(`└─ [${server}]`)} ${pc.dim(trimmed)}\n`);
+      process.stdout.write(`${pc.dim(`│  [${server}]`)} ${pc.dim(trimmed)}\n`);
     }
   }
   reflowTicker();
-}
-
-/** Draw a compact status panel (bordered box) for long-running commands. */
-export function panel(rows: Array<[string, string]>): void {
-  const labelWidth = Math.max(...rows.map(([k]) => k.length));
-  const contentWidth = Math.max(...rows.map(([, v]) => v.length));
-  const width = Math.min(labelWidth + contentWidth + 3, 72);
-  const rule = pc.dim("─".repeat(width));
-  const lines: string[] = [pc.dim("┌") + rule + pc.dim("┐")];
-  for (const [k, v] of rows) {
-    const plain = ` ${k.padEnd(labelWidth)}  ${v}`.padEnd(width);
-    const row = " " + pc.bold(plain.slice(1, 1 + labelWidth)) + plain.slice(1 + labelWidth);
-    lines.push(pc.dim("│") + row + pc.dim("│"));
-  }
-  lines.push(pc.dim("└") + rule + pc.dim("┘"));
-  process.stdout.write(`${lines.join("\n")}\n`);
 }

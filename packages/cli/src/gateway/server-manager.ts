@@ -12,7 +12,7 @@ import type {
   ToolInfo,
 } from "./types.js";
 import { error as uxError, serverLog } from "../ux.js";
-import type { Traffic } from "../traffic.js";
+import { Traffic } from "../traffic.js";
 
 export interface ManagedServerHandle {
   name: string;
@@ -38,12 +38,15 @@ export class ManagedServer {
     | SSEClientTransport
     | null = null;
   private tools: Record<string, ToolInfo> = {};
+  private verbose: boolean;
 
   constructor(
     name: string,
     private config: StdioServerConfig & { url?: string; headers?: Record<string, string> },
+    options: { verbose?: boolean } = {},
   ) {
     this.name = name;
+    this.verbose = options.verbose ?? false;
   }
 
   private buildTransport() {
@@ -81,14 +84,14 @@ export class ManagedServer {
 
   /**
    * Capture the child process's stderr (piped in buildTransport) and re-emit it
-   * prefixed + dimmed so server chatter doesn't bleed raw into the CLI output.
+   * prefixed + dimmed when verbose is enabled.
    */
   private forwardStderr(transport: ManagedServerHandle["transport"]): void {
     if (!(transport instanceof StdioClientTransport)) return;
     const stream = (transport as unknown as { stderr?: NodeJS.ReadableStream }).stderr;
     if (!stream) return;
     stream.on("data", (chunk: unknown) => {
-      serverLog(this.name, String(chunk));
+      serverLog(this.name, String(chunk), this.verbose);
     });
   }
 
@@ -149,7 +152,11 @@ export class ManagedServer {
   }
 
   async close(): Promise<void> {
-    await this.client?.close();
+    try {
+      await this.client?.close();
+    } catch {
+      // Best-effort close on shutdown.
+    }
     this.client = null;
     this.transport = null;
   }
@@ -164,15 +171,21 @@ export class ServerManager {
   private servers = new Map<string, ManagedServer>();
   /** Aggregated view: exposedName -> { server, originalName } */
   private index = new Map<string, { server: string; originalName: string }>();
+  private traffic: Traffic;
+  private verbose: boolean;
 
   constructor(
-    private configs: Record<string, StdioServerConfig & { url?: string }>,
-    private traffic: Traffic,
-  ) {}
+    private configs: Record<string, StdioServerConfig & { url?: string; headers?: Record<string, string> }>,
+    traffic?: Traffic,
+    options: { verbose?: boolean } = {},
+  ) {
+    this.traffic = traffic ?? new Traffic();
+    this.verbose = options.verbose ?? false;
+  }
 
   async start(): Promise<void> {
     for (const [name, cfg] of Object.entries(this.configs)) {
-      const server = new ManagedServer(name, cfg);
+      const server = new ManagedServer(name, cfg, { verbose: this.verbose });
       try {
         await server.start();
         this.servers.set(name, server);

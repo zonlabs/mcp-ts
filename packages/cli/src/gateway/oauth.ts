@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { exec } from "node:child_process";
 import { loadState, saveState, stateFilePath } from "./config.js";
-import { info, success, dim } from "../ux.js";
+import { info, success, dim, treeNote, pc } from "../ux.js";
 
 const DEFAULT_CALLBACK_PORT = 43110;
 export const DEFAULT_LOGIN_BASE_URL = "https://api.mcp-assistant.in";
@@ -82,7 +82,10 @@ export async function linkToRemote(
   bounce.searchParams.set("next", `${redirectUri}?state=${stateParam}`);
 
   info("Opening browser for sign-in…");
-  dim(`If the browser does not open, visit:\n  ${bounce}\n`);
+  treeNote([
+    pc.dim("If the browser does not open, visit:"),
+    pc.cyan(bounce.toString()),
+  ]);
   openBrowser(bounce.toString());
 
   const result = await Promise.race([
@@ -128,8 +131,8 @@ export async function linkToRemote(
 
   saveState({ ...state, remote, deviceId, token, tokenExpiresAt }, cwd);
   closeServer();
-  success(`Linked device ${deviceId} with ${remote}`);
-  dim(`State saved to: ${stateFilePath(cwd)}`);
+  success(`Linked device ${pc.bold(deviceId)} with ${remote}`);
+  treeNote(pc.dim(`Auth state saved to ${stateFilePath(cwd)}`));
   return { token, tokenExpiresAt };
 }
 

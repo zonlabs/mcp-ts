@@ -39,7 +39,7 @@ useMcp({
   // Required: MCP endpoint URL
   url: '/api/mcp',
 
-  // Required: User identifier
+  // Optional: User identifier
   userId: 'user-123',
 
   // Optional: Authentication token

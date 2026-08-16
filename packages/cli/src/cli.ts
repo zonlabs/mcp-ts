@@ -14,20 +14,41 @@ import { ServerManager } from "./gateway/server-manager.js";
 import { LocalHttpServer } from "./gateway/local-http.js";
 import { RemoteBridge } from "./gateway/bridge.js";
 import { linkToRemote } from "./gateway/oauth.js";
-import { pc, intro, outro, spinner, step, success, info, warn, error, panel, ticker, clearTicker } from "./ux.js";
+import {
+  pc,
+  intro,
+  outro,
+  spinner,
+  step,
+  success,
+  info,
+  warn,
+  error,
+  ticker,
+  clearTicker,
+  treeNote,
+  treeSummary,
+  renderBanner,
+  printBanner,
+  CLI_VERSION,
+} from "./ux.js";
 import { Traffic } from "./traffic.js";
 
-const HELP = `mcp-ts — explore remote MCP servers and run a local gateway
-
+const HELP = `${renderBanner()}
 Usage:
+  mcp-ts serve [--host h] [--port p] [--remote url] [--device-id id] [--token tok] [--verbose]
+                                                Run the local MCP gateway daemon
+  mcp-ts link --remote <url>                    Pair this machine with a remote gateway
+  mcp-ts init [--dir <path>]                    Write a default mcp.json
   mcp-ts connect <url>                          Explore a remote server (REPL)
   mcp-ts search <url> <query> [--limit <count>] Search a remote tool catalog
   mcp-ts bench <url>                            Compare tool-router strategies
   mcp-ts codegen <url> --out <file>             Generate typed tool wrappers
-  mcp-ts init [--dir <path>]                    Write a default mcp.json
-  mcp-ts link --remote <url>                    Pair this machine with a remote gateway
-  mcp-ts serve [--host h] [--port p] [--remote url] [--device-id id] [--token tok]
-                                                Run the local MCP gateway daemon
+
+Flags:
+  -v, --version                                 Show CLI version
+  -h, --help                                    Show help information
+  --verbose                                     Show verbose child process chatter
 
 Connect REPL commands:
   search <query>             Search the remote tool catalog
@@ -58,7 +79,7 @@ async function printSearch(
   output: Pick<Writable, "write">,
   router: Awaited<ReturnType<typeof createRouter>>,
   query: string,
-  limit = 10
+  limit = 10,
 ): Promise<void> {
   const results = await searchTools(router, query, limit);
   if (results.length === 0) {
@@ -68,24 +89,26 @@ async function printSearch(
   results.forEach((result, index) => {
     writeLine(
       output,
-      `${pc.cyan(String(index + 1))}. ${pc.bold(result.name)} (server: ${result.serverName}, ~${result.estimatedTokens} tokens)`
+      `${pc.cyan(String(index + 1))}. ${pc.bold(result.name)} (server: ${result.serverName}, ~${result.estimatedTokens} tokens)`,
     );
   });
 }
 
 async function runRepl(endpoint: string, input: Readable, output: Writable): Promise<void> {
+  printBanner();
+  intro(pc.bold(`Connect to ${endpoint}`));
   const client = await connectRemote(endpoint);
   try {
     const router = await createRouter(client);
     const catalog = await router.listTools({ limit: Number.MAX_SAFE_INTEGER });
-    writeLine(output, `Connected — ${catalog.totalCount} tools discovered`);
-    writeLine(output, 'Type "help" for commands.');
+    success(`Connected — ${catalog.totalCount} tools discovered`);
+    treeNote(pc.dim('Type "help" for commands, "exit" to quit.'));
 
     const terminal = Boolean((output as Writable & { isTTY?: boolean }).isTTY);
     const readline = createInterface({ input, output, terminal });
     try {
       while (true) {
-        const line = (await readline.question("> ")).trim();
+        const line = (await readline.question(`${pc.cyan("mcp")} > `)).trim();
         if (!line) continue;
         const [command, ...rest] = line.split(/\s+/);
         if (command === "exit" || command === "quit") break;
@@ -98,28 +121,55 @@ async function runRepl(endpoint: string, input: Readable, output: Writable): Pro
           continue;
         }
         if (command === "schema") {
-          const tool = resolveTool(router, rest[0] ?? "");
-          if (!tool) throw new Error(`Tool "${rest[0] ?? ""}" was not found`);
-          writeLine(output, JSON.stringify({ inputSchema: tool.inputSchema, outputSchema: tool.outputSchema }, null, 2));
+          const name = rest[0];
+          if (!name) {
+            writeLine(output, "Usage: schema <tool>");
+            continue;
+          }
+          const tool = resolveTool(router, name);
+          if (!tool) {
+            writeLine(output, `Tool not found: ${name}`);
+            continue;
+          }
+          writeLine(
+            output,
+            JSON.stringify(
+              {
+                name: tool.name,
+                serverName: tool.serverName,
+                description: tool.description,
+                inputSchema: tool.inputSchema,
+                outputSchema: tool.outputSchema,
+              },
+              null,
+              2,
+            ),
+          );
           continue;
         }
         if (command === "call") {
-          const reference = rest.shift() ?? "";
-          const tool = resolveTool(router, reference);
-          if (!tool) throw new Error(`Tool "${reference}" was not found`);
-          const parsed = JSON.parse(rest.join(" ") || "{}") as unknown;
-          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            throw new Error("Tool arguments must be a JSON object");
+          const name = rest[0];
+          const payload = rest.slice(1).join(" ");
+          if (!name || !payload) {
+            writeLine(output, "Usage: call <tool> <json>");
+            continue;
           }
-          const args = parsed as Record<string, unknown>;
-          const result = await router.callTool(tool.name, args, tool.serverId);
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(payload) as Record<string, unknown>;
+          } catch {
+            writeLine(output, "Invalid JSON payload");
+            continue;
+          }
+          const result = await router.callTool(name, parsed);
           writeLine(output, JSON.stringify(result, null, 2));
           continue;
         }
-        writeLine(output, `Unknown command: ${command}`);
+        writeLine(output, `Unknown command: ${command}. Type "help".`);
       }
     } finally {
       readline.close();
+      outro("Disconnected");
     }
   } finally {
     await client.close();
@@ -134,12 +184,20 @@ interface ServeArgs {
   deviceId?: string;
   token?: string;
   login?: string;
+  verbose?: boolean;
 }
 
 async function cmdInit(dir: string | undefined): Promise<void> {
+  printBanner();
+  intro(pc.bold("mcp-ts init"));
   const target = dir ?? process.cwd();
   const path = writeDefaultMcpJson(target);
-  success(`Wrote ${path}`);
+  success(`Wrote default configuration to ${pc.cyan(path)}`);
+  treeNote([
+    pc.dim("Configure your local MCP servers, then launch the gateway:"),
+    `  ${pc.bold("mcp-ts serve")}`,
+  ]);
+  outro(pc.green("Ready!"));
 }
 
 async function cmdLink(
@@ -147,7 +205,8 @@ async function cmdLink(
   dir: string | undefined,
   loginBase: string | undefined,
 ): Promise<void> {
-  intro("mcp-ts link");
+  printBanner();
+  intro(pc.bold("mcp-ts link"));
   const cwd = dir ?? process.cwd();
   const state = loadState(cwd);
 
@@ -155,7 +214,7 @@ async function cmdLink(
   if (!deviceId) {
     deviceId = `dev_${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`;
     saveState({ ...state, deviceId }, cwd);
-    info(`Generated new device identity: ${pc.bold(deviceId)}`);
+    info(`Generated device identity: ${pc.bold(deviceId)}`);
   }
 
   const spin = spinner();
@@ -167,36 +226,45 @@ async function cmdLink(
   }
 
   const saved = loadState(cwd);
-  success(`Device: ${saved.deviceId}`);
-  success(`Remote: ${saved.remote}`);
-  success(
-    `Token expires at: ${saved.tokenExpiresAt ? new Date(saved.tokenExpiresAt).toISOString() : "n/a"}`,
-  );
-  outro("Done");
+  treeSummary("Device credentials", [
+    { label: "Device", value: pc.bold(saved.deviceId ?? "") },
+    { label: "Remote", value: pc.cyan(saved.remote ?? "") },
+    {
+      label: "Expires",
+      value: saved.tokenExpiresAt ? new Date(saved.tokenExpiresAt).toISOString() : "n/a",
+    },
+  ]);
+  outro(pc.green("Device successfully linked!"));
 }
 
 async function cmdServe(args: ServeArgs): Promise<void> {
-  intro("mcp-ts serve");
-  const { config } = loadMcpJson();
+  printBanner();
+  intro(pc.bold("mcp-ts serve"));
+  const { config, path: configPath } = loadMcpJson();
   const state = loadState();
 
+  const serverCount = Object.keys(config.mcpServers).length;
+  info(`Loaded configuration with ${pc.bold(String(serverCount))} server(s)`);
+
   const traffic = new Traffic({ onUpdate: () => ticker(traffic.render()) });
-  const manager = new ServerManager(config.mcpServers, traffic);
+  const manager = new ServerManager(config.mcpServers, traffic, { verbose: args.verbose });
   const startSpin = spinner();
   startSpin.start("Starting local MCP servers…");
   await manager.start();
   startSpin.stop("Local MCP servers started");
-  if (manager.serverInfos().length === 0) {
+
+  const infos = manager.serverInfos();
+  if (infos.length === 0) {
     error("No local MCP servers could be started. Exiting.");
     await manager.close();
     process.exit(1);
   }
-  success(
-    `Started ${manager.serverInfos().length} local MCP server(s): ${manager
-      .serverInfos()
-      .map((s) => s.name)
-      .join(", ")}`,
-  );
+
+  success(`Started ${pc.bold(String(infos.length))} local MCP server(s)`);
+  for (const s of infos) {
+    const count = Object.keys(s.tools).length;
+    treeNote(`${pc.dim("•")} ${pc.bold(s.name)} ${pc.dim(`(${count} tools)`)}`);
+  }
 
   const host = args.host ?? state.host ?? "0.0.0.0";
   const port = args.port ?? state.port ?? 8787;
@@ -223,10 +291,10 @@ async function cmdServe(args: ServeArgs): Promise<void> {
     if (!token || expired) {
       if (!deviceId) {
         deviceId = `dev_${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`;
-        info(`Generated new device identity: ${pc.bold(deviceId)}`);
+        info(`Generated device identity: ${pc.bold(deviceId)}`);
       }
       const signInSpin = spinner();
-      signInSpin.start(`Waiting for sign-in in your browser (${remote})…`);
+      signInSpin.start(`Waiting for sign-in in browser (${remote})…`);
       try {
         const linked = await linkToRemote(remote, deviceId, undefined, args.login);
         token = linked.token;
@@ -245,13 +313,9 @@ async function cmdServe(args: ServeArgs): Promise<void> {
     warn("No remote gateway configured (need --remote, --device-id, --token). Local endpoint only.");
   }
 
-  // @clack/prompts leaves stdin in raw mode after the sign-in spinner, which
-  // swallows Ctrl+C (delivers \x03 instead of firing SIGINT). Restore canonical
-  // mode so the terminal's Ctrl+C reaches us, and keep a byte-level fallback so
-  // shutdown also triggers when the signal never arrives.
   try {
     process.stdin.setRawMode(false);
-  } catch { /* stdin is not a TTY; nothing to restore */ }
+  } catch { /* stdin is not a TTY */ }
 
   let shuttingDown = false;
   const shutdown = async (sig: string) => {
@@ -283,13 +347,15 @@ async function cmdServe(args: ServeArgs): Promise<void> {
     });
   } catch { /* stdin unavailable */ }
 
-  panel([
-    ["Local endpoint", localUrl],
-    ["Servers", manager.serverInfos().map((s) => s.name).join(", ") || "none"],
-    ["Device", deviceId ?? "n/a"],
-    ["Remote gateway", remote ?? "none (local only)"],
-    ["Status", "Running — press Ctrl+C to stop"],
+  const totalTools = manager.aggregatedTools().length;
+  treeSummary("Gateway summary", [
+    { label: "Local", value: pc.cyan(localUrl) },
+    { label: "Remote", value: remote ? pc.cyan(remote) : pc.dim("none (local only)") },
+    { label: "Device", value: deviceId ? pc.bold(deviceId) : pc.dim("n/a") },
+    { label: "Servers", value: `${infos.map((s) => s.name).join(", ")} ${pc.dim(`(${totalTools} tools total)`)}` },
   ]);
+
+  outro(pc.green("Gateway running — Press Ctrl+C to stop"));
   ticker(traffic.render());
 }
 
@@ -298,14 +364,20 @@ export async function runCli(
   streams: { input: Readable; output: Writable; error: Writable } = {
     input: process.stdin,
     output: process.stdout,
-    error: process.stderr
-  }
+    error: process.stderr,
+  },
 ): Promise<number> {
   const [command, ...commandArgs] = args;
+  if (command === "-v" || command === "--version" || command === "version") {
+    writeLine(streams.output, `@mcp-ts/cli v${CLI_VERSION}`);
+    return 0;
+  }
   if (!command || command === "help" || command === "--help" || command === "-h") {
     writeLine(streams.output, HELP);
     return 0;
   }
+
+  const verbose = args.includes("--verbose");
 
   try {
     if (command === "init") {
@@ -328,6 +400,7 @@ export async function runCli(
         deviceId: option(commandArgs, "--device-id"),
         token: option(commandArgs, "--token"),
         login: option(commandArgs, "--login"),
+        verbose,
       });
       return 0;
     }
@@ -360,7 +433,10 @@ export async function runCli(
       if (command === "bench") {
         writeLine(streams.output, pc.dim("Strategy  Tools  Estimated tokens"));
         for (const result of await benchmarkStrategies(client)) {
-          writeLine(streams.output, `${pc.bold(result.strategy.padEnd(8))}  ${String(result.exposedTools).padStart(5)}  ${String(result.estimatedTokens).padStart(16)}`);
+          writeLine(
+            streams.output,
+            `${pc.bold(result.strategy.padEnd(8))}  ${String(result.exposedTools).padStart(5)}  ${String(result.estimatedTokens).padStart(16)}`,
+          );
         }
         return 0;
       }

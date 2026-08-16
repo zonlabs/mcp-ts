@@ -82,3 +82,21 @@ test("generates typed wrappers from tool schemas", () => {
   assert.match(generated, /async constructor2\(/);
   assert.match(generated, /async callTool2\(/);
 });
+
+test("renders banner, tree formatters and reports version", async () => {
+  const { renderBanner, CLI_VERSION, treeNote, treeSummary } = await import("../src/ux.js");
+  const banner = renderBanner();
+  assert.ok(banner.includes("███╗"));
+  assert.ok(banner.includes(CLI_VERSION));
+  assert.ok(banner.includes("https://mcp-assistant.in"));
+
+  const { runCli } = await import("../src/cli.js");
+  let output = "";
+  const code = await runCli(["--version"], {
+    input: process.stdin,
+    output: { write: (s: string) => { output += s; return true; } } as any,
+    error: process.stderr,
+  });
+  assert.equal(code, 0);
+  assert.ok(output.includes(CLI_VERSION));
+});

@@ -90,7 +90,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 | **[@mcp-ts/client](packages/client)** | Core TypeScript/JavaScript SDK for client applications. | `npm i @mcp-ts/client` |
 | **[@mcp-ts/tool-router](packages/tool-router)** | ToolRouter for dynamic tool discovery across many MCP servers. | `npm i @mcp-ts/tool-router` |
 | **[@mcp-ts/codemode](packages/code-mode)** | CodeMode: sandboxed program execution for tool calling. | `npm i @mcp-ts/codemode` |
-| **[@mcp-ts/cli](packages/cli)** | Explore, search, benchmark, codegen, and run a local MCP gateway daemon (`mcp-ts`). | `npm i @mcp-ts/cli` |
+| **[@mcp-ts/cli](packages/cli)** | Explore, search, benchmark, codegen, and run a local MCP gateway daemon (`mcpa` / `mcp-ts`). | `npm i -g @mcp-ts/cli` |
 
 ---
 
@@ -495,7 +495,8 @@ The library supports multiple storage backends. You can explicitly select one us
 
 ---
 
-<a id="gateway-setup-mcpassistant-gateway"></a>
+<a id="gateway-setup"></a>
+<a id="-gateway-setup"></a>
 
 ## 🔌 Gateway Setup
 
@@ -504,9 +505,9 @@ The **MCP Gateway** lets local MCP servers be accessed by remote applications
 endpoint). It is built on the official MCP TypeScript SDK v2 and has no
 interactive UI — it runs as a daemon.
 
-- **`mcp-ts serve`** (`@mcp-ts/cli`) — reads a single `mcp.json`, starts your
+- **`mcpa serve` / `mcp-ts serve`** (`@mcp-ts/cli`) — reads a single `mcp.json`, starts your
   local MCP servers (stdio or HTTP/SSE), aggregates their tools, serves
-  `http://local.mcp-assistant.in/mcp`, and bridges outbound to the MCP
+  `http://127.0.0.1:8787/mcp`, and bridges outbound to the MCP
   Assistant gateway (`https://api.mcp-assistant.in`) over a persistent WebSocket.
 
 <a id="installation-1"></a>
@@ -517,7 +518,7 @@ interactive UI — it runs as a daemon.
 npm install -g @mcp-ts/cli
 ```
 
-Requires Node >= 20.
+Requires Node >= 20. Provides both `mcpa` and `mcp-ts` global commands.
 
 ### 🚀 Usage
 
@@ -525,13 +526,13 @@ Requires Node >= 20.
 
 ```bash
 # Write a default mcp.json
-mcp-ts init
+mcpa init
 
-# Pair this machine with the MCP Assistant gateway
-mcp-ts link
+# Pair this machine with the MCP Assistant gateway (OAuth)
+mcpa link
 
 # Run the daemon (local endpoint + remote bridge)
-mcp-ts serve
+mcpa serve
 ```
 
 ---

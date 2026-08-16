@@ -1,9 +1,12 @@
 {
   "name": "@mcp-ts/cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Bridge local and remote MCP servers for any MCP client (ChatGPT, Claude Desktop, opencode, and more). Explore, search, benchmark, codegen, and run a local MCP gateway (mcp-ts serve).",
   "type": "module",
-  "bin": { "mcp-ts": "./dist/bin/mcp-ts.js" },
+  "bin": {
+    "mcp-ts": "./dist/bin/mcp-ts.js",
+    "mcpa": "./dist/bin/mcp-ts.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
