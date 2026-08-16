@@ -281,7 +281,7 @@ export class McpUser implements BaseClientProvider {
  *
  * @example
  * ```ts
- * import { Mcp, SqliteStorage } from "@mcp-ts/sdk";
+ * import { Mcp, SqliteStorage } from "@mcp-ts/client";
  *
  * export const mcp = new Mcp({
  *   storage: new SqliteStorage({ path: "./data/mcp.sqlite" }),

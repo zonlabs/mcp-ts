@@ -1,10 +1,10 @@
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from "ai";
-import { mcp, type McpUser } from "@mcp-ts/sdk";
-import type { McpObservabilityEvent } from "@mcp-ts/sdk/shared";
-import { AIAdapter } from "@mcp-ts/sdk/adapters/ai";
+import { mcp, type McpUser } from "@mcp-ts/client";
+import type { McpObservabilityEvent } from "@mcp-ts/client/shared";
+import { AIAdapter } from "@mcp-ts/client/adapters/ai";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 
-const { ToolRouter } = await import("@mcp-ts/sdk/shared");
+const { ToolRouter } = await import("@mcp-ts/client/shared");
 
 // ----------------------------------------------------------------------
 // 1. Agent Instructions

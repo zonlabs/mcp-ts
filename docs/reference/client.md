@@ -10,7 +10,7 @@ icon: "desktop"
 React hook for managing MCP connections.
 
 ```typescript
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/react';
 
 const {
   connections,
@@ -65,12 +65,12 @@ const {
 
 ### `useMcpApps(mcpClient)` *(Deprecated)*
 
-> Prefer the standalone `McpAppRenderer` component and `getMcpAppMetadata()` utility from `@mcp-ts/sdk/client/react` for new code.
+> Prefer the standalone `McpAppRenderer` component and `getMcpAppMetadata()` utility from `@mcp-ts/client/react` for new code.
 
 React helper for MCP Apps (interactive tool UIs in a sandboxed iframe via AppBridge).
 
 ```typescript
-import { useMcpApps } from '@mcp-ts/sdk/client/react';
+import { useMcpApps } from '@mcp-ts/client/react';
 
 const { getAppMetadata, McpAppRenderer } = useMcpApps(mcpClient);
 ```
@@ -101,7 +101,7 @@ interface McpAppMetadata {
 The standalone `<McpAppRenderer>` component renders inline MCP Apps inside a sandboxed iframe. For `ui://` and `mcp-app://` HTML, pass a `sandbox` configuration pointing at your proxy page.
 
 ```tsx
-import { McpAppRenderer, DEFAULT_MCP_APP_CSP } from '@mcp-ts/sdk/client/react';
+import { McpAppRenderer, DEFAULT_MCP_APP_CSP } from '@mcp-ts/client/react';
 
 function ToolCallRenderer({ name, args, result, status }) {
   const { mcpClient } = useMcpContext();
@@ -129,7 +129,7 @@ function ToolCallRenderer({ name, args, result, status }) {
 Lower-level React helper that constructs an `AppHost` for a given iframe ref.
 
 ```typescript
-import { useAppHost } from '@mcp-ts/sdk/client/react';
+import { useAppHost } from '@mcp-ts/client/react';
 
 const { host, error } = useAppHost(sseClient, iframeRef, { sandbox: { url: '/sandbox_proxy.html' } });
 ```
@@ -145,11 +145,11 @@ import {
   AppHost,
   DEFAULT_MCP_APP_CSP,
   APP_HOST_DEFAULTS,
-} from '@mcp-ts/sdk/client';
+} from '@mcp-ts/client/sse';
 import {
   SANDBOX_PROXY_READY_METHOD,
   SANDBOX_RESOURCE_READY_METHOD,
-} from '@mcp-ts/sdk/client';
+} from '@mcp-ts/client/sse';
 ```
 
 #### Constructor
@@ -176,7 +176,7 @@ new AppHost(client, iframe, options?)
 Lower-level MCP transport client for custom implementations. It uses streamed `POST` requests and emits connection and observability events from the response stream.
 
 ```typescript
-import { SSEClient } from '@mcp-ts/sdk/client';
+import { SSEClient } from '@mcp-ts/client/sse';
 
 const client = new SSEClient({
   url: string,

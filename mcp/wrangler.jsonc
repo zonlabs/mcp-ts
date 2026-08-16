@@ -36,6 +36,6 @@
     }
   ],
   "build": {
-    "command": "npm run build --prefix ../packages/sdk && npm run build --prefix ../packages/code-mode"
+    "command": "npm run build --prefix ../packages/client && npm run build --prefix ../packages/code-mode"
   }
 }

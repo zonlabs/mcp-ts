@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { createOAuthPopupRedirectHandler, useMcp } from "@mcp-ts/sdk/client/react";
+import { createOAuthPopupRedirectHandler, useMcp } from "@mcp-ts/client/react";
 import HomeChat from "./HomeChat";
 import McpSidebar from "./McpSidebar";
 

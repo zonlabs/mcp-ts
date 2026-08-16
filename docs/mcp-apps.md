@@ -9,7 +9,7 @@ Loading that UI in a **sandboxed iframe**, then syncs tool **input**, **results*
 
 ## Overview
 
-When a tool advertises a UI resource URI, `@mcp-ts/sdk` can render it with `McpAppRenderer`. The older `useMcpApps` helper still exists, but `McpAppRenderer` and `getMcpAppMetadata()` are the preferred primitives for new code. For `ui://` and `mcp-app://` resources (and any path where HTML is injected), you must provide a **`sandbox`** configuration pointing at a **sandbox proxy page** you serve from your app (see [Sandbox proxy](#sandbox-proxy)). Tool calls from the guest can be forwarded to your `SSEClient` automatically, or intercepted with **`onCallTool`** / **`onReadResource`** and related callbacks.
+When a tool advertises a UI resource URI, `@mcp-ts/client` can render it with `McpAppRenderer`. The older `useMcpApps` helper still exists, but `McpAppRenderer` and `getMcpAppMetadata()` are the preferred primitives for new code. For `ui://` and `mcp-app://` resources (and any path where HTML is injected), you must provide a **`sandbox`** configuration pointing at a **sandbox proxy page** you serve from your app (see [Sandbox proxy](#sandbox-proxy)). Tool calls from the guest can be forwarded to your `SSEClient` automatically, or intercepted with **`onCallTool`** / **`onReadResource`** and related callbacks.
 
 ```mermaid
 graph TB
@@ -50,13 +50,13 @@ graph TB
 
 Hosts must ship a static **MCP Apps sandbox proxy** page (for example copy [`examples/agents/public/sandbox.html`](https://github.com/zonlabs/mcp-ts/tree/main/examples/agents/public/sandbox.html)) that follows **`@modelcontextprotocol/ext-apps`**:
 
-- After load, posts a JSON-RPC notification to the parent with method **`ui/notifications/sandbox-proxy-ready`** (same string as **`SANDBOX_PROXY_READY_METHOD`** from `@modelcontextprotocol/ext-apps`, also re-exported from `@mcp-ts/sdk/client`).
+- After load, posts a JSON-RPC notification to the parent with method **`ui/notifications/sandbox-proxy-ready`** (same string as **`SANDBOX_PROXY_READY_METHOD`** from `@modelcontextprotocol/ext-apps`, also re-exported from `@mcp-ts/client/sse`).
 - Listens for **`ui/notifications/sandbox-resource-ready`** from the parent (the host sends this via `AppBridge.sendSandboxResourceReady` after the bridge connects), then writes `params.html` into an inner iframe. Optional CSP: `?csp=` query JSON and/or structured `params.csp` when it is a directive map (`script-src`, etc.).
 
 Point `sandbox.url` at that page (no special query string required; `csp` is appended automatically from `sandbox.csp` when you pass it in React):
 
 ```tsx
-import { DEFAULT_MCP_APP_CSP } from "@mcp-ts/sdk/client/react";
+import { DEFAULT_MCP_APP_CSP } from "@mcp-ts/client/react";
 
 <McpAppRenderer
    sandbox={{
@@ -80,7 +80,7 @@ Pass **`sandbox`** on every `McpAppRenderer` that loads server UI resources (HTM
 
 ```tsx
 import { useRenderToolCall } from "@copilotkit/react-core";
-import { McpAppRenderer, DEFAULT_MCP_APP_CSP } from "@mcp-ts/sdk/client/react";
+import { McpAppRenderer, DEFAULT_MCP_APP_CSP } from "@mcp-ts/client/react";
 import { useMcpContext } from "./mcp-context";
 
 function ToolRenderer() {

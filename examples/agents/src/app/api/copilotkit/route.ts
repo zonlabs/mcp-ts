@@ -5,9 +5,9 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
-import { AguiAdapter } from "@mcp-ts/sdk/adapters/agui-adapter";
-import { createMcpMiddleware } from "@mcp-ts/sdk/adapters/agui-middleware";
-import { ToolRouter } from "@mcp-ts/sdk/shared";
+import { AguiAdapter } from "@mcp-ts/client/adapters/agui-adapter";
+import { createMcpMiddleware } from "@mcp-ts/client/adapters/agui-middleware";
+import { ToolRouter } from "@mcp-ts/client/shared";
 
 const serviceAdapter = new EmptyAdapter();
 
@@ -27,7 +27,7 @@ export const POST = async (req: NextRequest) => {
 
   const userId = "demo-user-123";
   // Import dynamically to avoid build-time issues if package is linking
-  const { McpManager } = await import("@mcp-ts/sdk/server");
+  const { McpManager } = await import("@mcp-ts/client");
   const client = new McpManager(userId);
 
   // Connect to all active sessions before getting tools

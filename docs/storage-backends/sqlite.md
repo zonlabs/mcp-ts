@@ -49,7 +49,7 @@ If `MCP_TS_STORAGE_TYPE` is not set, the storage layer also auto-detects SQLite 
 When `MCP_TS_STORAGE_TYPE=sqlite` or `MCP_TS_STORAGE_SQLITE_PATH` are present in your environment, the global `sessions` proxy automatically uses the SQLite backend.
 
 ```typescript
-import { sessions } from '@mcp-ts/sdk/server';
+import { sessions } from '@mcp-ts/client';
 
 // This will use SQLite automatically if env vars are set
 const sessionList = await sessions.list('user-123');
@@ -61,7 +61,7 @@ console.log('Stored sessions:', sessionList);
 If you want to manage the SQLite backend yourself:
 
 ```typescript
-import { SqliteStorage } from '@mcp-ts/sdk/server';
+import { SqliteStorage } from '@mcp-ts/client';
 
 const sqliteBackend = new SqliteStorage({ path: './data/mcp.db' });
 await sqliteBackend.init(); // Sets up table if missing

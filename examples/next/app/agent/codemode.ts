@@ -1,5 +1,5 @@
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from "ai";
-import { McpManager } from "@mcp-ts/sdk/server";
+import { McpManager } from "@mcp-ts/client";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createCodeModeRuntime, mcpServers, createCodemodeAITools } from "@mcp-ts/codemode";
 

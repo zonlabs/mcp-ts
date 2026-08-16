@@ -1,6 +1,6 @@
-# Contributing to @mcp-ts/sdk
+# Contributing to @mcp-ts/client
 
-Thank you for your interest in contributing to @mcp-ts/sdk! This guide will help you understand how to make meaningful contributions to the project.
+Thank you for your interest in contributing to @mcp-ts/client! This guide will help you understand how to make meaningful contributions to the project.
 
 ## Table of Contents
 
@@ -208,7 +208,7 @@ Closes #
 ### Adding a Framework Adapter
 
 1. Create `src/adapters/your-framework-adapter.ts`
-2. Implement conversion from `MultiSessionClient` to framework format
+2. Implement conversion from `McpManager` to framework format
 3. Add peer dependency to `package.json`
 4. Add export to `package.json` and `tsup.config.ts`
 5. Add tests in `tests/adapters/your-framework.test.ts`
@@ -237,7 +237,7 @@ When adding new exports:
 2. Update `package.json` exports field
 3. Update `tsup.config.ts` entry points
 4. Run `npm run build`
-5. Test: `import { item } from '@mcp-ts/sdk/your-module'`
+5. Test: `import { item } from '@mcp-ts/client/your-module'`
 
 ## Getting Help
 
@@ -254,4 +254,4 @@ When adding new exports:
 
 ---
 
-**Thank you for contributing to @mcp-ts/sdk! 🚀**
+**Thank you for contributing to @mcp-ts/client! 🚀**

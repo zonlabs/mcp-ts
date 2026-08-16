@@ -7,13 +7,13 @@
  *
  * @example
  * ```typescript
- * import { MultiSessionClient } from '@mcp-ts/sdk/server';
- * import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
- * import { createMcpMiddleware } from '@mcp-ts/sdk/adapters/agui-middleware';
+ * import { McpManager } from '@mcp-ts/client';
+ * import { AguiAdapter } from '@mcp-ts/client/adapters/agui-adapter';
+ * import { createMcpMiddleware } from '@mcp-ts/client/adapters/agui-middleware';
  * import { HttpAgent } from '@ag-ui/client';
  *
  * // Create MCP client
- * const mcpClient = new MultiSessionClient('user_123');
+ * const mcpClient = new McpManager('user_123');
  * await mcpClient.connect();
  *
  * // Create adapter and get tools

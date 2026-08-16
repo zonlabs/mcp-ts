@@ -69,10 +69,10 @@ endpoint alongside the built-in platform tools. This lets remote MCP clients
 
 ## Multi-Session Cache & Invalidation Flow
 
-To optimize performance and minimize database writes, the server caches active `MultiSessionClient` instances per user using an in-memory registry. This prevents having to establish TCP connections and fetch tool schemas from downstream MCP servers (e.g. GitHub, Notion) on every single tool call.
+To optimize performance and minimize database writes, the server caches active `McpManager` instances per user using an in-memory registry. This prevents having to establish TCP connections and fetch tool schemas from downstream MCP servers (e.g. GitHub, Notion) on every single tool call.
 
 ### Caching Strategy
-1. **Cache MISS (First Request):** Creates a `MultiSessionClient` entry, schedules its idle eviction timer, connects to all user-configured MCP servers, and saves the client in the memory registry.
+1. **Cache MISS (First Request):** Creates a `McpManager` entry, schedules its idle eviction timer, connects to all user-configured MCP servers, and saves the client in the memory registry.
 2. **Cache HIT (Subsequent Requests):** If the cache age is below `MCP_SESSION_REFRESH_MS` (default: 30 seconds), the cached client is returned instantly with zero connection/fetch overhead.
 3. **Natural TTL Expiry:** If the cache age exceeds 30 seconds, it triggers a refresh. Because the connection is not dropped, `.connect()` short-circuits instantly by reusing the active connections without writing new sessions to the database.
 4. **Idle Eviction:** If a client registry entry remains idle for `MCP_CLIENT_IDLE_TTL_MS` (default: 5 minutes), the idle timer triggers a clean `disconnect()` and evicts the entry from memory to prevent file descriptor leaks.

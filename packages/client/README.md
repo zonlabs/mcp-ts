@@ -1,9 +1,9 @@
-# @mcp-ts/sdk
+# @mcp-ts/client
 
 High-performance Model Context Protocol (MCP) SDK for TypeScript and Node.js with OAuth 2.1 lifecycle management, multi-tenant durable sessions across Redis, SQLite, Neon, and Supabase, dynamic context-window optimization via `ToolRouter`, and first-class AI framework adapters.
 
 ```bash
-npm install @mcp-ts/sdk @modelcontextprotocol/client @modelcontextprotocol/core
+npm install @mcp-ts/client @modelcontextprotocol/client @modelcontextprotocol/core
 ```
 
 ---
@@ -48,7 +48,7 @@ npm install @mcp-ts/sdk @modelcontextprotocol/client @modelcontextprotocol/core
 ### 1. User-Scoped Multi-Server Management
 
 ```typescript
-import { mcp } from '@mcp-ts/sdk';
+import { mcp } from '@mcp-ts/client';
 
 const user = mcp.user('user_123');
 
@@ -79,8 +79,8 @@ const response = await user.callTool('tavily_search', { query: 'Model Context Pr
 Seamlessly pass all user MCP servers to `generateText` or `streamText`:
 
 ```typescript
-import { mcp } from '@mcp-ts/sdk';
-import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { mcp } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 
@@ -100,8 +100,8 @@ const { text } = await generateText({
 For users with dozens or hundreds of tools, `ToolRouter` dynamically injects discovery meta-tools (`mcp_search_tools`, `mcp_execute_tool`) into the LLM context, reducing token usage by up to 95%:
 
 ```typescript
-import { mcp } from '@mcp-ts/sdk';
-import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { mcp } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 
 const user = mcp.user('user_123');
 
@@ -119,7 +119,7 @@ const tools = await AIAdapter.getTools(user, {
 For low-level single-server connections without user storage:
 
 ```typescript
-import { McpClient } from '@mcp-ts/sdk';
+import { McpClient } from '@mcp-ts/client';
 
 const client = new McpClient({
   userId: 'user_123',
@@ -141,8 +141,8 @@ const result = await client.callTool('tavily_search', { query: 'MCP SDK' });
 Persist user credentials and sessions across server restarts:
 
 ```typescript
-import { Mcp } from '@mcp-ts/sdk';
-import { RedisStorageBackend, sessions } from '@mcp-ts/sdk/server';
+import { Mcp } from '@mcp-ts/client';
+import { RedisStorageBackend, sessions } from '@mcp-ts/client';
 
 // Custom Redis storage
 const mcp = new Mcp({
@@ -168,17 +168,17 @@ Supported storage backends:
 
 | Entry Point | Description |
 | :--- | :--- |
-| **`@mcp-ts/sdk`** | Root exports: `mcp`, `Mcp`, `McpUser`, `McpClient`, `McpManager`, `ToolRouter` |
-| **`@mcp-ts/sdk/server`** | Server-side handlers (`createNextMcpHandler`), storage engines, and middleware |
-| **`@mcp-ts/sdk/adapters/ai`** | Vercel AI SDK integration (`AIAdapter.getTools`) |
-| **`@mcp-ts/sdk/adapters/langchain`** | LangChain / LangGraph tool binding (`LangChainAdapter.getTools`) |
-| **`@mcp-ts/sdk/adapters/mastra`** | Mastra agent framework adapter (`MastraAdapter.getTools`) |
-| **`@mcp-ts/sdk/adapters/agui-adapter`** | AG-UI Client adapter |
-| **`@mcp-ts/sdk/adapters/agui-middleware`** | AG-UI chat & streaming middleware |
-| **`@mcp-ts/sdk/client`** | Browser JSON-RPC client primitives |
-| **`@mcp-ts/sdk/client/react`** | React hooks (`useMcp`, `useMcpApps`, `useMcpOAuthPopup`) |
-| **`@mcp-ts/sdk/client/vue`** | Vue composables (`useMcp`) |
-| **`@mcp-ts/sdk/shared`** | Shared types, interfaces (`BaseClient`, `ToolClient`), and event emitters |
+| **`@mcp-ts/client`** | Root exports: `mcp`, `Mcp`, `McpUser`, `McpClient`, `McpManager`, `ToolRouter` |
+| **`@mcp-ts/client`** | Server-side handlers (`createNextMcpHandler`), storage engines, and middleware |
+| **`@mcp-ts/client/adapters/ai`** | Vercel AI SDK integration (`AIAdapter.getTools`) |
+| **`@mcp-ts/client/adapters/langchain`** | LangChain / LangGraph tool binding (`LangChainAdapter.getTools`) |
+| **`@mcp-ts/client/adapters/mastra`** | Mastra agent framework adapter (`MastraAdapter.getTools`) |
+| **`@mcp-ts/client/adapters/agui-adapter`** | AG-UI Client adapter |
+| **`@mcp-ts/client/adapters/agui-middleware`** | AG-UI chat & streaming middleware |
+| **`@mcp-ts/client/sse`** | Browser JSON-RPC client primitives |
+| **`@mcp-ts/client/react`** | React hooks (`useMcp`, `useMcpApps`, `useMcpOAuthPopup`) |
+| **`@mcp-ts/client/vue`** | Vue composables (`useMcp`) |
+| **`@mcp-ts/client/shared`** | Shared types, interfaces (`BaseClient`, `ToolClient`), and event emitters |
 
 ---
 
@@ -188,7 +188,7 @@ Expose a full MCP bridge endpoint for your frontend in 5 lines:
 
 ```typescript
 // app/api/mcp/sse/route.ts
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client';
 
 export const { GET, POST } = createNextMcpHandler();
 ```

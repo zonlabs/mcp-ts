@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
-import { MultiSessionClient } from '../dist/server/index.mjs';
+import { McpManager } from '../dist/server/index.mjs';
 import {
   formatMarkdownReport,
   runToolCatalogScenario,
@@ -269,7 +269,7 @@ export async function runLiveBenchmark(options = {}) {
     throw new Error('Missing NEXT_PUBLIC_MCP_IDENTITY. Set it before running the live benchmark.');
   }
 
-  const client = options.client ?? new MultiSessionClient(identity, {
+  const client = options.client ?? new McpManager(identity, {
     timeout: Number(process.env.TOOLROUTER_LIVE_CONNECT_TIMEOUT_MS ?? 15000),
     maxRetries: Number(process.env.TOOLROUTER_LIVE_CONNECT_RETRIES ?? 2),
   });

@@ -9,10 +9,10 @@ A complete example of wiring MCP into a Next.js app: persistent session storage,
 
 ## 1. App Setup
 
-Create a shared `Mcp` instance backed by your session store. Storage backends are exported from `@mcp-ts/sdk` (or `@mcp-ts/sdk/server`).
+Create a shared `Mcp` instance backed by your session store. Storage backends are exported from `@mcp-ts/client` (or `@mcp-ts/client`).
 
 ```typescript title="lib/mcp.ts"
-import { Mcp } from '@mcp-ts/sdk';
+import { Mcp } from '@mcp-ts/client';
 
 export const mcp = new Mcp({
   storage: new SqliteStorage({ path: './sessions.db' }),
@@ -22,7 +22,7 @@ export const mcp = new Mcp({
 <AccordionGroup>
   <Accordion title="Supabase">
   ```typescript title="lib/mcp.ts"
-  import { Mcp } from '@mcp-ts/sdk';
+  import { Mcp } from '@mcp-ts/client';
   import { createClient } from '@supabase/supabase-js';
 
   const supabase = createClient(
@@ -38,7 +38,7 @@ export const mcp = new Mcp({
 
   <Accordion title="Redis">
   ```typescript title="lib/mcp.ts"
-  import { Mcp } from '@mcp-ts/sdk';
+  import { Mcp } from '@mcp-ts/client';
   import { Redis } from 'ioredis';
 
   const redis = new Redis(process.env.REDIS_URL!);
@@ -103,7 +103,7 @@ export async function GET(req: Request) {
 Use `AIAdapter.getTools()` to expose the user's connected MCP tools to the [Vercel AI SDK](https://sdk.vercel.ai/docs).
 
 ```typescript title="app/api/chat/route.ts"
-import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 import { mcp } from '@/lib/mcp';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';

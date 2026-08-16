@@ -1,7 +1,7 @@
 /**
  * ToolRouter — Middleware layer for intelligent MCP tool selection.
  *
- * Sits between your AI framework adapter and MultiSessionClient to reduce
+ * Sits between your AI framework adapter and McpManager to reduce
  * context window usage. Supports three strategies:
  *
  *  • `all`    — Pass through every tool (backward-compatible default)
@@ -12,8 +12,8 @@
  *
  * @example
  * ```ts
- * import { ToolRouter } from '@mcp-ts/sdk/shared';
- * import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+ * import { ToolRouter } from '@mcp-ts/client/shared';
+ * import { AIAdapter } from '@mcp-ts/client/adapters/ai';
  *
  * const router = new ToolRouter(multiSessionClient, {
  *   strategy: 'search',
@@ -141,7 +141,7 @@ export interface ToolGroupInfo {
 
 /**
  * Accepted client input for ToolRouter.
- * Pass a `ToolClientProvider` (e.g. MultiSessionClient), or an array of `ToolClient` instances.
+ * Pass a `ToolClientProvider` (e.g. McpManager), or an array of `ToolClient` instances.
  */
 export type ToolRouterClientInput = ToolClientProvider | ToolClient[];
 

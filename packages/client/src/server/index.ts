@@ -48,7 +48,7 @@ export { createNextMcpHandler, type NextMcpHandlerOptions, type AuthenticatedUse
 /** Session provider abstraction */
 
 /** Utilities */
-export { sanitizeServerLabel } from '../shared/utils';
+export { sanitizeServerLabel } from '../shared/utils.js';
 export { encryptObject, decryptObject } from './storage/crypto.js';
 
 /** Re-export shared types */
@@ -59,7 +59,7 @@ export type {
   Emitter,
   Disposable,
   Event,
-} from '../shared/events';
+} from '../shared/events.js';
 
 export type {
   BaseClient,
@@ -74,7 +74,7 @@ export type {
   ListToolsResponse,
   CallToolRequest,
   CallToolResponse,
-} from '../shared/types';
+} from '../shared/types.js';
 
 export type {
   Session,

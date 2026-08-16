@@ -9,14 +9,14 @@ The `LangChainAdapter` converts MCP tools into LangChain's `DynamicStructuredToo
 ## Installation
 
 ```bash
-npm install @mcp-ts/sdk @langchain/core zod
+npm install @mcp-ts/client @langchain/core zod
 ```
 
 ## Usage
 
 ```typescript
-import { McpManager } from '@mcp-ts/sdk/server';
-import { LangChainAdapter } from '@mcp-ts/sdk/adapters/langchain';
+import { McpManager } from '@mcp-ts/client';
+import { LangChainAdapter } from '@mcp-ts/client/adapters/langchain';
 
 const client = new McpManager('user_123');
 await client.connect();

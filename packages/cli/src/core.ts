@@ -5,7 +5,7 @@ import {
   type ToolClient,
   type ToolRouterStrategy,
   type ToolSummary
-} from "@mcp-ts/sdk/shared";
+} from "@mcp-ts/client/shared";
 import { estimateToolTokens, estimateToolsTokens } from "./token-estimator.js";
 
 export interface SearchResult extends ToolSummary {

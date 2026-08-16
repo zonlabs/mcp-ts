@@ -14,7 +14,7 @@
     "@copilotkit/react-core": "1.56.3",
     "@copilotkit/react-ui": "1.56.3",
     "@copilotkit/runtime": "1.56.3",
-    "@mcp-ts/sdk": "file:../../packages/sdk",
+    "@mcp-ts/client": "file:../../packages/client",
     "@supabase/supabase-js": "^2.104.1",
     "next": "16.2.4",
     "react": "^19.2.5",

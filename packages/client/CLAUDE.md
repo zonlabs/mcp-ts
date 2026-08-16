@@ -1,12 +1,12 @@
-# Developer Guide (@mcp-ts/sdk)
+# Developer Guide (@mcp-ts/client)
 
 ## Overview
-`@mcp-ts/sdk` is a TypeScript SDK for building Model Context Protocol (MCP) applications with support for streamed HTTP RPC, OAuth 2.1, multiple storage backends, MCP Apps, and production-ready integrations.
+`@mcp-ts/client` is a TypeScript SDK for building Model Context Protocol (MCP) applications with support for streamed HTTP RPC, OAuth 2.1, multiple storage backends, MCP Apps, and production-ready integrations.
 
 ## Architecture
 
 ### 1. Server (`src/server/`)
-- **`MultiSessionClient`**: Core class managing multiple MCP server connections.
+- **`McpManager`**: Core class managing multiple MCP server connections.
 - **`storage/`**: Pluggable storage backends (Redis, SQLite, File, Memory, Supabase, Neon).
 - **`handlers/sse-handler.ts`**: Handles streamed responses and RPC over HTTP POST for standard Node runtimes.
 - **`handlers/nextjs-handler.ts`**: App Router handler for Next.js deployments.
@@ -52,7 +52,7 @@ Each backend implements `init()` for health checks and runtime validation.
 
 
 ### MCP SDK v2 Protocol Support
-- `McpSdkClientOptions` is exported from `@mcp-ts/sdk/server` as the supported allowlist of official SDK client options.
+- `McpSdkClientOptions` is exported from `@mcp-ts/client` as the supported allowlist of official SDK client options.
 - `normalizeMcpSdkClientOptions()` defaults `versionNegotiation` to `{ mode: 'auto' }` and does not inject SDK capabilities.
 - Sessions persist Cloudflare-style `serverOptions`: `client`, `transport`, and `discoverResult` in one JSON object.
 - Restored clients pass `connect({ prior })` when protocol metadata is available.
@@ -78,7 +78,7 @@ npm test            # Run Playwright tests
 ### Key Conventions
 - **Imports**: Use explicit `.js` extensions for ESM compatibility when modifying imports.
 - **Exports**: Define exports in both `package.json` and `tsup.config.ts`.
-- **Client imports**: React APIs live under `@mcp-ts/sdk/client/react`; Vue APIs live under `@mcp-ts/sdk/client/vue`.
+- **Client imports**: React APIs live under `@mcp-ts/client/react`; Vue APIs live under `@mcp-ts/client/vue`.
 - **Testing**: Use `playwright` for e2e and integration tests in `tests/`.
 
 ## Common Tasks
@@ -102,6 +102,6 @@ npm test            # Run Playwright tests
 
 ### Adding an Adapter
 1. Create `src/adapters/<name>-adapter.ts`.
-2. Implement conversion from `MCPClient` or `MultiSessionClient` tools to the target framework format.
+2. Implement conversion from `MCPClient` or `McpManager` tools to the target framework format.
 3. Add peer dependency metadata in `package.json`.
 4. Add tests in `tests/`.

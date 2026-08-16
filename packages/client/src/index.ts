@@ -29,6 +29,6 @@ export {
 } from './server/mcp/manager.js';
 
 // Re-export everything from subpackages
-export * from './server';
-export * from './client';
-export * from './shared';
+export * from './server/index.js';
+export * from './client/index.js';
+export * from './shared/index.js';

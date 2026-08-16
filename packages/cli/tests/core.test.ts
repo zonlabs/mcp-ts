@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { ToolClient } from "@mcp-ts/sdk/shared";
+import type { ToolClient } from "@mcp-ts/client/shared";
 import type { Tool } from "@modelcontextprotocol/client";
 import { benchmarkStrategies, createRouter, generateWrappers, resolveTool, searchTools } from "../src/core.js";
 

@@ -10,5 +10,5 @@ export default defineConfig({
   bundle: true,
   minify: false,
   sourcemap: true,
-  external: ["@mcp-ts/sdk", "@modelcontextprotocol/client", "@modelcontextprotocol/server"]
+  external: ["@mcp-ts/client", "@modelcontextprotocol/client", "@modelcontextprotocol/server"]
 });

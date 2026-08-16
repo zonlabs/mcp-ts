@@ -92,8 +92,8 @@ vi.mock("../../src/core/request-context", () => ({
   getRequestContext: mockGetRequestContext,
 }));
 
-vi.mock("@mcp-ts/sdk/server", () => ({
-  MultiSessionClient: vi.fn().mockImplementation(function (userId: string) {
+vi.mock("@mcp-ts/client", () => ({
+  McpManager: vi.fn().mockImplementation(function (userId: string) {
     mockMultiSessionClientConstructor(userId);
     return {
       connect: mockMultiConnect,
@@ -103,8 +103,8 @@ vi.mock("@mcp-ts/sdk/server", () => ({
   }),
 }));
 
-vi.mock("@mcp-ts/sdk/shared", async () => {
-  const actual = await import("@mcp-ts/sdk/shared");
+vi.mock("@mcp-ts/client/shared", async () => {
+  const actual = await import("@mcp-ts/client/shared");
   return {
     ...actual,
     ToolRouter: vi.fn().mockImplementation(function (client: unknown, options: unknown) {

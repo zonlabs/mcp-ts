@@ -3,11 +3,10 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
-    'server/index': 'src/server/index.ts',
-    'client/index': 'src/client/index.ts',
-    'client/react': 'src/client/react/index.ts',
-    'client/vue': 'src/client/vue/index.ts',
-    'shared/index': 'src/shared/index.ts',
+    sse: 'src/client/index.ts',
+    react: 'src/client/react/index.ts',
+    vue: 'src/client/vue/index.ts',
+    shared: 'src/shared/index.ts',
     'adapters/ai-adapter': 'src/adapters/ai-adapter.ts',
     'adapters/langchain-adapter': 'src/adapters/langchain-adapter.ts',
     'adapters/mastra-adapter': 'src/adapters/mastra-adapter.ts',

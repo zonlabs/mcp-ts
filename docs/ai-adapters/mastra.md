@@ -9,14 +9,14 @@ The `MastraAdapter` converts MCP tools into the format expected by the [Mastra](
 ## Installation
 
 ```bash
-npm install @mcp-ts/sdk zod
+npm install @mcp-ts/client zod
 ```
 
 ## Usage
 
 ```typescript
-import { McpManager } from '@mcp-ts/sdk/server';
-import { MastraAdapter } from '@mcp-ts/sdk/adapters/mastra';
+import { McpManager } from '@mcp-ts/client';
+import { MastraAdapter } from '@mcp-ts/client/adapters/mastra';
 
 const client = new McpManager('user_123');
 await client.connect();

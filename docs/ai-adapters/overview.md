@@ -10,10 +10,10 @@ Adapters transforms MCP tools into framework-specific formats for seamless integ
 
 | Adapter | Framework | Import Path | Dependencies |
 |---------|-----------|-------------|--------------|
-| **AI SDK** | Vercel AI SDK | `@mcp-ts/sdk/adapters/ai` | `ai` |
-| **LangChain** | LangChain | `@mcp-ts/sdk/adapters/langchain` | `@langchain/core`, `zod` |
-| **Mastra** | Mastra | `@mcp-ts/sdk/adapters/mastra` | `zod` |
-| **AG-UI** | AG-UI Protocol | `@mcp-ts/sdk/adapters/agui-adapter` | `@ag-ui/client`, `rxjs` |
+| **AI SDK** | Vercel AI SDK | `@mcp-ts/client/adapters/ai` | `ai` |
+| **LangChain** | LangChain | `@mcp-ts/client/adapters/langchain` | `@langchain/core`, `zod` |
+| **Mastra** | Mastra | `@mcp-ts/client/adapters/mastra` | `zod` |
+| **AG-UI** | AG-UI Protocol | `@mcp-ts/client/adapters/agui-adapter` | `@ag-ui/client`, `rxjs` |
 
 ## Common Patterns
 
@@ -33,7 +33,7 @@ Adapters work with both individual `McpClient` instances and aggregated `McpMana
 
 #### Single Client
 ```typescript
-import { McpClient } from '@mcp-ts/sdk/server';
+import { McpClient } from '@mcp-ts/client';
 
 const client = new McpClient({
   userId: 'user_123',

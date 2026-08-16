@@ -10,11 +10,11 @@ Instead of injecting all tools at once, you can let the LLM discover and load to
 ### `ToolRouter`
 
 ```typescript
-import { ToolRouter } from '@mcp-ts/sdk/shared';
+import { ToolRouter } from '@mcp-ts/client/shared';
 import { embed } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
-const router = new ToolRouter(client: MCPClient | MultiSessionClient, {
+const router = new ToolRouter(client: MCPClient | McpManager, {
   // 'all' (default), 'search' (exposes meta-tools only), or 'groups'
   strategy: 'search',
   
@@ -58,7 +58,7 @@ const tools = await adapter.getTools();
 Lightweight in-memory search index used internally by `ToolRouter`, or directly for specific custom discovery flows.
 
 ```typescript
-import { ToolIndex } from '@mcp-ts/sdk/shared';
+import { ToolIndex } from '@mcp-ts/client/shared';
 
 const index = new ToolIndex({
   embedFn: async (texts) => [/* ... */],
@@ -97,7 +97,7 @@ console.log(listed.totalCount, listed.tools);
 Utility for yielding compact tool representations (name + description + inline parameterHint) without the full `inputSchema`.
 
 ```typescript
-import { SchemaCompressor } from '@mcp-ts/sdk/shared';
+import { SchemaCompressor } from '@mcp-ts/client/shared';
 
 // Get a compact schema omitting full `inputSchema`
 const compact = SchemaCompressor.toCompact(tool);

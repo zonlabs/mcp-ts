@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
-import { MultiSessionClient } from "@mcp-ts/sdk/server";
-import type { McpObservabilityEvent } from "@mcp-ts/sdk/server";
-import { ToolIndex, ToolRouter, type IndexedTool } from "@mcp-ts/sdk/shared";
+import { McpManager } from "@mcp-ts/client";
+import type { McpObservabilityEvent } from "@mcp-ts/client";
+import { ToolIndex, ToolRouter, type IndexedTool } from "@mcp-ts/client/shared";
 import { z } from "zod";
 import { createWorkflowCodeModeRuntime } from "./codemode-runtime";
 import { getRequestContext } from "./request-context";
@@ -39,12 +39,12 @@ function handleObservability(event: McpObservabilityEvent): void {
   }
 }
 
-export async function getMultiSessionClient(userId: string): Promise<MultiSessionClient> {
-  const client = new MultiSessionClient(userId, {
+export async function getMcpManager(userId: string): Promise<McpManager> {
+  const manager = new McpManager(userId, {
     onObservabilityEvent: handleObservability,
   });
-  await client.connect();
-  return client;
+  await manager.connect();
+  return manager;
 }
 
 type ResponseVerbosity = "compact" | "full";
@@ -122,12 +122,12 @@ function toNormalizedToolSchema(
   };
 }
 
-async function withMultiSessionClient<T>(
+async function withMcpManager<T>(
   userId: string,
-  fn: (multi: MultiSessionClient) => Promise<T>
+  fn: (manager: McpManager) => Promise<T>
 ): Promise<T> {
-  const multi = await getMultiSessionClient(userId);
-  return await fn(multi);
+  const manager = await getMcpManager(userId);
+  return await fn(manager);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -147,10 +147,10 @@ function normalizeCodeModeScript(script: string): string {
 
 async function withToolRouter<T>(
   userId: string,
-  fn: (router: ToolRouter, multi: MultiSessionClient) => Promise<T> | T
+  fn: (router: ToolRouter, manager: McpManager) => Promise<T> | T
 ): Promise<T> {
-  return withMultiSessionClient(userId, async (multi) => {
-    const router = new ToolRouter(multi, {
+  return withMcpManager(userId, async (manager) => {
+    const router = new ToolRouter(manager, {
       strategy: "search",
       excludeTools: [
         "list_mcp_servers",
@@ -162,7 +162,7 @@ async function withToolRouter<T>(
         "find_mcp_servers",
       ],
     });
-    return await fn(router, multi);
+    return await fn(router, manager);
   });
 }
 
@@ -324,7 +324,7 @@ export function registerMcpCoreTools(server: McpServer): void {
       try {
         const userId = getRequestContext().userId!;
         const startedAt = new Date();
-        const normalized = await withToolRouter(userId, async (router, multi) => {
+        const normalized = await withToolRouter(userId, async (router, manager) => {
           const schemaRouter = router as AsyncSchemaToolRouter;
           const tool =
             (await schemaRouter.resolveToolSchema(tool_name, server_id)) ??
@@ -332,7 +332,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           if (!tool) {
             throw new Error(`Tool "${tool_name}" was not found for server "${server_id}"`);
           }
-          const client = multi.getClients().find((c) => c.getSessionId?.() === tool.sessionId);
+          const client = manager.getClients().find((c) => c.getSessionId?.() === tool.sessionId);
           recordSelectedDownstreamToolSchemaInspection({
             serverId: tool.serverId,
             serverName: tool.serverName,
@@ -451,13 +451,13 @@ export function registerMcpCoreTools(server: McpServer): void {
 
       try {
         const userId = getRequestContext().userId!;
-        const multi = await getMultiSessionClient(userId);
+        const manager = await getMcpManager(userId);
 
         const timeoutMs = Number(timeout_ms ?? process.env.MCP_SCRIPT_TIMEOUT_MS ?? 240000);
         const requestContext = getRequestContext();
         const deviceServers = await buildDeviceToolServers();
         const runtime = await createWorkflowCodeModeRuntime(
-          multi,
+          manager,
           {
             timeoutMs,
             memoryLimitMb: 128,

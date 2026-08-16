@@ -1,6 +1,6 @@
 {
-  "name": "@mcp-ts/sdk",
-  "version": "3.0.2",
+  "name": "@mcp-ts/client",
+  "version": "4.0.0-beta.1",
   "publishConfig": {
     "access": "public"
   },
@@ -14,30 +14,25 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "import": "./dist/server/index.mjs",
-      "require": "./dist/server/index.js"
+    "./sse": {
+      "types": "./dist/sse.d.ts",
+      "import": "./dist/sse.mjs",
+      "require": "./dist/sse.js"
     },
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "import": "./dist/client/index.mjs",
-      "require": "./dist/client/index.js"
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js"
     },
-    "./client/react": {
-      "types": "./dist/client/react.d.ts",
-      "import": "./dist/client/react.mjs",
-      "require": "./dist/client/react.js"
-    },
-    "./client/vue": {
-      "types": "./dist/client/vue.d.ts",
-      "import": "./dist/client/vue.mjs",
-      "require": "./dist/client/vue.js"
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.mjs",
+      "require": "./dist/vue.js"
     },
     "./shared": {
-      "types": "./dist/shared/index.d.ts",
-      "import": "./dist/shared/index.mjs",
-      "require": "./dist/shared/index.js"
+      "types": "./dist/shared.d.ts",
+      "import": "./dist/shared.mjs",
+      "require": "./dist/shared.js"
     },
     "./adapters/ai": {
       "types": "./dist/adapters/ai-adapter.d.ts",
@@ -176,7 +171,6 @@
     }
   },
   "dependencies": {
-    "json-schema": "^0.4.0",
     "nanoid": "^5.1.6"
   },
   "devDependencies": {

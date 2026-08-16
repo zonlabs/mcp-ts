@@ -291,7 +291,7 @@ export function _resetSessionMutationListenersForTesting(): void {
  *
  * Usage:
  * ```ts
- * import { sessions, withDbObservability } from '@mcp-ts/sdk/server/storage';
+ * import { sessions, withDbObservability } from '@mcp-ts/client';
  * const db = withDbObservability(sessions, (event) => console.log('[DB]', event));
  * // Use `db` instead of `sessions` throughout the request
  * ```

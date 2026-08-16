@@ -689,7 +689,7 @@ export class SSEConnectionManager {
    * Enables or disables a session for agent tool discovery.
    *
    * Disabled sessions retain their OAuth tokens and connection metadata
-   * but are hidden from `MultiSessionClient.connect()` and blocked from
+   * but are hidden from `McpManager.connect()` and blocked from
    * RPC tool access. Re-enabling does not require re-authentication.
    *
    * @param params - `{ sessionId, enabled: boolean }`
@@ -973,7 +973,7 @@ export class SSEConnectionManager {
  *
  * @example
  * ```ts
- * import { createSSEHandler } from '@mcp-ts/sdk/server';
+ * import { createSSEHandler } from '@mcp-ts/client';
  *
  * const handler = createSSEHandler({ userId: 'user-123' });
  * // Mount `handler` on both GET and POST for your HTTP framework.
