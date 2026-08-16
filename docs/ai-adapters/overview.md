@@ -10,10 +10,10 @@ Adapters transforms MCP tools into framework-specific formats for seamless integ
 
 | Adapter | Framework | Import Path | Dependencies |
 |---------|-----------|-------------|--------------|
-| **AI SDK** | Vercel AI SDK | `@mcp-ts/sdk/adapters/ai` | `ai` |
-| **LangChain** | LangChain | `@mcp-ts/sdk/adapters/langchain` | `@langchain/core`, `zod` |
-| **Mastra** | Mastra | `@mcp-ts/sdk/adapters/mastra` | `zod` |
-| **AG-UI** | AG-UI Protocol | `@mcp-ts/sdk/adapters/agui-adapter` | `@ag-ui/client`, `rxjs` |
+| **AI SDK** | Vercel AI SDK | `@mcp-ts/client/adapters/ai` | `ai` |
+| **LangChain** | LangChain | `@mcp-ts/client/adapters/langchain` | `@langchain/core`, `zod` |
+| **Mastra** | Mastra | `@mcp-ts/client/adapters/mastra` | `zod` |
+| **AG-UI** | AG-UI Protocol | `@mcp-ts/client/adapters/agui-adapter` | `@ag-ui/client`, `rxjs` |
 
 ## Common Patterns
 
@@ -29,13 +29,13 @@ const adapter = new AIAdapter(client, {
 
 ### Single Client vs. Multi-Session
 
-Adapters work with both individual `MCPClient` instances andaggregated `MultiSessionClient`.
+Adapters work with both individual `McpClient` instances and aggregated `McpManager`.
 
 #### Single Client
 ```typescript
-import { MCPClient } from '@mcp-ts/sdk/server';
+import { McpClient } from '@mcp-ts/client';
 
-const client = new MCPClient({
+const client = new McpClient({
   userId: 'user_123',
   sessionId: 'session_abc',
   serverUrl: 'https://mcp-server.com',
@@ -48,7 +48,7 @@ const adapter = new AIAdapter(client);
 
 #### Multi-Session
 ```typescript
-const client = new MultiSessionClient('user_123');
+const client = new McpManager('user_123');
 
 // Connect to multiple servers
 await client.connect();

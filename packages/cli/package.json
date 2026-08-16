@@ -1,0 +1,38 @@
+{
+  "name": "@mcp-ts/cli",
+  "version": "0.1.0",
+  "description": "Explore, search, benchmark, codegen, and run a local MCP gateway (mcp-ts serve).",
+  "type": "module",
+  "bin": { "mcp-ts": "./dist/bin/mcp-ts.js" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.0",
+    "@mcp-ts/client": "^4.0.0-beta.1",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zonlabs/mcp-ts.git",
+    "directory": "packages/cli"
+  },
+  "engines": { "node": ">=20.0.0" },
+  "publishConfig": { "access": "public" }
+}

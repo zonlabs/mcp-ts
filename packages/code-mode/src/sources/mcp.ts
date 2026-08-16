@@ -83,7 +83,7 @@ export function mcpServer(serverId: string, client: ToolClient, serverName?: str
 
 /**
  * Creates ToolServer[] from a provider that manages multiple MCP clients
- * (e.g. MultiSessionClient).
+ * (e.g. McpManager).
  */
 export function mcpServers(provider: ToolClientProvider): ToolServer[] {
   return provider.getClients().map((client, index) =>

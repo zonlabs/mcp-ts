@@ -1,15 +1,51 @@
 import { McpServer } from "@modelcontextprotocol/server";
-import { MultiSessionClient } from "@mcp-ts/sdk/server";
-import { ToolRouter } from "@mcp-ts/sdk/shared";
+import { McpManager } from "@mcp-ts/client";
+import type { McpObservabilityEvent } from "@mcp-ts/client";
+import { ToolIndex, ToolRouter, type IndexedTool } from "@mcp-ts/client/shared";
 import { z } from "zod";
-import { getMultiSessionClient } from "./multi-session-client-registry";
 import { createWorkflowCodeModeRuntime } from "./codemode-runtime";
 import { getRequestContext } from "./request-context";
 import { asJsonObject, errorResponse, jsonResponse } from "./tool-result";
 import { recordSelectedDownstreamToolSchemaInspection } from "./instrumentation";
+import {
+  buildDeviceToolServers,
+  listDeviceServers,
+  listDeviceTools,
+  resolveDeviceToolSchema,
+} from "./device-tools";
 
 const MCP_RESULT_EXTRACTION_HINT =
   "In CodeMode, `callTool(serverId, toolName, args)` and namespaced helpers return normalized tool results. Structured MCP payloads are unwrapped automatically; use raw helpers only when you explicitly need the MCP envelope.";
+
+function handleObservability(event: McpObservabilityEvent): void {
+  if (event.type === "db:read" || event.type === "db:write") {
+    console.log(
+      `[mcp-db][${event.type}] ${event.message} ${event.payload?.durationMs?.toFixed?.(1) ?? ""}ms`
+    );
+    return;
+  }
+
+  const prefix = event.serverId ? `[${event.serverId}]` : "[mcp]";
+  const msg = event.message ?? "";
+  switch (event.level) {
+    case "error":
+      console.error(`${prefix} ${msg}`);
+      break;
+    case "warn":
+      console.warn(`${prefix} ${msg}`);
+      break;
+    default:
+      console.log(`${prefix} ${msg}`);
+  }
+}
+
+export async function getMcpManager(userId: string): Promise<McpManager> {
+  const manager = new McpManager(userId, {
+    onObservabilityEvent: handleObservability,
+  });
+  await manager.connect();
+  return manager;
+}
 
 type ResponseVerbosity = "compact" | "full";
 
@@ -86,12 +122,12 @@ function toNormalizedToolSchema(
   };
 }
 
-async function withMultiSessionClient<T>(
+async function withMcpManager<T>(
   userId: string,
-  fn: (multi: MultiSessionClient) => Promise<T>
+  fn: (manager: McpManager) => Promise<T>
 ): Promise<T> {
-  const multi = await getMultiSessionClient(userId);
-  return await fn(multi);
+  const manager = await getMcpManager(userId);
+  return await fn(manager);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -111,10 +147,10 @@ function normalizeCodeModeScript(script: string): string {
 
 async function withToolRouter<T>(
   userId: string,
-  fn: (router: ToolRouter, multi: MultiSessionClient) => Promise<T> | T
+  fn: (router: ToolRouter, manager: McpManager) => Promise<T> | T
 ): Promise<T> {
-  return withMultiSessionClient(userId, async (multi) => {
-    const router = new ToolRouter(multi, {
+  return withMcpManager(userId, async (manager) => {
+    const router = new ToolRouter(manager, {
       strategy: "search",
       excludeTools: [
         "list_mcp_servers",
@@ -126,7 +162,7 @@ async function withToolRouter<T>(
         "find_mcp_servers",
       ],
     });
-    return await fn(router, multi);
+    return await fn(router, manager);
   });
 }
 
@@ -158,7 +194,7 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "List all connected MCP servers and the number of tools each provides. " +
         "Use this when `search_mcp_tools` returns no response or irrelevant results, to see if there is an active/connected server that might be relevant.",
-      inputSchema: {},
+      inputSchema: z.object({}),
       annotations: {
         title: "List MCP Servers",
         readOnlyHint: true,
@@ -171,7 +207,7 @@ export function registerMcpCoreTools(server: McpServer): void {
     async () => {
       try {
         const userId = getRequestContext().userId!;
-        const servers = await withToolRouter(userId, async (router) => {
+        const connected = await withToolRouter(userId, async (router) => {
           const results = await router.listServers({});
           return results.map(({ serverName, serverId, toolCount }) => ({
             serverName,
@@ -179,8 +215,8 @@ export function registerMcpCoreTools(server: McpServer): void {
             toolCount,
           }));
         });
-
-        return jsonResponse({ servers });
+        const deviceServers = await listDeviceServers();
+        return jsonResponse({ servers: [...connected, ...deviceServers] });
       } catch (err) {
         const text = err instanceof Error ? err.message : "Failed to list MCP servers";
         return { content: [{ type: "text" as const, text }], isError: true };
@@ -195,7 +231,7 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "Search connected MCP tools for the authenticated user and return normalized discovery results. " +
         "Use this to find candidate MCP tools before execution. Next, pass the chosen result to `get_mcp_tool_schema` to inspect the exact schema, then call the tool from `codemode_run` or a saved workflow script.",
-      inputSchema: {
+      inputSchema: z.object({
         query: z
           .string()
           .describe(
@@ -213,7 +249,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           .describe(
             "Controls description size. Defaults to compact; use full only when exact downstream documentation is needed."
           ),
-      },
+      }),
       annotations: {
         title: "Search MCP Tools",
         readOnlyHint: true,
@@ -226,11 +262,32 @@ export function registerMcpCoreTools(server: McpServer): void {
     async ({ query, limit, verbosity }) => {
       try {
         const userId = getRequestContext().userId!;
-        const tools = await withToolRouter(userId, async (router) => {
-          const results = await router.searchTools(query, limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT);
-          return results.map((tool) => toSearchResultTool(tool, verbosity ?? "compact"));
-        });
-
+        const limitN = limit ?? DEFAULT_MCP_TOOL_SEARCH_LIMIT;
+        const verbosityN = verbosity ?? "compact";
+        const [connectedTools, deviceTools] = await Promise.all([
+          withToolRouter(userId, async (router) => {
+            const res = await router.listTools({ limit: Number.MAX_SAFE_INTEGER });
+            return res.tools as IndexedTool[];
+          }),
+          listDeviceTools().then((tools) =>
+            tools.map(
+              (t) =>
+                ({
+                  name: t.name,
+                  description: t.description,
+                  inputSchema: t.inputSchema,
+                  outputSchema: t.outputSchema,
+                  serverId: t.serverId,
+                  serverName: t.serverName,
+                  sessionId: t.sessionId,
+                }) as IndexedTool
+            )
+          ),
+        ]);
+        const index = new ToolIndex();
+        await index.buildIndex([...connectedTools, ...deviceTools]);
+        const hits = await index.search(query, limitN);
+        const tools = hits.map((tool) => toSearchResultTool(tool, verbosityN));
         return jsonResponse({ tools, total: tools.length });
       } catch (err) {
         const text = err instanceof Error ? err.message : "Failed to search MCP tools";
@@ -246,14 +303,14 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "Retrieve a normalized schema payload for a connected MCP tool. " +
         "Use this to inspect the exact input schema, output schema when available, and the CodeMode result extraction hint. Then call that MCP tool from `codemode_run` or a saved workflow script once the args match the schema.",
-      inputSchema: {
+      inputSchema: z.object({
         server_id: z.string().describe("The MCP server ID returned by `search_mcp_tools`."),
         tool_name: z.string().describe("The exact tool name returned by `search_mcp_tools`."),
         verbosity: z
           .enum(["compact", "full"])
           .optional()
           .describe("Controls description size in returned schemas. Defaults to compact."),
-      },
+      }),
       annotations: {
         title: "Get MCP Tool Schema",
         readOnlyHint: true,
@@ -267,7 +324,7 @@ export function registerMcpCoreTools(server: McpServer): void {
       try {
         const userId = getRequestContext().userId!;
         const startedAt = new Date();
-        const normalized = await withToolRouter(userId, async (router, multi) => {
+        const normalized = await withToolRouter(userId, async (router, manager) => {
           const schemaRouter = router as AsyncSchemaToolRouter;
           const tool =
             (await schemaRouter.resolveToolSchema(tool_name, server_id)) ??
@@ -275,7 +332,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           if (!tool) {
             throw new Error(`Tool "${tool_name}" was not found for server "${server_id}"`);
           }
-          const client = multi.getClients().find((c) => c.getSessionId?.() === tool.sessionId);
+          const client = manager.getClients().find((c) => c.getSessionId?.() === tool.sessionId);
           recordSelectedDownstreamToolSchemaInspection({
             serverId: tool.serverId,
             serverName: tool.serverName,
@@ -285,6 +342,23 @@ export function registerMcpCoreTools(server: McpServer): void {
             durationMs: Date.now() - startedAt.getTime(),
           });
           return toNormalizedToolSchema(tool, verbosity ?? "compact");
+        }).catch(async () => {
+          const deviceTool = await resolveDeviceToolSchema(tool_name, server_id);
+          if (!deviceTool) {
+            throw new Error(`Tool "${tool_name}" was not found for server "${server_id}"`);
+          }
+          return toNormalizedToolSchema(
+            {
+              name: deviceTool.name,
+              description: deviceTool.description,
+              inputSchema: deviceTool.inputSchema,
+              outputSchema: deviceTool.outputSchema,
+              annotations: deviceTool.annotations,
+              serverId: deviceTool.serverId,
+              serverName: deviceTool.serverName,
+            },
+            verbosity ?? "compact"
+          );
         });
 
         return jsonResponse({ tool: normalized });
@@ -342,7 +416,7 @@ export function registerMcpCoreTools(server: McpServer): void {
         "\n" +
         "## Timeout\n" +
         "Default: 240s (4 min). For long multi-step workflows, save progress by returning intermediate state between calls.",
-      inputSchema: {
+      inputSchema: z.object({
         script: z.string().describe("Code to execute inside CodeMode runtime."),
         input: z
           .record(z.string(), z.any())
@@ -358,7 +432,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           .describe(
             "Defaults to final. Use debug to also include logs."
           ),
-      },
+      }),
       annotations: {
         title: "Run CodeMode Script",
         readOnlyHint: false,
@@ -377,12 +451,13 @@ export function registerMcpCoreTools(server: McpServer): void {
 
       try {
         const userId = getRequestContext().userId!;
-        const multi = await getMultiSessionClient(userId);
+        const manager = await getMcpManager(userId);
 
         const timeoutMs = Number(timeout_ms ?? process.env.MCP_SCRIPT_TIMEOUT_MS ?? 240000);
         const requestContext = getRequestContext();
+        const deviceServers = await buildDeviceToolServers();
         const runtime = await createWorkflowCodeModeRuntime(
-          multi,
+          manager,
           {
             timeoutMs,
             memoryLimitMb: 128,
@@ -396,7 +471,8 @@ export function registerMcpCoreTools(server: McpServer): void {
           },
           {
             loader: requestContext.env?.LOADER,
-          }
+          },
+          deviceServers
         );
 
         const result = await runtime.run(normalizedScript, asJsonObject(input), { timeoutMs });
@@ -442,7 +518,7 @@ export function registerMcpCoreTools(server: McpServer): void {
         "Index a new MCP server or update an existing one in the global MCP directory. " +
         "Before calling this tool, the AI assistant must research the MCP server's name and URL, determine what it does, and generate relevant keywords/tags to categorize it. " +
         "If a server with the same name already exists, it will be overwritten with the new URL, description, and keywords.",
-      inputSchema: {
+      inputSchema: z.object({
         name: z
           .string()
           .describe("The user-friendly name of the MCP server (e.g. 'Supabase' or 'Playwright')."),
@@ -460,7 +536,7 @@ export function registerMcpCoreTools(server: McpServer): void {
           .describe(
             "Search keywords and categorization tags for vector matching (e.g. ['database', 'postgres', 'sql'])."
           ),
-      },
+      }),
       annotations: {
         title: "Index MCP Server",
         readOnlyHint: false,
@@ -516,9 +592,9 @@ export function registerMcpCoreTools(server: McpServer): void {
     {
       title: "Delete MCP Server",
       description: "Delete an indexed MCP server from the global MCP directory using its name.",
-      inputSchema: {
+      inputSchema: z.object({
         name: z.string().describe("The exact name of the MCP server to delete (e.g. 'Supabase')."),
-      },
+      }),
       annotations: {
         title: "Delete MCP Server",
         readOnlyHint: false,
@@ -553,11 +629,11 @@ export function registerMcpCoreTools(server: McpServer): void {
       description:
         "Search the global MCP directory for appropriate MCP servers matching the query (e.g. databases, browser automation, etc.). " +
         "Use this when the user requests features or integrations that are not supported by the currently connected MCP tools, to discover which MCP servers could be added.",
-      inputSchema: {
+      inputSchema: z.object({
         query: z
           .string()
           .describe("The search query or keyword (e.g. 'postgres' or 'web scraping')."),
-      },
+      }),
       annotations: {
         title: "Find MCP Servers",
         readOnlyHint: true,

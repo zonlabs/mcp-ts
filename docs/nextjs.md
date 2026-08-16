@@ -14,21 +14,20 @@ Complete guide for integrating mcp-ts with Next.js applications (App Router and 
 Create an API route handler at `app/api/mcp/route.ts`:
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export const { GET, POST } = createNextMcpHandler({
-  // Extract userId from request
-  getUserId: (request) => {
-    return new URL(request.url).searchParams.get('userId');
-  },
-
-  // Optional: Custom authentication
-  authenticate: async (userId, token) => {
-    // Verify token with your auth system
-    return true; // or throw error if invalid
+  // Resolve the authenticated user server-side.
+  // Return null to reject the request with a 401.
+  authenticate: async (request) => {
+    // Look up the user from your own auth (session cookie, JWT, etc.)
+    // instead of trusting anything the client sends.
+    const session = await getSession(request);
+    if (!session) return null;
+    return { userId: session.user.id };
   },
 
   // Optional: Heartbeat interval
@@ -43,9 +42,9 @@ Create a component at `components/McpConnections.tsx`:
 ```typescript
 'use client';
 
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/react';
 
-export function McpConnections({ userId }: { userId: string }) {
+export function McpConnections() {
   const {
     connections,
     status,
@@ -53,8 +52,7 @@ export function McpConnections({ userId }: { userId: string }) {
     disconnect,
     callTool,
   } = useMcp({
-    url: `/api/mcp?userId=${userId}`,
-    userId,
+    url: '/api/mcp',
     autoConnect: true,
   });
 
@@ -113,13 +111,10 @@ Use the component in your page at `app/page.tsx`:
 import { McpConnections } from '@/components/McpConnections';
 
 export default function Home() {
-  // Get userId from your auth system
-  const userId = 'user-123'; // Replace with actual userId
-
   return (
     <main>
       <h1>My App</h1>
-      <McpConnections userId={userId} />
+      <McpConnections />
     </main>
   );
 }
@@ -127,19 +122,19 @@ export default function Home() {
 
 ## AI SDK
 
-To build agentic workflows that use tools from multiple MCP servers, use `MultiSessionClient`.
+To build agentic workflows that use tools from multiple MCP servers, use `McpManager`.
 
 ```typescript
 // app/api/chat/route.ts
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { McpManager } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 export async function POST(req: Request) {
   const { messages, userId } = await req.json();
 
-  const client = new MultiSessionClient(userId);
+  const client = new McpManager(userId);
 
   try {
     await client.connect();
@@ -173,7 +168,7 @@ For more details, see the [AI SDK Adapter documentation](/ai-adapters/ai-sdk).
 Create `pages/api/mcp.ts`:
 
 ```typescript
-import { createSSEHandler } from '@mcp-ts/sdk/server';
+import { createSSEHandler } from '@mcp-ts/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(
@@ -225,7 +220,7 @@ Handle OAuth callbacks at `app/oauth/callback-popup/page.tsx` (for popups) or `a
 
 import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/react';
 
 export default function OAuthCallback() {
   const searchParams = useSearchParams();
@@ -273,7 +268,7 @@ import {
   McpOAuthCallbackFallback,
   useMcp,
   useMcpOAuthPopup,
-} from '@mcp-ts/sdk/client/react';
+} from '@mcp-ts/client/react';
 
 function McpPopupBridge() {
   const mcpClient = useMcp({
@@ -346,16 +341,16 @@ Ensure your platform supports:
 Here's a full working example:
 
 ```typescript title="app/api/mcp/route.ts"
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export const { GET, POST } = createNextMcpHandler({
-  getUserId: (request) => {
-    const userId = new URL(request.url).searchParams.get('userId');
-    if (!userId) throw new Error('userId required');
-    return userId;
+  authenticate: (request) => {
+    const session = getSession(request); // your auth (cookie, JWT, ...)
+    if (!session) return null;
+    return { userId: session.user.id };
   },
 });
 ```
@@ -363,13 +358,12 @@ export const { GET, POST } = createNextMcpHandler({
 ```typescript title="components/McpClient.tsx"
 'use client';
 
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/react';
 import { useState } from 'react';
 
-export function McpClient({ userId }: { userId: string }) {
+export function McpClient() {
   const { connections, connect, callTool, status } = useMcp({
-    url: `/api/mcp?userId=${userId}`,
-    userId,
+    url: '/api/mcp',
     autoConnect: true,
   });
 

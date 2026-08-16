@@ -1,7 +1,7 @@
 ---
 title: "Server-Side API"
 sidebarTitle: "Server-Side"
-description: "API reference for mcp-ts server-side primitives, including MCPClient, MultiSessionClient, framework handlers, and session storage."
+description: "API reference for mcp-ts server-side primitives, including McpClient, McpManager, framework handlers, and session storage."
 icon: "server"
 ---
 
@@ -10,17 +10,19 @@ icon: "server"
 Creates handlers for Next.js App Router API routes.
 
 ```typescript
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client';
 
 const { GET, POST } = createNextMcpHandler({
-  getUserId?: (request) => string | null,
-  getAuthToken?: (request) => string | null,
-  authenticate?: (userId, token) => Promise<boolean> | boolean,
+  authenticate?: (request) => AuthenticatedUser | null | Promise<AuthenticatedUser | null>,
   heartbeatInterval?: number,
   clientDefaults?: ClientMetadata,
   getClientMetadata?: (request) => ClientMetadata | Promise<ClientMetadata>,
 });
 ```
+
+Where `AuthenticatedUser` is `{ userId: string }`.
+
+`authenticate` resolves the user from the request and returns `null` to reject with 401. By default it trusts the client's `x-mcp-user-id` header; override it to resolve identity server-side from your own session/cookie/JWT and ignore client-supplied identifiers. Read credentials (e.g. `Authorization` header) directly from the request inside the callback.
 
 **Returns:** `{ GET, POST }`
 
@@ -31,7 +33,7 @@ const { GET, POST } = createNextMcpHandler({
 Creates a Node.js-compatible handler for standard HTTP frameworks.
 
 ```typescript
-import { createSSEHandler } from '@mcp-ts/sdk/server';
+import { createSSEHandler } from '@mcp-ts/client';
 
 const handler = createSSEHandler({
   userId: string,
@@ -50,7 +52,7 @@ Mount the same handler for both the streamed `GET` endpoint and `POST` RPC calls
 `clientDefaults` and `getClientMetadata` can provide OAuth display metadata, a custom OAuth provider, and MCP SDK v2 client options:
 
 ```typescript
-import type { McpSdkClientOptions } from '@mcp-ts/sdk/server';
+import type { McpSdkClientOptions } from '@mcp-ts/client';
 
 interface ClientMetadata {
   clientName?: string;
@@ -88,7 +90,7 @@ When `transport` is omitted, Streamable HTTP is tried. Automatic SSE fallback is
 Direct MCP client class for server-side operations.
 
 ```typescript
-import { MCPClient } from '@mcp-ts/sdk/server';
+import { MCPClient } from '@mcp-ts/client';
 
 const client = new MCPClient({
   userId: string,
@@ -128,14 +130,14 @@ const client = new MCPClient({
 
 ---
 
-### `MultiSessionClient`
+### `McpManager`
 
 Manages multiple MCP connections for a single user.
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
+import { McpManager } from '@mcp-ts/client';
 
-const mcp = new MultiSessionClient(userId, {
+const mcp = new McpManager(userId, {
   timeout: 15000,
   maxRetries: 2,
   retryDelay: 1000,
@@ -145,7 +147,7 @@ const mcp = new MultiSessionClient(userId, {
 #### Common methods
 
 - `connect(): Promise<void>`
-- `getClients(): MCPClient[]`
+- `getClients(): McpClient[]`
 - `disconnect(): void`
 
 ---
@@ -162,5 +164,5 @@ import {
   SqliteStorage,
   SupabaseStorageBackend,
   NeonStorageBackend,
-} from '@mcp-ts/sdk/server';
+} from '@mcp-ts/client';
 ```

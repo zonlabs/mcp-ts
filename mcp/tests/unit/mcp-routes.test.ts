@@ -26,10 +26,9 @@ vi.mock("agents/mcp/server", () => ({
   createMcpHandler: mockCreateMcpHandler,
 }));
 
-import { createApp } from "../../src/app";
+import worker from "../../src/index";
 
 describe("MCP Hono Routes", () => {
-  const app = createApp();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -41,16 +40,15 @@ describe("MCP Hono Routes", () => {
   });
 
   it("delegates authenticated MCP requests to the Cloudflare MCP v2 handler", async () => {
-    const response = await app.request(
-      "/mcp",
-      {
+    const response = await worker.fetch(
+      new Request("http://localhost/mcp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer valid-token",
         },
         body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
-      },
+      }),
       { LOADER: {} },
       { waitUntil: vi.fn() } as never
     );

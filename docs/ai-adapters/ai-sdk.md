@@ -9,18 +9,18 @@ The `AIAdapter` converts MCP tools into the format expected by the [Vercel AI SD
 ## Installation
 
 ```bash
-npm install @mcp-ts/sdk ai
+npm install @mcp-ts/client ai
 ```
 
 ## Usage
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { McpManager } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
-const client = new MultiSessionClient('user_123');
+const client = new McpManager('user_123');
 await client.connect();
 
 const adapter = new AIAdapter(client);

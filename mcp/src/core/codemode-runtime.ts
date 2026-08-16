@@ -66,7 +66,8 @@ export async function createWorkflowCodeModeRuntime(
   provider: ClientProvider,
   limits: CodeModeLimits,
   analyticsContext?: AnalyticsContext,
-  cloudflare?: CloudflareCodeModeRuntimeEnv
+  cloudflare?: CloudflareCodeModeRuntimeEnv,
+  outboundServers: ToolServer[] = []
 ): Promise<CodeModeRuntime> {
   const codemode = (await import("@mcp-ts/codemode")) as unknown as CodeModeModuleCompat;
   const env = loadEnv();
@@ -77,7 +78,11 @@ export async function createWorkflowCodeModeRuntime(
     timeoutMs: limits.timeoutMs !== undefined ? Math.min(limits.timeoutMs, maxTimeout) : maxTimeout,
   };
 
-  const servers = codemode.mcpServers?.(provider) ?? [];
+  // Inbound servers = the user's connected MCP servers (via the SDK client
+  // provider). Outbound servers = the user's local-device tools reached over
+  // the gateway's outbound WebSocket bridge. Both are callable from the sandbox.
+  const inboundServers = codemode.mcpServers?.(provider) ?? [];
+  const servers = [...inboundServers, ...outboundServers];
   const executor = await createCloudflareCodeModeExecutor(cloudflare?.loader, cappedLimits.timeoutMs);
 
   return codemode.createCodeModeRuntime({
@@ -95,7 +100,7 @@ async function createCloudflareCodeModeExecutor(loader: unknown, timeoutMs?: num
 
   const { DynamicWorkerExecutor } = await import("@cloudflare/codemode");
   return new DynamicWorkerExecutor({
-    loader,
+    loader: loader as WorkerLoader,
     ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
   });
 }

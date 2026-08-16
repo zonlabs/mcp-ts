@@ -18,8 +18,8 @@
 
 
   <p>
-    <a href="https://www.npmjs.com/package/@mcp-ts/sdk">
-      <img src="https://img.shields.io/npm/v/@mcp-ts/sdk?color=dc2626&label=npm&logo=npm&style=flat-square" alt="npm version" />
+    <a href="https://www.npmjs.com/package/@mcp-ts/client">
+      <img src="https://img.shields.io/npm/v/@mcp-ts/client?color=dc2626&label=npm&logo=npm&style=flat-square" alt="npm version" />
     </a>
     <a href="https://pypi.org/project/mcpassistant-gateway/">
       <img src="https://img.shields.io/pypi/v/mcpassistant-gateway?color=3776ab&label=pypi&logo=pypi&style=flat-square" alt="pypi version" />
@@ -62,7 +62,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 - [Packages](#packages)
 - [Examples](#examples)
 - [Inspiration](#inspiration)
-- [SDK Setup (@mcp-ts/sdk)](#sdk-setup-mcp-tssdk)
+- [SDK Setup (@mcp-ts/client)](#client-setup-mcp-tsclient)
   - [Installation](#installation)
   - [Quick Start](#quick-start)
   - [MCP Endpoint (Hosted)](#-mcp-endpoint-hosted)
@@ -73,7 +73,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
   - [Topics Covered](#️-topics-covered)
 - [Environment Setup](#environment-setup)
   - [Configuration Examples](#-configuration-examples)
-- [Gateway Setup (mcpassistant-gateway)](#gateway-setup-mcpassistant-gateway)
+- [Gateway Setup](#-gateway-setup)
   - [Installation](#installation-1)
   - [Usage](#usage)
 - [Architecture](#architecture)
@@ -87,10 +87,25 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 
 | Package | Description | Install |
 | :--- | :--- | :--- |
-| **[@mcp-ts/sdk](packages/sdk)** | Core TypeScript/JavaScript SDK for client applications. | `npm i @mcp-ts/sdk` |
+| **[@mcp-ts/client](packages/client)** | Core TypeScript/JavaScript SDK for client applications. | `npm i @mcp-ts/client` |
 | **[@mcp-ts/tool-router](packages/tool-router)** | ToolRouter for dynamic tool discovery across many MCP servers. | `npm i @mcp-ts/tool-router` |
 | **[@mcp-ts/codemode](packages/code-mode)** | CodeMode: sandboxed program execution for tool calling. | `npm i @mcp-ts/codemode` |
-| **[mcpassistant-gateway](packages/local-gateway)** | Python bridge for local MCP support in remote apps. | `pip install mcpassistant-gateway` |
+| **[@mcp-ts/cli](packages/cli)** | Explore, search, benchmark, codegen, and run a local MCP gateway daemon (`mcp-ts`). | `npm i @mcp-ts/cli` |
+
+---
+
+### Developer CLI
+
+Use the CLI to inspect a Streamable HTTP MCP endpoint without building an application first:
+
+```bash
+npx @mcp-ts/cli connect https://api.example.com/mcp
+npx @mcp-ts/cli search https://api.example.com/mcp "send email"
+npx @mcp-ts/cli bench https://api.example.com/mcp
+npx @mcp-ts/cli codegen https://api.example.com/mcp --out ./src/mcp-tools.ts
+```
+
+The `connect` REPL supports `search`, `schema`, and `call` commands. See the [CLI package README](packages/cli) for details.
 
 ---
 
@@ -149,16 +164,16 @@ That’s how `@mcp-ts` started.
 
 <br/>
 
-<a id="sdk-setup-mcp-tssdk"></a>
+<a id="client-setup-mcp-tsclient"></a>
 
-## 🛠️ SDK Setup (@mcp-ts/sdk)
+## 🛠️ SDK Setup (@mcp-ts/client)
 
 ### 📦 Installation
 
 <a id="installation"></a>
 
 ```bash
-npm install @mcp-ts/sdk
+npm install @mcp-ts/client
 ```
 
 The SDK supports multiple storage backends out of the box:
@@ -178,7 +193,7 @@ Working reference: [examples/next](examples/next)
 
 ```typescript
 // app/api/mcp/route.ts
-import { createNextMcpHandler } from '@mcp-ts/sdk/server';
+import { createNextMcpHandler } from '@mcp-ts/client';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -198,7 +213,7 @@ export const { GET, POST } = createNextMcpHandler({
 ```typescript
 'use client';
 
-import { useMcp } from '@mcp-ts/sdk/client/react';
+import { useMcp } from '@mcp-ts/client/react';
 
 function App() {
   const { connections, connect } = useMcp({
@@ -285,14 +300,14 @@ Integrating with agent frameworks is simple using built-in adapters.
 
 ```typescript
 // app/api/chat/route.ts
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-import { AIAdapter } from '@mcp-ts/sdk/adapters/ai';
+import { McpManager } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 export async function POST(req: Request) {
   const { messages, userId } = await req.json();
-  const client = new MultiSessionClient(userId);
+  const client = new McpManager(userId);
 
   try {
     await client.connect();
@@ -319,10 +334,10 @@ export async function POST(req: Request) {
 <summary>Agui Adapter</summary>
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-import { AguiAdapter } from '@mcp-ts/sdk/adapters/agui-adapter';
+import { McpManager } from '@mcp-ts/client';
+import { AguiAdapter } from '@mcp-ts/client/adapters/agui-adapter';
 
-const client = new MultiSessionClient("user_123");
+const client = new McpManager("user_123");
 await client.connect();
 
 const adapter = new AguiAdapter(client);
@@ -335,10 +350,10 @@ const tools = await adapter.getTools();
 <summary>Mastra Adapter</summary>
 
 ```typescript
-import { MultiSessionClient } from '@mcp-ts/sdk/server';
-import { MastraAdapter } from '@mcp-ts/sdk/adapters/mastra-adapter';
+import { McpManager } from '@mcp-ts/client';
+import { MastraAdapter } from '@mcp-ts/client/adapters/mastra-adapter';
 
-const client = new MultiSessionClient("user_123");
+const client = new McpManager("user_123");
 await client.connect();
 
 const tools = await MastraAdapter.getTools(client);
@@ -357,12 +372,12 @@ Execute MCP tools server-side when using remote agents (LangGraph, AutoGen, etc.
 
 ```typescript
 import { HttpAgent } from "@ag-ui/client";
-import { AguiAdapter } from "@mcp-ts/sdk/adapters/agui-adapter";
-import { createMcpMiddleware } from "@mcp-ts/sdk/adapters/agui-middleware";
+import { AguiAdapter } from "@mcp-ts/client/adapters/agui-adapter";
+import { createMcpMiddleware } from "@mcp-ts/client/adapters/agui-middleware";
 
 // Connect to MCP servers
-const { MultiSessionClient } = await import("@mcp-ts/sdk/server");
-const client = new MultiSessionClient("user_123");
+const { McpManager } = await import("@mcp-ts/client");
+const client = new McpManager("user_123");
 await client.connect();
 
 // Create adapter and get tools
@@ -393,7 +408,7 @@ Render interactive UIs for your tools using `McpAppRenderer`.
 
 ```typescript
 import { useRenderToolCall } from "@copilotkit/react-core";
-import { McpAppRenderer } from "@mcp-ts/sdk/client/react";
+import { McpAppRenderer } from "@mcp-ts/client/react";
 import { useMcpContext } from "./mcp";
 
 export function ToolRenderer() {
@@ -482,30 +497,41 @@ The library supports multiple storage backends. You can explicitly select one us
 
 <a id="gateway-setup-mcpassistant-gateway"></a>
 
-## 🐍 Gateway Setup (mcpassistant-gateway)
+## 🔌 Gateway Setup
 
-The **MCP Gateway** is a Python-based bridge that allows local MCP servers to be accessed by remote applications via an outbound connection. This is useful for providing local context (like your filesystem) to a hosted AI agent.
+The **MCP Gateway** lets local MCP servers be accessed by remote applications
+(via an outbound connection) and by local MCP clients (via a clean local HTTP
+endpoint). It is built on the official MCP TypeScript SDK v2 and has no
+interactive UI — it runs as a daemon.
+
+- **`mcp-ts serve`** (`@mcp-ts/cli`) — reads a single `mcp.json`, starts your
+  local MCP servers (stdio or HTTP/SSE), aggregates their tools, serves
+  `http://local.mcp-assistant.in/mcp`, and bridges outbound to the MCP
+  Assistant gateway (`https://api.mcp-assistant.in`) over a persistent WebSocket.
 
 <a id="installation-1"></a>
 
 ### 📦 Installation
 
 ```bash
-pip install mcpassistant-gateway
+npm install -g @mcp-ts/cli
 ```
+
+Requires Node >= 20.
 
 ### 🚀 Usage
 
 <a id="usage"></a>
 
-You can run the gateway using `uvx` or `pip`:
-
 ```bash
-# Run the interactive menu
-uvx mcpassistant-gateway menu
+# Write a default mcp.json
+mcp-ts init
 
-# Run the bridge directly
-uvx mcpassistant-gateway run --name "local-files"
+# Pair this machine with the MCP Assistant gateway
+mcp-ts link
+
+# Run the daemon (local endpoint + remote bridge)
+mcp-ts serve
 ```
 
 ---
@@ -522,7 +548,7 @@ graph LR
         UI[Browser UI]
         Hook[useMcp Hook]
         API[Next.js /api/mcp]
-        Mgr[MultiSessionClient]
+        Mgr[McpManager]
         Store[(Redis/File/Memory)]
         MCP[MCP Servers]
 
@@ -534,26 +560,26 @@ graph LR
         Mgr <--> MCP
     end
 
-    subgraph Bridge["Remote Bridge Flow (Python)"]
+    subgraph Bridge["Remote Bridge Flow (Cloudflare)"]
         direction TB
         Spacer[" "]
-        Agent[mcpassistant-gateway]
-        Remote[Remote Bridge Server]
+        Worker[mcp-assistant Worker + DO]
+        Local[local-gateway daemon (mcp-ts serve)]
         LocalMcp[Local MCP Servers]
 
-        Spacer --- Agent
-        Agent -- "WSS /connect (outbound)" --> Remote
-        Agent <--> LocalMcp
+        Spacer --- Worker
+        Local -- "WSS /connect (outbound)" --> Worker
+        Local <--> LocalMcp
         style Spacer fill:transparent,stroke:transparent,color:transparent
     end
 ```
 
-- **Direct SDK flow**: Browser clients use `useMcp` over HTTP + SSE to a server route backed by `MultiSessionClient`.
-- **Bridge flow**: `mcpassistant-gateway` keeps an outbound authenticated WebSocket to a remote bridge and forwards tool calls to local MCP servers.
+- **Direct SDK flow**: Browser clients use `useMcp` over HTTP + SSE to a server route backed by `McpManager`.
+- **Bridge flow**: the local `mcp-ts serve` daemon (`@mcp-ts/cli`) keeps an outbound authenticated WebSocket to the MCP Assistant gateway (`@mcp-ts/mcp`, deployed at `https://api.mcp-assistant.in`). Remote MCP clients (ChatGPT, Claude) connect to its aggregated `/mcp` endpoint and their tool calls are forwarded to local MCP servers.
 - **Storage**: Session state and connection metadata persist in Redis, File, SQLite, or Memory backends.
 
 > [!NOTE]
-> This package (`@mcp-ts/sdk`) provides a unified MCP client with support for adapters and storage backends such as AI SDK, Mastra, LangChain, and Redis.
+> This package (`@mcp-ts/client`) provides a unified MCP client with support for adapters and storage backends such as AI SDK, Mastra, LangChain, and Redis.
 > Adapters and storage backends are loaded via **optional peer dependencies** and must be installed independently. This ensures your application only includes the integrations you explicitly choose, keeping bundle size small and avoiding unnecessary dependencies.
 > The SDK includes built-in support for **Memory** and **File** storage, while additional backends (such as Redis) and adapters can be added without impacting users who don't need them.
 
@@ -569,7 +595,7 @@ For more details, refer to the documentation and follow the **installation guide
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](packages/sdk/CONTRIBUTING.md) for guidelines on how to contribute.
+Contributions are welcome! Please read [CONTRIBUTING.md](packages/client/CONTRIBUTING.md) for guidelines on how to contribute.
 
 
 <br />
@@ -577,4 +603,3 @@ Contributions are welcome! Please read [CONTRIBUTING.md](packages/sdk/CONTRIBUTI
 <p align="center">
   <em>Thanks for visiting @mcp-ts!</em>
 </p>
-

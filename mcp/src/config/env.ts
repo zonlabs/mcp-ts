@@ -3,8 +3,8 @@ import { z } from "zod";
 const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SECRET_KEY: z.string().min(1),
+  SUPABASE_ANON_KEY: z.string().optional(),
   REDIS_URL: z.string().optional(),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3002),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   STORAGE_ENCRYPTION_KEY: z.string().optional(),
@@ -25,11 +25,7 @@ export function parseEnv(input: unknown): Env {
   const result = envSchema.safeParse(input);
   if (!result.success) {
     const fieldSet = new Set(result.error.issues.map((i) => i.path.join(".")));
-    const fields = Array.from(fieldSet).sort((a, b) => {
-      if (a === "PORT") return -1;
-      if (b === "PORT") return 1;
-      return a.localeCompare(b);
-    });
+    const fields = Array.from(fieldSet).sort((a, b) => a.localeCompare(b));
     throw new Error(`Invalid environment configuration fields: ${fields.join(", ")}`);
   }
   return result.data;

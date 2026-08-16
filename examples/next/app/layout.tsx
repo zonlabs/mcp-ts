@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MCP + AI Chat",
-  description: "Next.js example: @mcp-ts/sdk with AI Elements chat",
+  description: "Next.js example: @mcp-ts/client with AI Elements chat",
 };
 
 export default function RootLayout({

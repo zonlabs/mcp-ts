@@ -73,7 +73,8 @@
           {
             "group": "Examples",
             "pages": [
-              "examples"
+              "examples",
+              "examples/build-mcp-agent"
             ]
           },
           {
