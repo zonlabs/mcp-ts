@@ -62,6 +62,16 @@
             ]
           },
           {
+            "group": "Developer CLI & Gateway",
+            "pages": [
+              "cli/overview",
+              "cli/commands",
+              "gateway/overview",
+              "gateway/installation",
+              "gateway/configuration"
+            ]
+          },
+          {
             "group": "Framework Guides",
             "pages": [
               "nextjs",
@@ -159,7 +169,8 @@
             "pages": [
               "reference/server",
               "reference/storage",
-              "reference/tool-router"
+              "reference/tool-router",
+              "reference/cli"
             ]
           },
           {

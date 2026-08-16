@@ -1,32 +1,62 @@
 ---
 title: "Gateway Configuration"
 sidebarTitle: "Configuration"
-description: "Configure the MCP Gateway to expose local MCP servers to cloud clients like ChatGPT and Claude, including server lists, auth, and connection settings."
+description: "Configure mcp.json to define local stdio and HTTP/SSE MCP servers for the @mcp-ts/cli gateway daemon."
 icon: "gear"
 ---
 
-The MCP Gateway reads its server definitions from a simple JSON configuration file.
+The MCP Gateway daemon (`mcpa serve` / `mcp-ts serve`) reads its server configurations from `mcp.json`.
 
-### File Location
+### Configuration Discovery
 
-The configuration file is located at the following path based on your operating system:
+The gateway automatically searches for `mcp.json` in:
+1. Current working directory (`./mcp.json`)
+2. Local `.mcpassistant/mcp.json`
+3. Global user configuration (`~/.mcpassistant/mcp.json`)
 
-- **Windows**: `%USERPROFILE%\.mcpassistant\mcp.json`
-- **UNIX/macOS**: `~/.mcpassistant/mcp.json`
+To generate a starting template, run:
+```bash
+mcpa init
+```
 
-### mcp.json Structure
+---
 
-Add your local MCP servers to the `mcpServers` object. The Gateway will automatically discover these when you run the `/start` command.
+### `mcp.json` Schema
+
+Add your local stdio and HTTP/SSE servers to the `mcpServers` object:
 
 ```json
 {
   "mcpServers": {
-    "my-local-server": {
-      "command": "node",
-      "args": ["C:/path/to/server/index.js"]
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./data"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    },
+    "remote-service": {
+      "url": "https://mcp.internal.company.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
     }
   }
 }
 ```
 
-Once configured, these servers will be tunneled to secure remote URLs that can be used by cloud clients like **ChatGPT**, **Claude**, and the **MCP Assistant**.
+---
+
+### Starting the Daemon
+
+Once configured, launch the gateway:
+
+```bash
+mcpa serve
+```
+
+The gateway aggregates all configured server tools, serves them on `http://127.0.0.1:8787/mcp`, and bridges them securely to `https://api.mcp-assistant.in` for cloud AI clients.

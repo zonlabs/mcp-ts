@@ -1,30 +1,48 @@
 ---
 title: "Gateway Installation"
 sidebarTitle: "Installation"
-description: "Install the mcp-ts MCP Gateway CLI and run it locally to bridge stdio MCP servers to cloud clients like ChatGPT and Claude in just a few commands."
+description: "Install the @mcp-ts/cli (mcpa / mcp-ts) and run the local gateway daemon to bridge stdio/HTTP MCP servers to cloud clients."
 icon: "download"
 ---
 
-The MCP Gateway is distributed as a lightweight CLI tool. The easiest way to run it is using `uv`.
+The MCP Gateway is distributed through the **`@mcp-ts/cli`** npm package.
 
-### Run via uvx
+### Global Installation
 
-To launch the gateway shell without a manual installation, run:
+Install globally using your favorite package manager to get both the **`mcpa`** and **`mcp-ts`** binary commands:
 
 ```bash
-uvx mcpassistant-gateway
+npm install -g @mcp-ts/cli
 ```
+
+### Run via npx
+
+Alternatively, run directly with `npx` without global installation:
+
+```bash
+npx @mcp-ts/cli serve
+```
+
+---
 
 ### Initial Setup
 
-Once the shell is open, follow these steps to initialize your bridge:
+Follow these quick steps to get your gateway up and running:
 
-1. **Authentication**: Use the `/logout` or `/login` flow to ensure you are connected to your MCP Assistant account.
-2. **Launch Bridge**: Run the `/start` command to initialize the tunnels for your locally configured servers.
+1. **Initialize configuration**:
+   ```bash
+   mcpa init
+   ```
+   This generates an `mcp.json` file in your current directory.
 
-```bash
-mcp > /start
-[1/1] 'filesystem' ↣ initializing...
-```
+2. **Authenticate with MCP Assistant**:
+   ```bash
+   mcpa link
+   ```
+   This opens your browser for a one-time Google/OAuth sign-in and securely saves your device credential.
 
-Use `/help` at any time within the shell to see the full list of available commands.
+3. **Start the Gateway**:
+   ```bash
+   mcpa serve
+   ```
+   The gateway daemon starts your configured MCP servers, serves a local HTTP endpoint (`http://127.0.0.1:8787/mcp`), and opens an outbound WebSocket tunnel to `https://api.mcp-assistant.in`.

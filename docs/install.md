@@ -20,10 +20,19 @@ Before installing, ensure you have:
 
 ## Install the Package
 
-Choose your preferred package manager:
-
+### TypeScript / JavaScript SDK
 ```bash npm2yarn
 npm install @mcp-ts/client
+```
+
+### Developer CLI & Gateway (`mcpa` / `mcp-ts`)
+```bash npm2yarn
+npm install -g @mcp-ts/cli
+```
+
+Or run on-demand with `npx`:
+```bash
+npx @mcp-ts/cli serve
 ```
 
 ## Configure Storage Backend
