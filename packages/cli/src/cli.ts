@@ -13,11 +13,12 @@ import { cmdServe } from "./commands/serve.js";
 import { cmdConnect } from "./commands/connect.js";
 import { cmdBench } from "./commands/bench.js";
 import { cmdCodegen } from "./commands/codegen.js";
+import type { LocalMcpDiscoveryMode } from "./gateway/local-http-mcp.js";
 import pc from "picocolors";
 
 const HELP = `${renderBanner()}
 Usage:
-  mcpa serve [--host h] [--port p] [--mode <all|search|auto>] [--verbose]
+  mcpa serve [--host h] [--port p] [--mode <all|search>] [--verbose]
                                                 Run the local MCP gateway daemon
   mcpa call <tool> [jsonArgs]                   Directly execute a local MCP tool
   mcpa search [url] <query> [--limit <count>]   Search local or remote tool catalog
@@ -34,7 +35,7 @@ Flags:
   -v, --version                                 Show CLI version
   -h, --help                                    Show help information
   --verbose                                     Show verbose child process chatter
-  --mode <all|search|auto>                      Gateway tool discovery mode (default: auto)
+  --mode <all|search>                           Gateway tool discovery mode (default: search)
 
 Connect REPL commands:
   search <query>             Search the remote tool catalog
@@ -65,6 +66,11 @@ function isUrl(str: string): boolean {
   return str.startsWith("http://") || str.startsWith("https://");
 }
 
+export function parseDiscoveryMode(value?: string): LocalMcpDiscoveryMode | undefined {
+  if (value === undefined || value === "search" || value === "all") return value;
+  throw new Error('--mode must be "search" or "all"');
+}
+
 export async function runCli(
   args: string[],
   streams: { input: Readable; output: Writable; error: Writable } = {
@@ -85,7 +91,7 @@ export async function runCli(
 
   const verbose = args.includes("--verbose");
   const dir = option(commandArgs, "--dir");
-  const mode = option(commandArgs, "--mode") as "all" | "search" | "auto" | undefined;
+  const mode = parseDiscoveryMode(option(commandArgs, "--mode"));
 
   try {
     if (command === "init") {

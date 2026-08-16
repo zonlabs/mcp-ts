@@ -3,6 +3,7 @@ import { test } from "vitest";
 import type { ToolClient } from "@mcp-ts/tool-router";
 import type { Tool } from "@modelcontextprotocol/client";
 import { benchmarkStrategies, createRouter, generateWrappers, resolveTool, searchTools } from "../src/core.js";
+import { parseDiscoveryMode } from "../src/cli.js";
 
 const tools: Tool[] = [
   {
@@ -113,4 +114,12 @@ test("renders banner, tree formatters and reports version", async () => {
   assert.ok(helpOutput.includes("mcpa schema"));
   assert.ok(helpOutput.includes("mcpa list"));
   assert.ok(helpOutput.includes("--mode"));
+  assert.ok(!helpOutput.includes("all|search|auto"));
+});
+
+test("accepts only deterministic discovery modes", () => {
+  assert.equal(parseDiscoveryMode(undefined), undefined);
+  assert.equal(parseDiscoveryMode("search"), "search");
+  assert.equal(parseDiscoveryMode("all"), "all");
+  assert.throws(() => parseDiscoveryMode("auto"), /--mode must be "search" or "all"/);
 });

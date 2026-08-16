@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MCP_META_TOOL_NAMES } from "../src/gateway/local-http-mcp.js";
+import {
+  MCP_META_TOOL_NAMES,
+  isSearchDiscoveryMode,
+} from "../src/gateway/local-http-mcp.js";
 
 describe("LocalHttpMcp", () => {
   it("uses the remote MCP discovery vocabulary", () => {
@@ -9,5 +12,11 @@ describe("LocalHttpMcp", () => {
       getToolSchema: "get_mcp_tool_schema",
       callTool: "call_mcp_tool",
     });
+  });
+
+  it("defaults to search discovery", () => {
+    expect(isSearchDiscoveryMode()).toBe(true);
+    expect(isSearchDiscoveryMode("search")).toBe(true);
+    expect(isSearchDiscoveryMode("all")).toBe(false);
   });
 });

@@ -23,7 +23,7 @@ npx @mcp-ts/cli [command]
 
 <CardGroup cols={2}>
   <Card title="Local MCP Gateway" icon="server" href="/gateway/overview">
-    Run local stdio and HTTP/SSE MCP servers, aggregate tools, and expose a clean local HTTP endpoint (`http://127.0.0.1:8787/mcp`).
+    Run local stdio and HTTP/SSE MCP servers, aggregate tools, and expose a clean local HTTP endpoint (`http://127.0.0.1:8790/mcp`).
   </Card>
   <Card title="Remote Bridge" icon="cloud" href="/gateway/configuration">
     Sign in via OAuth (`mcpa login`) and bridge local servers to remote AI assistants over an outbound JSON-RPC WebSocket.

@@ -14,13 +14,4 @@ export type McpServerConfig = StdioServerConfig | HttpServerConfig;
 
 export interface McpServersConfig {
   mcpServers: Record<string, McpServerConfig>;
-  strategy?: "all" | "search" | "auto";
-}
-
-export interface GatewayConfig {
-  remote?: string;
-  host?: string;
-  port?: number;
-  path?: string;
-  mode?: "all" | "search" | "auto";
 }

@@ -507,7 +507,7 @@ interactive UI — it runs as a daemon.
 
 - **`mcpa serve` / `mcp-ts serve`** (`@mcp-ts/cli`) — reads a single `mcp.json`, starts your
   local MCP servers (stdio or HTTP/SSE), aggregates their tools, serves
-  `http://127.0.0.1:8787/mcp`, and bridges outbound to the MCP
+  `http://127.0.0.1:8790/mcp`, and bridges outbound to the MCP
   Assistant gateway (`https://api.mcp-assistant.in`) over a persistent WebSocket.
 
 <a id="installation-1"></a>

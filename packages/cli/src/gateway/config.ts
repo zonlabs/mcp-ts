@@ -1,10 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import type { GatewayConfig, McpServersConfig } from "./types.js";
+import type { McpServersConfig } from "./types.js";
 
-export type { GatewayConfig }; 
 export const CONFIG_FILENAME = "mcp.json";
-export const STATE_FILENAME = "gateway.json";
 
 const DEFAULT_CONFIG_DIR = ".mcpassistant";
 
@@ -63,36 +61,5 @@ export function writeDefaultMcpJson(dir: string): string {
   mkdirSync(targetDir, { recursive: true });
   const path = join(targetDir, CONFIG_FILENAME);
   writeFileSync(path, JSON.stringify(DEFAULT_MCP_JSON, null, 2));
-  return path;
-}
-
-export function stateFilePath(startDir: string = process.cwd()): string {
-  const explicit = process.env.MCP_STATE_PATH;
-  if (explicit) return explicit;
-  let dir = resolve(startDir);
-  for (;;) {
-    const candidate = join(dir, DEFAULT_CONFIG_DIR);
-    if (existsSync(candidate)) return join(candidate, STATE_FILENAME);
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return join(resolve(startDir), DEFAULT_CONFIG_DIR, STATE_FILENAME);
-}
-
-export function loadState(startDir: string = process.cwd()): GatewayConfig {
-  const path = stateFilePath(startDir);
-  if (!existsSync(path)) return {};
-  try {
-    return JSON.parse(readFileSync(path, "utf8")) as GatewayConfig;
-  } catch {
-    return {};
-  }
-}
-
-export function saveState(config: GatewayConfig, startDir: string = process.cwd()): string {
-  const path = stateFilePath(startDir);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(config, null, 2));
   return path;
 }

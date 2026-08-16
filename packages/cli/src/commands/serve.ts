@@ -3,7 +3,7 @@ import { McpGatewayRegistry } from "../gateway/registry.js";
 import { LocalHttpMcp } from "../gateway/local-http-mcp.js";
 import { RemoteBridgeClient } from "../gateway/bridge-client.js";
 import { Traffic } from "../traffic.js";
-import { loadMcpJson, loadState } from "../gateway/config.js";
+import { loadMcpJson } from "../gateway/config.js";
 import {
   ensureFreshAuthSession,
   InvalidAuthSessionError,
@@ -33,8 +33,10 @@ export interface ServeArgs {
   remote?: string;
   login?: string;
   verbose?: boolean;
-  mode?: "all" | "search" | "auto";
+  mode?: "all" | "search";
 }
+
+export const DEFAULT_LOCAL_MCP_PORT = 8790;
 
 interface ShutdownHandlerOptions {
   cleanup(): Promise<void>;
@@ -95,11 +97,9 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   process.on("exit", clearTicker);
 
   let localConfig: Record<string, any> = {};
-  let strategyFromConfig: ServeArgs["mode"];
   try {
     const { config } = loadMcpJson(target);
     localConfig = config.mcpServers ?? {};
-    strategyFromConfig = (config as { strategy?: ServeArgs["mode"] }).strategy;
   } catch {
     // Remote-only gateways do not require mcp.json.
   }
@@ -120,11 +120,10 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
-  const state = loadState(target);
-  const host = args.host ?? state.host ?? "0.0.0.0";
-  const port = args.port ?? state.port ?? 8787;
-  const path = args.path ?? state.path ?? "/mcp";
-  const mode = args.mode ?? strategyFromConfig ?? "auto";
+  const host = args.host ?? "127.0.0.1";
+  const port = args.port ?? DEFAULT_LOCAL_MCP_PORT;
+  const path = args.path ?? "/mcp";
+  const mode = args.mode ?? "search";
   localHttpMcp = new LocalHttpMcp(registry, { host, port, path, mode }, traffic);
   let localUrl: string;
   try {

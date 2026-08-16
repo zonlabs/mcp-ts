@@ -12,12 +12,17 @@ export const MCP_META_TOOL_NAMES = {
   callTool: "call_mcp_tool",
 } as const;
 
+export type LocalMcpDiscoveryMode = "all" | "search";
+
 export interface LocalHttpMcpOptions {
   host: string;
   port: number;
   path: string;
-  mode?: "all" | "search" | "auto";
-  maxDirectTools?: number;
+  mode?: LocalMcpDiscoveryMode;
+}
+
+export function isSearchDiscoveryMode(mode?: LocalMcpDiscoveryMode): boolean {
+  return (mode ?? "search") === "search";
 }
 
 async function toWebRequest(request: IncomingMessage): Promise<Request> {
@@ -80,9 +85,7 @@ export class LocalHttpMcp {
           this.registry.callToolByServer(server.serverId, toolName, args),
       })),
     });
-    const progressive =
-      this.options.mode === "search" ||
-      ((this.options.mode ?? "auto") === "auto" && tools.length > (this.options.maxDirectTools ?? 15));
+    const progressive = isSearchDiscoveryMode(this.options.mode);
 
     if (!progressive) {
       for (const tool of tools) {

@@ -10,12 +10,16 @@ export {
 } from "./core.js";
 export { estimateTextTokens, estimateToolTokens, estimateToolsTokens } from "./token-estimator.js";
 export { McpGatewayRegistry, canonicalToolId } from "./gateway/registry.js";
-export { LocalHttpMcp, type LocalHttpMcpOptions } from "./gateway/local-http-mcp.js";
+export {
+  LocalHttpMcp,
+  isSearchDiscoveryMode,
+  type LocalHttpMcpOptions,
+  type LocalMcpDiscoveryMode,
+} from "./gateway/local-http-mcp.js";
 export { RemoteBridgeClient, type RemoteBridgeClientOptions } from "./gateway/bridge-client.js";
 export {
   findMcpJson,
   loadMcpJson,
-  loadState,
   writeDefaultMcpJson,
   type LoadedConfig
 } from "./gateway/config.js";
@@ -25,5 +29,4 @@ export type {
   HttpServerConfig,
   McpServerConfig,
   McpServersConfig,
-  GatewayConfig,
 } from "./gateway/types.js";

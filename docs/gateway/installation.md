@@ -45,4 +45,4 @@ Follow these quick steps to get your gateway up and running:
    ```bash
    mcpa serve
    ```
-   The gateway daemon starts your configured MCP servers, serves a local HTTP endpoint (`http://127.0.0.1:8787/mcp`), and opens an outbound WebSocket tunnel to `https://api.mcp-assistant.in`.
+   The gateway daemon starts your configured MCP servers, serves a local HTTP endpoint (`http://127.0.0.1:8790/mcp`), and opens an outbound WebSocket tunnel to `https://api.mcp-assistant.in`.
