@@ -233,7 +233,7 @@ jobs:
 
       - name: Build CLI package
         if: steps.publish.outputs.cli_should_publish == 'true'
-        run: npm run build -w @mcp-ts/sdk && npm run build -w @mcp-ts/cli
+        run: npm run build -w @mcp-ts/client && npm run build -w @mcp-ts/cli
 
       - name: Publish CLI package to npm
         if: steps.publish.outputs.cli_should_publish == 'true'
