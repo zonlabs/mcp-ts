@@ -43,4 +43,12 @@ describe("published CLI package", () => {
 
     expect(stdout.trim()).toBe(`@mcp-ts/cli v${packageJson.version}`);
   });
+
+  test("does not ship stale implementation versions", async () => {
+    const dist = new URL("../dist", import.meta.url);
+    const files = await distributableFiles(fileURLToPath(dist));
+    const contents = await Promise.all(files.map((path) => readFile(path, "utf8")));
+
+    expect(contents.join("\n")).not.toContain('"0.1.4"');
+  });
 });

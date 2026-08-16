@@ -41,7 +41,7 @@ mcpa call github:list_issues '{"repo":"zonlabs/mcp-ts"}'
 
 ## 🔌 Run a Local MCP Gateway (For Code IDEs & Remote Bridges)
 
-Expose your local MCP servers to Code IDEs (Cursor, VS Code, Windsurf) through a clean HTTP endpoint (`http://127.0.0.1:8790/mcp`) with **Progressive Tool Discovery** to prevent prompt context bloat:
+Expose your local MCP servers to Code IDEs (Cursor, VS Code, Windsurf) through a clean HTTP endpoint (`http://127.0.0.1:8765/mcp`) with **Progressive Tool Discovery** to prevent prompt context bloat:
 
 ```bash
 mcpa init                                  # write a default mcp.json
@@ -55,7 +55,7 @@ In `.cursor/mcp.json` or VS Code MCP settings:
 {
   "mcpServers": {
     "local-gateway": {
-      "url": "http://127.0.0.1:8790/mcp"
+      "url": "http://127.0.0.1:8765/mcp"
     }
   }
 }

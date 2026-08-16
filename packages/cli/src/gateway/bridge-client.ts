@@ -15,7 +15,7 @@ import {
   type JsonRpcId,
   type ToolCallParams,
 } from "@mcp-ts/bridge-protocol";
-import { serverLog } from "../ux.js";
+import { CLI_VERSION, serverLog } from "../ux.js";
 
 export interface BridgeSocket {
   readonly readyState: number;
@@ -120,7 +120,7 @@ export class RemoteBridgeClient {
   private async initialize(): Promise<void> {
     const result = await this.sendRequest(BRIDGE_METHODS.initialize, {
       protocolVersion: BRIDGE_PROTOCOL_VERSION,
-      clientInfo: { name: "@mcp-ts/cli", version: "0.1.4" },
+      clientInfo: { name: "@mcp-ts/cli", version: CLI_VERSION },
       localCatalog: this.registry.getLocalCatalog(),
     });
     const initialized = bridgeInitializeResultSchema.parse(result);

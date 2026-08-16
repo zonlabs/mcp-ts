@@ -36,7 +36,7 @@ export interface ServeArgs {
   mode?: "all" | "search";
 }
 
-export const DEFAULT_LOCAL_MCP_PORT = 8790;
+export const DEFAULT_LOCAL_MCP_PORT = 8765;
 
 interface ShutdownHandlerOptions {
   cleanup(): Promise<void>;

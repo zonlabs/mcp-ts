@@ -6,7 +6,7 @@ import {
 
 describe("serve shutdown", () => {
   it("uses a port that does not collide with Wrangler", () => {
-    expect(DEFAULT_LOCAL_MCP_PORT).toBe(8790);
+    expect(DEFAULT_LOCAL_MCP_PORT).toBe(8765);
   });
 
   it("forces exit when interrupted again during graceful cleanup", async () => {

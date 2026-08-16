@@ -4,6 +4,7 @@ import type { CallToolResult } from "@modelcontextprotocol/client";
 import { createToolRouter, type ToolDefinition } from "@mcp-ts/tool-router";
 import type { McpGatewayRegistry } from "./registry.js";
 import type { Traffic } from "../traffic.js";
+import { CLI_VERSION } from "../ux.js";
 
 export const MCP_META_TOOL_NAMES = {
   listServers: "list_mcp_servers",
@@ -67,7 +68,7 @@ export class LocalHttpMcp {
   private server: ReturnType<typeof createServer> | null = null;
   private readonly handler = createMcpHandler(async () => {
     const mcp = new McpServer(
-      { name: "mcp-assistant-gateway", version: "0.1.4" },
+      { name: "mcp-assistant-gateway", version: CLI_VERSION },
       { capabilities: { tools: {} } },
     );
     const tools = this.registry.aggregatedTools();

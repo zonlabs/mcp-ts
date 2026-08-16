@@ -17,7 +17,7 @@ import {
   connectHttpMcpServer,
   type HttpMcpConnection,
 } from "./http-mcp-client.js";
-import { error as uxError, serverLog } from "../ux.js";
+import { CLI_VERSION, error as uxError, serverLog } from "../ux.js";
 import { Traffic } from "../traffic.js";
 
 function isHttpServerConfig(config: McpServerConfig): config is HttpServerConfig {
@@ -83,7 +83,7 @@ class LocalMcpConnection {
     if (transport instanceof StdioClientTransport) {
       transport.stderr?.on("data", (chunk: unknown) => serverLog(this.name, String(chunk), this.verbose));
     }
-    const client = new Client({ name: "@mcp-ts/cli", version: "0.1.4" }, {});
+    const client = new Client({ name: "@mcp-ts/cli", version: CLI_VERSION }, {});
     await client.connect(transport);
     this.transport = transport;
     this.client = client;

@@ -28,7 +28,7 @@ mcp-ts <command> [options]
 ## Commands
 
 ### `serve`
-Run the local MCP gateway daemon. Starts local MCP servers defined in `mcp.json`, exposes a local HTTP endpoint (`http://127.0.0.1:8790/mcp`), and optionally bridges outbound to the remote gateway.
+Run the local MCP gateway daemon. Starts local MCP servers defined in `mcp.json`, exposes a local HTTP endpoint (`http://127.0.0.1:8765/mcp`), and optionally bridges outbound to the remote gateway.
 
 ```bash
 mcpa serve [options]
@@ -39,7 +39,7 @@ mcpa serve [options]
   - `search`: Exposes `list_mcp_servers`, `search_mcp_tools`, `get_mcp_tool_schema`, and `call_mcp_tool` to minimize LLM context bloat.
   - `all`: Exposes all raw tool schemas directly.
 - `--host <host>`: Local host interface (default: `127.0.0.1`).
-- `--port <port>`: Local port number (default: `8790`).
+- `--port <port>`: Local port number (default: `8765`).
 - `--path <path>`: Local HTTP route path (default: `/mcp`).
 - `--remote <url>`: Remote gateway URL (default: `https://api.mcp-assistant.in`).
 - `--verbose`: Stream all child process startup stderr logs.
