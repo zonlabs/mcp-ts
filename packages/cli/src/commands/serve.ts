@@ -47,27 +47,27 @@ interface ShutdownHandlerOptions {
 
 export function createShutdownHandler(options: ShutdownHandlerOptions) {
   let shuttingDown = false;
-  let forced = false;
   const exit = options.exit ?? ((code: number) => process.exit(code));
 
   return async (signal: string): Promise<void> => {
     if (shuttingDown) {
-      forced = true;
       exit(130);
       return;
     }
     shuttingDown = true;
     options.onSignal?.(signal);
     const forceExit = setTimeout(() => {
-      forced = true;
       exit(130);
-    }, options.forceAfterMs ?? 3_000);
+    }, options.forceAfterMs ?? 1_500);
+    forceExit.unref?.();
 
     try {
       await options.cleanup();
+    } catch {
+      // Ignore cleanup errors on shutdown
     } finally {
       clearTimeout(forceExit);
-      if (!forced) exit(0);
+      exit(0);
     }
   };
 }
@@ -79,15 +79,26 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   let registry: McpGatewayRegistry | null = null;
   let localHttpMcp: LocalHttpMcp | null = null;
   let bridge: RemoteBridgeClient | null = null;
+
   const shutdown = createShutdownHandler({
     onSignal: (signal) => {
       clearTicker();
       warn(`Received ${signal}, shutting down...`);
     },
     cleanup: async () => {
-      await bridge?.stop();
-      await localHttpMcp?.close();
-      await registry?.close();
+      if (process.stdin.isTTY) {
+        try {
+          process.stdin.setRawMode(false);
+          process.stdin.pause();
+        } catch {
+          // Best effort
+        }
+      }
+      await Promise.allSettled([
+        bridge?.stop(),
+        localHttpMcp?.close(),
+        registry?.close(),
+      ]);
     },
   });
   const handleSigint = () => void shutdown("SIGINT");
@@ -175,5 +186,24 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     },
   ]);
   outro(pc.green("Gateway running - Press Ctrl+C to stop"));
+
+  // Put stdin into raw mode AFTER all @clack/prompts spinners/prompts finish
+  // This guarantees Ctrl+C (\u0003), Ctrl+D (\u0004), or 'q' immediately triggers shutdown
+  if (process.stdin.isTTY) {
+    try {
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk: string | Buffer) => {
+        const str = String(chunk);
+        if (str.includes("\u0003") || str.includes("\u0004") || str.toLowerCase() === "q") {
+          void shutdown("SIGINT");
+        }
+      });
+    } catch {
+      // Fallback to standard signal listeners
+    }
+  }
+
   ticker(traffic.render());
 }
