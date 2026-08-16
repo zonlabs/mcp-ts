@@ -17,4 +17,18 @@ The interactive `connect` command supports `search`, `schema`, and `call` comman
 
 Expose your local MCP servers to remote clients through `mcp-ts serve`, and connect your local and remote servers so they can be used together from any MCP client.
 
-The CLI currently connects to Streamable HTTP endpoints that do not require an interactive OAuth flow.
+```bash
+npx @mcp-ts/cli init                                  # write a default mcp.json
+npx @mcp-ts/cli serve                                 # run the local gateway daemon
+```
+
+## Remote connection
+
+Pair your machine with a remote gateway and bridge your local servers to it. Point any MCP client (ChatGPT, Claude Desktop, opencode) at the gateway's `/mcp` endpoint and your local tools become callable from anywhere.
+
+```bash
+npx @mcp-ts/cli link --remote https://api.mcp-assistant.in   # one-time pairing (OAuth)
+npx @mcp-ts/cli serve --remote https://api.mcp-assistant.in  # bridge local servers to the remote gateway
+```
+
+`link` performs an OAuth login, generates a device identity, and returns a token. `serve --remote` opens a persistent WebSocket bridge to the remote gateway, registers your local MCP servers, and relays tool calls to them, with automatic reconnection.
