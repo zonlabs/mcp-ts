@@ -245,13 +245,24 @@ async function cmdServe(args: ServeArgs): Promise<void> {
     warn("No remote gateway configured (need --remote, --device-id, --token). Local endpoint only.");
   }
 
+  // @clack/prompts leaves stdin in raw mode after the sign-in spinner, which
+  // swallows Ctrl+C (delivers \x03 instead of firing SIGINT). Restore canonical
+  // mode so the terminal's Ctrl+C reaches us, and keep a byte-level fallback so
+  // shutdown also triggers when the signal never arrives.
+  try {
+    process.stdin.setRawMode(false);
+  } catch { /* stdin is not a TTY; nothing to restore */ }
+
+  let shuttingDown = false;
   const shutdown = async (sig: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     clearTicker();
     warn(`Received ${sig}, shutting down…`);
     const forceExit = setTimeout(() => {
       warn("Cleanup timed out; forcing exit.");
       process.exit(0);
-    }, 5000);
+    }, 3000);
     forceExit.unref?.();
     try {
       await bridge?.stop();
@@ -266,6 +277,11 @@ async function cmdServe(args: ServeArgs): Promise<void> {
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  try {
+    process.stdin.on("data", (chunk) => {
+      if (chunk && Buffer.from(chunk).includes(0x03)) void shutdown("SIGINT");
+    });
+  } catch { /* stdin unavailable */ }
 
   panel([
     ["Local endpoint", localUrl],

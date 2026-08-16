@@ -135,7 +135,12 @@ export class LocalHttpServer {
   }
 
   async close(): Promise<void> {
-    await new Promise<void>((resolve) => this.server?.close(() => resolve()));
+    const server = this.server;
     this.server = null;
+    if (!server) return;
+    await new Promise<void>((resolve) => {
+      server.closeAllConnections?.();
+      server.close(() => resolve());
+    });
   }
 }

@@ -6,7 +6,9 @@ import { loadState, saveState, stateFilePath } from "./config.js";
 import { info, success, dim } from "../ux.js";
 
 const DEFAULT_CALLBACK_PORT = 43110;
-const DEFAULT_LOGIN_BASE_URL = "https://api.mcp-assistant.in";
+export const DEFAULT_LOGIN_BASE_URL = "https://api.mcp-assistant.in";
+
+const BRAND_LOGO_SVG = `<svg class='logo' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' width='56' height='56' role='img' aria-label='MCP Assistant'><rect width='256' height='256' rx='56' fill='#d30000'/><g fill='none' stroke='#ffffff' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'><path d='M58 209 V47 L128 77 L198 47 V129'/><path d='M128 77 V157'/></g></svg>`;
 
 function base64url(input: Buffer): string {
   return input.toString("base64url");
@@ -61,7 +63,7 @@ export async function linkToRemote(
     }
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(
-      `<!doctype html><html lang='en'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'/><title>MCP Assistant Login Successful</title><style>*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;background:#fff;color:#111;font-family:Segoe UI,Arial,sans-serif;text-align:center}.logo{width:56px;height:auto;margin:0 auto 10px;display:block}h2{margin:0 0 6px;font-size:1.35rem;font-weight:600}p{margin:0;color:#111;font-size:.98rem}.link{display:block;margin-top:8px;color:#111;text-decoration:underline}</style></head><body><main><img class='logo' src='https://mcp-assistant.in/logo.svg' alt='MCP Assistant'/><h2>Login successful!</h2><p>You can close the tab.</p><a class='link' href='https://mcp-assistant.in' target='_blank' rel='noreferrer noopener'>mcp-assistant.in</a></main></body></html>`,
+      `<!doctype html><html lang='en'><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'/><title>MCP Assistant Login Successful</title><style>*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;background:#fff;color:#111;font-family:Segoe UI,-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;text-align:center}main{display:flex;flex-direction:column;align-items:center;padding:24px}.logo{width:56px;height:56px;margin:0 auto 16px;display:block}h2{margin:0 0 8px;font-size:1.35rem;font-weight:600}p{margin:0;color:#555;font-size:.98rem}.link{display:inline-block;margin-top:12px;color:#111;text-decoration:underline}</style></head><body><main>${BRAND_LOGO_SVG}<h2>Login successful!</h2><p>You can close the tab.</p><a class='link' href='https://mcp-assistant.in' target='_blank' rel='noreferrer noopener'>mcp-assistant.in</a></main></body></html>`,
     );
     server.close();
     const code = reqUrl.searchParams.get("code") ?? "";

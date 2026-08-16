@@ -24,11 +24,11 @@ npx @mcp-ts/cli serve                                 # run the local gateway da
 
 ## Remote connection
 
-Pair your machine with a remote gateway and bridge your local servers to it. Point any MCP client (ChatGPT, Claude Desktop, opencode) at the gateway's `/mcp` endpoint and your local tools become callable from anywhere.
+Pair your machine with the remote gateway and bridge your local servers to it. Point any MCP client (ChatGPT, Claude Desktop, opencode) at the gateway's `/mcp` endpoint and your local tools become callable from anywhere.
 
 ```bash
-npx @mcp-ts/cli link --remote https://api.mcp-assistant.in   # one-time pairing (OAuth)
-npx @mcp-ts/cli serve --remote https://api.mcp-assistant.in  # bridge local servers to the remote gateway
+npx @mcp-ts/cli link   # explicit one-time pairing (OAuth sign-in)
+npx @mcp-ts/cli serve  # bridge local servers to the remote gateway (it'll start oauth automatically if not linked already using npx @mcp-ts/cli link)
 ```
 
-`link` performs an OAuth login, generates a device identity, and returns a token. `serve --remote` opens a persistent WebSocket bridge to the remote gateway, registers your local MCP servers, and relays tool calls to them, with automatic reconnection.
+`link` performs an OAuth login, generates a device identity, and saves a token. `serve` opens a persistent WebSocket bridge to the remote gateway, registers your local MCP servers, and relays tool calls to them, with automatic reconnection. To use a different gateway, pass `--remote <url>` (or run `serve --local` for local-only).
