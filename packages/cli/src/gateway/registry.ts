@@ -1,11 +1,9 @@
 import {
   Client,
-  SSEClientTransport,
-  StreamableHTTPClientTransport,
   type Tool,
 } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { ToolIndex, type IndexedTool } from "@mcp-ts/client/shared";
+import { BM25SearchStrategy, type IndexedTool } from "@mcp-ts/tool-router";
 import {
   BridgeProtocolError,
   JSON_RPC_ERROR_CODES,
@@ -14,16 +12,17 @@ import {
   type McpToolDescriptor,
   type ToolCallParams,
 } from "@mcp-ts/bridge-protocol";
-import type { StdioServerConfig } from "./types.js";
+import type { HttpServerConfig, McpServerConfig } from "./types.js";
+import {
+  connectHttpMcpServer,
+  type HttpMcpConnection,
+} from "./http-mcp-client.js";
 import { error as uxError, serverLog } from "../ux.js";
 import { Traffic } from "../traffic.js";
 
-type LocalServerConfig = StdioServerConfig & {
-  url?: string;
-  headers?: Record<string, string>;
-};
-
-type McpTransport = StdioClientTransport | StreamableHTTPClientTransport | SSEClientTransport;
+function isHttpServerConfig(config: McpServerConfig): config is HttpServerConfig {
+  return "url" in config;
+}
 
 export interface AggregatedTool {
   name: string;
@@ -42,31 +41,21 @@ export function canonicalToolId(serverId: string, toolName: string): string {
 
 class LocalMcpConnection {
   private client: Client | null = null;
-  private transport: McpTransport | null = null;
+  private transport: StdioClientTransport | null = null;
+  private httpConnection: HttpMcpConnection | null = null;
   private tools: McpToolDescriptor[] = [];
 
   constructor(
     readonly id: string,
     readonly name: string,
-    private readonly config: LocalServerConfig,
+    private readonly config: McpServerConfig,
     private readonly verbose: boolean,
+    private readonly connectHttp: typeof connectHttpMcpServer,
   ) {}
 
-  private createTransport(): McpTransport {
-    if (this.config.url) {
-      const url = new URL(this.config.url);
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
-        throw new Error(`Unsupported URL protocol "${url.protocol}" for MCP server "${this.name}".`);
-      }
-      const options = this.config.headers
-        ? { requestInit: { headers: this.config.headers } }
-        : undefined;
-      return /\/sse(?:\/|$)/.test(url.pathname)
-        ? new SSEClientTransport(url, options)
-        : new StreamableHTTPClientTransport(url, options);
-    }
-    if (!this.config.command) {
-      throw new Error(`MCP server "${this.name}" needs either "command" or "url".`);
+  private createTransport(): StdioClientTransport {
+    if (isHttpServerConfig(this.config)) {
+      throw new Error(`HTTP MCP server "${this.name}" cannot use a stdio transport.`);
     }
     return new StdioClientTransport({
       command: this.config.command,
@@ -78,7 +67,18 @@ class LocalMcpConnection {
   }
 
   async start(): Promise<void> {
-    if (this.client) return;
+    if (this.client || this.httpConnection) return;
+    if (isHttpServerConfig(this.config)) {
+      const url = new URL(this.config.url);
+      this.httpConnection = await this.connectHttp(url.toString(), {
+        serverId: this.id,
+        serverName: this.name,
+        headers: this.config.headers,
+        transport: /\/sse(?:\/|$)/.test(url.pathname) ? "sse" : "streamable-http",
+      });
+      await this.refreshTools();
+      return;
+    }
     const transport = this.createTransport();
     if (transport instanceof StdioClientTransport) {
       transport.stderr?.on("data", (chunk: unknown) => serverLog(this.name, String(chunk), this.verbose));
@@ -91,8 +91,10 @@ class LocalMcpConnection {
   }
 
   async refreshTools(): Promise<void> {
-    if (!this.client) return;
-    const result = await this.client.listTools();
+    const result = this.httpConnection
+      ? await this.httpConnection.listTools()
+      : await this.client?.listTools();
+    if (!result) return;
     this.tools = (result.tools ?? []).map((tool: Tool) => ({
       name: tool.name,
       description: tool.description,
@@ -111,6 +113,7 @@ class LocalMcpConnection {
   }
 
   async callTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+    if (this.httpConnection) return this.httpConnection.callTool(toolName, args);
     if (!this.client) throw new Error(`Server "${this.name}" is not started.`);
     return this.client.callTool({ name: toolName, arguments: args });
   }
@@ -121,6 +124,8 @@ class LocalMcpConnection {
     } finally {
       this.client = null;
       this.transport = null;
+      await this.httpConnection?.close();
+      this.httpConnection = null;
     }
   }
 }
@@ -143,13 +148,17 @@ export class McpGatewayRegistry {
   private readonly remoteServers = new Map<string, RemoteServer>();
   private readonly routes = new Map<string, ToolRoute>();
   private readonly routesById = new Map<string, ToolRoute>();
-  private readonly toolIndex = new ToolIndex();
+  private readonly searchStrategy = new BM25SearchStrategy();
+  private indexedTools: IndexedTool[] = [];
   private readonly traffic: Traffic;
 
   constructor(
-    private readonly configs: Record<string, LocalServerConfig>,
+    private readonly configs: Record<string, McpServerConfig>,
     traffic?: Traffic,
-    private readonly options: { verbose?: boolean } = {},
+    private readonly options: {
+      verbose?: boolean;
+      connectHttp?: typeof connectHttpMcpServer;
+    } = {},
   ) {
     this.traffic = traffic ?? new Traffic();
   }
@@ -157,7 +166,13 @@ export class McpGatewayRegistry {
   async start(): Promise<void> {
     for (const [name, config] of Object.entries(this.configs)) {
       const id = `local:${name}`;
-      const connection = new LocalMcpConnection(id, name, config, this.options.verbose ?? false);
+      const connection = new LocalMcpConnection(
+        id,
+        name,
+        config,
+        this.options.verbose ?? false,
+        this.options.connectHttp ?? connectHttpMcpServer,
+      );
       try {
         await connection.start();
         this.localConnections.set(id, connection);
@@ -245,19 +260,22 @@ export class McpGatewayRegistry {
       this.routes.set(route.exposedName, route);
       this.routesById.set(toolId, route);
       indexed.push({
-        name: route.exposedName,
+        toolName: route.tool.name,
         description: route.tool.description ?? "",
-        inputSchema: route.tool.inputSchema as never,
         serverId: route.serverId,
         serverName: route.serverName,
-        sessionId: route.source,
+        inputSchema: route.tool.inputSchema,
+        outputSchema: route.tool.outputSchema,
       });
     }
-    await this.toolIndex.buildIndex(indexed);
+    this.indexedTools = indexed;
   }
 
   async searchTools(query: string, limit = 10, serverName?: string) {
-    return this.toolIndex.search(query, limit, { serverName });
+    return this.searchStrategy.search(this.indexedTools, { query, limit, serverName }, limit).map((match) => ({
+      ...match,
+      name: this.routesById.get(match.toolId)?.exposedName ?? match.toolName,
+    }));
   }
 
   getTool(reference: string): AggregatedTool | undefined {
@@ -336,5 +354,6 @@ export class McpGatewayRegistry {
     this.remoteServers.clear();
     this.routes.clear();
     this.routesById.clear();
+    this.indexedTools = [];
   }
 }

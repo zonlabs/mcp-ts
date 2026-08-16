@@ -34,8 +34,8 @@ export async function cmdConnect(endpoint: string, input: Readable, output: Writ
   const client = await connectRemote(endpoint);
   try {
     const router = await createRouter(client);
-    const catalog = await router.listTools({ limit: Number.MAX_SAFE_INTEGER });
-    success(`Connected — ${catalog.totalCount} tools discovered`);
+    const toolCount = router.listServers().reduce((total, server) => total + server.toolCount, 0);
+    success(`Connected — ${toolCount} tools discovered`);
     treeNote(pc.dim('Type "help" for commands, "exit" to quit.'));
 
     const terminal = Boolean((output as Writable & { isTTY?: boolean }).isTTY);
@@ -99,7 +99,12 @@ export async function cmdConnect(endpoint: string, input: Readable, output: Writ
             writeLine(output, "Invalid JSON payload");
             continue;
           }
-          const result = await router.callTool(name, parsed);
+          const tool = resolveTool(router, name);
+          if (!tool) {
+            writeLine(output, `Tool not found: ${name}`);
+            continue;
+          }
+          const result = await router.callTool({ toolId: tool.toolId, args: parsed });
           writeLine(output, JSON.stringify(result, null, 2));
           continue;
         }

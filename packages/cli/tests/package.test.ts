@@ -19,7 +19,7 @@ async function distributableFiles(directory: string): Promise<string[]> {
 describe("published CLI package", () => {
   test("bundles internal packages without runtime dependencies", async () => {
     const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-    expect(packageJson.dependencies).not.toHaveProperty("@mcp-ts/client");
+    expect(packageJson.dependencies).toHaveProperty("@mcp-ts/client");
     for (const packageName of bundledPackages) {
       expect(packageJson.dependencies).not.toHaveProperty(packageName);
       expect(packageJson.devDependencies).toHaveProperty(packageName);

@@ -44,4 +44,33 @@ describe("McpGatewayRegistry", () => {
     expect(registry.getRemoteCatalog()).toEqual({ servers: [] });
     expect(registry.aggregatedTools()).toEqual([]);
   });
+
+  it("uses the OAuth-capable connector for configured HTTP servers", async () => {
+    const close = vi.fn(async () => undefined);
+    const connectHttp = vi.fn(async () => ({
+      listTools: async () => ({
+        tools: [{ name: "search_docs", inputSchema: { type: "object" as const } }],
+      }),
+      callTool: vi.fn(),
+      close,
+      getServerId: () => "local:docs",
+      getServerName: () => "docs",
+      getServerUrl: () => "https://docs.example/mcp",
+    }));
+    const registry = new McpGatewayRegistry(
+      { docs: { url: "https://docs.example/mcp" } },
+      undefined,
+      { connectHttp } as never,
+    );
+
+    await registry.start();
+
+    expect(connectHttp).toHaveBeenCalledWith("https://docs.example/mcp", expect.objectContaining({
+      serverId: "local:docs",
+      serverName: "docs",
+    }));
+    expect(registry.getLocalCatalog().servers[0].tools[0].name).toBe("search_docs");
+    await registry.close();
+    expect(close).toHaveBeenCalledOnce();
+  });
 });

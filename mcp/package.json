@@ -17,7 +17,7 @@
     "@cloudflare/codemode": "^0.5.1",
     "@hono/zod-validator": "^0.8.0",
     "@mcp-ts/bridge-protocol": "0.1.0",
-    "@mcp-ts/client": "^4.0.0",
+    "@mcp-ts/client": "^4.1.0",
     "@mcp-ts/codemode": "^0.3.0",
     "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/core": "^2.0.0",

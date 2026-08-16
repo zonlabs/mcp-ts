@@ -1,16 +1,20 @@
 import type { Tool } from "@modelcontextprotocol/client";
 import {
-  ToolRouter,
-  type IndexedTool,
+  createToolRouter,
+  mcpServer,
   type ToolClient,
-  type ToolRouterStrategy,
-  type ToolSummary
-} from "@mcp-ts/client/shared";
+  type ToolRouter,
+  type ToolSchemaResult,
+  type ToolSearchResult,
+} from "@mcp-ts/tool-router";
 import { estimateToolTokens, estimateToolsTokens } from "./token-estimator.js";
 
-export interface SearchResult extends ToolSummary {
+export interface SearchResult extends ToolSearchResult {
+  name: string;
   estimatedTokens: number;
 }
+
+export type ToolRouterStrategy = "all" | "search" | "groups";
 
 export interface StrategyBenchmark {
   strategy: ToolRouterStrategy;
@@ -18,12 +22,18 @@ export interface StrategyBenchmark {
   estimatedTokens: number;
 }
 
-export async function createRouter(
-  client: ToolClient,
-  strategy: ToolRouterStrategy = "search"
-): Promise<ToolRouter> {
-  const router = new ToolRouter([client], { strategy });
-  await router.listTools({ limit: 1 });
+export interface ResolvedTool extends ToolSchemaResult {
+  name: string;
+}
+
+const routerServerIds = new WeakMap<ToolRouter, string>();
+
+export async function createRouter(client: ToolClient): Promise<ToolRouter> {
+  const serverId = client.getServerId?.() ?? "remote";
+  const router = await createToolRouter({
+    servers: [mcpServer(serverId, client, client.getServerName?.())],
+  });
+  routerServerIds.set(router, serverId);
   return router;
 }
 
@@ -32,35 +42,60 @@ export async function searchTools(
   query: string,
   limit = 10
 ): Promise<SearchResult[]> {
-  const results = await router.searchTools(query, limit);
+  const results = await router.searchTools({ query, limit });
   return results.map((result) => {
-    const tool = router.getToolSchema(result.name, result.serverId);
-    return { ...result, estimatedTokens: tool ? estimateToolTokens(tool) : 0 };
+    const [tool] = router.getToolSchemas({ toolIds: [result.toolId] });
+    return {
+      ...result,
+      name: result.toolName,
+      estimatedTokens: tool
+        ? estimateToolTokens({
+            name: tool.toolName,
+            description: tool.description,
+            inputSchema: tool.inputSchema as Tool["inputSchema"],
+          })
+        : 0,
+    };
   });
 }
 
-export function resolveTool(router: ToolRouter, reference: string): IndexedTool | undefined {
-  const separator = reference.indexOf("::");
-  if (separator > 0) {
-    return router.getToolSchema(reference.slice(separator + 2), reference.slice(0, separator));
+export function resolveTool(router: ToolRouter, reference: string): ResolvedTool | undefined {
+  const toolId = reference.includes("::")
+    ? reference
+    : `${routerServerIds.get(router) ?? "remote"}::${reference}`;
+  try {
+    const [tool] = router.getToolSchemas({ toolIds: [toolId] });
+    return tool ? { ...tool, name: tool.toolName } : undefined;
+  } catch {
+    return undefined;
   }
-  return router.getToolSchema(reference);
 }
 
 export async function benchmarkStrategies(client: ToolClient): Promise<StrategyBenchmark[]> {
-  const router = await createRouter(client, "all");
-  const strategies: ToolRouterStrategy[] = ["all", "search", "groups"];
-  const benchmarks: StrategyBenchmark[] = [];
-  for (const strategy of strategies) {
-    router.setStrategy(strategy);
-    const exposed = await router.getFilteredTools();
-    benchmarks.push({
-      strategy,
-      exposedTools: exposed.length,
-      estimatedTokens: estimateToolsTokens(exposed)
-    });
-  }
-  return benchmarks;
+  const router = await createRouter(client);
+  const directTools = (await client.listTools()).tools as Tool[];
+  const metaTools = router.getMetaTools().map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema as Tool["inputSchema"],
+  }));
+  return [
+    {
+      strategy: "all",
+      exposedTools: directTools.length,
+      estimatedTokens: estimateToolsTokens(directTools),
+    },
+    {
+      strategy: "search",
+      exposedTools: metaTools.length,
+      estimatedTokens: estimateToolsTokens(metaTools),
+    },
+    {
+      strategy: "groups",
+      exposedTools: directTools.length,
+      estimatedTokens: estimateToolsTokens(directTools),
+    },
+  ];
 }
 
 type JsonSchema = {

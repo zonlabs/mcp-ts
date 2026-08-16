@@ -1,9 +1,11 @@
+import type { Tool } from "@modelcontextprotocol/client";
+import type { ToolClient } from "@mcp-ts/tool-router";
 import {
-  Client,
-  StreamableHTTPClientTransport,
-  type Tool
-} from "@modelcontextprotocol/client";
-import type { ToolClient } from "@mcp-ts/client/shared";
+  connectHttpMcpServer,
+  type HttpMcpConnection,
+} from "./gateway/http-mcp-client.js";
+
+type HttpConnector = typeof connectHttpMcpServer;
 
 function serverIdFor(url: URL): string {
   const path = url.pathname.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -11,36 +13,32 @@ function serverIdFor(url: URL): string {
 }
 
 export class RemoteToolClient implements ToolClient {
-  private readonly client = new Client({ name: "@mcp-ts/cli", version: "0.1.0" });
-  private readonly transport: StreamableHTTPClientTransport;
-  private connected = false;
-  private cachedTools: Tool[] | undefined;
+  private connection: HttpMcpConnection | null = null;
   private readonly serverId: string;
 
-  constructor(private readonly endpoint: URL) {
+  constructor(
+    private readonly endpoint: URL,
+    private readonly connector: HttpConnector = connectHttpMcpServer,
+  ) {
     this.serverId = serverIdFor(endpoint);
-    this.transport = new StreamableHTTPClientTransport(endpoint);
   }
 
   async connect(): Promise<void> {
-    await this.client.connect(this.transport);
-    this.connected = true;
-  }
-
-  isConnected(): boolean {
-    return this.connected;
+    if (this.connection) return;
+    this.connection = await this.connector(this.endpoint.toString(), {
+      serverId: this.serverId,
+      serverName: this.endpoint.hostname,
+    });
   }
 
   async listTools(): Promise<{ tools: Tool[] }> {
-    if (!this.cachedTools) {
-      const { tools } = await this.client.listTools();
-      this.cachedTools = tools;
-    }
-    return { tools: this.cachedTools };
+    if (!this.connection) throw new Error("MCP client is not connected");
+    return this.connection.listTools();
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-    return this.client.callTool({ name, arguments: args });
+    if (!this.connection) throw new Error("MCP client is not connected");
+    return this.connection.callTool(name, args);
   }
 
   getServerId(): string { return this.serverId; }
@@ -49,17 +47,21 @@ export class RemoteToolClient implements ToolClient {
   getSessionId(): string { return `cli:${this.serverId}`; }
 
   async close(): Promise<void> {
-    this.connected = false;
-    await this.client.close();
+    const connection = this.connection;
+    this.connection = null;
+    await connection?.close();
   }
 }
 
-export async function connectRemote(endpoint: string): Promise<RemoteToolClient> {
+export async function connectRemote(
+  endpoint: string,
+  connector: HttpConnector = connectHttpMcpServer,
+): Promise<RemoteToolClient> {
   const url = new URL(endpoint);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("MCP endpoint must use http:// or https://");
   }
-  const client = new RemoteToolClient(url);
+  const client = new RemoteToolClient(url, connector);
   try {
     await client.connect();
     return client;

@@ -6,12 +6,14 @@ export interface StdioServerConfig {
 }
 
 export interface HttpServerConfig {
-  url?: string;
+  url: string;
   headers?: Record<string, string>;
 }
 
+export type McpServerConfig = StdioServerConfig | HttpServerConfig;
+
 export interface McpServersConfig {
-  mcpServers: Record<string, StdioServerConfig & HttpServerConfig>;
+  mcpServers: Record<string, McpServerConfig>;
   strategy?: "all" | "search" | "auto";
 }
 

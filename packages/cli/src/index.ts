@@ -20,4 +20,10 @@ export {
   type LoadedConfig
 } from "./gateway/config.js";
 export type { AggregatedTool } from "./gateway/registry.js";
-export type { StdioServerConfig, HttpServerConfig, McpServersConfig, GatewayConfig } from "./gateway/types.js";
+export type {
+  StdioServerConfig,
+  HttpServerConfig,
+  McpServerConfig,
+  McpServersConfig,
+  GatewayConfig,
+} from "./gateway/types.js";
