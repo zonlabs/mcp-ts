@@ -94,6 +94,21 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 
 ---
 
+### Developer CLI
+
+Use the CLI to inspect a Streamable HTTP MCP endpoint without building an application first:
+
+```bash
+npx @mcp-ts/cli connect https://api.example.com/mcp
+npx @mcp-ts/cli search https://api.example.com/mcp "send email"
+npx @mcp-ts/cli bench https://api.example.com/mcp
+npx @mcp-ts/cli codegen https://api.example.com/mcp --out ./src/mcp-tools.ts
+```
+
+The `connect` REPL supports `search`, `schema`, and `call` commands. See the [CLI package README](packages/cli) for details.
+
+---
+
 <a id="features"></a>
 
 ## ✨ Features
@@ -588,4 +603,3 @@ Contributions are welcome! Please read [CONTRIBUTING.md](packages/client/CONTRIB
 <p align="center">
   <em>Thanks for visiting @mcp-ts!</em>
 </p>
-

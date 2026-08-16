@@ -12,6 +12,7 @@ on:
       - 'packages/client/package.json'
       - 'packages/tool-router/package.json'
       - 'packages/code-mode/package.json'
+      - 'packages/cli/package.json'
 
 concurrency:
   group: release-npm-${{ github.ref }}
@@ -65,6 +66,12 @@ jobs:
             echo 'codemode_changed=false' >> "$GITHUB_OUTPUT"
           fi
 
+          if printf '%s\n' "$CHANGED_FILES" | grep -Fxq 'packages/cli/package.json'; then
+            echo 'cli_changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'cli_changed=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve package metadata
         id: meta
         shell: bash
@@ -75,6 +82,8 @@ jobs:
           TOOL_ROUTER_VERSION=$(node -p "require('./packages/tool-router/package.json').version")
           CODEMODE_NAME=$(node -p "require('./packages/code-mode/package.json').name")
           CODEMODE_VERSION=$(node -p "require('./packages/code-mode/package.json').version")
+          CLI_NAME=$(node -p "require('./packages/cli/package.json').name")
+          CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
 
           echo "client_name=$CLIENT_NAME" >> "$GITHUB_OUTPUT"
           echo "client_version=$CLIENT_VERSION" >> "$GITHUB_OUTPUT"
@@ -124,11 +133,22 @@ jobs:
           fi
           echo "codemode_should_publish=$codemode_should_publish" >> "$GITHUB_OUTPUT"
 
+          cli_should_publish=false
+          if [ '${{ steps.changed.outputs.cli_changed }}' = 'true' ]; then
+            if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.cli_tag }}" >/dev/null; then
+              cli_should_publish=false
+            else
+              cli_should_publish=true
+            fi
+          fi
+          echo "cli_should_publish=$cli_should_publish" >> "$GITHUB_OUTPUT"
+
       - name: Install root dependencies
         if: |
           steps.publish.outputs.client_should_publish == 'true' ||
           steps.publish.outputs.tool_router_should_publish == 'true' ||
-          steps.publish.outputs.codemode_should_publish == 'true'
+          steps.publish.outputs.codemode_should_publish == 'true' ||
+          steps.publish.outputs.cli_should_publish == 'true'
         run: npm ci
 
       - name: Build client package
@@ -210,3 +230,29 @@ jobs:
           name: ${{ steps.meta.outputs.codemode_tag }}
           generate_release_notes: true
           body: "Release ${{ steps.meta.outputs.codemode_name }} ${{ steps.meta.outputs.codemode_tag }}"
+
+      - name: Build CLI package
+        if: steps.publish.outputs.cli_should_publish == 'true'
+        run: npm run build -w @mcp-ts/sdk && npm run build -w @mcp-ts/cli
+
+      - name: Publish CLI package to npm
+        if: steps.publish.outputs.cli_should_publish == 'true'
+        working-directory: packages/cli
+        run: npm publish --ignore-scripts --provenance --access public
+
+      - name: Create and push CLI git tag
+        if: steps.publish.outputs.cli_should_publish == 'true'
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git tag -a "${{ steps.meta.outputs.cli_tag }}" -m "Release ${{ steps.meta.outputs.cli_tag }}"
+          git push origin "refs/tags/${{ steps.meta.outputs.cli_tag }}"
+
+      - name: Create CLI GitHub Release
+        if: steps.publish.outputs.cli_should_publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.cli_tag }}
+          name: ${{ steps.meta.outputs.cli_tag }}
+          generate_release_notes: true
+          body: "Release ${{ steps.meta.outputs.cli_name }} ${{ steps.meta.outputs.cli_tag }}"
