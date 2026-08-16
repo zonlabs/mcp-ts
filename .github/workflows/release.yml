@@ -97,6 +97,10 @@ jobs:
           echo "codemode_version=$CODEMODE_VERSION" >> "$GITHUB_OUTPUT"
           echo "codemode_tag=codemode-v$CODEMODE_VERSION" >> "$GITHUB_OUTPUT"
 
+          echo "cli_name=$CLI_NAME" >> "$GITHUB_OUTPUT"
+          echo "cli_version=$CLI_VERSION" >> "$GITHUB_OUTPUT"
+          echo "cli_tag=cli-v$CLI_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Decide publish targets
         id: publish
         shell: bash
