@@ -2,10 +2,7 @@ import type { Writable } from "node:stream";
 import pc from "picocolors";
 import { connectRemote } from "../client.js";
 import { benchmarkStrategies } from "../core.js";
-
-function writeLine(stream: Pick<Writable, "write">, text: string): void {
-  stream.write(`${text}\n`);
-}
+import { writeLine } from "../ux.js";
 
 export async function cmdBench(endpoint: string, output: Writable): Promise<void> {
   const client = await connectRemote(endpoint);

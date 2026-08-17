@@ -23,6 +23,12 @@ export {
   writeDefaultMcpJson,
   type LoadedConfig
 } from "./gateway/config.js";
+export {
+  pingGateway,
+  withMcpGateway,
+  getServerConfig,
+  type GatewayContextOptions,
+} from "./gateway/context.js";
 export type { AggregatedTool } from "./gateway/registry.js";
 export type {
   StdioServerConfig,

@@ -566,14 +566,17 @@ export class ToolRouter {
   ): IndexedTool[] {
     if (!namespace) return tools;
 
+    const namespaceLower = namespace.toLowerCase();
     const exactMatches = tools.filter(
-      (tool) => tool.sessionId === namespace || tool.serverId === namespace
+      (tool) =>
+        tool.serverId.toLowerCase() === namespaceLower ||
+        tool.serverName.toLowerCase() === namespaceLower ||
+        tool.sessionId?.toLowerCase() === namespaceLower
     );
     if (exactMatches.length > 0) return exactMatches;
 
     if (!options.allowServerNameFragment) return [];
 
-    const namespaceLower = namespace.toLowerCase();
     return tools.filter((tool) => tool.serverName.toLowerCase().includes(namespaceLower));
   }
 }

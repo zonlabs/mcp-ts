@@ -1,6 +1,4 @@
 import type { Readable, Writable } from "node:stream";
-import { connectRemote } from "./client.js";
-import { createRouter, searchTools } from "./core.js";
 import { CLI_VERSION, printBanner, renderBanner } from "./ux.js";
 import { cmdInit } from "./commands/init.js";
 import { cmdLogin } from "./commands/login.js";
@@ -8,13 +6,12 @@ import { cmdLogout } from "./commands/logout.js";
 import { cmdCall } from "./commands/call.js";
 import { cmdList } from "./commands/list.js";
 import { cmdLocalSchema } from "./commands/schema.js";
-import { cmdLocalSearch } from "./commands/search.js";
+import { cmdSearch } from "./commands/search.js";
 import { cmdServe } from "./commands/serve.js";
 import { cmdConnect } from "./commands/connect.js";
 import { cmdBench } from "./commands/bench.js";
 import { cmdCodegen } from "./commands/codegen.js";
 import type { LocalMcpDiscoveryMode } from "./gateway/local-http-mcp.js";
-import pc from "picocolors";
 
 const HELP = `${renderBanner()}
 Usage:
@@ -153,35 +150,18 @@ export async function runCli(
         throw new Error("--limit must be an integer between 1 and 100");
       }
 
+      let endpoint: string | undefined;
+      let searchQuery: string;
       if (isUrl(values[0])) {
-        // Remote search against arbitrary endpoint URL
-        const endpoint = values[0];
-        const searchQuery = values.slice(1).join(" ");
+        endpoint = values[0];
+        searchQuery = values.slice(1).join(" ");
         if (!searchQuery) throw new Error("search with a URL requires a query string");
-        const client = await connectRemote(endpoint);
-        try {
-          const router = await createRouter(client);
-          const results = await searchTools(router, searchQuery, searchLimit);
-          if (results.length === 0) {
-            writeLine(streams.output, "No matching tools.");
-          } else {
-            results.forEach((result, index) => {
-              writeLine(
-                streams.output,
-                `${pc.cyan(String(index + 1))}. ${pc.bold(result.name)} (server: ${result.serverName}, ~${result.estimatedTokens} tokens)`,
-              );
-            });
-          }
-          return 0;
-        } finally {
-          await client.close();
-        }
       } else {
-        // Local search against mcp.json + remote bridge
-        const searchQuery = values.join(" ");
-        await cmdLocalSearch(searchQuery, searchLimit, dir, streams.output);
-        return 0;
+        searchQuery = values.join(" ");
       }
+
+      await cmdSearch(searchQuery, searchLimit, { dir, endpoint }, streams.output);
+      return 0;
     }
 
     if (command === "connect") {

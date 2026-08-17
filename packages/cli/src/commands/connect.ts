@@ -3,11 +3,7 @@ import type { Readable, Writable } from "node:stream";
 import pc from "picocolors";
 import { connectRemote } from "../client.js";
 import { createRouter, resolveTool, searchTools } from "../core.js";
-import { intro, outro, printBanner, success, treeNote } from "../ux.js";
-
-function writeLine(stream: Pick<Writable, "write">, text: string): void {
-  stream.write(`${text}\n`);
-}
+import { intro, outro, printBanner, success, treeNote, writeLine } from "../ux.js";
 
 async function printSearch(
   output: Pick<Writable, "write">,

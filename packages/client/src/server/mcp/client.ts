@@ -516,6 +516,26 @@ export class McpClient {
       return;
     }
 
+    if (this.config.hasSession) {
+      if (status === 'active') {
+        const storedOptions = this.getStoredServerOptions();
+        const currentOptions = this.config.serverOptions;
+        const unchanged =
+          currentOptions &&
+          storedOptions.transport?.type === currentOptions.transport?.type &&
+          storedOptions.transport?.protocolVersion === currentOptions.transport?.protocolVersion &&
+          JSON.stringify(storedOptions.discoverResult ?? null) === JSON.stringify(currentOptions.discoverResult ?? null);
+        if (unchanged) {
+          return;
+        }
+      }
+      await this._store.update(this.config.userId, this.config.sessionId, {
+        ...this.session,
+        status,
+      });
+      return;
+    }
+
     const existing = await this._store.get(this.config.userId, this.config.sessionId);
     if (!existing) {
       await this._store.create({

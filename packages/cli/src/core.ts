@@ -37,11 +37,74 @@ export async function createRouter(client: ToolClient): Promise<ToolRouter> {
   return router;
 }
 
+function parseMetaSearchResults(raw: unknown): SearchResult[] {
+  let text = "";
+  if (raw && typeof raw === "object" && "content" in raw && Array.isArray((raw as { content: unknown[] }).content)) {
+    const firstText = (raw as { content: Array<{ type?: string; text?: string }> }).content.find(
+      (c) => c.type === "text",
+    );
+    text = firstText?.text ?? "";
+  } else if (typeof raw === "string") {
+    text = raw;
+  }
+  if (!text) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return [];
+  }
+
+  const items = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>).tools)
+      ? ((parsed as Record<string, unknown>).tools as unknown[])
+      : parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>).results)
+        ? ((parsed as Record<string, unknown>).results as unknown[])
+        : [];
+
+  return items.map((item: Record<string, unknown>) => {
+    const toolName = String(item.tool_name ?? item.name ?? "");
+    const serverName = String(item.server_name ?? item.serverName ?? item.server_id ?? item.serverId ?? "remote");
+    const serverId = String(item.server_id ?? item.serverId ?? serverName);
+    const toolId = String(item.tool_id ?? item.toolId ?? `${serverId}::${toolName}`);
+    const description = item.description ? String(item.description) : "";
+    return {
+      toolId,
+      toolName,
+      name: toolName,
+      serverId,
+      serverName,
+      description,
+      score: 1,
+      estimatedTokens: 0,
+    };
+  });
+}
+
 export async function searchTools(
   router: ToolRouter,
   query: string,
-  limit = 10
+  limit = 10,
 ): Promise<SearchResult[]> {
+  const metaSearchTool =
+    resolveTool(router, "search_mcp_tools") ?? resolveTool(router, "search_tools");
+  if (metaSearchTool) {
+    try {
+      const rawResult = await router.callTool({
+        toolId: metaSearchTool.toolId,
+        args: { query, limit },
+      });
+      const metaResults = parseMetaSearchResults(rawResult);
+      if (metaResults.length > 0) {
+        return metaResults;
+      }
+    } catch {
+      // Fallback to router.searchTools
+    }
+  }
+
   const results = await router.searchTools({ query, limit });
   return results.map((result) => {
     const [tool] = router.getToolSchemas({ toolIds: [result.toolId] });

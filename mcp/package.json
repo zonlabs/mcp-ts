@@ -19,6 +19,7 @@
     "@mcp-ts/bridge-protocol": "0.1.0",
     "@mcp-ts/client": "^4.1.0",
     "@mcp-ts/codemode": "^0.3.0",
+    "@mcp-ts/tool-router": "*",
     "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/core": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
@@ -27,7 +28,6 @@
     "hono": "^4.12.25",
     "quickjs-emscripten": "^0.31.0",
     "redis": "^4.6.11",
-    "supermemory": "^4.24.12",
     "zod": "^4.4.3"
   },
   "devDependencies": {

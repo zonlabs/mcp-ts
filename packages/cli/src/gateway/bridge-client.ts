@@ -48,6 +48,7 @@ export interface RemoteBridgeClientOptions {
   reconnectInitialDelayMs?: number;
   reconnectMaxDelayMs?: number;
   requestTimeoutMs?: number;
+  onRemoteCatalogChanged?: (catalog: CatalogSnapshot) => void;
 }
 
 interface PendingRequest {
@@ -65,6 +66,10 @@ export class RemoteBridgeClient {
   private reconnectDelay: number;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly pending = new Map<JsonRpcId, PendingRequest>();
+  private readyResolver: (() => void) | null = null;
+  private readyPromise: Promise<void> = new Promise((resolve) => {
+    this.readyResolver = resolve;
+  });
 
   constructor(
     private readonly registry: BridgeGatewayRegistry,
@@ -77,6 +82,12 @@ export class RemoteBridgeClient {
     if (!this.closed) return;
     this.closed = false;
     await this.connect();
+  }
+
+  async waitForReady(timeoutMs = 3_000): Promise<boolean> {
+    const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs));
+    const ready = this.readyPromise.then(() => true);
+    return Promise.race([ready, timeout]);
   }
 
   private socketUrl(): string {
@@ -127,6 +138,9 @@ export class RemoteBridgeClient {
     await this.registry.replaceRemoteCatalog(initialized.remoteCatalog, (params) =>
       this.callRemoteTool(params),
     );
+    if (initialized.remoteCatalog.servers.length > 0) {
+      this.readyResolver?.();
+    }
   }
 
   async publishLocalCatalog(): Promise<void> {
@@ -194,6 +208,10 @@ export class RemoteBridgeClient {
 
     if (message.method === BRIDGE_METHODS.remoteCatalogChanged) {
       await this.registry.replaceRemoteCatalog(message.params, (params) => this.callRemoteTool(params));
+      this.options.onRemoteCatalogChanged?.(message.params);
+      if (message.params.servers.length > 0) {
+        this.readyResolver?.();
+      }
       return;
     }
     if (message.method === BRIDGE_METHODS.cancelled) {

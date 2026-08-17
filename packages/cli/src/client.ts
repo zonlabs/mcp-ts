@@ -4,6 +4,10 @@ import {
   connectHttpMcpServer,
   type HttpMcpConnection,
 } from "./gateway/http-mcp-client.js";
+import {
+  ensureFreshAuthSession,
+  loadAuthSession,
+} from "./gateway/auth-store.js";
 
 type HttpConnector = typeof connectHttpMcpServer;
 
@@ -25,9 +29,20 @@ export class RemoteToolClient implements ToolClient {
 
   async connect(): Promise<void> {
     if (this.connection) return;
+    let headers: Record<string, string> | undefined;
+    const origin = this.endpoint.origin;
+    if (loadAuthSession(origin)) {
+      try {
+        const session = await ensureFreshAuthSession(origin);
+        headers = { Authorization: `Bearer ${session.accessToken}` };
+      } catch {
+        // Fall back to unauthenticated connection or browser OAuth
+      }
+    }
     this.connection = await this.connector(this.endpoint.toString(), {
       serverId: this.serverId,
       serverName: this.endpoint.hostname,
+      headers,
     });
   }
 

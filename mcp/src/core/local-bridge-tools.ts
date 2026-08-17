@@ -62,8 +62,14 @@ export async function resolveLocalToolSchema(
   toolName: string,
   serverId?: string,
 ): Promise<LocalToolEntry | undefined> {
+  const targetTool = toolName.toLowerCase();
+  const targetServer = serverId?.toLowerCase();
   return (await loadLocalEntries()).find(
-    (entry) => entry.name === toolName && (!serverId || entry.serverId === serverId),
+    (entry) =>
+      entry.name.toLowerCase() === targetTool &&
+      (!targetServer ||
+        entry.serverId.toLowerCase() === targetServer ||
+        entry.serverName.toLowerCase() === targetServer),
   );
 }
 

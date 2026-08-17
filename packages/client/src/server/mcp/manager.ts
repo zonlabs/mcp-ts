@@ -313,6 +313,7 @@ export class McpManager implements BaseClientProvider {
                     client: session.serverOptions?.client ?? undefined,
                     serverOptions: session.serverOptions ?? undefined,
                     discoverResult: session.serverOptions?.discoverResult ?? undefined,
+                    clientInformation: session.clientInformation ?? (session.clientId ? { client_id: session.clientId } : undefined),
                     hasSession: true,
                     cachedCredentials: { tokens: session.tokens ?? undefined },
                     sessionStore: this._store,

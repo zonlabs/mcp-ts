@@ -95,9 +95,29 @@ export class ToolRouter {
         }
         seenServerIds.add(serverId);
         nextServers.set(serverId, { ...server, id: serverId });
+      }
 
-        const listed = await server.listTools();
-        for (const tool of listed.tools) {
+      const serverList = Array.from(nextServers.values());
+      const results = await Promise.allSettled(
+        serverList.map(async (server) => {
+          const listed = await server.listTools();
+          return { server, tools: listed.tools };
+        })
+      );
+
+      const rejections = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (rejections.length > 0 && rejections.length === serverList.length) {
+        throw rejections[0].reason;
+      }
+
+      for (const result of results) {
+        if (result.status === "rejected") {
+          continue;
+        }
+
+        const { server, tools } = result.value;
+        const serverId = server.id;
+        for (const tool of tools ?? []) {
           if (this.isExcludedTool(serverId, tool.name)) {
             continue;
           }
@@ -122,9 +142,9 @@ export class ToolRouter {
       await this.initializePromise;
     }
     try {
-      for (const server of this.options.servers) {
-        await server.refresh?.();
-      }
+      await Promise.all(
+        this.options.servers.map((server) => server.refresh?.())
+      );
       if (!this.initializePromise) {
         this.initializePromise = this.rebuildIndex();
       }

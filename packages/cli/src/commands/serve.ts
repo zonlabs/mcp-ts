@@ -12,13 +12,14 @@ import {
 import { loginToRemote } from "../gateway/oauth.js";
 import {
   clearTicker,
+  dim,
   error,
   info,
   intro,
   outro,
   printBanner,
+  serverLog,
   spinner,
-  step,
   success,
   ticker,
   treeNote,
@@ -70,6 +71,22 @@ export function createShutdownHandler(options: ShutdownHandlerOptions) {
       exit(0);
     }
   };
+}
+
+function renderServerList(
+  servers: Array<{ serverName: string; tools: unknown[] }>,
+  maxDisplay = 5,
+): void {
+  const visible = servers.slice(0, maxDisplay);
+  const remaining = servers.length - visible.length;
+  for (const server of visible) {
+    treeNote(
+      `${pc.dim("-")} ${pc.bold(server.serverName)} ${pc.dim(`(${server.tools.length} tool${server.tools.length === 1 ? "" : "s"})`)}`,
+    );
+  }
+  if (remaining > 0) {
+    treeNote(pc.dim(`...and ${remaining} more`));
+  }
 }
 
 export async function cmdServe(args: ServeArgs): Promise<void> {
@@ -126,9 +143,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   const localServers = registry.getLocalCatalog().servers;
   if (localServers.length > 0) {
     success(`Started ${pc.bold(String(localServers.length))} local server(s)`);
-    for (const server of localServers) {
-      treeNote(`${pc.dim("-")} ${pc.bold(server.serverName)} ${pc.dim(`(${server.tools.length} tools)`)}`);
-    }
+    renderServerList(localServers, 5);
   }
 
   const host = args.host ?? "127.0.0.1";
@@ -159,6 +174,8 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
+  let running = false;
+
   if (loadAuthSession(remote)) {
     bridge = new RemoteBridgeClient(registry, {
       remoteUrl: remote,
@@ -170,19 +187,46 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
           return (await loginToRemote(remote, args.login)).accessToken;
         }
       },
+      onRemoteCatalogChanged: (catalog) => {
+        if (!running) return;
+        const count = catalog.servers.length;
+        if (count > 0) {
+          dim(`${pc.green("✔")} Connected ${pc.bold(String(count))} remote server(s): ${catalog.servers.map((s) => s.serverName).join(", ")}`);
+        }
+      },
     });
+    const bridgeSpin = spinner();
+    bridgeSpin.start(`Connecting to remote gateway (${remote})...`);
     await bridge.start();
-    step(`Connecting JSON-RPC bridge to remote gateway: ${pc.cyan(remote)}`);
+    const ready = await bridge.waitForReady(15_000);
+    if (ready) {
+      const remoteServers = registry.getRemoteCatalog().servers;
+      bridgeSpin.stop("Connected to remote gateway");
+      if (remoteServers.length > 0) {
+        success(`Connected ${pc.bold(String(remoteServers.length))} remote server(s)`);
+        renderServerList(remoteServers, 5);
+      }
+    } else {
+      bridgeSpin.stop("Remote gateway connected (syncing in background)");
+    }
   } else {
     warn("No remote session available. Local endpoint only.");
   }
 
+  const remoteCount = registry.getRemoteCatalog().servers.length;
+  const totalTools = registry.aggregatedTools().length;
+  const bridgeStatus = bridge
+    ? remoteCount > 0
+      ? pc.cyan(remote)
+      : `${pc.cyan(remote)} ${pc.dim("(syncing)")}`
+    : pc.dim("disabled");
+
   treeSummary("Gateway summary", [
-    { label: "Local", value: pc.cyan(localUrl) },
-    { label: "Remote", value: bridge ? pc.cyan(remote) : pc.dim("not connected") },
+    { label: "Endpoint", value: pc.cyan(localUrl) },
+    { label: "Bridge", value: bridgeStatus },
     {
       label: "Servers",
-      value: `${localServers.map((server) => server.serverName).join(", ")} ${pc.dim(`(${registry.aggregatedTools().length} tools)`)}`,
+      value: `${pc.bold(String(localServers.length))} local${remoteCount > 0 ? ` + ${pc.bold(String(remoteCount))} remote` : ""} ${pc.dim(`(${totalTools} tool${totalTools === 1 ? "" : "s"})`)}`,
     },
   ]);
   outro(pc.green("Gateway running - Press Ctrl+C to stop"));
@@ -205,5 +249,6 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
+  running = true;
   ticker(traffic.render());
 }

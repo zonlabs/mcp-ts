@@ -1,5 +1,10 @@
+import type { Writable } from "node:stream";
 import pc from "picocolors";
 import { intro, outro, log, spinner } from "@clack/prompts";
+
+export function writeLine(stream: Pick<Writable, "write">, text = ""): void {
+  stream.write(`${text}\n`);
+}
 
 declare const __CLI_VERSION__: string | undefined;
 export const CLI_VERSION: string =
@@ -56,9 +61,11 @@ export function error(message: string): void {
   log.error(message);
 }
 
-/** Write a plain (unboxed, dimmed) line to stdout. */
+/** Write a plain line safely above the active ticker. */
 export function dim(message: string): void {
-  process.stdout.write(`${pc.dim(message)}\n`);
+  clearTickerLine();
+  process.stdout.write(`${message}\n`);
+  reflowTicker();
 }
 
 /** Print tree-connected notes along Clack's left vertical rule. */

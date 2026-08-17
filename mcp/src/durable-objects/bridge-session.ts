@@ -15,6 +15,7 @@ import {
   type ToolCallParams,
 } from "@mcp-ts/bridge-protocol";
 import { buildRemoteCatalog, callRemoteTool } from "../core/remote-bridge-tools";
+import { runWithRequestContext } from "../core/request-context";
 
 export interface BridgeSessionEnv {
   BRIDGE_SESSION: DurableObjectNamespace<BridgeSession>;
@@ -170,9 +171,15 @@ export class BridgeSession extends DurableObject<BridgeSessionEnv> {
     }
 
     if (message.method === BRIDGE_METHODS.initialize) {
+      if (this.env && typeof this.env === "object") {
+        Object.assign(process.env, this.env);
+      }
       await this.ctx.storage.put(LOCAL_CATALOG_KEY, message.params.localCatalog);
       socket.serializeAttachment({ ...attachment, initialized: true } satisfies BridgeAttachment);
-      const remoteCatalog = await buildRemoteCatalog(attachment.userId);
+      const remoteCatalog = await runWithRequestContext(
+        { userId: attachment.userId, env: this.env as any },
+        async () => await buildRemoteCatalog(attachment.userId),
+      );
       this.send(socket, createSuccessResponse(message.id, {
         protocolVersion: BRIDGE_PROTOCOL_VERSION,
         serverInfo: { name: "mcp-assistant", version: "1.0.0" },
@@ -201,7 +208,10 @@ export class BridgeSession extends DurableObject<BridgeSessionEnv> {
     }
     if (message.method === BRIDGE_METHODS.callTool) {
       try {
-        const result = await callRemoteTool(attachment.userId, message.params);
+        const result = await runWithRequestContext(
+          { userId: attachment.userId, env: this.env as any },
+          async () => await callRemoteTool(attachment.userId, message.params),
+        );
         this.send(socket, createSuccessResponse(message.id, result));
       } catch (error) {
         const text = error instanceof Error ? error.message : "Remote tool call failed";
