@@ -107,7 +107,11 @@ export class BridgeSession extends DurableObject<BridgeSessionEnv> {
     const socket = activeSocket(this.ctx);
     const attachment = socket?.deserializeAttachment() as BridgeAttachment | null;
     if (!attachment?.initialized) return;
-    await this.publishRemoteCatalog(await buildRemoteCatalog(attachment.userId));
+    const catalog = await runWithRequestContext(
+      { userId: attachment.userId, env: this.env as any },
+      async () => await buildRemoteCatalog(attachment.userId),
+    );
+    await this.publishRemoteCatalog(catalog);
   }
 
   async publishRemoteCatalog(catalog: CatalogSnapshot): Promise<void> {
