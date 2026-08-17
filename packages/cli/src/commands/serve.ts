@@ -80,14 +80,19 @@ export function createShutdownHandler(options: ShutdownHandlerOptions) {
 }
 
 function renderServerList(
-  servers: Array<{ serverName: string; tools: unknown[] }>,
+  servers: Array<{ serverId?: string; serverName: string; tools: unknown[] }>,
   maxDisplay = 5,
+  timings?: Map<string, number>,
 ): void {
   const visible = servers.slice(0, maxDisplay);
   const remaining = servers.length - visible.length;
   for (const server of visible) {
+    const ms = server.serverId && timings ? timings.get(server.serverId) : undefined;
+    const timingStr = ms !== undefined
+      ? pc.dim(` [${ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`}]`)
+      : "";
     treeNote(
-      `${pc.dim("-")} ${pc.bold(server.serverName)} ${pc.dim(`(${server.tools.length} tool${server.tools.length === 1 ? "" : "s"})`)}`,
+      `${pc.dim("-")} ${pc.bold(server.serverName)} ${pc.dim(`(${server.tools.length} tool${server.tools.length === 1 ? "" : "s"})`)}${timingStr}`,
     );
   }
   if (remaining > 0) {
@@ -140,32 +145,13 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
   info(`Loaded configuration with ${pc.bold(String(Object.keys(localConfig).length))} local server(s)`);
   const traffic = new Traffic({ onUpdate: () => ticker(traffic.render()) });
-  registry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
-  const startSpin = spinner();
-  startSpin.start("Starting local MCP servers...");
-  await registry.start();
-  startSpin.stop("Local MCP servers started");
-
-  const localServers = registry.getLocalCatalog().servers;
-  if (localServers.length > 0) {
-    success(`Started ${pc.bold(String(localServers.length))} local server(s)`);
-    renderServerList(localServers, 5);
-  }
-
+  const localRegistry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
+  registry = localRegistry;
   const host = args.host ?? "127.0.0.1";
   const port = args.port ?? DEFAULT_LOCAL_MCP_PORT;
   const path = args.path ?? "/mcp";
   const mode = args.mode ?? "search";
-  localHttpMcp = new LocalHttpMcp(registry, { host, port, path, mode }, traffic);
-  let localUrl: string;
-  try {
-    localUrl = await localHttpMcp.start();
-  } catch (cause) {
-    error(`Could not start local endpoint on ${host}:${port}${path}: ${(cause as Error).message}`);
-    await registry.close();
-    throw cause;
-  }
-  success(`Local unified MCP endpoint: ${pc.cyan(localUrl)}`);
+  localHttpMcp = new LocalHttpMcp(localRegistry, { host, port, path, mode }, traffic);
 
   const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
   if (!loadAuthSession(remote)) {
@@ -180,10 +166,8 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
-  let running = false;
-
   if (loadAuthSession(remote)) {
-    bridge = new RemoteBridgeClient(registry, {
+    bridge = new RemoteBridgeClient(localRegistry, {
       remoteUrl: remote,
       getAccessToken: async () => {
         try {
@@ -202,26 +186,78 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
         }
       },
     });
+  }
+
+  // Launch local servers and remote bridge concurrently in background
+  const localStartTime = performance.now();
+  const localTask = (async () => {
+    await localRegistry.start();
+    const url = await localHttpMcp.start();
+    // Keep remote gateway informed of full local catalog once loaded
+    try {
+      await bridge?.publishLocalCatalog();
+    } catch {
+      // Best effort
+    }
+    return url;
+  })();
+
+  const remoteStartTime = performance.now();
+  const remoteTask = (async () => {
+    if (!bridge) return false;
+    try {
+      await bridge.start();
+      return await bridge.waitForReady(DEFAULT_BRIDGE_READY_TIMEOUT_MS);
+    } catch {
+      return false;
+    }
+  })();
+
+  // 1. Render Local Servers UI
+  const startSpin = spinner();
+  startSpin.start("Starting local MCP servers...");
+  let localUrl: string;
+  try {
+    localUrl = await localTask;
+  } catch (cause) {
+    error(`Could not start local endpoint on ${host}:${port}${path}: ${(cause as Error).message}`);
+    await localRegistry.close();
+    throw cause;
+  }
+  const localDuration = ((performance.now() - localStartTime) / 1000).toFixed(2);
+  startSpin.stop(`Local MCP servers started ${pc.dim(`(${localDuration}s)`)}`);
+
+  const localServers = localRegistry.getLocalCatalog().servers;
+  if (localServers.length > 0) {
+    const timings = localRegistry.getLocalServerTimings();
+    success(`Started ${pc.bold(String(localServers.length))} local server(s) ${pc.dim(`in ${localDuration}s`)}`);
+    renderServerList(localServers, 5, timings);
+  }
+
+  success(`Local unified MCP endpoint: ${pc.cyan(localUrl)}`);
+
+  // 2. Render Remote Bridge UI (which has already been connecting in background)
+  if (bridge) {
     const bridgeSpin = spinner();
     bridgeSpin.start(`Connecting to remote gateway (${remote})...`);
-    await bridge.start();
-    const ready = await bridge.waitForReady(15_000);
-    const remoteServers = registry.getRemoteCatalog().servers;
+    const ready = await remoteTask;
+    const remoteDuration = ((performance.now() - remoteStartTime) / 1000).toFixed(2);
+    const remoteServers = localRegistry.getRemoteCatalog().servers;
     if (ready || remoteServers.length > 0) {
-      bridgeSpin.stop("Connected to remote gateway");
+      bridgeSpin.stop(`Connected to remote gateway ${pc.dim(`(${remoteDuration}s)`)}`);
       if (remoteServers.length > 0) {
-        success(`Connected ${pc.bold(String(remoteServers.length))} remote server(s)`);
+        success(`Connected ${pc.bold(String(remoteServers.length))} remote server(s) ${pc.dim(`in ${remoteDuration}s`)}`);
         renderServerList(remoteServers, 5);
       }
     } else {
-      bridgeSpin.stop("Remote gateway connected");
+      bridgeSpin.stop(`Remote gateway connected ${pc.dim(`(${remoteDuration}s)`)}`);
     }
   } else {
     warn("No remote session available. Local endpoint only.");
   }
 
-  const remoteCount = registry.getRemoteCatalog().servers.length;
-  const totalTools = registry.aggregatedTools().length;
+  const remoteCount = localRegistry.getRemoteCatalog().servers.length;
+  const totalTools = localRegistry.aggregatedTools().length;
   const bridgeStatus = bridge
     ? remoteCount > 0
       ? pc.cyan(remote)
@@ -256,6 +292,5 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
-  running = true;
   ticker(traffic.render());
 }

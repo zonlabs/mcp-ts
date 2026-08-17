@@ -33,6 +33,16 @@ Do not assume the agent needs every connected tool schema in context. Use MCP As
 
 ## Available MCP Assistant Tools
 
+### `list_mcp_servers`
+
+List all currently connected upstream MCP servers and their indexed tool counts.
+
+Use this to inspect which services are active or to filter by server name/ID:
+
+```text
+query: "github" (optional filter)
+```
+
 ### `search_mcp_tools`
 
 Search connected MCP servers for relevant tools.
@@ -55,123 +65,42 @@ If no relevant tools are found, tell the user they likely need to connect the re
 https://mcp-assistant.in/mcp
 ```
 
-### `get_mcp_tool_schema`
+### `get_mcp_tool_schemas`
 
-Inspect the exact schema for a selected MCP tool before calling it through `codemode_run`.
+Inspect the exact JSON input/output schemas for one or more selected MCP tools using their canonical tool IDs (`serverId::toolName`) before executing them:
 
-Use this after `search_mcp_tools` returns a likely tool and before execution. Read the required parameters, optional parameters, expected result shape, and any server-specific constraints.
+```json
+{
+  "toolIds": ["github::search_issues", "notion::create_page"]
+}
+```
 
-Do not guess parameter names for downstream MCP tools. Inspect the schema first.
+Read the required parameters, optional parameters, expected result shape, and any server-specific constraints. Do not guess parameter names for downstream MCP tools. Inspect the schema first.
+
+### `call_mcp_tool`
+
+Execute a single downstream MCP tool directly:
+
+```json
+{
+  "toolId": "github::create_issue",
+  "args": {
+    "owner": "mcp-ts",
+    "repo": "mcp",
+    "title": "Bug report"
+  }
+}
+```
+
+Use `call_mcp_tool` when you only need to run a single tool invocation without spinning up a full `codemode_run` script sandbox.
 
 ### `codemode_run`
 
 Execute downstream MCP tool calls inside MCP Assistant's secure remote workbench.
 
-**Prefer batching all calls into a single script** — each call spins up a new sandbox, so batching reduces overhead. See patterns below.
+Use this to call one or more selected MCP tools after inspecting their schemas. Prefer batching or chaining multiple dependent tool calls inside one `codemode_run` when it avoids unnecessary agent-visible intermediate results.
 
-#### Prerequisites
-
-Before calling `codemode_run`:
-- Use `search_mcp_tools` then `get_mcp_tool_schema` to discover valid tool names, server IDs, and argument schemas.
-- **NEVER guess tool names or argument shapes** — inspect schemas first.
-- **NEVER hardcode data values** — load everything from tool responses.
-- **ALWAYS check `.ok`** before using a tool result.
-
-#### Plan your workflow first
-
-Map out your tool calls:
-
-1. **Independent calls** — no dependency on each other → batch with `Promise.all` in one script
-2. **Dependent calls** — call B needs result from call A → chain sequentially in one script
-3. **Exploratory calls** — next step depends on inspecting intermediate results → this is the case for separate `codemode_run` calls
-
-Structure the script to cover categories 1 and 2 in a single call. Reserve separate calls for category 3 only.
-
-#### ✅ Prefer: One script, multiple calls
-
-```typescript
-// Batch independent calls with Promise.all
-const [issues, prs] = await Promise.all([
-  server1.search_issues({ q: "bug" }),
-  server2.list_pull_requests({ state: "open" }),
-]);
-
-// Chain dependent calls with sequential awaits
-const user = await server3.get_user({ email: "user@co" });
-const msg = await server3.send_message({ channel: user.id, text: "Hi" });
-
-return { issueCount: issues.length, prCount: prs.length, message: msg };
-```
-
-#### ❌ Avoid: Multiple calls for independent steps (N+1 problem)
-
-```text
-1. codemode_run({ script: "server1.search_issues(...)" })
-2. codemode_run({ script: "server2.list_pull_requests(...)" })
-3. codemode_run({ script: "server3.get_user(...)" })
-4. codemode_run({ script: "server3.send_message(...)" })
-```
-
-Each extra call adds a sandbox cold-start and wastes context. Keep independent steps in one script.
-
-#### ✅ OK to call again: Exploratory / incremental workflows
-
-When the next action genuinely depends on inspecting what the first call returned, a second `codemode_run` call is fine:
-
-```typescript
-// Call 1: discover what's relevant
-const searchResults = await server1.search({ query });
-return searchResults.map(r => ({ id: r.id, title: r.title }));
-
-// Agent inspects results, picks a URL →
-// Call 2: fetch details for the chosen URL
-const page = await server1.get_contents({ ids: [chosenId] });
-return page;
-```
-
-#### Bulk operations
-
-When processing many items, batch with a concurrency limit to avoid overwhelming the server:
-
-```typescript
-const BATCH_SIZE = 5;
-const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const results = [];
-for (let i = 0; i < items.length; i += BATCH_SIZE) {
-  const batch = items.slice(i, i + BATCH_SIZE);
-  const batchResults = await Promise.all(
-    batch.map(id => server1.add_label({ issue_number: id, label: "bug" }))
-  );
-  results.push(...batchResults);
-}
-return { updated: results.filter(r => r.ok).length };
-```
-
-#### Defensive parsing
-
-Always check `.ok` before using a result, and provide safe fallbacks:
-
-```typescript
-const res = await server1.search_issues({ q: "bug" });
-if (!res.ok) {
-  return { error: `Search failed: ${res.error}` };
-}
-const items = res.items ?? [];
-return { count: items.length, first: items[0] ?? null };
-```
-
-#### Response handling
-
-`codemode_run` returns `{ success, value, error, toolCalls, durationMs }`. Each `toolCall` has `{ serverId, toolName, ok, error? }`.
-
-- **Small results** — process inline and return the final answer.
-- **Large data** — summarize, filter, or paginate before returning. The sandbox enforces a result size limit.
-
-#### Timeout
-
-Default timeout is 240 seconds (4 minutes). For long multi-step workflows, save progress by returning intermediate state between calls rather than trying to fit everything in one script.
-
-#### Good uses:
+Good uses:
 
 - Search GitHub issues, fetch related PRs, summarize the result.
 - Query a database, filter rows, and return only the final answer.
@@ -179,25 +108,21 @@ Default timeout is 240 seconds (4 minutes). For long multi-step workflows, save 
 - Create or update records across connected tools when the steps are clear.
 - Transform, sort, deduplicate, or aggregate tool results before returning them to the agent.
 
+Avoid using `codemode_run` for a long chain when the agent needs to inspect and decide after each step. In that case, run one stage, examine the result, then continue.
+
 
 ## Default Workflow
 
 1. Decide whether the task needs an external MCP capability.
-2. Call `search_mcp_tools` with a goal-oriented query.
+2. Call `search_mcp_tools` with a goal-oriented query (or `list_mcp_servers` to verify connected services).
 3. Choose the smallest set of relevant tools from the search result.
-4. For each selected tool, call `get_mcp_tool_schema`.
-5. Call `codemode_run` to execute the selected tool call.
+4. For the selected tools, call `get_mcp_tool_schemas` with their `toolIds`.
+5. Call `call_mcp_tool` for single invocations, or `codemode_run` for multi-tool batches and data transformations.
 6. Return the final result to the user, not every intermediate object unless it is useful.
 
-## When To Batch vs When To Call Again (Avoid N+1)
+## When To Batch Tool Calls
 
-**Prefer a single script with multiple tool calls** over repeated `codemode_run` calls. Each call starts a new sandbox with a cold start; batching reduces overhead and context waste.
-
-**Batch independent steps** into one script — see the `Promise.all` pattern above.
-
-**Call again when you benefit from inspecting intermediate results** between steps. The exploratory pattern above shows this: first call searches, you inspect results, then a second call acts on what was found.
-
-Batch when:
+Batch multiple calls inside `codemode_run` when:
 
 - The task has three or more dependent tool calls.
 - Intermediate results only exist to feed later steps.
@@ -237,26 +162,157 @@ If a selected tool schema is unclear, inspect another candidate tool or ask the 
 
 If `codemode_run` fails, summarize the error, identify whether it was caused by missing auth, missing parameters, unavailable server tools, or sandbox execution failure, then retry only when the fix is clear.
 
-## Example Patterns
+## CodeMode Invocation Patterns
 
-### Find A GitHub Issue And Summarize Related PRs
+Inside `codemode_run`, the sandbox provides two flexible ways to invoke tools:
 
-1. Search tools for `GitHub search issues and pull requests`.
-2. Inspect schemas for the issue search and PR lookup tools.
-3. Run a script that searches issues, extracts linked PRs, fetches PR details, and returns a short summary.
+### Pattern A: Raw `callTool(serverId, toolName, args)` (Recommended for Dynamic Calls)
+Ideal when server IDs contain hyphens (e.g. `chrome-devtools`), when dynamically selecting servers, or when writing parameterized loops:
 
-### Search Web And Return Ranked Sources
+```javascript
+// Direct callTool invocation
+const res = await callTool("github", "search_issues", {
+  q: "repo:mcp-ts/mcp is:open is:pr",
+});
 
-1. Search tools for `Exa web search`.
-2. Inspect the Exa search tool schema.
-3. Run a script that searches, filters low-quality results, ranks sources, and returns the best links with summaries.
+// Dynamic batch dispatch across servers
+const servers = ["github", "supabase"];
+const statusReports = await Promise.all(
+  servers.map((id) => callTool(id, "health_check", {}))
+);
+```
 
-### Create A Notion Page From Processed Data
+### Pattern B: Namespaced Proxy `serverId.toolName(args)` (Recommended for Clean Scripts)
+Clean, idiomatic syntax available for all connected servers:
 
-1. Search tools for the source system and `Notion create page`.
-2. Inspect schemas for both tools.
-3. Run a script that fetches source data, transforms it, then creates the Notion page.
-4. Return the created page URL and a concise summary.
+```javascript
+const issue = await github.get_issue({
+  owner: "mcp-ts",
+  repo: "mcp",
+  issue_number: 42,
+});
+```
+
+---
+
+## Example Patterns & CodeMode Scripts
+
+### 1. Bulk / Batch Operations with `callTool` (Process Items in Parallel Chunks)
+
+Use `Promise.all` with chunking and `callTool` to process items in parallel without hitting rate limits:
+
+```javascript
+// Step 1: Query open bug issues using callTool
+const searchResult = await callTool("github", "search_issues", {
+  q: "repo:mcp-ts/mcp is:open is:issue label:bug",
+});
+const issues = searchResult.items ?? [];
+
+// Step 2: Process issues in parallel batches of 5
+const BATCH_SIZE = 5;
+const processed = [];
+
+for (let i = 0; i < issues.length; i += BATCH_SIZE) {
+  const batch = issues.slice(i, i + BATCH_SIZE);
+  const batchDetails = await Promise.all(
+    batch.map(async (issue) => {
+      const details = await callTool("github", "get_issue", {
+        owner: "mcp-ts",
+        repo: "mcp",
+        issue_number: issue.number,
+      });
+      return {
+        number: issue.number,
+        title: issue.title,
+        commentsCount: details.comments,
+        author: issue.user?.login,
+      };
+    })
+  );
+  processed.push(...batchDetails);
+}
+
+// Return concise aggregated data (avoids LLM context bloat)
+return {
+  total: issues.length,
+  highCommentBugs: processed.filter((item) => item.commentsCount > 3),
+};
+```
+
+---
+
+### 2. Multi-Server Pipeline with `callTool` (Exa Search ➔ Data Transform ➔ Slack/Notion)
+
+Chain operations across multiple servers in a single sandbox execution using `callTool`:
+
+```javascript
+// Step 1: Search web with Exa
+const searchRes = await callTool("exa", "search", {
+  query: "Model Context Protocol architecture best practices",
+  num_results: 3,
+});
+const results = searchRes.results ?? [];
+
+// Step 2: Fetch and summarize content in parallel
+const summaries = await Promise.all(
+  results.map(async (r) => {
+    const contents = await callTool("exa", "get_contents", {
+      urls: [r.url],
+      text: true,
+    });
+    return {
+      title: r.title,
+      url: r.url,
+      snippet: contents.results?.[0]?.text?.slice(0, 250),
+    };
+  })
+);
+
+// Step 3: Format and publish digest to Notion / Slack
+const digestText = summaries
+  .map((s, idx) => `*${idx + 1}. ${s.title}*\n${s.url}\n${s.snippet}...`)
+  .join("\n\n");
+
+return await callTool("slack", "post_message", {
+  channel: "#ai-research",
+  text: `📰 *MCP Architecture Digest:*\n\n${digestText}`,
+});
+```
+
+---
+
+### 3. Defensive Parsing & Database Transformation
+
+Safely check response status and transform database rows:
+
+```javascript
+// Step 1: Query database using callTool
+const dbRes = await callTool("supabase", "query_table", {
+  table: "users",
+  filter: "plan=eq.pro",
+});
+
+if (!dbRes.ok && dbRes.error) {
+  return { success: false, error: `Database error: ${dbRes.error}` };
+}
+
+const proUsers = dbRes.data ?? [];
+
+// Step 2: Aggregate metric counts
+const stats = {
+  totalProUsers: proUsers.length,
+  regions: {},
+};
+
+for (const user of proUsers) {
+  const region = user.region ?? "unknown";
+  stats.regions[region] = (stats.regions[region] ?? 0) + 1;
+}
+
+return { success: true, stats };
+```
+
+---
 
 ## Agent Guidance
 

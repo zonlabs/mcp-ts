@@ -35,7 +35,7 @@ npx @mcp-ts/cli <command> [options]
 | **`mcpa login`** | `mcpa login [--remote <url>]` | Authenticate with MCP Assistant via browser OAuth (PKCE) and store the session locally. |
 | **`mcpa logout`** | `mcpa logout [--remote <url>]` | Revoke active CLI OAuth session and clear credentials. |
 | **`mcpa init`** | `mcpa init [--dir <path>]` | Generate a default `.mcpassistant/mcp.json` configuration. |
-| **`mcpa connect`** | `mcpa connect <url>` | Open an interactive REPL (`search`, `schema`, `call`) connected to a remote MCP server. |
+| **`mcpa connect`** | `mcpa connect --name <name> --url <url> [--auth <token>]` | Test connection to a remote/local MCP server, discover its tools, and save to `mcp.json`. |
 | **`mcpa bench`** | `mcpa bench <url>` | Benchmark context token costs across exposure strategies (`all`, `search`, `groups`). |
 | **`mcpa codegen`** | `mcpa codegen <url> --out <file>` | Generate strongly typed TypeScript wrapper clients directly from tool schemas. |
 
@@ -64,7 +64,27 @@ When an agent needs to discover and call tools locally without keeping a server 
 
 ---
 
-### Workflow B: Running the Unified Local MCP Gateway (`mcpa serve`)
+### Workflow B: Connecting & Registering New MCP Servers (`mcpa connect`)
+
+When adding a new remote HTTP MCP server (with or without auth) or local stdio server:
+
+```bash
+# Connect and save a remote HTTP MCP server:
+mcpa connect --name tavily --url https://mcp.tavily.com
+
+# Connect with Bearer authentication / API Key:
+mcpa connect --name custom-api --url https://api.example.com/mcp --auth "YOUR_API_TOKEN"
+
+# Connect with custom headers:
+mcpa connect --name internal-mcp --url https://mcp.internal.net --header "X-API-Key=secret123"
+
+# Connect a local stdio command:
+mcpa connect --name postgres --command npx --args "-y @modelcontextprotocol/server-postgres postgresql://localhost/mydb"
+```
+
+---
+
+### Workflow C: Running the Unified Local MCP Gateway (`mcpa serve`)
 
 Use `mcpa serve` to expose a local HTTP MCP endpoint (`http://127.0.0.1:8765/mcp`) for IDEs, Claude Desktop, Cursor, Antigravity, OpenCode, or custom agents.
 
@@ -78,14 +98,16 @@ mcpa serve --mode all --port 8765
 
 **How Progressive Discovery Mode works:**
 - Instead of exposing hundreds of tool schemas at once, the gateway exposes dynamic meta-tools:
-  - `search_tools(query, limit)`
-  - `get_tool_schema(tool_name)`
-  - `execute_tool(tool_name, arguments)`
+  - `search_tools(query, limit)` — Search tools across local and bridged remote servers
+  - `get_tool_schema(tool_name)` — Fetch input/output JSON schema for a discovered tool
+  - `call_tool(tool_name, arguments)` — Proxy execution to the selected tool
 - This reduces prompt token overhead by up to 90%.
+- Both local stdio tools and bridged remote tools are initialized concurrently in parallel.
+- CLI commands (`mcpa call`, `mcpa search`, `mcpa schema`) automatically detect a running `mcpa serve` daemon and route through it for sub-millisecond execution without re-spawning processes.
 
 ---
 
-### Workflow C: Remote Server Discovery & Remote Bridge
+### Workflow D: Remote Server Discovery & Remote Bridge
 
 When accessing remote servers hosted on MCP Assistant (`https://api.mcp-assistant.in`):
 
@@ -98,17 +120,7 @@ When accessing remote servers hosted on MCP Assistant (`https://api.mcp-assistan
    ```bash
    mcpa search https://api.mcp-assistant.in/mcp "github create pull request"
    ```
-3. **Explore via Interactive REPL**:
-   ```bash
-   mcpa connect https://api.mcp-assistant.in/mcp
-   ```
-   *REPL Commands:*
-   - `search <query>` — Find remote tools
-   - `schema <tool>` — View JSON schema
-   - `call <tool> <jsonArgs>` — Invoke the remote tool
-   - `help` / `exit`
-
-4. **Bridge Local & Remote Tools Together**:
+3. **Bridge Local & Remote Tools Together**:
    When `mcpa serve` runs on an authenticated machine, it automatically initiates a WebSocket bridge (`wss://api.mcp-assistant.in/bridge/connect`).
    - Local tools in `mcp.json` become callable remotely.
    - Remote tools (GitHub, Notion, Exa, Supabase, Zapier) become callable locally through `http://127.0.0.1:8765/mcp`.

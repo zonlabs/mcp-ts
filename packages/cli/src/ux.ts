@@ -30,7 +30,7 @@ export function renderBanner(version: string = CLI_VERSION): string {
     "  " + r("██║ ╚═╝ ██║ ╚██████╗ ██║     ") + "             " + w("██║     ███████╔╝"),
     "  " + r("╚═╝     ╚═╝  ╚═════╝ ╚═╝     ") + "             " + w("╚═╝     ╚══════╝ ") + "  " + tag,
     "",
-    "  " + d("MCP Assistant Gateway & Local Tool Engine") + "  " + pc.underline(d("https://mcp-assistant.in")),
+    "  " + d("MCP Gateway & Execution Engine for Agents") + "  " + pc.underline(d("https://mcp-assistant.in")),
     "",
   ].join("\n");
 }
