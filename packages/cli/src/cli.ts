@@ -12,6 +12,7 @@ import { cmdConnect } from "./commands/connect.js";
 import { cmdBench } from "./commands/bench.js";
 import { cmdCodegen } from "./commands/codegen.js";
 import type { LocalMcpDiscoveryMode } from "./gateway/local-http-mcp.js";
+import { DEFAULT_REMOTE_GATEWAY_URL } from "./constants.js";
 
 const HELP = `${renderBanner()}
 Usage:
@@ -97,13 +98,13 @@ export async function runCli(
     }
 
     if (command === "login") {
-      const remote = option(commandArgs, "--remote") ?? process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
+      const remote = option(commandArgs, "--remote") ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
       await cmdLogin(remote, option(commandArgs, "--login"));
       return 0;
     }
 
     if (command === "logout") {
-      const remote = option(commandArgs, "--remote") ?? process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
+      const remote = option(commandArgs, "--remote") ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
       await cmdLogout(remote);
       return 0;
     }

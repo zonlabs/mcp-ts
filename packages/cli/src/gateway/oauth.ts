@@ -11,8 +11,8 @@ import {
   type AuthSession,
 } from "./auth-store.js";
 import { info, success, treeNote, pc } from "../ux.js";
+import { DEFAULT_OAUTH_CALLBACK_PORT } from "../constants.js";
 
-const DEFAULT_CALLBACK_PORT = 43110;
 function openBrowser(url: string): void {
   if (process.platform === "win32") execFile("rundll32", ["url.dll,FileProtocolHandler", url]);
   else if (process.platform === "darwin") execFile("open", [url]);
@@ -24,7 +24,7 @@ export async function loginToRemote(
   loginBase?: string,
 ): Promise<AuthSession> {
   const authOrigin = loginBase ?? process.env.LOGIN_BASE_URL ?? normalizeRemoteOrigin(remote);
-  const callbackUrl = `http://127.0.0.1:${DEFAULT_CALLBACK_PORT}/callback`;
+  const callbackUrl = `http://127.0.0.1:${DEFAULT_OAUTH_CALLBACK_PORT}/callback`;
   const state = randomBytes(16).toString("base64url");
   let resolveCallback!: (value: { code: string; state: string }) => void;
   const callback = new Promise<{ code: string; state: string }>((resolve) => {
@@ -40,7 +40,7 @@ export async function loginToRemote(
     response.end("<!doctype html><title>MCP Assistant</title><p>Login successful. You can close this tab.</p>");
     resolveCallback({ code: url.searchParams.get("code") ?? "", state: url.searchParams.get("state") ?? "" });
   });
-  server.listen(DEFAULT_CALLBACK_PORT, "127.0.0.1");
+  server.listen(DEFAULT_OAUTH_CALLBACK_PORT, "127.0.0.1");
 
   const loginUrl = new URL("/oauth/login", authOrigin.replace(/\/$/, ""));
   loginUrl.searchParams.set("next", `${callbackUrl}?state=${state}`);

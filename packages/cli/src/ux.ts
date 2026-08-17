@@ -6,11 +6,9 @@ export function writeLine(stream: Pick<Writable, "write">, text = ""): void {
   stream.write(`${text}\n`);
 }
 
-declare const __CLI_VERSION__: string | undefined;
-export const CLI_VERSION: string =
-  typeof __CLI_VERSION__ !== "undefined" ? __CLI_VERSION__ : "0.0.0-dev";
+import { CLI_VERSION } from "./constants.js";
 
-export { pc, intro, outro, spinner };
+export { CLI_VERSION, pc, intro, outro, spinner };
 
 /**
  * Returns a high-impact, professional block ASCII banner for mcp-ts.

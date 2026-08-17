@@ -6,12 +6,9 @@ import type { McpGatewayRegistry } from "./registry.js";
 import type { Traffic } from "../traffic.js";
 import { CLI_VERSION } from "../ux.js";
 
-export const MCP_META_TOOL_NAMES = {
-  listServers: "list_mcp_servers",
-  searchTools: "search_mcp_tools",
-  getToolSchema: "get_mcp_tool_schema",
-  callTool: "call_mcp_tool",
-} as const;
+import { MCP_META_TOOL_NAMES } from "../constants.js";
+
+export { MCP_META_TOOL_NAMES };
 
 export type LocalMcpDiscoveryMode = "all" | "search";
 
@@ -162,33 +159,23 @@ export class LocalHttpMcp {
     );
 
     mcp.registerTool(
-      MCP_META_TOOL_NAMES.getToolSchema,
+      MCP_META_TOOL_NAMES.getToolSchemas,
       {
-        description: "Get the schema for one discovered MCP tool.",
+        description: "Get input and output schema details for discovered tools before calling them.",
         inputSchema: fromJsonSchema({
           type: "object",
           properties: {
-            server_id: { type: "string" },
-            tool_name: { type: "string" },
+            toolIds: { type: "array", items: { type: "string" } },
           },
-          required: ["server_id", "tool_name"],
+          required: ["toolIds"],
         } as never),
       },
       async (raw) => {
-        const args = raw as Record<string, unknown>;
-        const [tool] = router.getToolSchemas({
-          toolIds: [`${String(args.server_id)}::${String(args.tool_name)}`],
+        const args = raw as { toolIds?: string[] };
+        const tools = router.getToolSchemas({
+          toolIds: args.toolIds ?? [],
         });
-        return tool
-          ? textResult({
-              server_id: tool.serverId,
-              server_name: tool.serverName,
-              tool_name: tool.toolName,
-              description: tool.description,
-              input_schema: tool.inputSchema,
-              output_schema: tool.outputSchema,
-            })
-          : textResult("Tool not found", true);
+        return textResult({ tools });
       },
     );
 
@@ -199,19 +186,26 @@ export class LocalHttpMcp {
         inputSchema: fromJsonSchema({
           type: "object",
           properties: {
+            toolId: { type: "string" },
+            args: { type: "object" },
             server_id: { type: "string" },
             tool_name: { type: "string" },
             arguments: { type: "object" },
           },
-          required: ["server_id", "tool_name"],
         } as never),
       },
       async (raw) => {
         const args = raw as Record<string, unknown>;
+        const toolId = String(
+          args.toolId ??
+            (args.server_id ? `${String(args.server_id)}::${String(args.tool_name)}` : (args.tool_name ?? ""))
+        );
+        const toolArgs = (args.args ?? args.arguments ?? {}) as Record<string, unknown>;
+
         try {
           return (await router.callTool({
-            toolId: `${String(args.server_id)}::${String(args.tool_name)}`,
-            args: (args.arguments ?? {}) as Record<string, unknown>,
+            toolId,
+            args: toolArgs,
           })) as CallToolResult;
         } catch (error) {
           return textResult(error instanceof Error ? error.message : "Tool call failed", true);

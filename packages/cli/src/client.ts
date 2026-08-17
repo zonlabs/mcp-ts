@@ -76,6 +76,9 @@ export async function connectRemote(
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("MCP endpoint must use http:// or https://");
   }
+  if (!url.pathname || url.pathname === "/") {
+    url.pathname = "/mcp";
+  }
   const client = new RemoteToolClient(url, connector);
   try {
     await client.connect();

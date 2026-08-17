@@ -9,7 +9,7 @@ describe("LocalHttpMcp", () => {
     expect(MCP_META_TOOL_NAMES).toEqual({
       listServers: "list_mcp_servers",
       searchTools: "search_mcp_tools",
-      getToolSchema: "get_mcp_tool_schema",
+      getToolSchemas: "get_mcp_tool_schemas",
       callTool: "call_mcp_tool",
     });
   });

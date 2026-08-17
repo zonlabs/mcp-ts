@@ -53,7 +53,7 @@ describe("McpGatewayRegistry", () => {
       }),
       callTool: vi.fn(),
       close,
-      getServerId: () => "local:docs",
+      getServerId: () => "docs",
       getServerName: () => "docs",
       getServerUrl: () => "https://docs.example/mcp",
     }));
@@ -66,7 +66,7 @@ describe("McpGatewayRegistry", () => {
     await registry.start();
 
     expect(connectHttp).toHaveBeenCalledWith("https://docs.example/mcp", expect.objectContaining({
-      serverId: "local:docs",
+      serverId: "docs",
       serverName: "docs",
     }));
     expect(registry.getLocalCatalog().servers[0].tools[0].name).toBe("search_docs");

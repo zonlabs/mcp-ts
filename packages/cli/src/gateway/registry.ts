@@ -164,22 +164,24 @@ export class McpGatewayRegistry {
   }
 
   async start(): Promise<void> {
-    for (const [name, config] of Object.entries(this.configs)) {
-      const id = `local:${name}`;
-      const connection = new LocalMcpConnection(
-        id,
-        name,
-        config,
-        this.options.verbose ?? false,
-        this.options.connectHttp ?? connectHttpMcpServer,
-      );
-      try {
-        await connection.start();
-        this.localConnections.set(id, connection);
-      } catch (error) {
-        uxError(`Failed to start MCP server "${name}": ${(error as Error).message}`);
-      }
-    }
+    await Promise.allSettled(
+      Object.entries(this.configs).map(async ([name, config]) => {
+        const id = name;
+        const connection = new LocalMcpConnection(
+          id,
+          name,
+          config,
+          this.options.verbose ?? false,
+          this.options.connectHttp ?? connectHttpMcpServer,
+        );
+        try {
+          await connection.start();
+          this.localConnections.set(id, connection);
+        } catch (error) {
+          uxError(`Failed to start MCP server "${name}": ${(error as Error).message}`);
+        }
+      }),
+    );
     await this.rebuildIndex();
   }
 
@@ -279,7 +281,26 @@ export class McpGatewayRegistry {
   }
 
   getTool(reference: string): AggregatedTool | undefined {
-    const route = this.routes.get(reference) ?? this.routesById.get(reference);
+    let targetServerId: string | undefined;
+    let targetToolName = reference;
+    if (reference.includes("::")) {
+      const parts = reference.split("::");
+      targetServerId = parts[0];
+      targetToolName = parts.slice(1).join("::");
+    }
+
+    const route =
+      this.routes.get(reference) ??
+      this.routesById.get(reference) ??
+      [...this.routesById.values()].find(
+        (r) =>
+          (!targetServerId ||
+            r.serverId.toLowerCase() === targetServerId.toLowerCase() ||
+            r.serverName.toLowerCase() === targetServerId.toLowerCase()) &&
+          (r.tool.name === targetToolName ||
+            canonicalToolId(r.serverId, r.tool.name) === reference ||
+            `${r.serverName}::${r.tool.name}` === reference),
+      );
     if (!route) return undefined;
     return {
       name: route.exposedName,
@@ -291,6 +312,18 @@ export class McpGatewayRegistry {
       inputSchema: route.tool.inputSchema,
       outputSchema: route.tool.outputSchema,
     };
+  }
+
+  getToolsForServer(serverReference: string): AggregatedTool[] {
+    const cleanRef = serverReference.toLowerCase();
+    return [...this.routes.values()]
+      .filter(
+        (r) =>
+          r.serverId.toLowerCase() === cleanRef ||
+          r.serverName.toLowerCase() === cleanRef,
+      )
+      .map((r) => this.getTool(r.exposedName)!)
+      .filter(Boolean);
   }
 
   aggregatedTools(): AggregatedTool[] {
@@ -343,7 +376,12 @@ export class McpGatewayRegistry {
   }
 
   async callTool(reference: string, args: Record<string, unknown>): Promise<unknown> {
-    const route = this.routes.get(reference) ?? this.routesById.get(reference);
+    const route =
+      this.routes.get(reference) ??
+      this.routesById.get(reference) ??
+      [...this.routesById.values()].find(
+        (r) => r.tool.name === reference || canonicalToolId(r.serverId, r.tool.name) === reference,
+      );
     if (!route) throw new Error(`Unknown tool "${reference}".`);
     return this.callToolByServer(route.serverId, route.tool.name, args);
   }

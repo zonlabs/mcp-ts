@@ -44,7 +44,10 @@ function handleObservability(event: McpObservabilityEvent): void {
   }
 }
 
-export async function getMcpManager(userId: string): Promise<McpManager> {
+export async function getMcpManager(
+  userId: string,
+  options: { publishOnConnect?: boolean } = {},
+): Promise<McpManager> {
   const context = getRequestContext();
   let manager!: McpManager;
   const publishCatalog = async () => {
@@ -61,7 +64,9 @@ export async function getMcpManager(userId: string): Promise<McpManager> {
     onToolsChanged: () => void publishCatalog(),
   });
   await manager.connect();
-  void publishCatalog();
+  if (options.publishOnConnect) {
+    void publishCatalog();
+  }
   return manager;
 }
 

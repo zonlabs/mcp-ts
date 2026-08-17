@@ -1,6 +1,5 @@
 import type { Tool } from "@modelcontextprotocol/client";
-
-const CALIBRATION_DIVISOR = 3.6;
+import { CALIBRATION_DIVISOR } from "./constants.js";
 
 function classifyCharacter(character: string): number {
   const code = character.charCodeAt(0);

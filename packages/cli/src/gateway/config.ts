@@ -1,16 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { McpServersConfig } from "./types.js";
+import { CONFIG_FILENAME, DEFAULT_CONFIG_DIR } from "../constants.js";
 
-export const CONFIG_FILENAME = "mcp.json";
-
-const DEFAULT_CONFIG_DIR = ".mcpassistant";
+export { CONFIG_FILENAME, DEFAULT_CONFIG_DIR };
 
 export interface LoadedConfig {
   path: string;
   config: McpServersConfig;
 }
-
 /**
  * Locate mcp.json by searching upward from `startDir` (or via MCP_CONFIG_PATH).
  */

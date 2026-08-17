@@ -17,9 +17,14 @@ async function printSearch(
     return;
   }
   results.forEach((result, index) => {
+    const scopedId = result.serverId ? `${result.serverId}::${result.toolName ?? result.name}` : result.name;
+    const serverDetail =
+      result.serverName && result.serverName !== result.serverId
+        ? ` (server: ${result.serverName})`
+        : "";
     writeLine(
       output,
-      `${pc.cyan(String(index + 1))}. ${pc.bold(result.name)} (server: ${result.serverName}, ~${result.estimatedTokens} tokens)`,
+      `${pc.cyan(String(index + 1))}. ${pc.bold(scopedId)}${pc.dim(serverDetail)}`,
     );
   });
 }

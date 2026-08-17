@@ -26,6 +26,18 @@ export interface ResolvedTool extends ToolSchemaResult {
   name: string;
 }
 
+export function parseToolRef(reference: string): { serverId?: string; toolName: string } {
+  if (reference.includes("::")) {
+    const parts = reference.split("::");
+    return { serverId: parts[0] || undefined, toolName: parts.slice(1).join("::") };
+  }
+  if (reference.includes(":") && !reference.startsWith("http")) {
+    const parts = reference.split(":");
+    return { serverId: parts[0] || undefined, toolName: parts.slice(1).join(":") };
+  }
+  return { toolName: reference };
+}
+
 const routerServerIds = new WeakMap<ToolRouter, string>();
 
 export async function createRouter(client: ToolClient): Promise<ToolRouter> {
@@ -65,10 +77,10 @@ function parseMetaSearchResults(raw: unknown): SearchResult[] {
         : [];
 
   return items.map((item: Record<string, unknown>) => {
-    const toolName = String(item.tool_name ?? item.name ?? "");
-    const serverName = String(item.server_name ?? item.serverName ?? item.server_id ?? item.serverId ?? "remote");
-    const serverId = String(item.server_id ?? item.serverId ?? serverName);
-    const toolId = String(item.tool_id ?? item.toolId ?? `${serverId}::${toolName}`);
+    const toolName = String(item.toolName ?? item.tool_name ?? item.name ?? item.title ?? "");
+    const serverName = String(item.serverName ?? item.server_name ?? item.serverId ?? item.server_id ?? "remote");
+    const serverId = String(item.serverId ?? item.server_id ?? serverName);
+    const toolId = String(item.toolId ?? item.tool_id ?? `${serverId}::${toolName}`);
     const description = item.description ? String(item.description) : "";
     return {
       toolId,
@@ -123,15 +135,25 @@ export async function searchTools(
 }
 
 export function resolveTool(router: ToolRouter, reference: string): ResolvedTool | undefined {
-  const toolId = reference.includes("::")
-    ? reference
-    : `${routerServerIds.get(router) ?? "remote"}::${reference}`;
+  const serverId = routerServerIds.get(router) ?? "remote";
+  const toolId = reference.includes("::") ? reference : `${serverId}::${reference}`;
   try {
     const [tool] = router.getToolSchemas({ toolIds: [toolId] });
-    return tool ? { ...tool, name: tool.toolName } : undefined;
+    if (tool) return { ...tool, name: tool.toolName };
   } catch {
-    return undefined;
+    // Continue
   }
+
+  try {
+    const candidateIds = router.listServers().map((s) => `${s.serverId}::${reference}`);
+    const allTools = router.getToolSchemas({ toolIds: candidateIds });
+    const match = allTools.find((t) => t && t.toolName.toLowerCase() === reference.toLowerCase());
+    if (match) return { ...match, name: match.toolName };
+  } catch {
+    // Continue
+  }
+
+  return undefined;
 }
 
 export async function benchmarkStrategies(client: ToolClient): Promise<StrategyBenchmark[]> {

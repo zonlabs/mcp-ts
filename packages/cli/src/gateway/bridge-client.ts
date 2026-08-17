@@ -15,7 +15,12 @@ import {
   type JsonRpcId,
   type ToolCallParams,
 } from "@mcp-ts/bridge-protocol";
-import { CLI_VERSION, serverLog } from "../ux.js";
+import { serverLog } from "../ux.js";
+import {
+  CLI_VERSION,
+  DEFAULT_BRIDGE_RECONNECT_INITIAL_DELAY_MS,
+  DEFAULT_BRIDGE_REQUEST_TIMEOUT_MS,
+} from "../constants.js";
 
 export interface BridgeSocket {
   readonly readyState: number;
@@ -138,9 +143,7 @@ export class RemoteBridgeClient {
     await this.registry.replaceRemoteCatalog(initialized.remoteCatalog, (params) =>
       this.callRemoteTool(params),
     );
-    if (initialized.remoteCatalog.servers.length > 0) {
-      this.readyResolver?.();
-    }
+    this.readyResolver?.();
   }
 
   async publishLocalCatalog(): Promise<void> {

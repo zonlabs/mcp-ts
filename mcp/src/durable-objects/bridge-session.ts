@@ -174,7 +174,7 @@ export class BridgeSession extends DurableObject<BridgeSessionEnv> {
       if (this.env && typeof this.env === "object") {
         Object.assign(process.env, this.env);
       }
-      await this.ctx.storage.put(LOCAL_CATALOG_KEY, message.params.localCatalog);
+      void this.ctx.storage.put(LOCAL_CATALOG_KEY, message.params.localCatalog);
       socket.serializeAttachment({ ...attachment, initialized: true } satisfies BridgeAttachment);
       const remoteCatalog = await runWithRequestContext(
         { userId: attachment.userId, env: this.env as any },
@@ -194,7 +194,7 @@ export class BridgeSession extends DurableObject<BridgeSessionEnv> {
     }
 
     if (message.method === BRIDGE_METHODS.localCatalogChanged) {
-      await this.ctx.storage.put(LOCAL_CATALOG_KEY, message.params);
+      void this.ctx.storage.put(LOCAL_CATALOG_KEY, message.params);
       return;
     }
     if (message.method === BRIDGE_METHODS.cancelled) {

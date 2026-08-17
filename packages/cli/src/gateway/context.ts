@@ -6,8 +6,9 @@ import {
   loadAuthSession,
 } from "./auth-store.js";
 import type { McpServerConfig } from "./types.js";
+import { DEFAULT_LOCAL_MCP_PORT, DEFAULT_REMOTE_GATEWAY_URL } from "../constants.js";
 
-export const DEFAULT_LOCAL_MCP_PORT = 8765;
+export { DEFAULT_LOCAL_MCP_PORT, DEFAULT_REMOTE_GATEWAY_URL };
 
 export interface GatewayContextOptions {
   cwd?: string;
@@ -72,7 +73,7 @@ export async function withMcpGateway<T>(
 
   await gateway.start();
   try {
-    const remote = options?.remoteUrl ?? process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
+    const remote = options?.remoteUrl ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
     if (options?.enableBridge !== false && loadAuthSession(remote)) {
       try {
         bridge = new RemoteBridgeClient(gateway, {
@@ -80,7 +81,7 @@ export async function withMcpGateway<T>(
           getAccessToken: async () => (await ensureFreshAuthSession(remote)).accessToken,
         });
         await bridge.start();
-        await bridge.waitForReady(2_000);
+        await bridge.waitForReady(10_000);
       } catch {
         // Remote bridge connection is best effort for one-shot commands
       }

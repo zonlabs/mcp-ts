@@ -48,8 +48,10 @@ export function authConfigDir(
   return join(env.XDG_CONFIG_HOME ?? join(userHome, ".config"), "mcp-assistant");
 }
 
+import { AUTH_FILENAME } from "../constants.js";
+
 export function authFilePath(options: StoreOptions = {}): string {
-  return join(options.configDir ?? authConfigDir(), "auth.json");
+  return join(options.configDir ?? authConfigDir(), AUTH_FILENAME);
 }
 
 function readAuthFile(options: StoreOptions): AuthFile {

@@ -123,3 +123,68 @@ test("accepts only deterministic discovery modes", () => {
   assert.equal(parseDiscoveryMode("all"), "all");
   assert.throws(() => parseDiscoveryMode("auto"), /--mode must be "search" or "all"/);
 });
+
+test("correctly parses search_mcp_tools payload with camelCase toolName and serverId", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [
+        {
+          name: "search_mcp_tools",
+          description: "Search MCP Tools",
+          inputSchema: { type: "object" },
+        },
+      ],
+    }),
+    callTool: async (nameOrReq: any) => {
+      const toolName = typeof nameOrReq === "string" ? nameOrReq : nameOrReq.name;
+      if (toolName === "search_mcp_tools") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                tools: [
+                  {
+                    serverId: "3a0zk9sliokm",
+                    toolName: "add_reply_to_pull_request_comment",
+                    title: "add_reply_to_pull_request_comment",
+                    serverName: "GitHub",
+                    description: "Add a reply to a PR comment",
+                  },
+                ],
+              }),
+            },
+          ],
+        };
+      }
+      return {};
+    },
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  const results = await searchTools(router, "reply", 5);
+  assert.equal(results.length, 1);
+  assert.equal(results[0].name, "add_reply_to_pull_request_comment");
+  assert.equal(results[0].toolName, "add_reply_to_pull_request_comment");
+  assert.equal(results[0].serverId, "3a0zk9sliokm");
+  assert.equal(results[0].toolId, "3a0zk9sliokm::add_reply_to_pull_request_comment");
+});
+
+test("parseToolRef handles double-colon, single-colon and plain names", async () => {
+  const { parseToolRef } = await import("../src/core.js");
+  assert.deepEqual(parseToolRef("3a0zk9sliokm::add_reply_to_pull_request_comment"), {
+    serverId: "3a0zk9sliokm",
+    toolName: "add_reply_to_pull_request_comment",
+  });
+  assert.deepEqual(parseToolRef("github:create_issue"), {
+    serverId: "github",
+    toolName: "create_issue",
+  });
+  assert.deepEqual(parseToolRef("plain_tool"), {
+    toolName: "plain_tool",
+  });
+});
+
+

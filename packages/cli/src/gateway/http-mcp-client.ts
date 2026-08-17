@@ -10,10 +10,11 @@ import {
 } from "@mcp-ts/client";
 import type { Tool } from "@modelcontextprotocol/client";
 import { authConfigDir } from "./auth-store.js";
-
-const CALLBACK_PORT = 43_111;
-const CALLBACK_PATH = "/oauth/callback";
-const CLI_USER_ID = "mcpa-cli";
+import {
+  HTTP_CLIENT_CALLBACK_PORT,
+  HTTP_CLIENT_CALLBACK_PATH,
+  CLI_USER_ID,
+} from "../constants.js";
 
 interface OAuthCallback {
   code: string;
@@ -90,7 +91,7 @@ function authorizeInBrowser(authorizationUrl: string, callbackUrl: string): Prom
     };
     const server = createServer((request, response) => {
       const url = new URL(request.url ?? "/", callbackUrl);
-      if (url.pathname !== CALLBACK_PATH) {
+      if (url.pathname !== HTTP_CLIENT_CALLBACK_PATH) {
         response.writeHead(404).end("Not found");
         return;
       }
@@ -129,7 +130,7 @@ export async function connectHttpMcpServer(
     throw new Error("MCP endpoint must use http:// or https://");
   }
 
-  const callbackUrl = `http://127.0.0.1:${CALLBACK_PORT}${CALLBACK_PATH}`;
+  const callbackUrl = `http://127.0.0.1:${HTTP_CLIENT_CALLBACK_PORT}${HTTP_CLIENT_CALLBACK_PATH}`;
   const sessionStore = options.sessionStore ?? await defaultSessionStore();
   let authorizationUrl: string | undefined;
   const client = (options.createClient ?? ((config) => new McpClient(config) as OAuthMcpClient))({

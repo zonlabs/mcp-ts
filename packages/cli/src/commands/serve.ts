@@ -37,7 +37,13 @@ export interface ServeArgs {
   mode?: "all" | "search";
 }
 
-export const DEFAULT_LOCAL_MCP_PORT = 8765;
+import {
+  DEFAULT_LOCAL_MCP_PORT,
+  DEFAULT_REMOTE_GATEWAY_URL,
+  DEFAULT_BRIDGE_READY_TIMEOUT_MS,
+} from "../constants.js";
+
+export { DEFAULT_LOCAL_MCP_PORT };
 
 interface ShutdownHandlerOptions {
   cleanup(): Promise<void>;
@@ -161,7 +167,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   }
   success(`Local unified MCP endpoint: ${pc.cyan(localUrl)}`);
 
-  const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
+  const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
   if (!loadAuthSession(remote)) {
     const signInSpin = spinner();
     signInSpin.start(`Waiting for sign-in in browser (${remote})...`);
@@ -188,10 +194,11 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
         }
       },
       onRemoteCatalogChanged: (catalog) => {
-        if (!running) return;
-        const count = catalog.servers.length;
-        if (count > 0) {
-          dim(`${pc.green("✔")} Connected ${pc.bold(String(count))} remote server(s): ${catalog.servers.map((s) => s.serverName).join(", ")}`);
+        if (args.verbose) {
+          serverLog(
+            "bridge",
+            `Remote catalog updated: ${catalog.servers.length} server(s)`,
+          );
         }
       },
     });
@@ -199,15 +206,15 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     bridgeSpin.start(`Connecting to remote gateway (${remote})...`);
     await bridge.start();
     const ready = await bridge.waitForReady(15_000);
-    if (ready) {
-      const remoteServers = registry.getRemoteCatalog().servers;
+    const remoteServers = registry.getRemoteCatalog().servers;
+    if (ready || remoteServers.length > 0) {
       bridgeSpin.stop("Connected to remote gateway");
       if (remoteServers.length > 0) {
         success(`Connected ${pc.bold(String(remoteServers.length))} remote server(s)`);
         renderServerList(remoteServers, 5);
       }
     } else {
-      bridgeSpin.stop("Remote gateway connected (syncing in background)");
+      bridgeSpin.stop("Remote gateway connected");
     }
   } else {
     warn("No remote session available. Local endpoint only.");
