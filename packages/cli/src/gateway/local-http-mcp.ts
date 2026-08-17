@@ -23,7 +23,15 @@ export function isSearchDiscoveryMode(mode?: LocalMcpDiscoveryMode): boolean {
   return (mode ?? "search") === "search";
 }
 
-async function toWebRequest(request: IncomingMessage): Promise<Request> {
+interface ParsedRequest {
+  webRequest: Request;
+  jsonRpc?: {
+    method?: string;
+    params?: Record<string, unknown>;
+  };
+}
+
+async function toWebRequest(request: IncomingMessage): Promise<ParsedRequest> {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
   const headers = new Headers();
   for (const [name, value] of Object.entries(request.headers)) {
@@ -34,11 +42,27 @@ async function toWebRequest(request: IncomingMessage): Promise<Request> {
   if (request.method !== "GET" && request.method !== "HEAD") {
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
   }
-  return new Request(url, {
-    method: request.method ?? "GET",
-    headers,
-    body: chunks.length > 0 ? Buffer.concat(chunks) : undefined,
-  });
+  const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
+  let jsonRpc: { method?: string; params?: Record<string, unknown> } | undefined;
+  if (body) {
+    try {
+      const parsed = JSON.parse(body.toString("utf8"));
+      if (parsed && typeof parsed.method === "string") {
+        jsonRpc = parsed;
+      }
+    } catch {
+      // Non-JSON payload
+    }
+  }
+
+  return {
+    webRequest: new Request(url, {
+      method: request.method ?? "GET",
+      headers,
+      body,
+    }),
+    jsonRpc,
+  };
 }
 
 async function sendWebResponse(response: ServerResponse, webResponse: Response): Promise<void> {
@@ -225,14 +249,28 @@ export class LocalHttpMcp {
     this.server = createServer(async (request, response) => {
       const started = Date.now();
       try {
-        const webRequest = await toWebRequest(request);
+        const { webRequest, jsonRpc } = await toWebRequest(request);
         if (new URL(webRequest.url).pathname !== this.options.path) {
           response.writeHead(404, { "content-type": "application/json" });
           response.end(JSON.stringify({ error: "Not found" }));
           return;
         }
         const webResponse = await this.handler.fetch(webRequest);
-        this.traffic.recordIncoming("http", "", Date.now() - started, webResponse.status);
+        const latencyMs = Date.now() - started;
+        const method = jsonRpc?.method ?? `${webRequest.method} ${this.options.path}`;
+        const target =
+          jsonRpc?.method === "tools/call"
+            ? String(jsonRpc.params?.name ?? jsonRpc.params?.toolId ?? jsonRpc.params?.tool_name ?? "")
+            : undefined;
+
+        this.traffic.recordIncoming({
+          protocol: "JSON-RPC",
+          method,
+          target,
+          latencyMs,
+          status: webResponse.status,
+          args: jsonRpc?.params?.arguments ?? jsonRpc?.params?.args ?? (jsonRpc?.method !== "tools/call" ? jsonRpc?.params : undefined),
+        });
         await sendWebResponse(response, webResponse);
       } catch (error) {
         this.traffic.recordError("local endpoint", (error as Error).message);

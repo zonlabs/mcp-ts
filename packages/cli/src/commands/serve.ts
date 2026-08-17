@@ -145,7 +145,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   }
 
   info(`Loaded configuration with ${pc.bold(String(Object.keys(localConfig).length))} local server(s)`);
-  const traffic = new Traffic({ onUpdate: () => ticker(traffic.render()) });
+  const traffic = new Traffic({ verbose: args.verbose });
   const localRegistry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
   registry = localRegistry;
   const host = args.host ?? "127.0.0.1";
@@ -282,6 +282,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
   treeSummary("Gateway summary", summaryItems);
   outro(pc.green("Gateway running - Press Ctrl+C to stop"));
+  process.stdout.write(`\n${pc.bold(pc.dim("─── Activity Logs ──────────────────────────────────────────────────────────"))}\n\n`);
 
   // Put stdin into raw mode AFTER all @clack/prompts spinners/prompts finish
   // This guarantees Ctrl+C (\u0003), Ctrl+D (\u0004), or 'q' immediately triggers shutdown
@@ -300,6 +301,4 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
       // Fallback to standard signal listeners
     }
   }
-
-  ticker(traffic.render());
 }

@@ -384,10 +384,11 @@ export class McpGatewayRegistry {
       const result = local
         ? await this.callLocalTool({ serverId, toolName, arguments: args })
         : await this.callRemoteTool({ serverId, toolName, arguments: args });
-      this.traffic.recordCall(serverId, toolName, Date.now() - started, true);
+      this.traffic.recordCall(serverId, toolName, Date.now() - started, true, undefined, args, result);
       return result;
     } catch (error) {
-      this.traffic.recordCall(serverId, toolName, Date.now() - started, false);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.traffic.recordCall(serverId, toolName, Date.now() - started, false, errMsg, args);
       throw error;
     }
   }
