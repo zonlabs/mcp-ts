@@ -54,7 +54,6 @@ export class NeonStorageBackend implements SessionStore {
 
     async init(): Promise<void> {
         await this.assertTable(this.tableName, 'mcp_sessions');
-        console.log('[mcp-ts][Storage] Neon: storage tables verified.');
     }
 
     private async assertTable(qualifiedName: string, displayName: string): Promise<void> {

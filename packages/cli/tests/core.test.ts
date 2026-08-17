@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { ToolClient } from "@mcp-ts/client/shared";
+import type { ToolClient } from "@mcp-ts/tool-router";
 import type { Tool } from "@modelcontextprotocol/client";
 import { benchmarkStrategies, createRouter, generateWrappers, resolveTool, searchTools } from "../src/core.js";
+import { parseDiscoveryMode } from "../src/cli.js";
 
 const tools: Tool[] = [
   {
@@ -32,13 +33,11 @@ const tools: Tool[] = [
 
 function fakeClient(): ToolClient {
   return {
-    isConnected: () => true,
     listTools: async () => ({ tools }),
     callTool: async (name, args) => ({ name, args }),
     getServerId: () => "example",
     getServerName: () => "Example Server",
     getServerUrl: () => "https://example.test/mcp",
-    getSessionId: () => "cli:example"
   };
 }
 
@@ -53,7 +52,10 @@ test("searches the catalog and reports schema token estimates", async () => {
 
 test("routes an explicit tool call to the connected client", async () => {
   const router = await createRouter(fakeClient());
-  const result = await router.callTool("send_email", { to: "dev@example.test" }, "example");
+  const result = await router.callTool({
+    toolId: "example::send_email",
+    args: { to: "dev@example.test" },
+  });
   assert.deepEqual(result, {
     name: "send_email",
     args: { to: "dev@example.test" }
@@ -99,4 +101,90 @@ test("renders banner, tree formatters and reports version", async () => {
   });
   assert.equal(code, 0);
   assert.ok(output.includes(CLI_VERSION));
+
+  let helpOutput = "";
+  const helpCode = await runCli(["--help"], {
+    input: process.stdin,
+    output: { write: (s: string) => { helpOutput += s; return true; } } as any,
+    error: process.stderr,
+  });
+  assert.equal(helpCode, 0);
+  assert.ok(helpOutput.includes("mcpa call"));
+  assert.ok(helpOutput.includes("mcpa search"));
+  assert.ok(helpOutput.includes("mcpa schema"));
+  assert.ok(helpOutput.includes("mcpa list"));
+  assert.ok(helpOutput.includes("--mode"));
+  assert.ok(!helpOutput.includes("all|search|auto"));
 });
+
+test("accepts only deterministic discovery modes", () => {
+  assert.equal(parseDiscoveryMode(undefined), undefined);
+  assert.equal(parseDiscoveryMode("search"), "search");
+  assert.equal(parseDiscoveryMode("all"), "all");
+  assert.throws(() => parseDiscoveryMode("auto"), /--mode must be "search" or "all"/);
+});
+
+test("correctly parses search_mcp_tools payload with camelCase toolName and serverId", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [
+        {
+          name: "search_mcp_tools",
+          description: "Search MCP Tools",
+          inputSchema: { type: "object" },
+        },
+      ],
+    }),
+    callTool: async (nameOrReq: any) => {
+      const toolName = typeof nameOrReq === "string" ? nameOrReq : nameOrReq.name;
+      if (toolName === "search_mcp_tools") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                tools: [
+                  {
+                    serverId: "3a0zk9sliokm",
+                    toolName: "add_reply_to_pull_request_comment",
+                    title: "add_reply_to_pull_request_comment",
+                    serverName: "GitHub",
+                    description: "Add a reply to a PR comment",
+                  },
+                ],
+              }),
+            },
+          ],
+        };
+      }
+      return {};
+    },
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  const results = await searchTools(router, "reply", 5);
+  assert.equal(results.length, 1);
+  assert.equal(results[0].name, "add_reply_to_pull_request_comment");
+  assert.equal(results[0].toolName, "add_reply_to_pull_request_comment");
+  assert.equal(results[0].serverId, "3a0zk9sliokm");
+  assert.equal(results[0].toolId, "3a0zk9sliokm::add_reply_to_pull_request_comment");
+});
+
+test("parseToolRef handles double-colon, single-colon and plain names", async () => {
+  const { parseToolRef } = await import("../src/core.js");
+  assert.deepEqual(parseToolRef("3a0zk9sliokm::add_reply_to_pull_request_comment"), {
+    serverId: "3a0zk9sliokm",
+    toolName: "add_reply_to_pull_request_comment",
+  });
+  assert.deepEqual(parseToolRef("github:create_issue"), {
+    serverId: "github",
+    toolName: "create_issue",
+  });
+  assert.deepEqual(parseToolRef("plain_tool"), {
+    toolName: "plain_tool",
+  });
+});
+
+

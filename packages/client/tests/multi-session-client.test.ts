@@ -337,4 +337,29 @@ test.describe('McpManager', () => {
             if (consoleSpy) console.error = consoleSpy;
         }
     });
+
+    test('should forward downstream tool-list changes with the session id', async () => {
+        (McpClient.prototype as any).connect = async function() {
+            (this as any)._mockConnected = true;
+        };
+        const mockStorage = new MemoryStorageBackend();
+        mockStorage.list = async () => [{
+            sessionId: 'session-tools',
+            serverId: 'server-tools',
+            serverUrl: 'http://localhost/tools',
+            callbackUrl: 'http://localhost/callback',
+            status: 'active',
+        }] as any;
+        _setStorageInstanceForTesting(mockStorage);
+        const changed: string[] = [];
+        const manager = new McpManager(userId, {
+            onToolsChanged: (sessionId) => changed.push(sessionId),
+        });
+
+        await manager.connect();
+        const client = (manager as any).clients[0];
+        client.config.onToolsChanged();
+
+        expect(changed).toEqual(['session-tools']);
+    });
 });

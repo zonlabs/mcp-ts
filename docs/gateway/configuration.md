@@ -59,4 +59,4 @@ Once configured, launch the gateway:
 mcpa serve
 ```
 
-The gateway aggregates all configured server tools, serves them on `http://127.0.0.1:8787/mcp`, and bridges them securely to `https://api.mcp-assistant.in` for cloud AI clients.
+The gateway aggregates all configured server tools, serves them on `http://127.0.0.1:8765/mcp`, and bridges them securely to `https://api.mcp-assistant.in` for cloud AI clients.

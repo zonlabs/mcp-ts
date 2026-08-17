@@ -7,7 +7,7 @@ icon: "terminal"
 
 The **@mcp-ts/cli** (`mcpa` / `mcp-ts`) is an all-in-one developer CLI and gateway daemon for the Model Context Protocol.
 
-It allows you to inspect remote MCP endpoints, test on-demand tool discovery, generate typed wrappers, and bridge your local MCP servers to cloud assistants (like ChatGPT, Claude, and MCP Assistant) with zero firewall configuration.
+It allows you to inspect remote MCP endpoints, test on-demand tool discovery, generate typed wrappers, and bridge local MCP servers to remote assistants such as ChatGPT, Claude, and MCP Assistant with zero firewall configuration.
 
 ```bash
 # Global install (gives you both `mcpa` and `mcp-ts`)
@@ -23,10 +23,10 @@ npx @mcp-ts/cli [command]
 
 <CardGroup cols={2}>
   <Card title="Local MCP Gateway" icon="server" href="/gateway/overview">
-    Run local stdio and HTTP/SSE MCP servers, aggregate tools, and expose a clean local HTTP endpoint (`http://127.0.0.1:8787/mcp`).
+    Run local stdio and HTTP/SSE MCP servers, aggregate tools, and expose a clean local HTTP endpoint (`http://127.0.0.1:8765/mcp`).
   </Card>
-  <Card title="Remote Cloud Bridge" icon="cloud" href="/gateway/configuration">
-    Pair your machine via OAuth (`mcpa link`) and bridge local servers to cloud AI assistants over an outbound persistent WebSocket.
+  <Card title="Remote Bridge" icon="cloud" href="/gateway/configuration">
+    Sign in via OAuth (`mcpa login`) and bridge local servers to remote AI assistants over an outbound JSON-RPC WebSocket.
   </Card>
   <Card title="Interactive REPL" icon="terminal" href="/cli/commands#connect">
     Connect to any remote MCP server to search tools, view JSON schemas, and execute calls interactively.
@@ -49,10 +49,10 @@ mcpa init
 mcpa serve
 ```
 
-### 2. Pair with MCP Assistant Cloud
+### 2. Sign in to MCP Assistant
 ```bash
 # Authenticate your machine with MCP Assistant
-mcpa link
+mcpa login
 
 # Start daemon with automated remote bridging
 mcpa serve

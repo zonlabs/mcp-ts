@@ -112,6 +112,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     private readonly policyUri?: string;
     private readonly staticClientInformation?: StoredOAuthClientInformation;
 
+    private _cachedClientInformation?: StoredOAuthClientInformation;
     private _store: SessionStore;
     private _authUrl: string | undefined;
     private _clientId: string | undefined;
@@ -134,6 +135,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         this.logoUri = options.logoUri;
         this.policyUri = options.policyUri;
         this.staticClientInformation = options.clientInformation as StoredOAuthClientInformation | undefined;
+        this._cachedClientInformation = options.clientInformation as StoredOAuthClientInformation | undefined;
         if (options.clientInformation?.client_id) {
             this._clientId = options.clientInformation.client_id;
         }
@@ -197,6 +199,10 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
             return this.staticClientInformation as StoredOAuthClientInformation;
         }
 
+        if (this._cachedClientInformation) {
+            return this._cachedClientInformation;
+        }
+
         const data = await this.getCredentials();
 
         // Pre-cache tokens (or absent sentinel) so subsequent tokens() call is 0 DB reads
@@ -207,11 +213,13 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         if (data.clientId) {
             this._clientId = data.clientId;
             if (data.clientInformation) {
-                return data.clientInformation as StoredOAuthClientInformation;
+                this._cachedClientInformation = data.clientInformation as StoredOAuthClientInformation;
+                return this._cachedClientInformation;
             }
-            return {
+            this._cachedClientInformation = {
                 client_id: data.clientId,
             };
+            return this._cachedClientInformation;
         }
 
         return undefined;
@@ -229,6 +237,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
             clientId: clientInformation.client_id
         });
         this.clientId = clientInformation.client_id;
+        this._cachedClientInformation = clientInformation;
     }
 
     /**

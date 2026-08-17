@@ -59,7 +59,6 @@ export class FileStorageBackend implements SessionStore {
         }
 
         this.initialized = true;
-        console.log(`[mcp-ts][Storage] File: ✓ storage directory at ${path.dirname(this.filePath)} verified.`);
     }
 
     private async ensureInitialized() {

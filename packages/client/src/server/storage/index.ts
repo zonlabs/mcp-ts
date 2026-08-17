@@ -119,24 +119,20 @@ async function createStorage(): Promise<SessionStore> {
         try {
             const { getRedis } = await import('./redis.js');
             const redis = await getRedis();
-            console.log('[mcp-ts][Storage] Explicit selection: "redis"');
             return await initializeStorage(new RedisStorageBackend(redis));
         } catch (error: any) {
             console.error('[mcp-ts][Storage] Failed to initialize Redis:', error.message);
-            console.log('[mcp-ts][Storage] Falling back to In-Memory storage');
             return await initializeStorage(new MemoryStorageBackend());
         }
     }
 
     if (type === 'file') {
         const filePath = process.env.MCP_TS_STORAGE_FILE;
-        console.log(`[mcp-ts][Storage] Explicit selection: "file" (${filePath || 'default'})`);
         return await initializeStorage(new FileStorageBackend({ path: filePath }));
     }
 
     if (type === 'sqlite') {
         const dbPath = process.env.MCP_TS_STORAGE_SQLITE_PATH;
-        console.log(`[mcp-ts][Storage] Explicit selection: "sqlite" (${dbPath || 'default'})`);
         return await initializeStorage(new SqliteStorage({ path: dbPath }));
     }
 
@@ -153,11 +149,9 @@ async function createStorage(): Promise<SessionStore> {
             try {
                 const { createClient } = await import('@supabase/supabase-js');
                 const client = createClient(url, key);
-                console.log('[mcp-ts][Storage] Explicit selection: "supabase"');
                 return await initializeStorage(new SupabaseStorageBackend(client as any));
             } catch (error: any) {
                 console.error('[mcp-ts][Storage] Failed to initialize Supabase:', error.message);
-                console.log('[mcp-ts][Storage] Falling back to In-Memory storage');
                 return await initializeStorage(new MemoryStorageBackend());
             }
         }
@@ -173,18 +167,15 @@ async function createStorage(): Promise<SessionStore> {
                 const { neon } = await import('@neondatabase/serverless');
                 warnIfNeonConnectionStringIsInsecure(connectionString);
                 const sql = neon(connectionString);
-                console.log('[mcp-ts][Storage] Explicit selection: "neon"');
                 return await initializeStorage(new NeonStorageBackend(sql));
             } catch (error: any) {
                 console.error('[mcp-ts][Storage] Failed to initialize Neon:', error.message);
-                console.log('[mcp-ts][Storage] Falling back to In-Memory storage');
                 return await initializeStorage(new MemoryStorageBackend());
             }
         }
     }
 
     if (type === 'memory') {
-        console.log('[mcp-ts][Storage] Explicit selection: "memory"');
         return await initializeStorage(new MemoryStorageBackend());
     }
 
@@ -193,21 +184,17 @@ async function createStorage(): Promise<SessionStore> {
         try {
             const { getRedis } = await import('./redis.js');
             const redis = await getRedis();
-            console.log('[mcp-ts][Storage] Auto-detection: "redis" (via REDIS_URL)');
             return await initializeStorage(new RedisStorageBackend(redis));
         } catch (error: any) {
             console.error('[mcp-ts][Storage] Redis auto-detection failed:', error.message);
-            console.log('[mcp-ts][Storage] Falling back to next available backend');
         }
     }
 
     if (process.env.MCP_TS_STORAGE_FILE) {
-        console.log(`[mcp-ts][Storage] Auto-detection: "file" (${process.env.MCP_TS_STORAGE_FILE})`);
         return await initializeStorage(new FileStorageBackend({ path: process.env.MCP_TS_STORAGE_FILE }));
     }
 
     if (process.env.MCP_TS_STORAGE_SQLITE_PATH) {
-        console.log(`[mcp-ts][Storage] Auto-detection: "sqlite" (${process.env.MCP_TS_STORAGE_SQLITE_PATH})`);
         return await initializeStorage(new SqliteStorage({ path: process.env.MCP_TS_STORAGE_SQLITE_PATH }));
     }
 
@@ -222,7 +209,6 @@ async function createStorage(): Promise<SessionStore> {
             }
 
             const client = createClient(url, key);
-            console.log('[mcp-ts][Storage] Auto-detection: "supabase" (via SUPABASE_URL)');
             return await initializeStorage(new SupabaseStorageBackend(client as any));
         } catch (error: any) {
             console.error('[mcp-ts][Storage] Supabase auto-detection failed:', error.message);
@@ -234,14 +220,12 @@ async function createStorage(): Promise<SessionStore> {
             const { neon } = await import('@neondatabase/serverless');
             warnIfNeonConnectionStringIsInsecure(process.env.NEON_DATABASE_URL);
             const sql = neon(process.env.NEON_DATABASE_URL);
-            console.log('[mcp-ts][Storage] Auto-detection: "neon" (via NEON_DATABASE_URL)');
             return await initializeStorage(new NeonStorageBackend(sql));
         } catch (error: any) {
             console.error('[mcp-ts][Storage] Neon auto-detection failed:', error.message);
         }
     }
 
-    console.log('[mcp-ts][Storage] Defaulting to: "memory"');
     return await initializeStorage(new MemoryStorageBackend());
 }
 

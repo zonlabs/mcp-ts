@@ -9,22 +9,37 @@ export {
   type StrategyBenchmark
 } from "./core.js";
 export { estimateTextTokens, estimateToolTokens, estimateToolsTokens } from "./token-estimator.js";
-export { ServerManager } from "./gateway/server-manager.js";
-export { LocalHttpServer, type LocalHttpServerOptions } from "./gateway/local-http.js";
-export { RemoteBridge, type BridgeOptions } from "./gateway/bridge.js";
+export { McpGatewayRegistry, canonicalToolId } from "./gateway/registry.js";
+export {
+  LocalHttpMcp,
+  isSearchDiscoveryMode,
+  type LocalHttpMcpOptions,
+  type LocalMcpDiscoveryMode,
+} from "./gateway/local-http-mcp.js";
+export { RemoteBridgeClient, type RemoteBridgeClientOptions } from "./gateway/bridge-client.js";
 export {
   findMcpJson,
   loadMcpJson,
-  loadState,
-  saveState,
   writeDefaultMcpJson,
+  addOrUpdateServerConfig,
+  removeServerConfig,
+  enableServerConfig,
+  disableServerConfig,
+  toggleServerConfig,
   type LoadedConfig
 } from "./gateway/config.js";
+export {
+  pingGateway,
+  withMcpGateway,
+  getServerConfig,
+  type GatewayContextOptions,
+} from "./gateway/context.js";
+export type { AggregatedTool } from "./gateway/registry.js";
 export type {
-  AggregatedTool,
-  InvokeRequest,
-  InvokeResult,
-  RegisterMessage,
-  ServerInfo,
-  ToolInfo
+  BaseServerConfig,
+  StdioServerConfig,
+  HttpServerConfig,
+  McpServerConfig,
+  McpServersConfig,
 } from "./gateway/types.js";
+export * from "./constants.js";

@@ -52,7 +52,6 @@ export class SqliteStorage implements SessionStore {
             `);
 
             this.initialized = true;
-            console.log(`[mcp-ts][Storage] SQLite: ✓ database at ${this.dbPath} verified.`);
         } catch (error: any) {
             if (error.code === 'MODULE_NOT_FOUND' || error.message?.includes('better-sqlite3')) {
                 throw new Error(

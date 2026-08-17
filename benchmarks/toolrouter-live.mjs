@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
-import { McpManager } from '../dist/server/index.mjs';
+import { McpManager } from '../packages/client/dist/index.mjs';
 import {
   formatMarkdownReport,
   runToolCatalogScenario,

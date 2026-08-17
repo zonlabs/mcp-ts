@@ -15,18 +15,17 @@ After connecting remote MCP servers in [mcp-assistant.in](https://mcp-assistant.
 
 ## Built-in tools
 
-- **Discovery:** `list_mcp_servers`, `search_mcp_tools`, `get_mcp_tool_schema`
+- **Discovery:** `list_mcp_servers`, `search_mcp_tools`, `get_mcp_tool_schema`, `call_mcp_tool`
 - **Code execution:** `codemode_run`
 - **Admin:** `index_mcp_server`, `delete_mcp_server`, `find_mcp_servers`
 
-## Local device bridge
+## Local gateway bridge
 
-The gateway also serves the tools of **local MCP servers** running on a user's machines (via `@mcp-ts/cli`'s `mcp-ts serve`), flat-merged into the same `/mcp` endpoint. This lets remote MCP clients (ChatGPT, Claude, Claude Desktop) call tools that live on your own computer.
+The gateway also serves tools from **local MCP servers** connected through `mcpa serve`, merged into the same `/mcp` discovery surface. One authenticated account has one active local gateway; a newer connection replaces the previous one.
 
-- `GET /connect` — WebSocket upgrade endpoint for local gateways. Authenticates with a Supabase access token, links the requested `deviceId` to the user, and hands the socket to the device's `DeviceConnection` Durable Object.
-- `USERS` KV — maps users to devices and devices to their configured local servers.
-- `DEVICE_CONNECTION` Durable Object — holds each device's live WebSocket and relays tool calls over it.
-- Device tools are registered with the `execute` scope and flat-merged; collisions are prefixed `server:tool`, then `deviceId:server:tool`.
+- `GET /bridge/connect` upgrades to an authenticated JSON-RPC 2.0 WebSocket using an `Authorization: Bearer` header.
+- `BridgeSession` is a hibernatable Durable Object keyed by authenticated user ID. It owns the active socket and persists the latest complete local catalog.
+- Local server IDs are supplied by the CLI and remain stable across discovery and calls. Credentials never appear in bridge URLs.
 
 ## Security
 

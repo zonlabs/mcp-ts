@@ -459,14 +459,17 @@ export class ToolIndex {
     const list = this.tools.get(name) ?? [];
     if (!namespace) return list;
 
+    const namespaceLower = namespace.toLowerCase();
     const exactMatches = list.filter(
-      (t) => t.sessionId === namespace || t.serverId === namespace
+      (t) =>
+        t.serverId.toLowerCase() === namespaceLower ||
+        t.serverName.toLowerCase() === namespaceLower ||
+        t.sessionId?.toLowerCase() === namespaceLower
     );
     if (exactMatches.length > 0) return exactMatches;
 
     if (!options.allowServerNameFragment) return [];
 
-    const namespaceLower = namespace.toLowerCase();
     return list.filter((t) => t.serverName.toLowerCase().includes(namespaceLower));
   }
 

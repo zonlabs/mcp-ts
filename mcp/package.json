@@ -6,7 +6,7 @@
   "main": "dist/src/index.js",
   "scripts": {
     "dev": "wrangler dev",
-    "build": "npm run build --prefix ../packages/client && npm run build --prefix ../packages/code-mode && wrangler deploy --dry-run",
+    "build": "npm run build --prefix ../packages/bridge-protocol && npm run build --prefix ../packages/tool-router && npm run build --prefix ../packages/client && npm run build --prefix ../packages/code-mode && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -16,8 +16,10 @@
   "dependencies": {
     "@cloudflare/codemode": "^0.5.1",
     "@hono/zod-validator": "^0.8.0",
-    "@mcp-ts/client": "^4.0.0",
+    "@mcp-ts/bridge-protocol": "0.1.0",
+    "@mcp-ts/client": "^4.1.0",
     "@mcp-ts/codemode": "^0.3.0",
+    "@mcp-ts/tool-router": "*",
     "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/core": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
@@ -26,7 +28,6 @@
     "hono": "^4.12.25",
     "quickjs-emscripten": "^0.31.0",
     "redis": "^4.6.11",
-    "supermemory": "^4.24.12",
     "zod": "^4.4.3"
   },
   "devDependencies": {

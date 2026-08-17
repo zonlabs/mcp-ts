@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-type WorkerExecutionContext = {
+export type WorkerExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
 };
 
-type RequestContext = {
+export type RequestContext = {
   userId?: string;
   requestId?: string;
   mcpSessionId?: string;

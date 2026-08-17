@@ -16,12 +16,9 @@
     "SUPABASE_URL": "https://xrrlfpaongkcxkeevhhz.supabase.co",
     "SUPABASE_ANON_KEY": "sb_publishable_kuj29AQSUepxHBJbVrye0A_v6b5uIaH"
   },
-  "kv_namespaces": [
-    { "binding": "USERS", "id": "f26b663ecf484ac9adb3fd6dbb7a954b" }
-  ],
   "durable_objects": {
     "bindings": [
-      { "name": "DEVICE_CONNECTION", "class_name": "DeviceConnection" },
+      { "name": "BRIDGE_SESSION", "class_name": "BridgeSession" },
       { "name": "OAUTH_CODES", "class_name": "OAuthCodeStore" }
     ]
   },
@@ -33,9 +30,14 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["OAuthCodeStore"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["BridgeSession"],
+      "deleted_classes": ["DeviceConnection"]
     }
   ],
   "build": {
-    "command": "npm run build --prefix ../packages/client && npm run build --prefix ../packages/code-mode"
+    "command": "npm run build --prefix ../packages/bridge-protocol && npm run build --prefix ../packages/tool-router && npm run build --prefix ../packages/client && npm run build --prefix ../packages/code-mode"
   }
 }

@@ -135,6 +135,8 @@ export interface MCPOAuthClientOptions {
   serverOptions?: StoredMcpServerOptions | null;
   /** Persisted server/discover result used for v2 restore optimization. */
   discoverResult?: DiscoverResult | null;
+  /** Called after the server emits notifications/tools/list_changed. */
+  onToolsChanged?: () => void;
 }
 
 export type McpClientOptions = MCPOAuthClientOptions;
@@ -201,12 +203,23 @@ export class McpClient {
   }
 
   private createSdkClient(): Client {
+    const options = normalizeMcpSdkClientOptions(this.config.client);
     return new Client(
       {
         name: MCP_CLIENT_NAME,
         version: MCP_CLIENT_VERSION,
       },
-      normalizeMcpSdkClientOptions(this.config.client)
+      {
+        ...options,
+        listChanged: {
+          tools: {
+            onChanged: () => {
+              this.cachedTools = null;
+              this.config.onToolsChanged?.();
+            },
+          },
+        },
+      },
     );
   }
 
@@ -500,6 +513,26 @@ export class McpClient {
    */
   private async saveSession(status: SessionStatus = 'active'): Promise<void> {
     if (!this.config.sessionId || !this.config.serverId || !this.config.serverUrl || !this.config.callbackUrl) {
+      return;
+    }
+
+    if (this.config.hasSession) {
+      if (status === 'active') {
+        const storedOptions = this.getStoredServerOptions();
+        const currentOptions = this.config.serverOptions;
+        const unchanged =
+          currentOptions &&
+          storedOptions.transport?.type === currentOptions.transport?.type &&
+          storedOptions.transport?.protocolVersion === currentOptions.transport?.protocolVersion &&
+          JSON.stringify(storedOptions.discoverResult ?? null) === JSON.stringify(currentOptions.discoverResult ?? null);
+        if (unchanged) {
+          return;
+        }
+      }
+      await this._store.update(this.config.userId, this.config.sessionId, {
+        ...this.session,
+        status,
+      });
       return;
     }
 

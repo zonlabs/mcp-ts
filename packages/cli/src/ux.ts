@@ -1,11 +1,14 @@
+import type { Writable } from "node:stream";
 import pc from "picocolors";
 import { intro, outro, log, spinner } from "@clack/prompts";
 
-declare const __CLI_VERSION__: string | undefined;
-export const CLI_VERSION: string =
-  typeof __CLI_VERSION__ !== "undefined" ? __CLI_VERSION__ : "0.1.3";
+export function writeLine(stream: Pick<Writable, "write">, text = ""): void {
+  stream.write(`${text}\n`);
+}
 
-export { pc, intro, outro, spinner };
+import { CLI_VERSION } from "./constants.js";
+
+export { CLI_VERSION, pc, intro, outro, spinner };
 
 /**
  * Returns a high-impact, professional block ASCII banner for mcp-ts.
@@ -27,7 +30,7 @@ export function renderBanner(version: string = CLI_VERSION): string {
     "  " + r("██║ ╚═╝ ██║ ╚██████╗ ██║     ") + "             " + w("██║     ███████╔╝"),
     "  " + r("╚═╝     ╚═╝  ╚═════╝ ╚═╝     ") + "             " + w("╚═╝     ╚══════╝ ") + "  " + tag,
     "",
-    "  " + d("MCP Assistant Gateway & Local Tool Engine") + "  " + pc.underline(d("https://mcp-assistant.in")),
+    "  " + d("MCP Gateway & Execution Engine for Agents") + "  " + pc.underline(d("https://mcp-assistant.in")),
     "",
   ].join("\n");
 }
@@ -56,9 +59,11 @@ export function error(message: string): void {
   log.error(message);
 }
 
-/** Write a plain (unboxed, dimmed) line to stdout. */
+/** Write a plain line safely above the active ticker. */
 export function dim(message: string): void {
-  process.stdout.write(`${pc.dim(message)}\n`);
+  clearTickerLine();
+  process.stdout.write(`${message}\n`);
+  reflowTicker();
 }
 
 /** Print tree-connected notes along Clack's left vertical rule. */

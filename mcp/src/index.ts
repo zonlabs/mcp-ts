@@ -1,15 +1,16 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { DeviceConnection } from "./device";
-import { OAuthCodeStore } from "./oauth-codes";
+import { BridgeSession } from "./durable-objects/bridge-session";
+import { OAuthCodeStore } from "./durable-objects/oauth-code-store";
 import { createMcpServer } from "./core/server";
 import { healthRoutes } from "./routes/health";
 import { wellKnownRoutes } from "./routes/well-known";
 import { createMcpRoutes } from "./routes/mcp";
 import { oauthCodeRoutes } from "./routes/oauth-codes";
-import { handleConnect } from "./routes/connect";
+import { handleBridgeConnect } from "./routes/connect";
+import { webhookRoutes } from "./routes/webhooks";
 
-export { DeviceConnection };
+export { BridgeSession };
 export { OAuthCodeStore };
 
 const app = new Hono();
@@ -26,7 +27,7 @@ app.use(
   cors({
     origin: "*",
     allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "MCP-Session-Id"],
+    allowHeaders: ["Content-Type", "Authorization", "MCP-Session-Id", "x-webhook-secret"],
     exposeHeaders: ["Content-Type", "MCP-Session-Id", "mcp-session-id"],
   })
 );
@@ -34,6 +35,7 @@ app.use(
 app.route("/healthz", healthRoutes);
 app.route("/.well-known", wellKnownRoutes);
 app.route("/oauth", oauthCodeRoutes);
+app.route("/internal/webhooks", webhookRoutes);
 
 const mcpRoutes = createMcpRoutes(createMcpServer);
 app.route("/mcp", mcpRoutes);
@@ -45,8 +47,8 @@ export default {
     }
     // Bypass Hono for the WebSocket upgrade so global middlewares (cors,
     // env copy) cannot interfere with the 101 handshake.
-    if (new URL(request.url).pathname === "/connect") {
-      return handleConnect(request, env);
+    if (new URL(request.url).pathname === "/bridge/connect") {
+      return handleBridgeConnect(request, env);
     }
     return app.fetch(request, env, ctx as never);
   },
