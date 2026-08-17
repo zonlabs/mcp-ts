@@ -38,6 +38,6 @@
     }
   ],
   "build": {
-    "command": "npm run build --prefix ../packages/client && npm run build --prefix ../packages/code-mode"
+    "command": "npm run build --prefix ../packages/bridge-protocol && npm run build --prefix ../packages/tool-router && npm run build --prefix ../packages/client && npm run build --prefix ../packages/code-mode"
   }
 }
