@@ -10,6 +10,7 @@ import { cmdSearch } from "./commands/search.js";
 import { cmdServe } from "./commands/serve.js";
 import { cmdConnect } from "./commands/connect.js";
 import { cmdDisconnect } from "./commands/disconnect.js";
+import { cmdEnable, cmdDisable } from "./commands/toggle.js";
 import { cmdBench } from "./commands/bench.js";
 import { cmdCodegen } from "./commands/codegen.js";
 import type { LocalMcpDiscoveryMode } from "./gateway/local-http-mcp.js";
@@ -25,6 +26,8 @@ Usage:
   mcpa list                                     List all local servers and tools
   mcpa connect [name] [url] [--auth <token>]    Test & register a remote/local MCP server
   mcpa disconnect <name>                        Remove a server from mcp.json (aliases: remove, rm)
+  mcpa enable <name>                            Enable a disabled MCP server in mcp.json
+  mcpa disable <name>                           Disable an MCP server in mcp.json
   mcpa login [--remote <url>]                   Sign in to the remote gateway
   mcpa logout [--remote <url>]                  Revoke the saved CLI session
   mcpa init [--dir <path>]                      Write a default mcp.json
@@ -204,6 +207,26 @@ export async function runCli(
         throw new Error("disconnect requires a server name (e.g. mcpa disconnect <name> or mcpa remove <name>)");
       }
       await cmdDisconnect(name, dir, streams.output);
+      return 0;
+    }
+
+    if (command === "enable") {
+      const values = positional(commandArgs);
+      const name = option(commandArgs, "--name") ?? values[0];
+      if (!name) {
+        throw new Error("enable requires a server name (e.g. mcpa enable <name>)");
+      }
+      await cmdEnable(name, dir, streams.output);
+      return 0;
+    }
+
+    if (command === "disable") {
+      const values = positional(commandArgs);
+      const name = option(commandArgs, "--name") ?? values[0];
+      if (!name) {
+        throw new Error("disable requires a server name (e.g. mcpa disable <name>)");
+      }
+      await cmdDisable(name, dir, streams.output);
       return 0;
     }
 

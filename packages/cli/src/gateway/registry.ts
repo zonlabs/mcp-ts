@@ -181,6 +181,9 @@ export class McpGatewayRegistry {
   async start(): Promise<void> {
     await Promise.allSettled(
       Object.entries(this.configs).map(async ([name, config]) => {
+        if (config.disabled) {
+          return;
+        }
         const id = name;
         const connection = new LocalMcpConnection(
           id,

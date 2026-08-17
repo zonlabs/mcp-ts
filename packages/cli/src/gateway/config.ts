@@ -123,3 +123,61 @@ export function removeServerConfig(
   writeFileSync(existingPath, JSON.stringify(configData, null, 2));
   return { path: existingPath, removed: true, serverConfig };
 }
+
+/**
+ * Toggle or explicitly set the enabled state for an MCP server in mcp.json (or .mcpassistant/mcp.json).
+ * If `enabled` is omitted, the state is automatically inverted.
+ */
+export function toggleServerConfig(
+  name: string,
+  enabled?: boolean,
+  startDir: string = process.cwd(),
+): { path: string; serverConfig: McpServerConfig; enabled: boolean } {
+  const existingPath = findMcpJson(startDir);
+  if (!existingPath) {
+    throw new Error(`No ${CONFIG_FILENAME} found.`);
+  }
+
+  let configData: McpServersConfig;
+  try {
+    configData = JSON.parse(readFileSync(existingPath, "utf8")) as McpServersConfig;
+  } catch {
+    throw new Error(`${existingPath} is empty or not valid JSON.`);
+  }
+
+  if (!configData.mcpServers || !(name in configData.mcpServers)) {
+    throw new Error(`Server "${name}" not found in ${existingPath}.`);
+  }
+
+  const serverConfig = configData.mcpServers[name];
+  const targetEnabled = enabled !== undefined ? enabled : !!serverConfig.disabled;
+
+  if (targetEnabled) {
+    delete serverConfig.disabled;
+  } else {
+    serverConfig.disabled = true;
+  }
+
+  writeFileSync(existingPath, JSON.stringify(configData, null, 2));
+  return { path: existingPath, serverConfig, enabled: targetEnabled };
+}
+
+/**
+ * Enable an MCP server configuration in mcp.json (or .mcpassistant/mcp.json).
+ */
+export function enableServerConfig(
+  name: string,
+  startDir: string = process.cwd(),
+): { path: string; serverConfig: McpServerConfig; enabled: boolean } {
+  return toggleServerConfig(name, true, startDir);
+}
+
+/**
+ * Disable an MCP server configuration in mcp.json (or .mcpassistant/mcp.json).
+ */
+export function disableServerConfig(
+  name: string,
+  startDir: string = process.cwd(),
+): { path: string; serverConfig: McpServerConfig; enabled: boolean } {
+  return toggleServerConfig(name, false, startDir);
+}

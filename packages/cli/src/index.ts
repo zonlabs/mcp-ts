@@ -21,6 +21,11 @@ export {
   findMcpJson,
   loadMcpJson,
   writeDefaultMcpJson,
+  addOrUpdateServerConfig,
+  removeServerConfig,
+  enableServerConfig,
+  disableServerConfig,
+  toggleServerConfig,
   type LoadedConfig
 } from "./gateway/config.js";
 export {
@@ -31,6 +36,7 @@ export {
 } from "./gateway/context.js";
 export type { AggregatedTool } from "./gateway/registry.js";
 export type {
+  BaseServerConfig,
   StdioServerConfig,
   HttpServerConfig,
   McpServerConfig,
