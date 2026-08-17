@@ -5,6 +5,7 @@ import { execFile } from "node:child_process";
 import {
   authFilePath,
   clearAuthSession,
+  extractUserInfo,
   loadAuthSession,
   normalizeRemoteOrigin,
   saveAuthSession,
@@ -45,7 +46,7 @@ export async function loginToRemote(
   const loginUrl = new URL("/oauth/login", authOrigin.replace(/\/$/, ""));
   loginUrl.searchParams.set("next", `${callbackUrl}?state=${state}`);
   info("Opening browser for sign-in...");
-  treeNote([pc.dim("If the browser does not open, visit:"), pc.cyan(loginUrl.toString())]);
+  treeNote([pc.dim("If the browser does not open, visit:"), pc.underline(pc.cyan(loginUrl.toString()))]);
   openBrowser(loginUrl.toString());
 
   try {
@@ -65,8 +66,17 @@ export async function loginToRemote(
     if (!response.ok || !session?.accessToken || !session.refreshToken) {
       throw new Error(`Code exchange failed (${response.status})`);
     }
+    const userInfo = extractUserInfo(session);
+    if (userInfo) {
+      session.userInfo = userInfo;
+    }
     saveAuthSession(remote, session);
-    success(`Signed in to ${normalizeRemoteOrigin(remote)}`);
+    const origin = normalizeRemoteOrigin(remote);
+    if (userInfo?.email) {
+      success(`Signed in as ${pc.bold(userInfo.email)} (${origin})`);
+    } else {
+      success(`Signed in to ${origin}`);
+    }
     treeNote(pc.dim(`Auth state saved to ${authFilePath()}`));
     return session;
   } finally {
@@ -76,6 +86,7 @@ export async function loginToRemote(
 
 export async function logoutFromRemote(remote: string): Promise<void> {
   const session = loadAuthSession(remote);
+  const userInfo = extractUserInfo(session);
   try {
     if (session) {
       await fetch(`${normalizeRemoteOrigin(remote)}/oauth/logout`, {
@@ -86,5 +97,11 @@ export async function logoutFromRemote(remote: string): Promise<void> {
     }
   } finally {
     clearAuthSession(remote);
+    const origin = normalizeRemoteOrigin(remote);
+    if (userInfo?.email) {
+      success(`Logged out ${pc.bold(userInfo.email)} from ${origin}`);
+    } else {
+      success(`Logged out from ${origin}`);
+    }
   }
 }

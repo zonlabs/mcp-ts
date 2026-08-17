@@ -6,6 +6,7 @@ import { Traffic } from "../traffic.js";
 import { loadMcpJson } from "../gateway/config.js";
 import {
   ensureFreshAuthSession,
+  extractUserInfo,
   InvalidAuthSessionError,
   loadAuthSession,
 } from "../gateway/auth-store.js";
@@ -237,20 +238,25 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   success(`Local unified MCP endpoint: ${pc.cyan(localUrl)}`);
 
   // 2. Render Remote Bridge UI (which has already been connecting in background)
+  const session = loadAuthSession(remote);
+  const userInfo = extractUserInfo(session);
+  const userEmail = userInfo?.email;
+
   if (bridge) {
     const bridgeSpin = spinner();
     bridgeSpin.start(`Connecting to remote gateway (${remote})...`);
     const ready = await remoteTask;
     const remoteDuration = ((performance.now() - remoteStartTime) / 1000).toFixed(2);
     const remoteServers = localRegistry.getRemoteCatalog().servers;
+    const userSuffix = userEmail ? ` as ${pc.bold(userEmail)}` : "";
     if (ready || remoteServers.length > 0) {
-      bridgeSpin.stop(`Connected to remote gateway ${pc.dim(`(${remoteDuration}s)`)}`);
+      bridgeSpin.stop(`Connected to remote gateway${userSuffix} ${pc.dim(`(${remoteDuration}s)`)}`);
       if (remoteServers.length > 0) {
         success(`Connected ${pc.bold(String(remoteServers.length))} remote server(s) ${pc.dim(`in ${remoteDuration}s`)}`);
         renderServerList(remoteServers, 5);
       }
     } else {
-      bridgeSpin.stop(`Remote gateway connected ${pc.dim(`(${remoteDuration}s)`)}`);
+      bridgeSpin.stop(`Remote gateway connected${userSuffix} ${pc.dim(`(${remoteDuration}s)`)}`);
     }
   } else {
     warn("No remote session available. Local endpoint only.");
@@ -264,14 +270,17 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
       : `${pc.cyan(remote)} ${pc.dim("(syncing)")}`
     : pc.dim("disabled");
 
-  treeSummary("Gateway summary", [
+  const summaryItems = [
+    ...(userEmail ? [{ label: "Account", value: pc.bold(userEmail) }] : []),
     { label: "Endpoint", value: pc.cyan(localUrl) },
     { label: "Bridge", value: bridgeStatus },
     {
       label: "Servers",
       value: `${pc.bold(String(localServers.length))} local${remoteCount > 0 ? ` + ${pc.bold(String(remoteCount))} remote` : ""} ${pc.dim(`(${totalTools} tool${totalTools === 1 ? "" : "s"})`)}`,
     },
-  ]);
+  ];
+
+  treeSummary("Gateway summary", summaryItems);
   outro(pc.green("Gateway running - Press Ctrl+C to stop"));
 
   // Put stdin into raw mode AFTER all @clack/prompts spinners/prompts finish

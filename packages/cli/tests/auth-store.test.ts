@@ -5,11 +5,14 @@ import { describe, expect, it } from "vitest";
 import {
   clearAuthSession,
   ensureFreshAuthSession,
+  extractUserEmail,
+  extractUserInfo,
   InvalidAuthSessionError,
   loadAuthSession,
   normalizeRemoteOrigin,
   saveAuthSession,
   type AuthSession,
+  type UserInfo,
 } from "../src/gateway/auth-store.js";
 
 function tempConfigDir(): string {
@@ -109,5 +112,34 @@ describe("global auth session store", () => {
         fetchImpl: async () => Response.json({ error: "down" }, { status: 503 }),
       }),
     ).rejects.not.toBeInstanceOf(InvalidAuthSessionError);
+  });
+
+  it("extracts UserInfo from explicit property, user object, or JWT payload", () => {
+    // 1. Direct email field
+    expect(extractUserInfo({ ...session, email: "alice@example.com" })).toEqual({
+      email: "alice@example.com",
+    });
+
+    // 2. Nested user / userInfo object
+    expect(extractUserInfo({ ...session, userInfo: { email: "bob@example.com", name: "Bob" } })).toEqual({
+      email: "bob@example.com",
+      name: "Bob",
+    });
+
+    // 3. JWT token payload
+    const payload = Buffer.from(JSON.stringify({ email: "carol@example.com", name: "Carol" })).toString("base64url");
+    const jwtSession: AuthSession = {
+      ...session,
+      accessToken: `header.${payload}.signature`,
+    };
+    expect(extractUserInfo(jwtSession)).toEqual({
+      email: "carol@example.com",
+      name: "Carol",
+    });
+    expect(extractUserEmail(jwtSession)).toBe("carol@example.com");
+
+    // 4. Undefined / non-JWT
+    expect(extractUserInfo(session)).toBeUndefined();
+    expect(extractUserInfo(null)).toBeUndefined();
   });
 });

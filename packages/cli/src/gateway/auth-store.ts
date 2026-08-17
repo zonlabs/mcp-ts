@@ -2,10 +2,59 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+export interface UserInfo {
+  email?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
 export interface AuthSession {
   accessToken: string;
   refreshToken: string;
   accessTokenExpiresAt: number;
+  userInfo?: UserInfo;
+  user?: UserInfo;
+  email?: string;
+}
+
+export function extractUserInfo(session?: AuthSession | null): UserInfo | undefined {
+  if (!session) return undefined;
+  let email = session.userInfo?.email ?? session.user?.email ?? session.email;
+  let name = session.userInfo?.name ?? session.user?.name;
+
+  if (typeof session.accessToken === "string") {
+    try {
+      const parts = session.accessToken.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+        if (!email) {
+          if (typeof payload.email === "string") email = payload.email;
+          else if (typeof payload.user_email === "string") email = payload.user_email;
+          else if (typeof payload.preferred_username === "string") email = payload.preferred_username;
+          else if (typeof payload.sub === "string" && payload.sub.includes("@")) email = payload.sub;
+        }
+        if (!name && typeof payload.name === "string") {
+          name = payload.name;
+        }
+      }
+    } catch {
+      // Access token is not a base64url JSON JWT
+    }
+  }
+
+  if (email || name || session.userInfo || session.user) {
+    return {
+      ...(session.user ?? {}),
+      ...(session.userInfo ?? {}),
+      ...(email ? { email } : {}),
+      ...(name ? { name } : {}),
+    };
+  }
+  return undefined;
+}
+
+export function extractUserEmail(session?: AuthSession | null): string | undefined {
+  return extractUserInfo(session)?.email;
 }
 
 export class InvalidAuthSessionError extends Error {

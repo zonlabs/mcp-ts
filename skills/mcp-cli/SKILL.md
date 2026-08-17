@@ -36,6 +36,9 @@ npx @mcp-ts/cli <command> [options]
 | **`mcpa logout`** | `mcpa logout [--remote <url>]` | Revoke active CLI OAuth session and clear credentials. |
 | **`mcpa init`** | `mcpa init [--dir <path>]` | Generate a default `.mcpassistant/mcp.json` configuration. |
 | **`mcpa connect`** | `mcpa connect --name <name> --url <url> [--auth <token>]` | Test connection to a remote/local MCP server, discover its tools, and save to `mcp.json`. |
+| **`mcpa disconnect`** | `mcpa disconnect <name>` *(alias: remove, rm)* | Remove an MCP server configuration from `mcp.json`. |
+| **`mcpa enable`** | `mcpa enable <name>` | Enable a disabled MCP server in `mcp.json`. |
+| **`mcpa disable`** | `mcpa disable <name>` | Disable an MCP server in `mcp.json` (`"disabled": true`). |
 | **`mcpa bench`** | `mcpa bench <url>` | Benchmark context token costs across exposure strategies (`all`, `search`, `groups`). |
 | **`mcpa codegen`** | `mcpa codegen <url> --out <file>` | Generate strongly typed TypeScript wrapper clients directly from tool schemas. |
 
