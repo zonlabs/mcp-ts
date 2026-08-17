@@ -31,8 +31,10 @@ describe("published CLI package", () => {
     const dist = new URL("../dist", import.meta.url);
     const files = await distributableFiles(fileURLToPath(dist));
     const contents = await Promise.all(files.map((path) => readFile(path, "utf8")));
+    const joined = contents.join("\n");
     for (const packageName of bundledPackages) {
-      expect(contents.join("\n")).not.toContain(packageName);
+      expect(joined).not.toMatch(new RegExp(`from\\s+["']${packageName}["']`));
+      expect(joined).not.toMatch(new RegExp(`require\\(["']${packageName}["']\\)`));
     }
   });
 

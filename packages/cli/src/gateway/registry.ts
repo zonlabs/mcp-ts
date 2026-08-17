@@ -396,7 +396,7 @@ export class McpGatewayRegistry {
   private async callRemoteTool(params: ToolCallParams): Promise<unknown> {
     const remote = this.remoteServers.get(params.serverId);
     if (!remote) throw new Error(`Server "${params.serverId}" is not available.`);
-    if (!remote.descriptor.tools.some((tool) => tool.name === params.toolName)) {
+    if (!remote.descriptor.tools.some((tool: { name: string }) => tool.name === params.toolName)) {
       throw new Error(`Remote server "${params.serverId}" has no tool "${params.toolName}".`);
     }
     return remote.invoke(params);

@@ -20,7 +20,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "npm run build --prefix ../bridge-protocol && npm run build --prefix ../tool-router && tsup",
     "prepublishOnly": "npm run build",
     "test": "npm run build && vitest run",
     "type-check": "tsc --noEmit"
