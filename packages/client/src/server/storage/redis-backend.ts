@@ -21,7 +21,6 @@ export class RedisStorageBackend implements SessionStore {
     async init(): Promise<void> {
         try {
             await this.redis.ping();
-            console.log('[mcp-ts][Storage] Redis: ✓ Connected to server.');
         } catch (error: any) {
             throw new Error(`[RedisStorageBackend] Failed to connect to Redis: ${error.message}`);
         }

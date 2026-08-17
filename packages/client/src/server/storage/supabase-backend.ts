@@ -11,7 +11,6 @@ export class SupabaseStorageBackend implements SessionStore {
 
     async init(): Promise<void> {
         await this.assertTable('mcp_sessions', 'session_id');
-        console.log('[mcp-ts][Storage] Supabase: storage tables verified.');
     }
 
     private async assertTable(table: string, column: string): Promise<void> {

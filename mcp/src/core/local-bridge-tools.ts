@@ -1,4 +1,5 @@
 import type { McpToolDescriptor, ToolCallParams } from "@mcp-ts/bridge-protocol";
+import { normalizeMcpToolResult } from "@mcp-ts/codemode";
 import { getRequestContext } from "./request-context";
 import type { BridgeSession, BridgeSessionEnv } from "../durable-objects/bridge-session";
 
@@ -93,6 +94,7 @@ export async function buildLocalToolServers(explicitContext?: { env?: Record<str
     serverName?: string;
     listTools: () => Promise<{ tools: Record<string, unknown>[] }>;
     callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+    callToolRaw?: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   }[]
 > {
   const context = explicitContext ?? getRequestContext();
@@ -110,7 +112,21 @@ export async function buildLocalToolServers(explicitContext?: { env?: Record<str
     serverId,
     serverName: server.serverName,
     listTools: async () => ({ tools: server.tools }),
-    callTool: async (toolName, args) => {
+    callTool: async (toolName: string, args: Record<string, unknown>) => {
+      const active = getRequestContext();
+      const effectiveEnv = active.env ?? env;
+      const effectiveUserId = active.userId ?? userId;
+      if (!effectiveEnv || !effectiveUserId) {
+        throw new Error("Authenticated bridge context is unavailable");
+      }
+      const raw = await bridgeStub(effectiveEnv, effectiveUserId).invokeLocal({
+        serverId,
+        toolName,
+        arguments: args ?? {},
+      });
+      return normalizeMcpToolResult(raw);
+    },
+    callToolRaw: async (toolName: string, args: Record<string, unknown>) => {
       const active = getRequestContext();
       const effectiveEnv = active.env ?? env;
       const effectiveUserId = active.userId ?? userId;
