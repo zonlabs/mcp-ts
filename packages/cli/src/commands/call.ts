@@ -6,34 +6,37 @@ import { writeLine } from "../ux.js";
 
 function parseJsonArgs(raw: string): Record<string, unknown> {
   const trimmed = raw.trim();
+  if (!trimmed) return {};
+
+  // 1. Standard JSON object
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     try {
       return JSON.parse(trimmed) as Record<string, unknown>;
     } catch {
-      const fixed = trimmed
-        .replace(/([{,]\s*)([a-zA-Z0-9_-]+)\s*:/g, '$1"$2":')
-        .replace(/:\s*([a-zA-Z0-9_.-]+)(\s*[,}])/g, ':"$1"$2');
-      try {
-        return JSON.parse(fixed) as Record<string, unknown>;
-      } catch {
-        // Fall through
-      }
+      throw new Error(
+        `Invalid JSON argument payload: "${raw}". In PowerShell, escape inner quotes like '{\\"key\\": \\"value\\"}' or use key=value syntax (e.g. key="value").`,
+      );
     }
   }
 
+  // 2. Key-Value shorthand (e.g. query="latest AI news", limit=5)
   if (trimmed.includes("=")) {
     const result: Record<string, unknown> = {};
-    const pairs = trimmed.split(",");
-    for (const pair of pairs) {
+    for (const pair of trimmed.split(",")) {
       const [k, ...vParts] = pair.split("=");
       if (k && vParts.length > 0) {
-        const val = vParts.join("=").trim();
-        result[k.trim()] = val === "true" ? true : val === "false" ? false : isNaN(Number(val)) ? val : Number(val);
+        const key = k.trim();
+        let val: unknown = vParts.join("=").trim().replace(/^["']|["']$/g, "");
+        if (val === "true") val = true;
+        else if (val === "false") val = false;
+        else if (!isNaN(Number(val)) && val !== "") val = Number(val);
+        result[key] = val;
       }
     }
     if (Object.keys(result).length > 0) return result;
   }
 
+  // 3. Fallback direct JSON.parse
   try {
     return JSON.parse(raw) as Record<string, unknown>;
   } catch {
