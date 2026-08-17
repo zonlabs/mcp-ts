@@ -1,4 +1,4 @@
-# @mcp-ts/cli (`mcpa` / `mcp-ts`)
+# @mcp-ts/cli (`mcpa` | `mcp-ts`)
 
 Bridge local and remote MCP servers for any MCP client (Cursor, VS Code, Windsurf, Claude Code, ChatGPT, OpenCode, Antigravity, and more). Explore, search, benchmark, codegen, execute tools directly, and run a local MCP gateway.
 
@@ -32,9 +32,40 @@ mcpa search "create pull request"
 # Inspect tool JSON schemas (single or multiple)
 mcpa schema filesystem:read_file filesystem:write_file
 
-# Directly execute a tool call
+# Directly execute a tool call (JSON or key=value shorthand)
 mcpa call filesystem:read_file '{"path":"package.json"}'
-mcpa call github:list_issues '{"repo":"zonlabs/mcp-ts"}'
+mcpa call exa::web_search_exa query="latest AI news"
+mcpa call github::list_issues repo="zonlabs/mcp-ts",state="open"
+```
+
+### 🤖 Agent Script Automation & Multi-Tool Chaining
+
+Agents and automation scripts can execute `mcpa` programmatically to chain tools across services, execute batch tasks in parallel, or safely pass large multiline Markdown payloads without shell quote escaping issues:
+
+```javascript
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const execFileAsync = promisify(execFile);
+
+async function mcpaCall(tool, args = {}) {
+  const { stdout } = await execFileAsync("mcpa", ["call", tool, JSON.stringify(args)]);
+  return JSON.parse(stdout);
+}
+
+// 1. Chaining tools (Web Search -> Synthesize -> Create GitHub Issue / PR)
+const results = await mcpaCall("exa::web_search_exa", { query: "MCP spec updates 2026" });
+await mcpaCall("github::create_issue", {
+  owner: "zonlabs",
+  repo: "mcp-ts",
+  title: "MCP Spec Review",
+  body: `## Research Findings\n- Discovered ${results.length} relevant updates.`,
+});
+
+// 2. Parallel execution across multiple connected services
+const [issues, docs] = await Promise.all([
+  mcpaCall("github::list_issues", { repo: "zonlabs/mcp-ts", state: "open" }),
+  mcpaCall("notion::query_database", { database_id: "projects-db" }),
+]);
 ```
 
 ---
