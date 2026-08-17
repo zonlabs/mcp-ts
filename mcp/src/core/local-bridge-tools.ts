@@ -21,8 +21,10 @@ function bridgeStub(env: Record<string, unknown>, userId: string): BridgeSession
   return namespace.get(namespace.idFromName(userId)) as unknown as BridgeSessionRpc;
 }
 
-async function loadLocalEntries(): Promise<LocalToolEntry[]> {
-  const { env, userId } = getRequestContext();
+async function loadLocalEntries(explicitContext?: { env?: Record<string, unknown>; userId?: string }): Promise<LocalToolEntry[]> {
+  const context = explicitContext ?? getRequestContext();
+  const env = context.env;
+  const userId = context.userId;
   if (!env || !userId) return [];
   try {
     const status = await bridgeStub(env, userId).getStatus();
@@ -40,15 +42,15 @@ async function loadLocalEntries(): Promise<LocalToolEntry[]> {
   }
 }
 
-export async function listLocalTools(): Promise<LocalToolEntry[]> {
-  return loadLocalEntries();
+export async function listLocalTools(explicitContext?: { env?: Record<string, unknown>; userId?: string }): Promise<LocalToolEntry[]> {
+  return loadLocalEntries(explicitContext);
 }
 
-export async function listLocalServers(): Promise<
+export async function listLocalServers(explicitContext?: { env?: Record<string, unknown>; userId?: string }): Promise<
   { serverName: string; serverId: string; toolCount: number }[]
 > {
   const servers = new Map<string, { serverName: string; toolCount: number }>();
-  for (const entry of await loadLocalEntries()) {
+  for (const entry of await loadLocalEntries(explicitContext)) {
     const current = servers.get(entry.serverId);
     servers.set(entry.serverId, {
       serverName: entry.serverName,
@@ -61,10 +63,11 @@ export async function listLocalServers(): Promise<
 export async function resolveLocalToolSchema(
   toolName: string,
   serverId?: string,
+  explicitContext?: { env?: Record<string, unknown>; userId?: string }
 ): Promise<LocalToolEntry | undefined> {
   const targetTool = toolName.toLowerCase();
   const targetServer = serverId?.toLowerCase();
-  return (await loadLocalEntries()).find(
+  return (await loadLocalEntries(explicitContext)).find(
     (entry) =>
       entry.name.toLowerCase() === targetTool &&
       (!targetServer ||
@@ -73,13 +76,18 @@ export async function resolveLocalToolSchema(
   );
 }
 
-export async function invokeLocalTool(call: ToolCallParams): Promise<unknown> {
-  const { env, userId } = getRequestContext();
+export async function invokeLocalTool(
+  call: ToolCallParams,
+  explicitContext?: { env?: Record<string, unknown>; userId?: string }
+): Promise<unknown> {
+  const active = getRequestContext();
+  const env = explicitContext?.env ?? active.env;
+  const userId = explicitContext?.userId ?? active.userId;
   if (!env || !userId) throw new Error("Authenticated bridge context is unavailable");
   return bridgeStub(env, userId).invokeLocal(call);
 }
 
-export async function buildLocalToolServers(): Promise<
+export async function buildLocalToolServers(explicitContext?: { env?: Record<string, unknown>; userId?: string }): Promise<
   {
     serverId: string;
     serverName?: string;
@@ -87,8 +95,12 @@ export async function buildLocalToolServers(): Promise<
     callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   }[]
 > {
+  const context = explicitContext ?? getRequestContext();
+  const env = context.env;
+  const userId = context.userId;
+
   const byServer = new Map<string, { serverName: string; tools: LocalToolEntry[] }>();
-  for (const entry of await loadLocalEntries()) {
+  for (const entry of await loadLocalEntries(context)) {
     const current = byServer.get(entry.serverId);
     if (current) current.tools.push(entry);
     else byServer.set(entry.serverId, { serverName: entry.serverName, tools: [entry] });
@@ -98,7 +110,18 @@ export async function buildLocalToolServers(): Promise<
     serverId,
     serverName: server.serverName,
     listTools: async () => ({ tools: server.tools }),
-    callTool: async (toolName, args) =>
-      invokeLocalTool({ serverId, toolName, arguments: args ?? {} }),
+    callTool: async (toolName, args) => {
+      const active = getRequestContext();
+      const effectiveEnv = active.env ?? env;
+      const effectiveUserId = active.userId ?? userId;
+      if (!effectiveEnv || !effectiveUserId) {
+        throw new Error("Authenticated bridge context is unavailable");
+      }
+      return bridgeStub(effectiveEnv, effectiveUserId).invokeLocal({
+        serverId,
+        toolName,
+        arguments: args ?? {},
+      });
+    },
   }));
 }

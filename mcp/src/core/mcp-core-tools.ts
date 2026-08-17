@@ -192,7 +192,7 @@ export function registerMcpCoreTools(server: McpServer): void {
 
         const timeoutMs = Number(timeout_ms ?? process.env.MCP_SCRIPT_TIMEOUT_MS ?? 240000);
         const requestContext = getRequestContext();
-        const localServers = await buildLocalToolServers();
+        const localServers = await buildLocalToolServers(requestContext);
         const runtime = await createWorkflowCodeModeRuntime(
           manager,
           {
@@ -205,6 +205,7 @@ export function registerMcpCoreTools(server: McpServer): void {
             userId: userId,
             requestId: requestContext.requestId,
             mcpSessionId: requestContext.mcpSessionId,
+            executionCtx: requestContext.executionCtx,
           },
           {
             loader: requestContext.env?.LOADER,

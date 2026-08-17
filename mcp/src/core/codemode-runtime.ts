@@ -1,5 +1,5 @@
 import { loadEnv } from "../config/env";
-import { getRequestContext } from "./request-context";
+import { getRequestContext, type WorkerExecutionContext } from "./request-context";
 import { recordMcpToolCallEvent } from "./analytics";
 import { extractReturnedError } from "./mcp-tool-output";
 
@@ -34,6 +34,7 @@ type AnalyticsContext = {
   userId?: string;
   requestId?: string;
   mcpSessionId?: string;
+  executionCtx?: WorkerExecutionContext;
 };
 
 type CloudflareCodeModeRuntimeEnv = {
@@ -229,5 +230,6 @@ function recordToolCallEvent(
   ).catch((recordError) => {
     console.warn("[mcp-analytics] Failed to queue downstream tool call event", recordError);
   });
-  getRequestContext().executionCtx?.waitUntil(task);
+  const executionCtx = context.executionCtx ?? getRequestContext().executionCtx;
+  executionCtx?.waitUntil(task);
 }
