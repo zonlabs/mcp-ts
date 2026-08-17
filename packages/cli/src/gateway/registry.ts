@@ -39,7 +39,7 @@ export function canonicalToolId(serverId: string, toolName: string): string {
   return `${serverId}::${toolName}`;
 }
 
-class LocalMcpConnection {
+export class LocalMcpConnection {
   private client: Client | null = null;
   private transport: StdioClientTransport | null = null;
   private httpConnection: HttpMcpConnection | null = null;
@@ -49,8 +49,8 @@ class LocalMcpConnection {
     readonly id: string,
     readonly name: string,
     private readonly config: McpServerConfig,
-    private readonly verbose: boolean,
-    private readonly connectHttp: typeof connectHttpMcpServer,
+    private readonly verbose: boolean = false,
+    private readonly connectHttp: typeof connectHttpMcpServer = connectHttpMcpServer,
   ) {}
 
   private createTransport(): StdioClientTransport {
@@ -66,28 +66,35 @@ class LocalMcpConnection {
     });
   }
 
+  startupDurationMs = 0;
+
   async start(): Promise<void> {
     if (this.client || this.httpConnection) return;
-    if (isHttpServerConfig(this.config)) {
-      const url = new URL(this.config.url);
-      this.httpConnection = await this.connectHttp(url.toString(), {
-        serverId: this.id,
-        serverName: this.name,
-        headers: this.config.headers,
-        transport: /\/sse(?:\/|$)/.test(url.pathname) ? "sse" : "streamable-http",
-      });
+    const startTime = performance.now();
+    try {
+      if (isHttpServerConfig(this.config)) {
+        const url = new URL(this.config.url);
+        this.httpConnection = await this.connectHttp(url.toString(), {
+          serverId: this.id,
+          serverName: this.name,
+          headers: this.config.headers,
+          transport: /\/sse(?:\/|$)/.test(url.pathname) ? "sse" : "streamable-http",
+        });
+        await this.loadTools();
+        return;
+      }
+      const transport = this.createTransport();
+      if (transport instanceof StdioClientTransport) {
+        transport.stderr?.on("data", (chunk: unknown) => serverLog(this.name, String(chunk), this.verbose));
+      }
+      const client = new Client({ name: "@mcp-ts/cli", version: CLI_VERSION }, {});
+      await client.connect(transport);
+      this.transport = transport;
+      this.client = client;
       await this.loadTools();
-      return;
+    } finally {
+      this.startupDurationMs = Math.round(performance.now() - startTime);
     }
-    const transport = this.createTransport();
-    if (transport instanceof StdioClientTransport) {
-      transport.stderr?.on("data", (chunk: unknown) => serverLog(this.name, String(chunk), this.verbose));
-    }
-    const client = new Client({ name: "@mcp-ts/cli", version: CLI_VERSION }, {});
-    await client.connect(transport);
-    this.transport = transport;
-    this.client = client;
-    await this.loadTools();
   }
 
   async loadTools(): Promise<void> {
@@ -116,6 +123,14 @@ class LocalMcpConnection {
     if (this.httpConnection) return this.httpConnection.callTool(toolName, args);
     if (!this.client) throw new Error(`Server "${this.name}" is not started.`);
     return this.client.callTool({ name: toolName, arguments: args });
+  }
+
+  async listTools(): Promise<{ tools: McpToolDescriptor[] }> {
+    return { tools: this.tools };
+  }
+
+  async stop(): Promise<void> {
+    return this.close();
   }
 
   async close(): Promise<void> {
@@ -191,6 +206,14 @@ export class McpGatewayRegistry {
         .map((connection) => connection.descriptor())
         .sort((a, b) => a.serverId.localeCompare(b.serverId)),
     };
+  }
+
+  getLocalServerTimings(): Map<string, number> {
+    const timings = new Map<string, number>();
+    for (const [id, conn] of this.localConnections) {
+      timings.set(id, conn.startupDurationMs);
+    }
+    return timings;
   }
 
   getRemoteCatalog(): CatalogSnapshot {

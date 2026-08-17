@@ -10,6 +10,7 @@ import {
 } from "@mcp-ts/client";
 import type { Tool } from "@modelcontextprotocol/client";
 import { authConfigDir } from "./auth-store.js";
+import { pc, treeNote } from "../ux.js";
 import {
   HTTP_CLIENT_CALLBACK_PORT,
   HTTP_CLIENT_CALLBACK_PATH,
@@ -41,6 +42,7 @@ export interface ConnectHttpMcpServerOptions {
   sessionStore?: SessionStore;
   createClient?: CreateClient;
   authorize?: Authorize;
+  onProgress?: (message: string) => void;
 }
 
 export interface HttpMcpConnection {
@@ -65,9 +67,87 @@ function defaultSessionStore(): Promise<SessionStore> {
   return sessionStorePromise;
 }
 
-function sessionIdFor(endpoint: string): string {
+function deriveSessionId(endpoint: string): string {
   const normalized = new URL(endpoint).toString();
   return `cli_${createHash("sha256").update(normalized).digest("hex").slice(0, 24)}`;
+}
+
+export interface DisconnectHttpMcpServerOptions {
+  serverId?: string;
+  serverName?: string;
+  sessionStore?: SessionStore;
+}
+// TODO: improvement opportunity (see if the McpClient is already created in memory else directly remove the from storage api)
+export async function disconnectHttpMcpServer(
+  endpointOrName: string,
+  options: DisconnectHttpMcpServerOptions = {},
+): Promise<{ disconnected: boolean; sessionId?: string }> {
+  try {
+    const sessionStore = options.sessionStore ?? await defaultSessionStore();
+
+    let targetUrl: string | undefined;
+    let targetSessionId: string | undefined;
+
+    try {
+      const url = new URL(endpointOrName);
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        targetUrl = url.toString();
+        targetSessionId = deriveSessionId(targetUrl);
+      }
+    } catch {
+      // endpointOrName is a serverId or serverName
+    }
+
+    const allSessions = await sessionStore.list(CLI_USER_ID);
+    const matchingSessions = allSessions.filter((s) => {
+      if (targetSessionId && s.sessionId === targetSessionId) return true;
+      if (targetUrl && s.serverUrl === targetUrl) return true;
+      if (options.serverId && s.serverId === options.serverId) return true;
+      if (s.serverId === endpointOrName || s.serverName === endpointOrName) return true;
+      return false;
+    });
+
+    let anyDisconnected = false;
+
+    if (matchingSessions.length > 0) {
+      await Promise.allSettled(
+        matchingSessions.map(async (session) => {
+          try {
+            const client = new McpClient({
+              userId: CLI_USER_ID,
+              sessionId: session.sessionId,
+              serverId: session.serverId,
+              serverUrl: session.serverUrl,
+              callbackUrl: session.callbackUrl,
+              serverName: session.serverName,
+              transport: session.serverOptions?.transport,
+              headers: session.headers,
+              hasSession: true,
+              sessionStore,
+            });
+
+            await client.disconnect().catch(() => undefined);
+            client.dispose?.();
+          } finally {
+            await sessionStore.delete(CLI_USER_ID, session.sessionId);
+          }
+        }),
+      );
+      anyDisconnected = true;
+    }
+
+    if (targetSessionId && !anyDisconnected) {
+      await sessionStore.delete(CLI_USER_ID, targetSessionId).catch(() => undefined);
+      anyDisconnected = true;
+    }
+
+    return {
+      disconnected: anyDisconnected,
+      sessionId: targetSessionId ?? matchingSessions[0]?.sessionId,
+    };
+  } catch {
+    return { disconnected: false };
+  }
 }
 
 function openBrowser(url: string): void {
@@ -135,7 +215,7 @@ export async function connectHttpMcpServer(
   let authorizationUrl: string | undefined;
   const client = (options.createClient ?? ((config) => new McpClient(config) as OAuthMcpClient))({
     userId: CLI_USER_ID,
-    sessionId: sessionIdFor(url.toString()),
+    sessionId: deriveSessionId(url.toString()),
     serverId: options.serverId,
     serverName: options.serverName,
     serverUrl: url.toString(),
@@ -156,7 +236,9 @@ export async function connectHttpMcpServer(
       throw error;
     }
     try {
+      options.onProgress?.("browser_opened");
       const callback = await (options.authorize ?? authorizeInBrowser)(authorizationUrl, callbackUrl);
+      options.onProgress?.("code_exchanged");
       await client.finishAuth(callback.code, callback.state, callback.iss);
     } catch (authorizationError) {
       await client.disconnect().catch(() => undefined);

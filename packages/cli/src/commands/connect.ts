@@ -1,121 +1,121 @@
-import { createInterface } from "node:readline/promises";
-import type { Readable, Writable } from "node:stream";
+/**
+ * @file packages/cli/src/commands/connect.ts
+ * @description Test and connect a remote or local MCP server, discover its tools,
+ * and persist its configuration into mcp.json.
+ */
+
+import type { Writable } from "node:stream";
 import pc from "picocolors";
 import { connectRemote } from "../client.js";
-import { createRouter, resolveTool, searchTools } from "../core.js";
-import { intro, outro, printBanner, success, treeNote, writeLine } from "../ux.js";
+import { LocalMcpConnection } from "../gateway/registry.js";
+import { addOrUpdateServerConfig } from "../gateway/config.js";
+import type { HttpServerConfig, StdioServerConfig } from "../gateway/types.js";
+import { printBanner, spinner, success, treeNote, writeLine } from "../ux.js";
 
-async function printSearch(
-  output: Pick<Writable, "write">,
-  router: Awaited<ReturnType<typeof createRouter>>,
-  query: string,
-  limit = 10,
-): Promise<void> {
-  const results = await searchTools(router, query, limit);
-  if (results.length === 0) {
-    writeLine(output, "No matching tools.");
-    return;
-  }
-  results.forEach((result, index) => {
-    const scopedId = result.serverId ? `${result.serverId}::${result.toolName ?? result.name}` : result.name;
-    const serverDetail =
-      result.serverName && result.serverName !== result.serverId
-        ? ` (server: ${result.serverName})`
-        : "";
-    writeLine(
-      output,
-      `${pc.cyan(String(index + 1))}. ${pc.bold(scopedId)}${pc.dim(serverDetail)}`,
-    );
-  });
+export interface ConnectOptions {
+  name?: string;
+  url?: string;
+  command?: string;
+  args?: string[];
+  headers?: Record<string, string>;
+  auth?: string;
+  dir?: string;
+  save?: boolean;
 }
 
-export async function cmdConnect(endpoint: string, input: Readable, output: Writable): Promise<void> {
+export async function cmdConnect(
+  target: { name?: string; url?: string; command?: string; args?: string[] },
+  options: ConnectOptions = {},
+  output: Pick<Writable, "write"> = process.stdout,
+): Promise<void> {
   printBanner();
-  intro(pc.bold(`Connect to ${endpoint}`));
-  const client = await connectRemote(endpoint);
-  try {
-    const router = await createRouter(client);
-    const toolCount = router.listServers().reduce((total, server) => total + server.toolCount, 0);
-    success(`Connected — ${toolCount} tools discovered`);
-    treeNote(pc.dim('Type "help" for commands, "exit" to quit.'));
 
-    const terminal = Boolean((output as Writable & { isTTY?: boolean }).isTTY);
-    const readline = createInterface({ input, output, terminal });
-    try {
-      while (true) {
-        const line = (await readline.question(`${pc.cyan("mcp")} > `)).trim();
-        if (!line) continue;
-        const [command, ...rest] = line.split(/\s+/);
-        if (command === "exit" || command === "quit") break;
-        if (command === "help") {
-          writeLine(output, `Available REPL commands:
-  search <query>             Search the remote tool catalog
-  schema <tool|server::tool> Show a tool's JSON schemas
-  call <tool> <json>         Execute a tool call
-  exit                       Leave the REPL`);
-          continue;
-        }
-        if (command === "search") {
-          await printSearch(output, router, rest.join(" "));
-          continue;
-        }
-        if (command === "schema") {
-          const name = rest[0];
-          if (!name) {
-            writeLine(output, "Usage: schema <tool>");
-            continue;
+  const name = options.name || target.name;
+  const url = options.url || target.url;
+  const command = options.command || target.command;
+  const args = options.args || target.args || [];
+
+  if (!url && !command) {
+    throw new Error(
+      "connect requires either an endpoint URL or a command (e.g. mcpa connect mem0 https://mcp.mem0.ai/mcp or mcpa connect --name postgres --command npx --args ...)",
+    );
+  }
+
+  const serverName = name || (url ? new URL(url).hostname.replace(/\./g, "-") : "custom-server");
+  const headers: Record<string, string> = { ...(options.headers ?? {}) };
+  if (options.auth) {
+    headers["Authorization"] = `Bearer ${options.auth}`;
+  }
+
+  const targetDesc = url ? `"${serverName}" (${url})` : `"${serverName}"`;
+  const spin = spinner();
+  spin.start(`Connecting to ${targetDesc}...`);
+
+  let toolNames: string[] = [];
+
+  try {
+    if (url) {
+      // 1. Connect and test remote HTTP MCP server
+      const client = await connectRemote(url, {
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        onProgress: (stage) => {
+          if (stage === "browser_opened") {
+            spin.stop("Opened browser for OAuth authorization");
+            spin.start("Waiting for authorization in browser...");
+          } else if (stage === "code_exchanged") {
+            spin.stop("Authorization code received & exchanged for tokens");
+            spin.start(`Discovering tools from "${serverName}"...`);
           }
-          const tool = resolveTool(router, name);
-          if (!tool) {
-            writeLine(output, `Tool not found: ${name}`);
-            continue;
-          }
-          writeLine(
-            output,
-            JSON.stringify(
-              {
-                name: tool.name,
-                serverName: tool.serverName,
-                description: tool.description,
-                inputSchema: tool.inputSchema,
-                outputSchema: tool.outputSchema,
-              },
-              null,
-              2,
-            ),
-          );
-          continue;
-        }
-        if (command === "call") {
-          const name = rest[0];
-          const payload = rest.slice(1).join(" ");
-          if (!name || !payload) {
-            writeLine(output, "Usage: call <tool> <json>");
-            continue;
-          }
-          let parsed: Record<string, unknown>;
-          try {
-            parsed = JSON.parse(payload) as Record<string, unknown>;
-          } catch {
-            writeLine(output, "Invalid JSON payload");
-            continue;
-          }
-          const tool = resolveTool(router, name);
-          if (!tool) {
-            writeLine(output, `Tool not found: ${name}`);
-            continue;
-          }
-          const result = await router.callTool({ toolId: tool.toolId, args: parsed });
-          writeLine(output, JSON.stringify(result, null, 2));
-          continue;
-        }
-        writeLine(output, `Unknown command: ${command}. Type "help".`);
+        },
+      });
+      try {
+        const toolsResult = await client.listTools();
+        toolNames = (toolsResult.tools ?? []).map((t) => t.name);
+      } finally {
+        await client.close();
       }
-    } finally {
-      readline.close();
-      outro("Disconnected");
+    } else if (command) {
+      // 2. Connect and test local stdio MCP server
+      const stdioConn = new LocalMcpConnection(serverName, serverName, {
+        command,
+        args,
+        cwd: options.dir,
+      });
+      try {
+        await stdioConn.start();
+        const toolsResult = await stdioConn.listTools();
+        toolNames = (toolsResult.tools ?? []).map((t) => t.name);
+      } finally {
+        await stdioConn.stop();
+      }
+    } else {
+      throw new Error("Either --url or --command is required to connect to an MCP server.");
     }
-  } finally {
-    await client.close();
+    spin.stop(`Connected to "${serverName}" — ${toolNames.length} tool(s) discovered:`);
+  } catch (error) {
+    spin.stop(`Failed to connect to "${serverName}"`);
+    throw error;
+  }
+
+  if (toolNames.length > 0) {
+    const preview = toolNames.slice(0, 8);
+    preview.forEach((t) => {
+      treeNote(`${pc.cyan("•")} ${pc.bold(serverName + "::" + t)}`);
+    });
+    if (toolNames.length > preview.length) {
+      treeNote(pc.dim(`  ... and ${toolNames.length - preview.length} more tool(s)`));
+    }
+  }
+
+  // Persist to mcp.json unless explicitly disabled with --no-save
+  const shouldSave = options.save !== false;
+  if (shouldSave) {
+    const serverConfig = url
+      ? ({ url, headers: Object.keys(headers).length > 0 ? headers : undefined } as HttpServerConfig)
+      : ({ command: command!, args } as StdioServerConfig);
+
+    const { path } = addOrUpdateServerConfig(serverName, serverConfig, options.dir);
+    success(`Saved "${serverName}" to ${pc.underline(path)}`);
+    treeNote(pc.dim(`Run ${pc.bold("mcpa serve")} or ${pc.bold("mcpa call " + serverName + "::<tool>")} to use it.`));
   }
 }

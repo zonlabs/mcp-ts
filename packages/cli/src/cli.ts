@@ -9,6 +9,7 @@ import { cmdLocalSchema } from "./commands/schema.js";
 import { cmdSearch } from "./commands/search.js";
 import { cmdServe } from "./commands/serve.js";
 import { cmdConnect } from "./commands/connect.js";
+import { cmdDisconnect } from "./commands/disconnect.js";
 import { cmdBench } from "./commands/bench.js";
 import { cmdCodegen } from "./commands/codegen.js";
 import type { LocalMcpDiscoveryMode } from "./gateway/local-http-mcp.js";
@@ -22,10 +23,11 @@ Usage:
   mcpa search [url] <query> [--limit <count>]   Search local or remote tool catalog
   mcpa schema <tool...>                         Inspect tool JSON schemas
   mcpa list                                     List all local servers and tools
+  mcpa connect [name] [url] [--auth <token>]    Test & register a remote/local MCP server
+  mcpa disconnect <name>                        Remove a server from mcp.json (aliases: remove, rm)
   mcpa login [--remote <url>]                   Sign in to the remote gateway
   mcpa logout [--remote <url>]                  Revoke the saved CLI session
   mcpa init [--dir <path>]                      Write a default mcp.json
-  mcpa connect <url>                            Explore a remote server (REPL)
   mcpa bench <url>                              Compare tool-router strategies
   mcpa codegen <url> --out <file>               Generate typed tool wrappers
 
@@ -34,13 +36,11 @@ Flags:
   -h, --help                                    Show help information
   --verbose                                     Show verbose child process chatter
   --mode <all|search>                           Gateway tool discovery mode (default: search)
-
-Connect REPL commands:
-  search <query>             Search the remote tool catalog
-  schema <tool|server::tool> Show a tool's JSON schemas
-  call <tool> <json>         Call a tool with a JSON object
-  help                       Show REPL commands
-  exit                       Disconnect and exit`;
+  --name <name>                                 Server name for connect
+  --url <url>                                   Remote endpoint URL for connect
+  --auth <token>                                Bearer token authentication
+  --header <key=value>                          Custom HTTP headers
+  --no-save                                     Test connection without saving to mcp.json`;
 
 function writeLine(output: Pick<Writable, "write">, value = ""): void {
   output.write(`${value}\n`);
@@ -165,11 +165,45 @@ export async function runCli(
       return 0;
     }
 
-    if (command === "connect") {
+    if (command === "connect" || command === "add") {
       const values = positional(commandArgs);
-      const endpoint = values[0];
-      if (!endpoint) throw new Error("connect requires an MCP endpoint URL (e.g. mcpa connect <url>)");
-      await cmdConnect(endpoint, streams.input, streams.output);
+      const name = option(commandArgs, "--name") ?? (values[0] && !isUrl(values[0]) ? values[0] : undefined);
+      const url = option(commandArgs, "--url") ?? (values.find(isUrl) ?? (values[1] && isUrl(values[1]) ? values[1] : undefined));
+      const commandName = option(commandArgs, "--command");
+      const cmdArgsStr = option(commandArgs, "--args");
+      const cmdArgs = cmdArgsStr ? cmdArgsStr.split(/\s+/) : undefined;
+      const auth = option(commandArgs, "--auth");
+      const save = !commandArgs.includes("--no-save");
+
+      const headers: Record<string, string> = {};
+      for (let i = 0; i < commandArgs.length; i++) {
+        if (commandArgs[i] === "--header" && commandArgs[i + 1]) {
+          const headerPair = commandArgs[i + 1];
+          const colonIdx = headerPair.indexOf("=");
+          const splitIdx = colonIdx !== -1 ? colonIdx : headerPair.indexOf(":");
+          if (splitIdx !== -1) {
+            const k = headerPair.slice(0, splitIdx).trim();
+            const v = headerPair.slice(splitIdx + 1).trim();
+            if (k && v) headers[k] = v;
+          }
+        }
+      }
+
+      await cmdConnect(
+        { name, url, command: commandName, args: cmdArgs },
+        { name, url, command: commandName, args: cmdArgs, headers, auth, dir, save },
+        streams.output,
+      );
+      return 0;
+    }
+
+    if (command === "disconnect" || command === "remove" || command === "rm") {
+      const values = positional(commandArgs);
+      const name = option(commandArgs, "--name") ?? values[0];
+      if (!name) {
+        throw new Error("disconnect requires a server name (e.g. mcpa disconnect <name> or mcpa remove <name>)");
+      }
+      await cmdDisconnect(name, dir, streams.output);
       return 0;
     }
 

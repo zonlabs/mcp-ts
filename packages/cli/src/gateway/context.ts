@@ -12,6 +12,7 @@ export { DEFAULT_LOCAL_MCP_PORT, DEFAULT_REMOTE_GATEWAY_URL };
 
 export interface GatewayContextOptions {
   cwd?: string;
+  dir?: string;
   remoteUrl?: string;
   enableBridge?: boolean;
 }
@@ -19,8 +20,8 @@ export interface GatewayContextOptions {
 /**
  * Loads configured MCP server definitions from local mcp.json.
  */
-export function getServerConfig(cwd?: string): Record<string, McpServerConfig> {
-  const target = cwd ?? process.cwd();
+export function getServerConfig(cwdOrDir?: string): Record<string, McpServerConfig> {
+  const target = cwdOrDir ?? process.cwd();
   try {
     const { config } = loadMcpJson(target);
     return config.mcpServers ?? {};
@@ -67,7 +68,7 @@ export async function withMcpGateway<T>(
   options: GatewayContextOptions | undefined,
   action: (gateway: McpGatewayRegistry) => Promise<T>,
 ): Promise<T> {
-  const configs = getServerConfig(options?.cwd);
+  const configs = getServerConfig(options?.dir ?? options?.cwd);
   const gateway = new McpGatewayRegistry(configs, undefined, { verbose: false });
   let bridge: RemoteBridgeClient | null = null;
 

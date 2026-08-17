@@ -11,6 +11,12 @@ import {
 
 type HttpConnector = typeof connectHttpMcpServer;
 
+export interface RemoteToolClientOptions {
+  headers?: Record<string, string>;
+  connector?: HttpConnector;
+  onProgress?: (message: string) => void;
+}
+
 function serverIdFor(url: URL): string {
   const path = url.pathname.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
   return `${url.hostname}${path ? `_${path}` : ""}`.toLowerCase();
@@ -19,19 +25,29 @@ function serverIdFor(url: URL): string {
 export class RemoteToolClient implements ToolClient {
   private connection: HttpMcpConnection | null = null;
   private readonly serverId: string;
+  private readonly headers?: Record<string, string>;
+  private readonly connector: HttpConnector;
+  private readonly onProgress?: (message: string) => void;
 
   constructor(
     private readonly endpoint: URL,
-    private readonly connector: HttpConnector = connectHttpMcpServer,
+    optionsOrConnector?: RemoteToolClientOptions | HttpConnector,
   ) {
     this.serverId = serverIdFor(endpoint);
+    if (typeof optionsOrConnector === "function") {
+      this.connector = optionsOrConnector;
+    } else {
+      this.connector = optionsOrConnector?.connector ?? connectHttpMcpServer;
+      this.headers = optionsOrConnector?.headers;
+      this.onProgress = optionsOrConnector?.onProgress;
+    }
   }
 
   async connect(): Promise<void> {
     if (this.connection) return;
-    let headers: Record<string, string> | undefined;
+    let headers: Record<string, string> | undefined = this.headers;
     const origin = this.endpoint.origin;
-    if (loadAuthSession(origin)) {
+    if (!headers && loadAuthSession(origin)) {
       try {
         const session = await ensureFreshAuthSession(origin);
         headers = { Authorization: `Bearer ${session.accessToken}` };
@@ -43,6 +59,7 @@ export class RemoteToolClient implements ToolClient {
       serverId: this.serverId,
       serverName: this.endpoint.hostname,
       headers,
+      onProgress: this.onProgress,
     });
   }
 
@@ -70,7 +87,7 @@ export class RemoteToolClient implements ToolClient {
 
 export async function connectRemote(
   endpoint: string,
-  connector: HttpConnector = connectHttpMcpServer,
+  optionsOrConnector?: RemoteToolClientOptions | HttpConnector | Record<string, string>,
 ): Promise<RemoteToolClient> {
   const url = new URL(endpoint);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -79,7 +96,20 @@ export async function connectRemote(
   if (!url.pathname || url.pathname === "/") {
     url.pathname = "/mcp";
   }
-  const client = new RemoteToolClient(url, connector);
+
+  let options: RemoteToolClientOptions | HttpConnector | undefined;
+  if (
+    optionsOrConnector &&
+    typeof optionsOrConnector === "object" &&
+    typeof (optionsOrConnector as any).connector !== "function" &&
+    !("headers" in optionsOrConnector)
+  ) {
+    options = { headers: optionsOrConnector as Record<string, string> };
+  } else {
+    options = optionsOrConnector as RemoteToolClientOptions | HttpConnector | undefined;
+  }
+
+  const client = new RemoteToolClient(url, options);
   try {
     await client.connect();
     return client;
