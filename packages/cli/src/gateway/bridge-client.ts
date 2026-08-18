@@ -148,9 +148,7 @@ export class RemoteBridgeClient {
     await this.registry.replaceRemoteCatalog(initialized.remoteCatalog, (params) =>
       this.callRemoteTool(params),
     );
-    if (initialized.remoteCatalog.servers.length > 0) {
-      this.readyResolver?.();
-    }
+    this.readyResolver?.();
   }
 
   async publishLocalCatalog(): Promise<void> {
