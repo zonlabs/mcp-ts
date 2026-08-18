@@ -8,18 +8,21 @@ import { cmdList } from "./commands/list.js";
 import { cmdLocalSchema } from "./commands/schema.js";
 import { cmdSearch } from "./commands/search.js";
 import { cmdServe } from "./commands/serve.js";
+import { cmdDaemon } from "./commands/daemon.js";
 import { cmdConnect } from "./commands/connect.js";
 import { cmdDisconnect } from "./commands/disconnect.js";
 import { cmdEnable, cmdDisable } from "./commands/toggle.js";
 import { cmdBench } from "./commands/bench.js";
 import { cmdCodegen } from "./commands/codegen.js";
 import type { LocalMcpDiscoveryMode } from "./gateway/local-http-mcp.js";
+import { setupDaemonLogging } from "./gateway/daemon.js";
 import { DEFAULT_REMOTE_GATEWAY_URL } from "./constants.js";
 
 const HELP = `${renderBanner()}
 Usage:
-  mcpa serve [--host h] [--port p] [--mode <all|search>] [--verbose]
-                                                Run the local MCP gateway daemon
+  mcpa serve [--host h] [--port p] [--mode <all|search>] [--detached] [--verbose]
+                                                Run the local MCP gateway
+  mcpa daemon <start|stop|status|logs>          Manage persistent background daemon
   mcpa call <tool> [jsonArgs]                   Directly execute a local MCP tool
   mcpa search [url] <query> [--limit <count>]   Search local or remote tool catalog
   mcpa schema <tool...>                         Inspect tool JSON schemas
@@ -37,6 +40,7 @@ Usage:
 Flags:
   -v, --version                                 Show CLI version
   -h, --help                                    Show help information
+  -d, --detached                                Run server as a detached background daemon
   --verbose                                     Show verbose child process chatter
   --mode <all|search>                           Gateway tool discovery mode (default: search)
   --name <name>                                 Server name for connect
@@ -80,6 +84,8 @@ export async function runCli(
     error: process.stderr,
   },
 ): Promise<number> {
+  setupDaemonLogging();
+
   const [command, ...commandArgs] = args;
   if (command === "-v" || command === "--version" || command === "version") {
     writeLine(streams.output, `@mcp-ts/cli v${CLI_VERSION}`);
@@ -133,7 +139,25 @@ export async function runCli(
       return 0;
     }
 
+    if (command === "daemon") {
+      const values = positional(commandArgs);
+      const action = values[0] || "status";
+      await cmdDaemon(
+        action,
+        {
+          port: option(commandArgs, "--port") ? Number(option(commandArgs, "--port")) : undefined,
+          verbose,
+          lines: (option(commandArgs, "--lines") ?? option(commandArgs, "--limit") ?? option(commandArgs, "-n"))
+            ? Number(option(commandArgs, "--lines") ?? option(commandArgs, "--limit") ?? option(commandArgs, "-n"))
+            : undefined,
+        },
+        streams.output,
+      );
+      return 0;
+    }
+
     if (command === "serve") {
+      const detached = args.includes("-d") || args.includes("--detached");
       await cmdServe({
         host: option(commandArgs, "--host"),
         port: option(commandArgs, "--port") ? Number(option(commandArgs, "--port")) : undefined,
@@ -142,6 +166,7 @@ export async function runCli(
         login: option(commandArgs, "--login"),
         mode,
         verbose,
+        detached,
       });
       return 0;
     }

@@ -169,6 +169,19 @@ export class Traffic {
     this.emit(mainLine);
   }
 
+  /** A configuration reload event (e.g. mcp.json mutated on disk). */
+  recordReload(summary: string, details?: string): void {
+    const time = pc.dim(formatTime());
+    const arrow = pc.magenta("🔄");
+    const protocol = pc.bold(pc.magenta("RELOAD  ".padEnd(8)));
+    const target = summary.padEnd(32);
+    const badge = pc.magenta("SYNCED ");
+    const note = details ? pc.dim(` • ${details}`) : "";
+
+    const mainLine = `  ${time}  ${arrow} ${protocol}  ${target}  ${badge}${note}`.trimEnd();
+    this.emit(mainLine);
+  }
+
   /** Cumulative summary string. */
   render(): string {
     return pc.dim(`req ${this.requests}  call ${this.calls}  err ${this.errors}`);

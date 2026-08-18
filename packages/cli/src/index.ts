@@ -35,11 +35,15 @@ export {
   type GatewayContextOptions,
 } from "./gateway/context.js";
 export type { AggregatedTool } from "./gateway/registry.js";
-export type {
-  BaseServerConfig,
-  StdioServerConfig,
-  HttpServerConfig,
-  McpServerConfig,
-  McpServersConfig,
-} from "./gateway/types.js";
+export { McpConfigWatcher, type McpConfigWatcherOptions } from "./gateway/watcher.js";
+export {
+  spawnDaemon,
+  stopDaemon,
+  getDaemonStatus,
+  readDaemonLogs,
+  isProcessAlive,
+  getCliBinPath,
+  type DaemonInfo,
+  type DaemonStatus,
+} from "./gateway/daemon.js";
 export * from "./constants.js";

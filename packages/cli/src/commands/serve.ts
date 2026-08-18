@@ -28,6 +28,9 @@ import {
   warn,
 } from "../ux.js";
 
+import { McpConfigWatcher } from "../gateway/watcher.js";
+import { spawnDaemon } from "../gateway/daemon.js";
+
 export interface ServeArgs {
   host?: string;
   port?: number;
@@ -36,6 +39,7 @@ export interface ServeArgs {
   login?: string;
   verbose?: boolean;
   mode?: "all" | "search";
+  detached?: boolean;
 }
 
 import {
@@ -55,9 +59,13 @@ interface ShutdownHandlerOptions {
 
 export function createShutdownHandler(options: ShutdownHandlerOptions) {
   let shuttingDown = false;
-  const exit = options.exit ?? ((code: number) => process.exit(code));
+  let resolveWait: (() => void) | null = null;
+  const exit = options.exit ?? ((code: number) => {
+    resolveWait?.();
+    process.exit(code);
+  });
 
-  return async (signal: string): Promise<void> => {
+  const handler = async (signal: string): Promise<void> => {
     if (shuttingDown) {
       exit(130);
       return;
@@ -78,6 +86,13 @@ export function createShutdownHandler(options: ShutdownHandlerOptions) {
       exit(0);
     }
   };
+
+  handler.wait = () =>
+    new Promise<void>((resolve) => {
+      resolveWait = resolve;
+    });
+
+  return handler;
 }
 
 function renderServerList(
@@ -102,12 +117,37 @@ function renderServerList(
 }
 
 export async function cmdServe(args: ServeArgs): Promise<void> {
+  if (args.detached) {
+    try {
+      const result = await spawnDaemon({
+        port: args.port,
+        verbose: args.verbose,
+        url: args.remote,
+      });
+      printBanner();
+      intro(pc.bold("mcpa serve (detached)"));
+      success(`Daemon started in background (PID ${pc.bold(String(result.pid))})`);
+      treeSummary("Daemon Details", [
+        { label: "Gateway", value: pc.cyan(`http://127.0.0.1:${result.port}/mcp`) },
+        { label: "Port", value: pc.bold(String(result.port)) },
+        { label: "Logs", value: result.logPath },
+      ]);
+      outro(pc.dim("Inspect with `mcpa daemon status` or `mcpa daemon logs`"));
+      return;
+    } catch (err) {
+      error(`Failed to start daemon: ${(err as Error).message}`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   printBanner();
   intro(pc.bold("mcpa serve"));
   const target = process.cwd();
   let registry: McpGatewayRegistry | null = null;
   let localHttpMcp: LocalHttpMcp | null = null;
   let bridge: RemoteBridgeClient | null = null;
+  let watcher: McpConfigWatcher | null = null;
 
   const shutdown = createShutdownHandler({
     onSignal: (signal) => {
@@ -115,6 +155,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
       warn(`Received ${signal}, shutting down...`);
     },
     cleanup: async () => {
+      watcher?.stop();
       if (process.stdin.isTTY) {
         try {
           process.stdin.setRawMode(false);
@@ -144,7 +185,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     // Remote-only gateways do not require mcp.json.
   }
 
-  info(`Loaded configuration with ${pc.bold(String(Object.keys(localConfig).length))} local server(s)`);
+  info(`Config: Loaded ${pc.bold(String(Object.keys(localConfig).length))} server(s) from mcp.json`);
   const traffic = new Traffic({ verbose: args.verbose });
   const localRegistry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
   registry = localRegistry;
@@ -154,16 +195,33 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   const mode = args.mode ?? "search";
   localHttpMcp = new LocalHttpMcp(localRegistry, { host, port, path, mode }, traffic);
 
+  // Start file watcher for automatic hot-reloading on mcp.json changes
+  watcher = new McpConfigWatcher(target, async (newConfig) => {
+    if (registry) {
+      await registry.reload(newConfig.mcpServers ?? {});
+      try {
+        await bridge?.publishLocalCatalog();
+      } catch {
+        // Best effort
+      }
+    }
+  });
+  watcher.start();
+
   const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
   if (!loadAuthSession(remote)) {
-    const signInSpin = spinner();
-    signInSpin.start(`Waiting for sign-in in browser (${remote})...`);
-    try {
-      await loginToRemote(remote, args.login);
-    } catch {
-      warn("Could not authenticate with remote gateway. Continuing in local-only mode.");
-    } finally {
-      signInSpin.stop("Sign-in complete");
+    if (process.env.MCPA_DAEMON === "1" || !process.stdin.isTTY) {
+      warn("No saved remote session found. Running gateway in local-only mode.");
+    } else {
+      const signInSpin = spinner();
+      signInSpin.start(`Waiting for sign-in in browser (${remote})...`);
+      try {
+        await loginToRemote(remote, args.login);
+      } catch {
+        warn("Could not authenticate with remote gateway. Continuing in local-only mode.");
+      } finally {
+        signInSpin.stop("Sign-in complete");
+      }
     }
   }
 
@@ -226,16 +284,13 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     throw cause;
   }
   const localDuration = ((performance.now() - localStartTime) / 1000).toFixed(2);
-  startSpin.stop(`Local MCP servers started ${pc.dim(`(${localDuration}s)`)}`);
-
   const localServers = localRegistry.getLocalCatalog().servers;
+  startSpin.stop(`Started ${pc.bold(String(localServers.length))} local server(s) ${pc.dim(`in ${localDuration}s`)}`);
+
   if (localServers.length > 0) {
     const timings = localRegistry.getLocalServerTimings();
-    success(`Started ${pc.bold(String(localServers.length))} local server(s) ${pc.dim(`in ${localDuration}s`)}`);
     renderServerList(localServers, 5, timings);
   }
-
-  success(`Local unified MCP endpoint: ${pc.cyan(localUrl)}`);
 
   // 2. Render Remote Bridge UI (which has already been connecting in background)
   const session = loadAuthSession(remote);
@@ -250,13 +305,13 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     const remoteServers = localRegistry.getRemoteCatalog().servers;
     const userSuffix = userEmail ? ` as ${pc.bold(userEmail)}` : "";
     if (ready || remoteServers.length > 0) {
-      bridgeSpin.stop(`Connected to remote gateway${userSuffix} ${pc.dim(`(${remoteDuration}s)`)}`);
+      bridgeSpin.stop(`Connected to remote gateway${userSuffix}`);
       if (remoteServers.length > 0) {
-        success(`Connected ${pc.bold(String(remoteServers.length))} remote server(s) ${pc.dim(`in ${remoteDuration}s`)}`);
+        success(`Found ${pc.bold(String(remoteServers.length))} remote server(s) ${pc.dim(`in ${remoteDuration}s`)}`);
         renderServerList(remoteServers, 5);
       }
     } else {
-      bridgeSpin.stop(`Remote gateway connected${userSuffix} ${pc.dim(`(${remoteDuration}s)`)}`);
+      bridgeSpin.stop(`Connected to remote gateway${userSuffix}`);
     }
   } else {
     warn("No remote session available. Local endpoint only.");
@@ -272,7 +327,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
   const summaryItems = [
     ...(userEmail ? [{ label: "Account", value: pc.bold(userEmail) }] : []),
-    { label: "Endpoint", value: pc.cyan(localUrl) },
+    { label: "Gateway", value: pc.cyan(localUrl) },
     { label: "Bridge", value: bridgeStatus },
     {
       label: "Servers",
@@ -280,7 +335,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     },
   ];
 
-  treeSummary("Gateway summary", summaryItems);
+  treeSummary("Gateway Summary", summaryItems);
   outro(pc.green("Gateway running - Press Ctrl+C to stop"));
   process.stdout.write(`\n${pc.bold(pc.dim("─── Activity Logs ──────────────────────────────────────────────────────────"))}\n\n`);
 
@@ -301,4 +356,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
       // Fallback to standard signal listeners
     }
   }
+
+  // Keep server running until shutdown signal is received
+  await shutdown.wait();
 }

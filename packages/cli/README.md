@@ -76,10 +76,16 @@ Expose your local MCP servers to Code IDEs (Cursor, VS Code, Windsurf) through a
 
 ```bash
 mcpa init                                  # write a default mcp.json
-mcpa serve                                 # run local gateway daemon with search discovery
-mcpa serve --mode search                   # force progressive search meta-tools mode
-mcpa serve --mode all                      # direct flat tools mode
+mcpa serve                                 # run interactive local gateway with live traffic logs
+mcpa serve -d                              # run as a detached background daemon
+mcpa daemon start                          # start background daemon (survives closed terminals)
+mcpa daemon status                         # inspect daemon PID, uptime, port, and health
+mcpa daemon logs                           # view recent daemon logs
+mcpa daemon stop                           # stop running background daemon
 ```
+
+### 🔄 Automatic Hot-Reloading (#191)
+The gateway actively watches `mcp.json`. Whenever servers are connected, removed, enabled, or disabled (`mcpa connect`, `mcpa enable/disable`, or direct edits), the gateway dynamically updates routes and search indexes with **zero downtime**.
 
 In `.cursor/mcp.json` or VS Code MCP settings:
 ```json
