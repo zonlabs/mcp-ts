@@ -627,7 +627,7 @@ export const useMcpStore = create<McpStore>()(
                 resources: val.resources ?? existing?.resources,
                 resourceTemplates: val.resourceTemplates ?? existing?.resourceTemplates,
                 toolPolicy: val.toolPolicy,
-                enabled: val.enabled ?? true,
+                enabled: val.enabled ?? existing?.enabled ?? true,
                 connectedAt: new Date().toISOString(),
                 error: val.error,
               };
