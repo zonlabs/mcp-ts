@@ -296,7 +296,9 @@ export class LocalHttpMcp {
       this.server!.once("error", reject);
       this.server!.listen(this.options.port, this.options.host, resolve);
     });
-    return `http://${this.options.host}:${this.options.port}${this.options.path}`;
+    const address = this.server!.address();
+    const actualPort = typeof address === "object" && address ? address.port : this.options.port;
+    return `http://${this.options.host}:${actualPort}${this.options.path}`;
   }
 
   async close(): Promise<void> {
