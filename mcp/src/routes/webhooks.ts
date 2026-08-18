@@ -57,6 +57,30 @@ webhookRoutes.post("/supabase", async (c) => {
     return c.json({ error: "Bad Request: Expected valid JSON webhook payload" }, 400);
   }
 
+  // Only handle events for mcp_sessions
+  if (payload.table && payload.table !== "mcp_sessions") {
+    return c.json({ ok: true, message: `Ignored non-session table: ${payload.table}` });
+  }
+
+  // For UPDATE events on mcp_sessions, only refresh if server configuration changed.
+  // Ignore routine updates from token refresh, session touch, or timestamps.
+  if (payload.type === "UPDATE" && payload.old_record && payload.record) {
+    const oldRec = payload.old_record;
+    const newRec = payload.record;
+    const isConfigUnchanged =
+      oldRec.server_url === newRec.server_url &&
+      oldRec.enabled === newRec.enabled &&
+      oldRec.server_name === newRec.server_name &&
+      oldRec.server_id === newRec.server_id &&
+      JSON.stringify(oldRec.headers ?? null) === JSON.stringify(newRec.headers ?? null) &&
+      JSON.stringify(oldRec.tool_policy ?? null) === JSON.stringify(newRec.tool_policy ?? null) &&
+      JSON.stringify(oldRec.server_options ?? null) === JSON.stringify(newRec.server_options ?? null);
+
+    if (isConfigUnchanged) {
+      return c.json({ ok: true, message: "Ignored routine token/timestamp update on mcp_sessions" });
+    }
+  }
+
   // Extract user_id from new record (INSERT/UPDATE) or old record (DELETE)
   const userId = payload.record?.user_id ?? payload.old_record?.user_id;
   if (!userId || typeof userId !== "string") {

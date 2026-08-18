@@ -235,14 +235,103 @@ export class McpGatewayRegistry {
     catalog: CatalogSnapshot,
     invoke: (params: ToolCallParams) => Promise<unknown>,
   ): Promise<void> {
-    this.remoteServers.clear();
+    const newRemotes = new Map<string, RemoteServer>();
     for (const descriptor of catalog.servers) {
       if (this.localConnections.has(descriptor.serverId)) {
-        throw new Error(`Remote server ID collides with local server ID: ${descriptor.serverId}`);
+        continue;
       }
-      this.remoteServers.set(descriptor.serverId, { descriptor, invoke });
+      newRemotes.set(descriptor.serverId, { descriptor, invoke });
+    }
+    this.remoteServers.clear();
+    for (const [id, s] of newRemotes) {
+      this.remoteServers.set(id, s);
     }
     await this.rebuildIndex();
+  }
+
+  /**
+   * Dynamically reloads the local servers when mcp.json changes on disk.
+   * Preserves active connections for unchanged servers, shuts down removed/disabled
+   * servers, and starts up newly added/enabled servers.
+   */
+  async reload(newConfigs: Record<string, McpServerConfig>): Promise<{
+    added: string[];
+    removed: string[];
+    updated: string[];
+  }> {
+    const added: string[] = [];
+    const removed: string[] = [];
+    const updated: string[] = [];
+
+    // 1. Identify removed or disabled servers
+    for (const [id, conn] of this.localConnections) {
+      const newCfg = newConfigs[id];
+      if (!newCfg || newCfg.disabled) {
+        await conn.stop();
+        this.localConnections.delete(id);
+        removed.push(id);
+      } else if (JSON.stringify(newCfg) !== JSON.stringify(this.configs[id])) {
+        // Config changed: restart server
+        await conn.stop();
+        this.localConnections.delete(id);
+        const newConn = new LocalMcpConnection(
+          id,
+          id,
+          newCfg,
+          this.options.verbose ?? false,
+          this.options.connectHttp ?? connectHttpMcpServer,
+        );
+        try {
+          await newConn.start();
+          this.localConnections.set(id, newConn);
+          updated.push(id);
+        } catch (error) {
+          uxError(`Failed to reload MCP server "${id}": ${(error as Error).message}`);
+        }
+      }
+    }
+
+    // 2. Identify new or newly enabled servers
+    for (const [name, config] of Object.entries(newConfigs)) {
+      if (config.disabled) continue;
+      if (!this.localConnections.has(name)) {
+        const id = name;
+        const connection = new LocalMcpConnection(
+          id,
+          name,
+          config,
+          this.options.verbose ?? false,
+          this.options.connectHttp ?? connectHttpMcpServer,
+        );
+        try {
+          await connection.start();
+          this.localConnections.set(id, connection);
+          added.push(id);
+        } catch (error) {
+          uxError(`Failed to start MCP server "${name}": ${(error as Error).message}`);
+        }
+      }
+    }
+
+    // Update active configs reference
+    for (const k of Object.keys(this.configs)) {
+      delete this.configs[k];
+    }
+    Object.assign(this.configs, newConfigs);
+
+    // 3. Rebuild routes and BM25 index
+    await this.rebuildIndex();
+
+    // 4. Log reload event to traffic
+    if (added.length > 0 || removed.length > 0 || updated.length > 0) {
+      const parts: string[] = [];
+      if (added.length > 0) parts.push(`+${added.length} added (${added.join(", ")})`);
+      if (removed.length > 0) parts.push(`-${removed.length} removed (${removed.join(", ")})`);
+      if (updated.length > 0) parts.push(`~${updated.length} updated (${updated.join(", ")})`);
+      this.traffic.recordReload(`config reloaded`, parts.join(" • "));
+    }
+
+    return { added, removed, updated };
   }
 
   private allRoutes(): ToolRoute[] {
