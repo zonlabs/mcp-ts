@@ -99,6 +99,7 @@ export interface McpConnection {
   createdAt?: Date;
   updatedAt?: Date;
   toolPolicy?: ToolPolicy;
+  enabled?: boolean;
 }
 
 export interface McpClient {
@@ -458,6 +459,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
             createdAt: new Date(s.createdAt),
             updatedAt: new Date(s.updatedAt ?? s.createdAt),
             toolPolicy: s.toolPolicy,
+            enabled: s.enabled,
             tools: [],
           }))
         );
