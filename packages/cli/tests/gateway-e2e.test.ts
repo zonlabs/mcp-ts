@@ -98,6 +98,80 @@ describe("Gateway End-to-End Integration Suite", () => {
     });
   });
 
+  describe("Hot-reloading on live HTTP gateway (connect/add, disconnect/remove, enable/disable)", () => {
+    it("immediately reflects added, removed, enabled, and disabled servers over HTTP JSON-RPC without restart", async () => {
+      const mockHttp = async (url: string, opts: any) => ({
+        listTools: async () => ({
+          tools: [
+            {
+              name: `${opts.serverName}_action`,
+              description: `Tool for ${opts.serverName}`,
+              inputSchema: { type: "object" },
+            },
+          ],
+        }),
+        callTool: async () => ({ content: [{ type: "text", text: `${opts.serverName}_ok` }] }),
+        close: async () => {},
+        getServerId: () => opts.serverId,
+        getServerName: () => opts.serverName,
+        getServerUrl: () => url,
+      });
+
+      // 1. Start with serverAlpha
+      const registry = new McpGatewayRegistry(
+        { serverAlpha: { url: "http://127.0.0.1:9101/mcp" } },
+        undefined,
+        { connectHttp: mockHttp as any },
+      );
+      await registry.start();
+
+      const traffic = new Traffic();
+      const httpMcp = new LocalHttpMcp(registry, { host: "127.0.0.1", port: 0, path: "/mcp", mode: "all" }, traffic);
+      const url = await httpMcp.start();
+
+      // 1. Initial State: serverAlpha active
+      expect(registry.aggregatedTools().map((t) => t.name)).toContain("serverAlpha_action");
+      const mcpV1 = await (httpMcp as any).getOrBuildMcpServer();
+      expect(mcpV1).toBeDefined();
+
+      // 2. Hot-reload: Add serverBeta, Remove serverAlpha
+      const reload1 = await registry.reload({
+        serverBeta: { url: "http://127.0.0.1:9102/mcp" },
+      });
+      expect(reload1.added).toEqual(["serverBeta"]);
+      expect(reload1.removed).toEqual(["serverAlpha"]);
+
+      expect(registry.aggregatedTools().map((t) => t.name)).toContain("serverBeta_action");
+      expect(registry.aggregatedTools().map((t) => t.name)).not.toContain("serverAlpha_action");
+
+      const mcpV2 = await (httpMcp as any).getOrBuildMcpServer();
+      expect(mcpV2).not.toBe(mcpV1);
+
+      // 3. Disable serverBeta on-the-fly
+      const reload2 = await registry.reload({
+        serverBeta: { url: "http://127.0.0.1:9102/mcp", disabled: true },
+      });
+      expect(reload2.removed).toEqual(["serverBeta"]);
+      expect(registry.aggregatedTools().map((t) => t.name)).not.toContain("serverBeta_action");
+
+      const mcpV3 = await (httpMcp as any).getOrBuildMcpServer();
+      expect(mcpV3).not.toBe(mcpV2);
+
+      // 4. Re-enable serverBeta on-the-fly
+      const reload3 = await registry.reload({
+        serverBeta: { url: "http://127.0.0.1:9102/mcp", disabled: false },
+      });
+      expect(reload3.added).toEqual(["serverBeta"]);
+      expect(registry.aggregatedTools().map((t) => t.name)).toContain("serverBeta_action");
+
+      const mcpV4 = await (httpMcp as any).getOrBuildMcpServer();
+      expect(mcpV4).not.toBe(mcpV3);
+
+      await httpMcp.close();
+      await registry.close();
+    });
+  });
+
   describe("RemoteBridgeClient lifecycle and disconnect state safety", () => {
     it("resets ready state immediately upon stopping or abnormal disconnect", async () => {
       const registry = new McpGatewayRegistry({});
