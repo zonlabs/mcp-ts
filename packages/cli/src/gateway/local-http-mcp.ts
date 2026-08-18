@@ -87,7 +87,15 @@ function textResult(value: unknown, isError = false): CallToolResult {
 
 export class LocalHttpMcp {
   private server: ReturnType<typeof createServer> | null = null;
-  private readonly handler = createMcpHandler(async () => {
+  private cachedMcpServer: McpServer | null = null;
+  private cachedVersion = -1;
+
+  private async getOrBuildMcpServer(): Promise<McpServer> {
+    const currentVersion = this.registry.getVersion();
+    if (this.cachedMcpServer && this.cachedVersion === currentVersion) {
+      return this.cachedMcpServer;
+    }
+
     const mcp = new McpServer(
       { name: "mcp-assistant-gateway", version: CLI_VERSION },
       { capabilities: { tools: {} } },
@@ -124,6 +132,8 @@ export class LocalHttpMcp {
             })) as CallToolResult,
         );
       }
+      this.cachedMcpServer = mcp;
+      this.cachedVersion = currentVersion;
       return mcp;
     }
 
@@ -236,8 +246,12 @@ export class LocalHttpMcp {
         }
       },
     );
+    this.cachedMcpServer = mcp;
+    this.cachedVersion = currentVersion;
     return mcp;
-  });
+  }
+
+  private readonly handler = createMcpHandler(async () => this.getOrBuildMcpServer());
 
   constructor(
     private readonly registry: McpGatewayRegistry,

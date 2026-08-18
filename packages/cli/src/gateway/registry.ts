@@ -166,6 +166,7 @@ export class McpGatewayRegistry {
   private readonly searchStrategy = new BM25SearchStrategy();
   private indexedTools: IndexedTool[] = [];
   private readonly traffic: Traffic;
+  private version = 0;
 
   constructor(
     private readonly configs: Record<string, McpServerConfig>,
@@ -176,6 +177,10 @@ export class McpGatewayRegistry {
     } = {},
   ) {
     this.traffic = traffic ?? new Traffic();
+  }
+
+  getVersion(): number {
+    return this.version;
   }
 
   async start(): Promise<void> {
@@ -200,6 +205,7 @@ export class McpGatewayRegistry {
         }
       }),
     );
+    this.version++;
     await this.rebuildIndex();
   }
 
@@ -235,6 +241,7 @@ export class McpGatewayRegistry {
     catalog: CatalogSnapshot,
     invoke: (params: ToolCallParams) => Promise<unknown>,
   ): Promise<void> {
+    const previousRemotes = new Map(this.remoteServers);
     const newRemotes = new Map<string, RemoteServer>();
     for (const descriptor of catalog.servers) {
       if (this.localConnections.has(descriptor.serverId)) {
@@ -242,11 +249,23 @@ export class McpGatewayRegistry {
       }
       newRemotes.set(descriptor.serverId, { descriptor, invoke });
     }
-    this.remoteServers.clear();
-    for (const [id, s] of newRemotes) {
-      this.remoteServers.set(id, s);
+
+    try {
+      this.remoteServers.clear();
+      for (const [id, s] of newRemotes) {
+        this.remoteServers.set(id, s);
+      }
+      this.version++;
+      await this.rebuildIndex();
+    } catch (error) {
+      this.remoteServers.clear();
+      for (const [id, s] of previousRemotes) {
+        this.remoteServers.set(id, s);
+      }
+      this.version++;
+      await this.rebuildIndex().catch(() => {});
+      throw error;
     }
-    await this.rebuildIndex();
   }
 
   /**
@@ -320,6 +339,7 @@ export class McpGatewayRegistry {
     Object.assign(this.configs, newConfigs);
 
     // 3. Rebuild routes and BM25 index
+    this.version++;
     await this.rebuildIndex();
 
     // 4. Log reload event to traffic
@@ -503,6 +523,7 @@ export class McpGatewayRegistry {
   }
 
   async close(): Promise<void> {
+    this.version++;
     await Promise.all([...this.localConnections.values()].map((connection) => connection.close()));
     this.localConnections.clear();
     this.remoteServers.clear();

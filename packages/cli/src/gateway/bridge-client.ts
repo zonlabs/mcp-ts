@@ -72,15 +72,20 @@ export class RemoteBridgeClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly pending = new Map<JsonRpcId, PendingRequest>();
   private readyResolver: (() => void) | null = null;
-  private readyPromise: Promise<void> = new Promise((resolve) => {
-    this.readyResolver = resolve;
-  });
+  private readyPromise!: Promise<void>;
 
   constructor(
     private readonly registry: BridgeGatewayRegistry,
     private readonly options: RemoteBridgeClientOptions,
   ) {
     this.reconnectDelay = options.reconnectInitialDelayMs ?? 1_000;
+    this.resetReadyPromise();
+  }
+
+  private resetReadyPromise(): void {
+    this.readyPromise = new Promise((resolve) => {
+      this.readyResolver = resolve;
+    });
   }
 
   async start(): Promise<void> {
@@ -250,6 +255,7 @@ export class RemoteBridgeClient {
   private handleClose(socket: BridgeSocket, code: number): void {
     if (this.socket !== socket) return;
     this.socket = null;
+    this.resetReadyPromise();
     this.rejectPending(new Error("Bridge connection closed"));
     void this.registry.replaceRemoteCatalog({ servers: [] }, (params) => this.callRemoteTool(params));
     if (
@@ -284,6 +290,7 @@ export class RemoteBridgeClient {
 
   async stop(): Promise<void> {
     this.closed = true;
+    this.resetReadyPromise();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
     this.rejectPending(new Error("Bridge stopped"));

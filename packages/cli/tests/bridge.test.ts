@@ -224,4 +224,30 @@ describe("RemoteBridgeClient", () => {
       vi.useRealTimers();
     }
   });
+
+  it("resets ready state across disconnect and resolves again upon reconnect initialize", async () => {
+    const state = setup();
+    await state.bridge.start();
+    state.socket.open();
+
+    const init1 = JSON.parse(state.socket.sent[0]);
+    state.socket.receive(
+      createSuccessResponse(init1.id, {
+        protocolVersion: BRIDGE_PROTOCOL_VERSION,
+        serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+        remoteCatalog: { servers: [] },
+      }),
+    );
+
+    // Should be ready
+    const ready1 = await state.bridge.waitForReady(500);
+    expect(ready1).toBe(true);
+
+    // Socket disconnects with abnormal closure code 1006 (triggers reconnect)
+    state.socket.close(1006, "connection dropped");
+
+    // After disconnect, waitForReady should not be immediately resolved
+    const readyWhileDisconnected = await state.bridge.waitForReady(50);
+    expect(readyWhileDisconnected).toBe(false);
+  });
 });

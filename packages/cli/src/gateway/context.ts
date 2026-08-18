@@ -51,8 +51,15 @@ export async function pingGateway(
       signal: controller.signal,
     }).catch(() => null);
     clearTimeout(timer);
-    if (response && response.status < 500) {
-      return url;
+    if (response && (response.status === 200 || response.status === 406)) {
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("json") || contentType.includes("application/")) {
+        return url;
+      }
+      const data = await response.json().catch(() => null);
+      if (data && (data.jsonrpc === "2.0" || data.result !== undefined || data.error !== undefined)) {
+        return url;
+      }
     }
   } catch {
     // Gateway daemon is not running
