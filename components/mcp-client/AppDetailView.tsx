@@ -158,10 +158,9 @@ export function AppDetailView({
     try {
       await navigator.clipboard.writeText(server.url);
       setCopiedUrl(true);
-      toast.success("Server endpoint copied");
       setTimeout(() => setCopiedUrl(false), 2000);
     } catch {
-      toast.error("Failed to copy URL");
+      // clipboard unavailable — ignore
     }
   };
 

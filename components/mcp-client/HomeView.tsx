@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Copy, Check, Hammer, Star, ArrowRight } from "lucide-react";
-import { toast } from "react-hot-toast";
 import { McpServer } from "@/types/mcp";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { ServerIcon } from "@/components/common/ServerIcon";
@@ -108,10 +107,9 @@ export function HomeView({
     try {
       await navigator.clipboard.writeText(MCP_ASSISTANT_URL);
       setUrlCopied(true);
-      toast.success("Copied MCP endpoint");
       window.setTimeout(() => setUrlCopied(false), 1600);
     } catch {
-      toast.error("Could not copy MCP endpoint");
+      // clipboard unavailable — ignore
     }
   };
 

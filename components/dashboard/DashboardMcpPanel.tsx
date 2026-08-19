@@ -174,7 +174,6 @@ export function DashboardMcpPanel({
       onInsertPrompt(promptText);
     } else {
       navigator.clipboard.writeText(promptText);
-      toast.success("Copied tool reference to clipboard!");
     }
   };
 
@@ -183,7 +182,6 @@ export function DashboardMcpPanel({
     navigator.clipboard.writeText(JSON.stringify(selectedTool.tool.inputSchema, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast.success("Tool schema copied");
   };
 
   return (

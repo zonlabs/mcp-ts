@@ -14,7 +14,7 @@ import { useSearchParams } from "next/navigation";
 
 function getSafeRedirectPath(redirect: string | null | undefined): string {
   if (!redirect?.startsWith("/") || redirect.startsWith("//")) {
-    return "/";
+    return "/mcp";
   }
 
   return redirect;

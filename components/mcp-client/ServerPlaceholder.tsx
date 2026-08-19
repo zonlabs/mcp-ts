@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, Check, Copy, Search, Server, Star, Hammer } from "lucide-react";
-import { toast } from "react-hot-toast";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import type { McpServer } from "@/types/mcp";
 
@@ -78,10 +77,9 @@ export function ServerPlaceholder({
     try {
       await navigator.clipboard.writeText(MCP_ASSISTANT_URL);
       setUrlCopied(true);
-      toast.success("Copied MCP endpoint");
       window.setTimeout(() => setUrlCopied(false), 1600);
     } catch {
-      toast.error("Could not copy MCP endpoint");
+      // clipboard unavailable — ignore
     }
   };
 

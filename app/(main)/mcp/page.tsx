@@ -5,6 +5,7 @@ import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { mapServerRow } from "@/lib/mcp-servers/types";
 import { McpServer } from "@/types/mcp";
+import { redirect } from "next/navigation";
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -22,7 +23,11 @@ export default async function McpPage({ searchParams }: PageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const userSession: UserSession | null = user ? { user } : null;
+  if (!user) {
+    redirect("/signin?redirect=/mcp");
+  }
+
+  const userSession: UserSession = { user };
 
   // Only SSR the things the client can't trivially fetch itself:
   // 1. The selected server (needed for deep-link rendering before client hydrates)
@@ -35,7 +40,7 @@ export default async function McpPage({ searchParams }: PageProps) {
           .eq("id", serverId)
           .maybeSingle()
       : Promise.resolve(null),
-    user ? fetchServerUsageData(supabase, user.id) : Promise.resolve(null),
+    fetchServerUsageData(supabase, user.id),
   ]);
 
   let serversideSelectedServer: McpServer | null = null;
@@ -48,7 +53,7 @@ export default async function McpPage({ searchParams }: PageProps) {
     const matchedNode = mapServerRow((matchedServerResult.value as any).data);
     serversideSelectedServer = restMcpServer(matchedNode, {
       includeHeaders: true,
-      includeCredentials: matchedNode.owner === user?.id,
+      includeCredentials: matchedNode.owner === user.id,
     });
   }
 

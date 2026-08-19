@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const requestedNext = searchParams.get('next')
     const next = requestedNext?.startsWith('/') && !requestedNext.startsWith('//')
         ? requestedNext
-        : '/'
+        : '/mcp'
 
     if (code) {
         const supabase = await createClient()
