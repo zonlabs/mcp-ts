@@ -2,7 +2,7 @@ import type { McpConnectionState } from '../../shared/events';
 import type { SessionInfo } from '../../shared/types';
 
 export function getInitialConnectionState(status: SessionInfo['status']): McpConnectionState {
-    return status === 'active' ? 'VALIDATING' : 'AUTHENTICATING';
+    return status === 'active' ? 'VALIDATING' : 'DISCONNECTED';
 }
 
 export function isTransientReconnectState(state: McpConnectionState): boolean {

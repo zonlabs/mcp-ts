@@ -11,6 +11,7 @@ import {
   isTransientReconnectState,
 } from '../utils/session-state';
 import type { McpConnectionEvent, McpConnectionState } from '../../shared/events';
+import { AUTH_REDIRECT_DEBOUNCE_MS } from '../../shared/constants';
 import type {
   ToolInfo,
   FinishAuthResult,
@@ -259,6 +260,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
   const clientRef = useRef<SSEClient | null>(null);
   const isMountedRef = useRef(true);
   const suppressAuthRedirectSessionsRef = useRef<Set<string>>(new Set());
+  const lastDispatchedAuthRef = useRef<Map<string, number>>(new Map());
 
   const [connections, setConnections] = useState<McpConnection[]>([]);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>(
@@ -388,15 +390,36 @@ export function useMcp(options: UseMcpOptions): McpClient {
 
           // Suppress redirects/popups for auto-restore on page load.
           if (!suppressAuthRedirectSessionsRef.current.has(event.sessionId)) {
-            if (onRedirect) {
-              onRedirect(url);
-            } else if (typeof window !== 'undefined') {
-              window.location.href = url;
+            const now = Date.now();
+            const lastDispatched = lastDispatchedAuthRef.current.get(event.sessionId);
+            if (!lastDispatched || now - lastDispatched > AUTH_REDIRECT_DEBOUNCE_MS) {
+              lastDispatchedAuthRef.current.set(event.sessionId, now);
+              if (onRedirect) {
+                onRedirect(url);
+              } else if (typeof window !== 'undefined') {
+                window.location.href = url;
+              }
             }
           }
-          return prev.map((c: McpConnection) =>
-            c.sessionId === event.sessionId ? { ...c, state: 'AUTHENTICATING', authUrl: url } : c
-          );
+          const existing = prev.find((c: McpConnection) => c.sessionId === event.sessionId);
+          if (existing) {
+            return prev.map((c: McpConnection) =>
+              c.sessionId === event.sessionId ? { ...c, state: 'AUTHENTICATING', authUrl: url } : c
+            );
+          }
+          return [
+            ...prev,
+            {
+              sessionId: event.sessionId,
+              serverId: event.serverId,
+              serverName: event.serverId,
+              state: 'AUTHENTICATING' as const,
+              authUrl: url,
+              tools: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ];
         }
 
         case 'error': {
@@ -410,20 +433,39 @@ export function useMcp(options: UseMcpOptions): McpClient {
             clientRef.current.preloadToolUiResources(event.sessionId, event.tools);
           }
 
-          return prev.map((c: McpConnection) =>
-            c.sessionId === event.sessionId
-              ? {
-                  ...c,
-                  tools: event.tools,
-                  allTools: (event as any).allTools,
-                  prompts: (event as any).prompts,
-                  resources: (event as any).resources,
-                  resourceTemplates: (event as any).resourceTemplates,
-                  state: 'READY' as const,
-                  updatedAt: new Date(),
-                }
-              : c
-          );
+          const existing = prev.find((c: McpConnection) => c.sessionId === event.sessionId);
+          if (existing) {
+            return prev.map((c: McpConnection) =>
+              c.sessionId === event.sessionId
+                ? {
+                    ...c,
+                    tools: event.tools,
+                    allTools: (event as any).allTools,
+                    prompts: (event as any).prompts,
+                    resources: (event as any).resources,
+                    resourceTemplates: (event as any).resourceTemplates,
+                    state: 'READY' as const,
+                    updatedAt: new Date(),
+                  }
+                : c
+            );
+          }
+          return [
+            ...prev,
+            {
+              sessionId: event.sessionId,
+              serverId: event.serverId,
+              serverName: event.serverId,
+              tools: event.tools,
+              allTools: (event as any).allTools,
+              prompts: (event as any).prompts,
+              resources: (event as any).resources,
+              resourceTemplates: (event as any).resourceTemplates,
+              state: 'READY' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ];
         }
 
         case 'disconnected': {
@@ -448,23 +490,25 @@ export function useMcp(options: UseMcpOptions): McpClient {
       const result = await clientRef.current.listSessions();
       const sessions = result.sessions || [];
 
-      // Initialize connections
+      // Initialize connections (only active sessions; pending OAuth sessions are not restored on reload)
       if (isMountedRef.current) {
         setConnections(
-          sessions.map((s: SessionInfo) => ({
-            sessionId: s.sessionId,
-            serverId: s.serverId ?? 'unknown',
-            serverName: s.serverName ?? 'Unknown Server',
-            serverUrl: s.serverUrl,
-            transport: s.transport,
-            state: getInitialConnectionState(s.status),
-            createdAt: new Date(s.createdAt),
-            updatedAt: new Date(s.updatedAt ?? s.createdAt),
-            toolPolicy: s.toolPolicy,
-            enabled: s.enabled,
-            metadata: s.metadata,
-            tools: [],
-          }))
+          sessions
+            .filter((s: SessionInfo) => s.status === 'active')
+            .map((s: SessionInfo) => ({
+              sessionId: s.sessionId,
+              serverId: s.serverId ?? 'unknown',
+              serverName: s.serverName ?? 'Unknown Server',
+              serverUrl: s.serverUrl,
+              transport: s.transport,
+              state: getInitialConnectionState(s.status),
+              createdAt: new Date(s.createdAt),
+              updatedAt: new Date(s.updatedAt ?? s.createdAt),
+              toolPolicy: s.toolPolicy,
+              enabled: s.enabled,
+              metadata: s.metadata,
+              tools: [],
+            }))
         );
       }
 
@@ -541,6 +585,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
     }
 
     await clientRef.current.disconnectFromServer(sessionId);
+    lastDispatchedAuthRef.current.delete(sessionId);
 
     // Remove from local state
     if (isMountedRef.current) {

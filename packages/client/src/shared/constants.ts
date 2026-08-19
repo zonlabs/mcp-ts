@@ -11,6 +11,7 @@ export const DORMANT_SESSION_EXPIRATION_SECONDS = Math.floor(DORMANT_SESSION_EXP
 
 // Heartbeat and Connection
 export const DEFAULT_HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
+export const AUTH_REDIRECT_DEBOUNCE_MS = 1000; // 1 second debounce for OAuth redirect dispatches
 
 // Redis Key Prefixes
 export const REDIS_KEY_PREFIX = 'mcp:session:';
@@ -21,7 +22,7 @@ export const DEFAULT_CLIENT_URI = 'https://mcp-assistant.in';
 export const DEFAULT_LOGO_URI = 'https://mcp-assistant.in/logo.svg';
 export const DEFAULT_POLICY_URI = 'https://mcp-assistant.in/privacy';
 export const SOFTWARE_ID = '@mcp-ts';
-export const SOFTWARE_VERSION = '2.6.2';
+export const SOFTWARE_VERSION = '4.0.0';
 
 // MCP Client Configuration
 export const MCP_CLIENT_NAME = 'mcp-ts-oauth-client';

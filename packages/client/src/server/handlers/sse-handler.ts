@@ -460,10 +460,9 @@ export class SSEConnectionManager {
     const existing = await this.findExistingSession(serverId, params.serverUrl);
     if (existing) {
       if (existing.status === 'pending') {
-        return this.getSession({ sessionId: existing.sessionId }).then(() => ({
-          sessionId: existing.sessionId,
-          success: true,
-        }));
+        const client = this.restoreClient(existing);
+        this.cacheClient(existing.sessionId, client);
+        return this.connectAndDiscover(client, existing.sessionId, serverId);
       }
       throw new Error(
         `Connection already exists for server: ${existing.serverUrl ?? existing.serverId} (${existing.serverName})`,
@@ -909,7 +908,11 @@ export class SSEConnectionManager {
       await this.discoverAllCapabilities(sessionId, serverId);
       return { sessionId, success: true };
     } catch (error) {
-      if (error instanceof UnauthorizedError) {
+      if (
+        error instanceof UnauthorizedError ||
+        (error as any)?.name === 'UnauthorizedError' ||
+        (error instanceof Error && error.message.includes('OAuth authorization required'))
+      ) {
         this.clients.delete(sessionId);
         return { sessionId, success: true };
       }
