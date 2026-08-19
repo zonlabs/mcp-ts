@@ -1,238 +1,190 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Wrench,
   Search,
   Grid3X3,
   List,
-  Zap
+  Zap,
+  Code2,
+  Server,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { McpServer } from "@/types/mcp";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { McpServer, ToolInfo } from "@/types/mcp";
+import { useMcpStore } from "@/lib/stores/mcp-store";
+import { cn } from "@/lib/utils";
 
 interface ToolsExplorerProps {
-  server: McpServer;
+  server?: McpServer | null;
   onOpenToolTester?: (toolName?: string) => void;
 }
 
 export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplorerProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // Handle different tools formats
-  const tools = Array.isArray(server.tools) ? server.tools : [];
+  const connections = useMcpStore((s) => s.connections);
 
-  const filteredTools = tools.filter(tool => {
-    const matchesSearch = tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tool.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return matchesSearch;
-  });
-  const isConnected = server.connectionStatus === 'READY';
-
-  const getToolCategory = (toolName: string) => {
-    // Simple categorization based on tool name patterns
-    if (toolName.includes('search') || toolName.includes('find')) return 'Search';
-    if (toolName.includes('create') || toolName.includes('add')) return 'Create';
-    if (toolName.includes('update') || toolName.includes('edit')) return 'Update';
-    if (toolName.includes('delete') || toolName.includes('remove')) return 'Delete';
-    if (toolName.includes('get') || toolName.includes('fetch')) return 'Read';
-    return 'General';
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'Search': return 'default';
-      case 'Create': return 'default';
-      case 'Update': return 'secondary';
-      case 'Delete': return 'destructive';
-      case 'Read': return 'outline';
-      default: return 'secondary';
+  // If a specific server is provided, use its tools. Otherwise aggregate from all active connections.
+  const toolsWithServer = useMemo(() => {
+    if (server) {
+      const serverTools = Array.isArray(server.tools) ? server.tools : [];
+      return serverTools.map((t) => ({
+        tool: t,
+        serverName: server.name,
+        serverId: server.id,
+      }));
     }
-  };
 
-  if (!tools || tools.length === 0) {
-    const getNoToolsMessage = () => {
-      if (isConnected) {
-        return "This server is connected but doesn't have any tools available.";
-      } else if (server.connectionStatus === 'FAILED') {
-        return "Server connection failed. Tools cannot be loaded.";
-      } else {
-        return "Connect to this server to load and view available tools.";
+    const aggregated: Array<{ tool: ToolInfo; serverName: string; serverId: string }> = [];
+    for (const conn of Object.values(connections)) {
+      if (conn.connectionStatus === "CONNECTED" || conn.connectionStatus === "READY") {
+        for (const t of conn.tools || []) {
+          aggregated.push({
+            tool: t,
+            serverName: conn.serverName || "MCP Server",
+            serverId: conn.serverId,
+          });
+        }
       }
-    };
+    }
+    return aggregated;
+  }, [server, connections]);
 
+  const filteredTools = useMemo(() => {
+    return toolsWithServer.filter((item) => {
+      const q = searchTerm.toLowerCase().trim();
+      if (!q) return true;
+      return (
+        item.tool.name.toLowerCase().includes(q) ||
+        (item.tool.description && item.tool.description.toLowerCase().includes(q)) ||
+        item.serverName.toLowerCase().includes(q)
+      );
+    });
+  }, [toolsWithServer, searchTerm]);
+
+  if (toolsWithServer.length === 0) {
     return (
-      <div className="p-6">
-        <CardContent className="p-12 text-center">
-          <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Tools Available</h3>
-          <p className="text-muted-foreground">
-            {getNoToolsMessage()}
-          </p>
-        </CardContent>
+      <div className="p-12 text-center border border-dashed border-border rounded-md bg-card/30">
+        <Wrench className="size-10 text-muted-foreground opacity-40 mx-auto mb-3" />
+        <h3 className="text-sm font-semibold text-foreground">No Tools Available</h3>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+          {server
+            ? "Connect to this server to load and execute its available tools."
+            : "Connect to MCP servers in the dashboard to discover and run their tools."}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
-          <div>
-            <h3 className="text-lg font-semibold">Tools Explorer</h3>
-            <p className="text-sm text-muted-foreground">
-              {filteredTools.length} of {tools.length} tools
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Open Tool Tester Button */}
-            {tools.length > 0 && (
-              <Button
-                onClick={() => onOpenToolTester?.()}
-                className="cursor-pointer bg-red-600 hover:bg-red-500 text-white"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Test Tools
-              </Button>
-            )}
-            {/* View Mode Toggle */}
-            <div className="flex items-center border border-border rounded-md">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="rounded-r-none"
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="rounded-l-none"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+    <div className="space-y-4 w-full select-none font-sans">
+      {/* Header & Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border p-3.5 rounded-md">
+        <div className="flex items-center gap-2">
+          <Wrench className="size-4 text-foreground" />
+          <span className="text-xs font-semibold text-foreground">
+            Tools Catalog ({filteredTools.length} of {toolsWithServer.length})
+          </span>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search tools..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-          />
+        <div className="flex items-center gap-2 flex-1 max-w-md ml-auto">
+          <div className="relative w-full">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search tools by name, description, or server..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-border rounded-sm text-foreground font-mono placeholder:font-sans focus:outline-none focus:border-foreground/50"
+            />
+          </div>
+
+          <div className="flex items-center border border-border rounded-sm bg-background">
+            <Button
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="xs"
+              onClick={() => setViewMode("grid")}
+              className="h-7 w-7 p-0 rounded-none rounded-l-xs"
+            >
+              <Grid3X3 className="size-3.5" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="xs"
+              onClick={() => setViewMode("list")}
+              className="h-7 w-7 p-0 rounded-none rounded-r-xs"
+            >
+              <List className="size-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Tools Grid/List */}
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-          {filteredTools.map((tool) => {
-            const category = getToolCategory(tool.name);
+      {/* Grid or List View */}
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 w-full">
+          {filteredTools.map((item) => (
+            <div
+              key={`${item.serverId}-${item.tool.name}`}
+              onClick={() => onOpenToolTester?.(item.tool.name)}
+              className="p-3.5 bg-card border border-border hover:border-foreground/40 rounded-md cursor-pointer transition-all flex flex-col justify-between space-y-2 group"
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Code2 className="size-3.5 text-foreground shrink-0" />
+                    <span className="font-mono text-xs font-semibold text-foreground group-hover:text-ink truncate">
+                      {item.tool.name}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono shrink-0 border-border text-muted-foreground">
+                    {item.serverName}
+                  </Badge>
+                </div>
 
-            return (
-              <div key={tool.name}>
-                <Card
-                  className="h-full hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer"
-                  onClick={() => isConnected && onOpenToolTester?.(tool.name)}
-                >
-                  <CardHeader>
-                    <div className="flex flex-col gap-2 min-w-0">
-                      <div className="flex items-center gap-2 min-w-0 w-full">
-                        <Wrench className="h-4 w-4 text-primary flex-shrink-0" />
-                        <Tooltip delayDuration={100}>
-                          <TooltipTrigger asChild>
-                            <CardTitle className="text-sm text-truncate min-w-0 flex-1">
-                              {tool.name}
-                            </CardTitle>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">{tool.name}</TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <Badge variant={getCategoryColor(category)} className="text-xs w-fit">
-                        {category}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0 min-w-0">
-                    <Tooltip delayDuration={100}>
-                      <TooltipTrigger asChild>
-                        <p className="text-xs text-muted-foreground mb-3 line-clamp-3 break-words">
-                          {tool.description}
-                        </p>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-                        {tool.description}
-                      </TooltipContent>
-                    </Tooltip>
-                  </CardContent>
-                </Card>
+                {item.tool.description && (
+                  <p className="text-[11px] text-body-strong line-clamp-2 leading-relaxed">
+                    {item.tool.description}
+                  </p>
+                )}
               </div>
-            );
-          })}
+
+              <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                <span className="text-[10px] font-mono text-muted-foreground">Click to inspect / test</span>
+                <Zap className="size-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredTools.map((tool) => {
-            const category = getToolCategory(tool.name);
-
-            return (
-              <div key={tool.name}>
-                <Card
-                  className="hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                  onClick={() => isConnected && onOpenToolTester?.(tool.name)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2 min-w-0">
-                          <Wrench className="h-4 w-4 text-primary flex-shrink-0" />
-                          <Tooltip delayDuration={100}>
-                            <TooltipTrigger asChild>
-                              <h4 className="font-medium text-truncate min-w-0 flex-1">{tool.name}</h4>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">{tool.name}</TooltipContent>
-                          </Tooltip>
-                          <Badge variant={getCategoryColor(category)} className="text-xs flex-shrink-0">
-                            {category}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {tool.description}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+        <div className="border border-border rounded-md divide-y divide-border bg-card overflow-hidden w-full">
+          {filteredTools.map((item) => (
+            <div
+              key={`${item.serverId}-${item.tool.name}`}
+              onClick={() => onOpenToolTester?.(item.tool.name)}
+              className="p-3 flex items-center justify-between gap-3 hover:bg-card/70 cursor-pointer transition-colors"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold text-foreground">{item.tool.name}</span>
+                  <Badge variant="outline" className="text-[10px] font-mono border-border text-muted-foreground">
+                    {item.serverName}
+                  </Badge>
+                </div>
+                {item.tool.description && (
+                  <p className="text-[11px] text-body-strong truncate mt-0.5">{item.tool.description}</p>
+                )}
               </div>
-            );
-          })}
+              <Button size="xs" variant="outline" className="h-6 text-[11px] font-mono shrink-0 border-border bg-background">
+                Test
+              </Button>
+            </div>
+          ))}
         </div>
-      )}
-
-      {filteredTools.length === 0 && (
-        <Card className="mt-4">
-          <CardContent className="p-12 text-center">
-            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No Tools Found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search terms.
-            </p>
-          </CardContent>
-        </Card>
       )}
     </div>
   );

@@ -200,6 +200,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
         headers: normalizeHeaders(server.headers),
         clientId: server.clientId || undefined,
         clientSecret: server.clientSecret || undefined,
+        metadata: server.id ? { catalogServerId: server.id } : undefined,
       });
 
     } catch (error) {

@@ -83,9 +83,15 @@ export default function RemoteMcpPanel({
               MCP Assistant
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <p className="text-xs text-muted-foreground font-mono truncate leading-none">
+              <a
+                href="https://api.mcp-assistant.in/mcp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground font-mono truncate leading-none hover:text-foreground hover:underline transition-colors"
+                title="https://api.mcp-assistant.in/mcp"
+              >
                 api.mcp-assistant.in/mcp
-              </p>
+              </a>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-[10px] text-muted-foreground/45">•</span>
                 <span className={cn(

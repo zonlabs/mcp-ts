@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import toast from 'react-hot-toast';
-import type { McpServer, ToolInfo, ParsedRegistryServer, ToolAccessResult, ToolPolicy } from '@/types/mcp';
+import type { McpServer, ToolInfo, ToolAccessResult, ToolPolicy } from '@/types/mcp';
 import { normalizeServerUrl } from '@/lib/url';
 
 /**
@@ -58,6 +58,8 @@ export interface StoredConnection {
   enabled?: boolean;
   connectedAt: string;
   error?: string;
+  /** Caller-supplied metadata, stored and returned opaquely. */
+  metadata?: Record<string, string>;
 }
 type McpActionsBundle = {
   connect: any;
@@ -76,6 +78,11 @@ type McpActionsBundle = {
   listPrompts?: (sessionId: string) => Promise<{
     prompts: Array<{ name: string; description?: string; arguments?: Array<{ name: string; description?: string; required?: boolean }> }>;
   }>;
+  getPrompt?: (
+    sessionId: string,
+    name: string,
+    args?: Record<string, string>
+  ) => Promise<unknown>;
   listResources?: (sessionId: string) => Promise<{
     resources: Array<{ uri: string; name: string; description?: string; mimeType?: string }>;
   }>;
@@ -166,14 +173,6 @@ interface ServerState {
   userServersLoading: boolean;
   userServersError: string | null;
   userServersTotalCount: number;
-
-  // Registry servers (external registry)
-  registryServers: ParsedRegistryServer[];
-  registryLoading: boolean;
-  registryError: string | null;
-  registryNextCursor: string | null;
-  registryCurrentCursor: string | null;
-  registryCursorHistory: string[];
 }
 
 /**
@@ -201,7 +200,6 @@ interface UIState {
 
   // Selected items
   selectedServer: McpServer | null;
-  selectedRegistryServer: ParsedRegistryServer | null;
 
   // View modes
   viewMode: 'browse' | 'add' | 'edit';
@@ -238,11 +236,6 @@ interface ServerActions {
   addServer: (server: Partial<McpServer>) => Promise<McpServer | null>;
   updateServer: (serverId: string, updates: Partial<McpServer>) => Promise<McpServer | null>;
   deleteServer: (serverId: string) => Promise<boolean>;
-
-  // Registry servers
-  fetchRegistryServers: (search?: string, cursor?: string) => Promise<void>;
-  goToNextRegistryPage: () => Promise<void>;
-  goToPreviousRegistryPage: () => Promise<void>;
 }
 
 /**
@@ -276,7 +269,6 @@ interface UIActions {
   setSelectedCategory: (category: string | null) => void;
   setActiveTab: (tab: 'public' | 'user') => void;
   setSelectedServer: (server: McpServer | null) => void;
-  setSelectedRegistryServer: (server: ParsedRegistryServer | null) => void;
   setViewMode: (mode: 'browse' | 'add' | 'edit') => void;
   setEditingServer: (server: McpServer | null) => void;
   openToolTester: (toolName: string) => void;
@@ -312,13 +304,6 @@ const initialServerState: ServerState = {
   userServersLoading: false,
   userServersError: null,
   userServersTotalCount: 0,
-
-  registryServers: [],
-  registryLoading: false,
-  registryError: null,
-  registryNextCursor: null,
-  registryCurrentCursor: null,
-  registryCursorHistory: [],
 };
 
 const initialConnectionState: ConnectionState = {
@@ -335,7 +320,6 @@ const initialUIState: UIState = {
   selectedCategory: null,
   activeTab: 'public',
   selectedServer: null,
-  selectedRegistryServer: null,
   viewMode: 'browse',
   editingServer: null,
   toolTesterOpen: false,
@@ -537,69 +521,6 @@ export const useMcpStore = create<McpStore>()(
           }
         },
 
-        /**
-         * Fetch registry servers
-         */
-        fetchRegistryServers: async (search = '', cursor) => {
-          set({ registryLoading: true, registryError: null });
-
-          try {
-            const params = new URLSearchParams({
-              limit: '20',
-              ...(search && { search }),
-              ...(cursor && { cursor }),
-            });
-
-            const response = await fetch(`/api/registry?${params}`);
-
-            if (!response.ok) {
-              throw new Error('Failed to fetch registry servers');
-            }
-
-            const data = await response.json();
-
-            set({
-              registryServers: data.servers || [],
-              registryNextCursor: data.nextCursor || null,
-              registryCurrentCursor: cursor || null,
-              registryLoading: false,
-            });
-          } catch (error) {
-            set({
-              registryError: error instanceof Error ? error.message : 'Unknown error',
-              registryLoading: false,
-            });
-          }
-        },
-
-        /**
-         * Navigate to next registry page
-         */
-        goToNextRegistryPage: async () => {
-          const { registryNextCursor, registryCurrentCursor, registryCursorHistory } = get();
-          if (!registryNextCursor) return;
-
-          // Save current cursor to history
-          if (registryCurrentCursor) {
-            set({ registryCursorHistory: [...registryCursorHistory, registryCurrentCursor] });
-          }
-
-          await get().fetchRegistryServers(get().searchQuery, registryNextCursor);
-        },
-
-        /**
-         * Navigate to previous registry page
-         */
-        goToPreviousRegistryPage: async () => {
-          const { registryCursorHistory } = get();
-          if (registryCursorHistory.length === 0) return;
-
-          const previousCursor = registryCursorHistory[registryCursorHistory.length - 1];
-          set({ registryCursorHistory: registryCursorHistory.slice(0, -1) });
-
-          await get().fetchRegistryServers(get().searchQuery, previousCursor);
-        },
-
         // ==================== CONNECTION ACTIONS ====================
 
         /**
@@ -630,6 +551,7 @@ export const useMcpStore = create<McpStore>()(
                 enabled: val.enabled ?? existing?.enabled ?? true,
                 connectedAt: new Date().toISOString(),
                 error: val.error,
+                metadata: val.metadata ?? existing?.metadata,
               };
               return acc;
             }, {} as Record<string, StoredConnection>),
@@ -806,7 +728,6 @@ export const useMcpStore = create<McpStore>()(
         setSelectedCategory: (category) => set({ selectedCategory: category }),
         setActiveTab: (tab) => set({ activeTab: tab }),
         setSelectedServer: (server) => set({ selectedServer: server }),
-        setSelectedRegistryServer: (server) => set({ selectedRegistryServer: server }),
         setViewMode: (mode) => set({ viewMode: mode }),
         setEditingServer: (server) => set({ editingServer: server }),
 
@@ -906,8 +827,7 @@ export const selectIsLoading = (state: McpStore) => {
   return (
     state.publicServersLoading ||
     state.userServersLoading ||
-    state.connectionsLoading ||
-    state.registryLoading
+    state.connectionsLoading
   );
 };
 

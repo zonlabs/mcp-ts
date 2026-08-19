@@ -110,25 +110,6 @@ const faqs = [
         ),
     },
     {
-        category: "features",
-        question: "What is the MCP Registry?",
-        answer: (
-            <p>
-                The MCP Registry is the official Model Context Protocol registry that lists publicly available MCP servers.
-                It acts as a central directory where MCP servers can be published, discovered, and accessed.
-            </p>
-        ),
-    },
-    {
-        category: "features",
-        question: "Can I interact with MCP servers from the registry?",
-        answer: (
-            <p>
-                Yes. You can browse a variety of MCP servers available in the registry and directly connect to and interact with them using MCP Assistant.
-            </p>
-        ),
-    },
-    {
         category: "security",
         question: "Is using MCP Assistant secure?",
         answer: (

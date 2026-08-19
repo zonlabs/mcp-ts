@@ -3,9 +3,10 @@
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Github, Mail } from "lucide-react";
+import { Github, Mail, LogOut, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useI18n } from "@/lib/web-i18n";
+import { Button } from "@/components/ui/button";
 
 export default function AccountSettingsPage() {
   const { userSession } = useAuth();
@@ -27,10 +28,8 @@ export default function AccountSettingsPage() {
     if (!dateString) return t("notAvailable");
     return new Date(dateString).toLocaleDateString(language, {
       year: "numeric",
-      month: "long",
+      month: "short",
       day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 
@@ -38,7 +37,7 @@ export default function AccountSettingsPage() {
     switch (provider.toLowerCase()) {
       case "google":
         return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <svg className="size-4" viewBox="0 0 24 24">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -58,12 +57,12 @@ export default function AccountSettingsPage() {
           </svg>
         );
       case "github":
-        return <Github className="w-5 h-5" />;
+        return <Github className="size-4 text-foreground" />;
       case "email":
-        return <Mail className="w-5 h-5" />;
+        return <Mail className="size-4 text-muted-foreground" />;
       default:
         return (
-          <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs">
+          <div className="size-4 rounded-full bg-muted flex items-center justify-center text-[10px] font-mono">
             {provider.charAt(0).toUpperCase()}
           </div>
         );
@@ -71,130 +70,128 @@ export default function AccountSettingsPage() {
   };
 
   return (
-    <div className="px-1 md:px-6 pb-16">
-      <div className="mb-6">
-        <h1 className="text-3xl mb-1">{t("accountTitle")}</h1>
-        <p className="text-[15px] text-muted-foreground">
+    <div className="w-full max-w-3xl px-6 py-8 space-y-7 animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="space-y-1 pb-4 border-b border-border">
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">{t("accountTitle")}</h1>
+        <p className="text-xs text-muted-foreground">
           {t("manageAccount")}
         </p>
       </div>
 
-      <div className="space-y-8 max-w-2xl">
-        <section className="space-y-4">
-          <h3 className="text-sm uppercase tracking-[0.16em] text-muted-foreground">{t("profile")}</h3>
+      <div className="space-y-6">
+        {/* Section 1: Profile Details */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold text-foreground">{t("profile")}</h3>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Your profile name and email address.
+            </p>
+          </div>
 
-          <div className="flex items-center gap-4">
-            {userImage ? (
-              <Image
-                src={userImage}
-                alt={userName}
-                width={64}
-                height={64}
-                className="rounded-full"
-              />
-            ) : (
-              <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-xl">
-                {userName.charAt(0).toUpperCase()}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1">
-              <p className="text-[18px] font-medium">{userName}</p>
-              {user?.email && (
-                <p className="text-[15px] text-muted-foreground">{user.email}</p>
+          <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3.5 shadow-xs">
+            <div className="flex items-center gap-3.5">
+              {userImage ? (
+                <Image
+                  src={userImage}
+                  alt={userName}
+                  width={44}
+                  height={44}
+                  className="rounded-full border border-border shrink-0"
+                />
+              ) : (
+                <div className="size-11 bg-background border border-border rounded-full flex items-center justify-center text-foreground font-semibold text-xs shrink-0">
+                  {userName.charAt(0).toUpperCase()}
+                </div>
               )}
-            </div>
-          </div>
-        </section>
 
-        <div className="border-t border-border"></div>
-
-        <section className="space-y-4">
-          <h3 className="text-sm font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            {t("accountInfo")}
-          </h3>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("userId")}</p>
-                <p className="text-sm font-mono break-all">{user?.id || t("notAvailable")}</p>
-              </div>
-              <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("phone")}</p>
-                <p className="text-[15px] font-instrument-serif tracking-wide">{user?.phone || t("notProvided")}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("memberSince")}</p>
-                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.created_at)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("lastUpdated")}</p>
-                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.updated_at)}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("lastSignIn")}</p>
-                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.last_sign_in_at)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground mb-1.5">{t("emailConfirmed")}</p>
-                <p className="text-[15px] font-instrument-serif tracking-wide">{formatDate(user?.email_confirmed_at)}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                {user?.email && (
+                  <p className="text-xs text-muted-foreground font-mono truncate">{user.email}</p>
+                )}
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
-        <div className="border-t border-border"></div>
+        {/* Section 2: Account Details */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold text-foreground">{t("accountInfo")}</h3>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Membership and verification status.
+            </p>
+          </div>
 
+          <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3 shadow-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-0.5">
+                <p className="text-[11px] text-muted-foreground">{t("memberSince")}</p>
+                <p className="text-xs font-medium text-foreground">{formatDate(user?.created_at)}</p>
+              </div>
+
+              <div className="space-y-0.5">
+                <p className="text-[11px] text-muted-foreground">{t("emailConfirmed")}</p>
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                  <CheckCircle2 className="size-3.5" />
+                  <span>Verified</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Connected Providers */}
         {user?.identities && user.identities.length > 0 && (
-          <>
-            <section className="space-y-4">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                {t("connectedProviders")}
-              </h3>
-              <div className="space-y-3">
-                {user.identities.map((identity) => (
-                  <div
-                    key={identity.id}
-                    className="flex items-center justify-between py-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      {getProviderIcon(identity.provider)}
-                      <div className="flex flex-col gap-0.5">
-                        <p className="text-sm font-medium capitalize">
-                          {identity.provider}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t("connectedOn")}: {formatDate(identity.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {identity.last_sign_in_at && (
-                        <p>{t("lastUsed")}: {formatDate(identity.last_sign_in_at)}</p>
-                      )}
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
+            <div className="space-y-1">
+              <h3 className="text-xs font-semibold text-foreground">{t("connectedProviders")}</h3>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                OAuth providers linked to your account.
+              </p>
+            </div>
+
+            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-2 shadow-xs">
+              {user.identities.map((identity) => (
+                <div
+                  key={identity.id}
+                  className="flex items-center justify-between py-1 border-b border-border/40 last:border-b-0"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {getProviderIcon(identity.provider)}
+                    <span className="text-xs font-medium text-foreground capitalize">
+                      {identity.provider}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </section>
-            <div className="border-t border-border"></div>
-          </>
+
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    Connected {formatDate(identity.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        <section>
-          <button
+        {/* Section 4: Sign Out Action */}
+        <div className="pt-4 border-t border-border flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-foreground">Sign out of workspace</p>
+            <p className="text-[11px] text-muted-foreground">End your active session on this browser.</p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={handleSignOut}
-            className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors cursor-pointer text-sm"
+            className="h-7 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-border"
           >
+            <LogOut className="size-3 mr-1.5" />
             {t("signOut")}
-          </button>
-        </section>
+          </Button>
+        </div>
       </div>
     </div>
   );

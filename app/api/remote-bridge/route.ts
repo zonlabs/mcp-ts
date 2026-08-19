@@ -8,7 +8,7 @@ import {
   invokeRemoteServer,
 } from "@/lib/remote-bridge";
 
-type Action = "agents" | "server-info" | "issue-token" | "revoke-token" | "invoke";
+type Action = "agents" | "server-info" | "issue-token" | "invoke";
 
 interface RemoteBridgeRequestBody {
   action: Action;
@@ -17,7 +17,6 @@ interface RemoteBridgeRequestBody {
   agent_id?: string;
   mcp_server?: string;
   expiryMinutes?: number;
-  token?: string;
   payload?: unknown;
 }
 
@@ -43,12 +42,12 @@ export async function POST(request: Request) {
     const subject = await getSubjectFromSession();
     const body = (await request.json()) as RemoteBridgeRequestBody;
     const action = body?.action;
-    if (!action || !["agents", "server-info", "issue-token", "revoke-token", "invoke"].includes(action)) {
+    if (!action || !["agents", "server-info", "issue-token", "invoke"].includes(action)) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
-    // For calls that hit the gateway directly, fail fast with a friendly status code.
-    if (action === "issue-token" || action === "revoke-token") {
+    // issue-token hits the gateway directly — fail fast if not configured.
+    if (action === "issue-token") {
       requireRemoteProxyBaseUrl();
     }
 
@@ -76,24 +75,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, data: text ? JSON.parse(text) : {} });
     }
 
-    if (action === "revoke-token") {
-      const token = (body?.token || "").trim();
-      if (!token) {
-        return NextResponse.json({ error: "token is required" }, { status: 400 });
-      }
-      const baseUrl = requireRemoteProxyBaseUrl();
-      const response = await fetch(`${baseUrl}/manage/jwt/revoke`, {
-        method: "POST",
-        headers: jsonHeaders(),
-        body: JSON.stringify({ token }),
-      });
-      const text = await response.text();
-      if (!response.ok) {
-        throw new Error(text || `${response.status} ${response.statusText}`);
-      }
-      return NextResponse.json({ success: true, data: text ? JSON.parse(text) : {} });
-    }
-
     const agentId = String(body?.agentId ?? body?.agent_id ?? "").trim();
     const mcpServer = String(body?.mcpServer ?? body?.mcp_server ?? "").trim();
     if (!agentId || !mcpServer) {
@@ -112,4 +93,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status });
   }
 }
-

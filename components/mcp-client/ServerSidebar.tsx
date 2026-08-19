@@ -32,7 +32,7 @@ import {
 import { McpServer } from "@/types/mcp";
 import { ServerListItem } from "./ServerListItem";
 import { ServerPlaceholder } from "./ServerPlaceholder";
-import { useMcpServersFiltered } from "@/hooks/useMcpServersFiltered";
+import { usePublicServers } from "@/hooks/usePublicServers";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { useCategories } from "@/hooks/useCategories";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -147,16 +147,12 @@ export function ServerSidebar({
     loading: filterLoading,
     hasNextPage: hasFilterNextPage,
     isLoadingMore: isLoadingMoreFiltered,
-    isFiltering,
     loadMore: loadMoreFiltered,
-  } = useMcpServersFiltered(
-    {
-      searchQuery: "",
-      categorySlug: selectedCategory || undefined,
-      categories,
-    },
-    10 // 10 items per page for filtered results
-  );
+  } = usePublicServers({
+    categorySlug: selectedCategory || undefined,
+  });
+
+  const isFiltering = Boolean(selectedCategory);
 
   const displayServers = isFiltering
     ? filteredServers

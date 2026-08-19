@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-export function useMcpUsage(page: number) {
+export function useMcpUsage(page: number, initialData?: any) {
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["mcpUsage", page],
     queryFn: async () => {
@@ -13,6 +13,7 @@ export function useMcpUsage(page: number) {
       }
       return json;
     },
+    initialData: page === 1 && initialData ? initialData : undefined,
     placeholderData: (previousData) => previousData,
   });
 

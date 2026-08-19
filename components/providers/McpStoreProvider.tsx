@@ -56,6 +56,7 @@ function McpStoreProviderInner({
     updateToolPolicy,
     updateSession,
     listPrompts,
+    getPrompt,
     listResources,
     listResourceTemplates,
     readResource,
@@ -167,8 +168,8 @@ function McpStoreProviderInner({
 
   // Sync actions to store once (or when they change)
   useEffect(() => {
-    setMcpActions({ connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, listResources, listResourceTemplates, readResource });
-  }, [connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, listResources, listResourceTemplates, readResource, setMcpActions]);
+    setMcpActions({ connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, getPrompt, listResources, listResourceTemplates, readResource });
+  }, [connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, getPrompt, listResources, listResourceTemplates, readResource, setMcpActions]);
 
   // Sync state to store whenever connections change
   useEffect(() => {

@@ -6,7 +6,7 @@ import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { createClient } from "@/lib/supabase/server";
-import { plusJakartaSans, instrumentSerif, geistMono } from "@/lib/fonts";
+import { inter, dmMono, instrumentSerif, plusJakartaSans, geistMono } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "MCP Assistant",
@@ -33,7 +33,7 @@ export default async function RootLayout({
   } = await supabase.auth.getUser();
 
   return (
-    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${instrumentSerif.variable} ${geistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${dmMono.variable} ${plusJakartaSans.variable} ${instrumentSerif.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <AuthProvider userSession={user ? { user } : null}>
           <QueryProvider>

@@ -1,8 +1,15 @@
-import { Plus_Jakarta_Sans, Spectral, Geist_Mono } from 'next/font/google'
+import { Inter, DM_Mono, Spectral } from 'next/font/google'
 
-export const plusJakartaSans = Plus_Jakarta_Sans({
+export const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-plus-jakarta',
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+export const dmMono = DM_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-dm-mono',
   display: 'swap',
 })
 
@@ -13,8 +20,6 @@ export const instrumentSerif = Spectral({
   display: 'swap',
 })
 
-export const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-geist-mono',
-  display: 'swap',
-})
+// Legacy aliases to maintain backward compatibility with components using old variable names
+export const plusJakartaSans = inter
+export const geistMono = dmMono

@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
 import { ServerIcon } from '@/components/common/ServerIcon';
+import { Button } from '@/components/ui/button';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
@@ -24,7 +25,12 @@ import {
   ChevronDownIcon,
   X,
   Maximize2,
+  MessageSquare,
+  Code2,
+  Plus,
+  Clock,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
@@ -252,6 +258,7 @@ export function PlaygroundChat({
   initialDraft,
   isReadOnly = false 
 }: PlaygroundChatProps) {
+  const router = useRouter();
   const { t } = useI18n();
   const [chatInput, setChatInput] = useState("");
   const [activeMcpApp, setActiveMcpApp] = useState<{
@@ -267,7 +274,7 @@ export function PlaygroundChat({
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
 
-  const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
+  const chatContentWidthClass = "w-full max-w-2xl mx-auto px-4 sm:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
   
   const getCurrentLlmConfig = () => {
@@ -363,9 +370,18 @@ export function PlaygroundChat({
       window.dispatchEvent(new CustomEvent('chat:title', {
         detail: { chatId, title },
       }));
+      window.dispatchEvent(new CustomEvent('chat:updated', {
+        detail: { chatId, title },
+      }));
       return;
     }
   }, [messages, chatId]);
+
+  useEffect(() => {
+    if (status === 'ready' && messages.length > 0) {
+      window.dispatchEvent(new CustomEvent('chat:updated', { detail: { chatId } }));
+    }
+  }, [status, messages.length, chatId]);
 
   const contextUsage = useMemo(
     () => [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage)?.metadata?.usage,
@@ -432,15 +448,6 @@ export function PlaygroundChat({
     if (messages.some((message) => message.id === selectedThoughtMessageId)) return;
     setSelectedThoughtMessageId(null);
   }, [messages, selectedThoughtMessageId]);
-
-  useEffect(() => {
-    if (status !== 'streaming') return;
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || lastMessage.role !== 'assistant') return;
-    const summary = getChainOfThoughtForMessage(lastMessage, true);
-    if (!summary.hasChainOfThought) return;
-    setSelectedThoughtMessageId((current) => current ?? lastMessage.id);
-  }, [getChainOfThoughtForMessage, messages, status]);
 
 
 
@@ -803,7 +810,7 @@ export function PlaygroundChat({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-background">
       {!hasMessages ? (
         <>
           <div className="sm:hidden flex-1 min-h-0 flex flex-col">
@@ -862,10 +869,10 @@ export function PlaygroundChat({
             </div>
           </div>
 
-          <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center px-6">
-            <div className="w-full max-w-3xl space-y-8">
-            <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
-                <h1 className="text-5xl md:text-7xl tracking-tight text-foreground mb-10 leading-tight">
+          <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+            <div className="w-full max-w-3xl mx-auto space-y-7 animate-in fade-in zoom-in-95 duration-500">
+              <div className="text-center">
+                <h1 className="text-4xl md:text-5xl font-sans font-normal tracking-[-1.5px] text-foreground leading-tight">
                   {t("chatHeroTitle")}
                 </h1>
               </div>
@@ -886,7 +893,7 @@ export function PlaygroundChat({
                 />
               )}
 
-              <div className="px-4">
+              <div className="w-full px-1">
                 <RecipeComponent
                   onAction={(prompt) => setChatInput(prompt)}
                 />
@@ -919,7 +926,7 @@ export function PlaygroundChat({
                 />
               </div>
             ) : (
-              <Conversation className="flex-1 min-h-0">
+              <Conversation className="flex-1 min-h-0 w-full">
                 <ConversationContent>
                   <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
                   {messages.map((m, index) => {
@@ -954,7 +961,7 @@ export function PlaygroundChat({
               </Conversation>
             )}
 
-            <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
+            <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8 w-full flex justify-center">
               <div className={chatContentWidthClass}>
                 {isReadOnly ? (
                   <div className="w-full text-center p-3 sm:p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm shadow-sm max-w-2xl mx-auto">
