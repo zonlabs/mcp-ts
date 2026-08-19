@@ -137,6 +137,12 @@ export interface MCPOAuthClientOptions {
   discoverResult?: DiscoverResult | null;
   /** Called after the server emits notifications/tools/list_changed. */
   onToolsChanged?: () => void;
+  /**
+   * Arbitrary caller-supplied key-value pairs stored alongside the session.
+   * The library stores this opaquely and never reads or interprets it.
+   * Use it to attach your own reference IDs (e.g. a catalog server ID, tenant ID, etc.).
+   */
+  metadata?: Record<string, string>;
 }
 
 export type McpClientOptions = MCPOAuthClientOptions;
@@ -266,6 +272,7 @@ export class McpClient {
       headers: this.config.headers,
       createdAt: this.createdAt ?? Date.now(),
       updatedAt: Date.now(),
+      metadata: this.config.metadata,
     };
   }
 

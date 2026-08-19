@@ -402,6 +402,7 @@ export class SSEConnectionManager {
         enabled:     s.enabled ?? true,
         protocolVersion: s.serverOptions?.transport?.protocolVersion ?? null,
         discoverResult: s.serverOptions?.discoverResult ?? null,
+        metadata:    s.metadata,
       })),
     };
   }
@@ -489,6 +490,7 @@ export class SSEConnectionManager {
       headers,
       clientInformation,
       sessionStore: this.observedStore,
+      metadata:     params.metadata,
       ...metadata,
     });
 

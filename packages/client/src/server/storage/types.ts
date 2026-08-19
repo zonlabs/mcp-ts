@@ -84,6 +84,12 @@ export interface Session {
     codeVerifierNonce?: string | null;
     clientId?: string | null;
     oauthState?: OAuthState | null;
+    /**
+     * Arbitrary caller-supplied key-value pairs stored alongside the session.
+     * The library stores this opaquely and never reads or interprets it.
+     * Use it to attach your own reference IDs (e.g. a catalog server ID, tenant ID, etc.).
+     */
+    metadata?: Record<string, string>;
 }
 
 export interface SessionCredentials {

@@ -100,6 +100,8 @@ export interface McpConnection {
   updatedAt?: Date;
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
+  /** Caller-supplied metadata, stored and returned opaquely. */
+  metadata?: Record<string, string>;
 }
 
 export interface McpClient {
@@ -460,6 +462,7 @@ export function useMcp(options: UseMcpOptions): McpClient {
             updatedAt: new Date(s.updatedAt ?? s.createdAt),
             toolPolicy: s.toolPolicy,
             enabled: s.enabled,
+            metadata: s.metadata,
             tools: [],
           }))
         );
