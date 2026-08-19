@@ -220,7 +220,6 @@ export default function McpClientLayout({
                   mode="add"
                   onSubmit={async (data) => {
                     await onServerAdd(data);
-                    toast.success("App added successfully");
                     handleBackToApps();
                   }}
                   onCancel={handleBackToApps}

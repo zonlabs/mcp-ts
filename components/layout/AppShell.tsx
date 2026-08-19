@@ -365,7 +365,7 @@ export function AppShell({ children, activeNav, titleBreadcrumb, headerActions }
     );
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans select-none antialiased">
+    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans select-none antialiased p-2 gap-2">
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* Rename Dialog */}
@@ -417,7 +417,7 @@ export function AppShell({ children, activeNav, titleBreadcrumb, headerActions }
 
       {/* ── Sidebar ── */}
       <aside className={cn(
-        "h-full border-r border-border bg-background flex flex-col transition-all duration-150 shrink-0 z-30",
+        "h-full bg-background flex flex-col transition-all duration-150 shrink-0 z-30",
         sidebarOpen ? "w-64" : "w-14"
       )}>
         <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
@@ -589,8 +589,8 @@ export function AppShell({ children, activeNav, titleBreadcrumb, headerActions }
       </aside>
 
       {/* ── Main ── */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-background">
-        <header className="h-14 border-b border-border bg-background px-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center shrink-0 z-20">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-background border border-border rounded-lg relative shadow-xs">
+        <header className="h-14 border-b border-border bg-background px-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center shrink-0 z-20 rounded-t-lg">
           <div className="flex items-center gap-2 min-w-0 justify-self-start">
             {computedBreadcrumb && (
               <span className="text-xs font-mono text-muted-foreground truncate">{computedBreadcrumb}</span>
@@ -612,7 +612,7 @@ export function AppShell({ children, activeNav, titleBreadcrumb, headerActions }
             <ThemeToggle />
           </div>
         </header>
-        <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative">
+        <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative rounded-b-lg">
           {children}
         </div>
       </div>

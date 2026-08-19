@@ -3,7 +3,7 @@
 import { Copy, Check, RefreshCw, Gauge, ArrowUpRight, ArrowDownLeft, Sigma, Pencil, X, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/web-i18n";
 
-export function UserMessage({ message, parts, onEdit }: {
+export const UserMessage = memo(function UserMessage({ message, parts, onEdit }: {
   message: any;
   parts?: any[];
   onEdit?: (newContent: string) => void
@@ -195,9 +195,39 @@ export function UserMessage({ message, parts, onEdit }: {
       })}
     </div>
   );
-}
+});
 
-export function AssistantMessage({
+const MarkdownCodeBlock = memo(function MarkdownCodeBlock({
+  language,
+  value,
+  theme,
+}: {
+  language: string;
+  value: string;
+  theme?: string;
+}) {
+  const codeStyle = theme === 'dark' ? oneDark : oneLight;
+  return (
+    <div className="rounded-md border border-border overflow-hidden my-2">
+      <SyntaxHighlighter
+        style={codeStyle}
+        language={language}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          padding: '12px',
+          background: 'transparent',
+          fontSize: '12px',
+          fontFamily: 'var(--font-dm-mono), monospace',
+        }}
+      >
+        {value}
+      </SyntaxHighlighter>
+    </div>
+  );
+});
+
+export const AssistantMessage = memo(function AssistantMessage({
   text,
   parts,
   onRegenerate,
@@ -235,26 +265,14 @@ export function AssistantMessage({
               components={{
                 code({ inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || '');
-                  const codeStyle = mounted && resolvedTheme === 'dark' ? oneDark : oneLight;
+                  const rawCode = String(children).replace(/\n$/, '');
 
                   return !inline && match ? (
-                    <div className="rounded-md border border-border overflow-hidden my-2">
-                      <SyntaxHighlighter
-                        style={codeStyle}
-                        language={match[1]}
-                        PreTag="div"
-                        customStyle={{
-                          margin: 0,
-                          padding: '12px',
-                          background: 'transparent',
-                          fontSize: '12px',
-                          fontFamily: 'var(--font-dm-mono), monospace',
-                        }}
-                        {...props}
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-                    </div>
+                    <MarkdownCodeBlock
+                      language={match[1]}
+                      value={rawCode}
+                      theme={mounted ? resolvedTheme : 'dark'}
+                    />
                   ) : (
                     <code className={className} {...props}>
                       {children}
@@ -267,72 +285,70 @@ export function AssistantMessage({
             </ReactMarkdown>
           </div>
 
-          <TooltipProvider>
-            <div className="flex items-center gap-1 mt-1.5">
-              {showActions && !isStreaming && (
-                <>
+          {showActions && !isStreaming && (
+            <TooltipProvider>
+              <div className="flex items-center gap-1 mt-1.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleCopy}
+                      className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">{t("copy")}</TooltipContent>
+                </Tooltip>
+
+                {onRegenerate && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        onClick={handleCopy}
+                        onClick={onRegenerate}
                         className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent className="text-xs">{t("copy")}</TooltipContent>
+                    <TooltipContent className="text-xs">{t("regenerate")}</TooltipContent>
                   </Tooltip>
+                )}
 
-                  {onRegenerate && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={onRegenerate}
-                          className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-xs">{t("regenerate")}</TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {usage && (usage.inputTokens !== undefined || usage.outputTokens !== undefined || usage.totalTokens !== undefined) && (
-                    <Tooltip delayDuration={200}>
-                      <TooltipTrigger asChild>
-                        <div className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors cursor-default">
-                          <Gauge className="w-3.5 h-3.5" />
+                {usage && (usage.inputTokens !== undefined || usage.outputTokens !== undefined || usage.totalTokens !== undefined) && (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <div className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors cursor-default">
+                        <Gauge className="w-3.5 h-3.5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="flex flex-col gap-1.5 p-2.5 bg-card border border-border text-foreground font-mono text-[11px]">
+                      {usage.inputTokens !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <ArrowDownLeft className="w-3 h-3 text-emerald-400" />
+                          <span className="text-muted-foreground">{t("inputTokens")}:</span>
+                          <span className="ml-auto font-semibold">{usage.inputTokens.toLocaleString()}</span>
                         </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="flex flex-col gap-1.5 p-2.5 bg-card border border-border text-foreground font-mono text-[11px]">
-                        {usage.inputTokens !== undefined && (
-                          <div className="flex items-center gap-2">
-                            <ArrowDownLeft className="w-3 h-3 text-emerald-400" />
-                            <span className="text-muted-foreground">{t("inputTokens")}:</span>
-                            <span className="ml-auto font-semibold">{usage.inputTokens.toLocaleString()}</span>
-                          </div>
-                        )}
-                        {usage.outputTokens !== undefined && (
-                          <div className="flex items-center gap-2">
-                            <ArrowUpRight className="w-3 h-3 text-amber-400" />
-                            <span className="text-muted-foreground">{t("outputTokens")}:</span>
-                            <span className="ml-auto font-semibold">{usage.outputTokens.toLocaleString()}</span>
-                          </div>
-                        )}
-                        {usage.totalTokens !== undefined && (
-                          <div className="flex items-center gap-2 border-t border-border pt-1 mt-0.5">
-                            <Sigma className="w-3 h-3 text-blue-400" />
-                            <span className="text-muted-foreground">{t("totalTokens")}:</span>
-                            <span className="ml-auto font-semibold">{usage.totalTokens.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </>
-              )}
-            </div>
-          </TooltipProvider>
+                      )}
+                      {usage.outputTokens !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <ArrowUpRight className="w-3 h-3 text-amber-400" />
+                          <span className="text-muted-foreground">{t("outputTokens")}:</span>
+                          <span className="ml-auto font-semibold">{usage.outputTokens.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {usage.totalTokens !== undefined && (
+                        <div className="flex items-center gap-2 border-t border-border pt-1 mt-0.5">
+                          <Sigma className="w-3 h-3 text-blue-400" />
+                          <span className="text-muted-foreground">{t("totalTokens")}:</span>
+                          <span className="ml-auto font-semibold">{usage.totalTokens.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </TooltipProvider>
+          )}
         </div>
       )}
 
@@ -365,4 +381,4 @@ export function AssistantMessage({
       })}
     </div>
   );
-}
+});

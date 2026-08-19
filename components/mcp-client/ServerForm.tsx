@@ -212,7 +212,6 @@ export default function ServerForm({
       upsertValidationStep("save", { state: "running" });
       await onSubmit(form);
       upsertValidationStep("save", { state: "done" });
-      toast.success(mode === "add" ? "Server created successfully" : "Server updated successfully");
       onCancel();
     } catch (err: any) {
       setValidationError(err?.message || "Failed to save server");

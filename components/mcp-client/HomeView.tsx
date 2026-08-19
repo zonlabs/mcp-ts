@@ -172,7 +172,7 @@ export function HomeView({
             className="text-xs font-mono text-muted-foreground hover:text-foreground hover:underline transition-colors leading-none"
             title={MCP_ASSISTANT_URL}
           >
-            api.mcp-assistant.in/mcp
+            https://api.mcp-assistant.in/mcp
           </a>
         </div>
 

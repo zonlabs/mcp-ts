@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { McpServer } from "@/types/mcp";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { ServerIcon } from "@/components/common/ServerIcon";
-import { useMcpStore } from "@/lib/stores/mcp-store";
+import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 import { usePublicServers } from "@/hooks/usePublicServers";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ interface AppsViewProps {
 }
 
 export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsViewProps) {
-  const [activeTab, setActiveTab] = useState<"all" | "connected">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "my-apps" | "connected">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [connectingId, setConnectingId] = useState<string | null>(null);
@@ -34,6 +34,12 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
   }, [searchParams]);
 
   const connections = useMcpStore((s) => s.connections);
+  const userServers = useMcpStore((s) => s.userServers);
+  const fetchUserServers = useMcpStore((s) => s.fetchUserServers);
+
+  useEffect(() => {
+    void fetchUserServers();
+  }, [fetchUserServers]);
 
   // Fetch servers from API — search & category are sent server-side
   const { servers, loading, isLoadingMore, hasNextPage, totalCount, loadMore } = usePublicServers({
@@ -54,13 +60,8 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
     return ["all", ...Array.from(set)];
   }, [servers]);
 
-  // "Connected" tab — build list from active connections in the store.
-  // We use metadata.catalogServerId (= mcp_servers.id) as the entry id when available
-  // so that onSelectApp → ?server=<mcp_servers.id> and McpClientLayout resolves correctly.
-  // For non-catalog servers we fall back to sessionId, which McpClientLayout resolves via connections[sessionId].
-  const displayedApps = useMemo((): McpServer[] => {
-    if (activeTab !== "connected") return servers;
-
+  // Connected apps count
+  const connectedApps = useMemo((): McpServer[] => {
     const isActive = (status?: string) =>
       status?.toUpperCase() === "READY" || status?.toUpperCase() === "CONNECTED";
 
@@ -69,10 +70,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
     for (const conn of Object.values(connections)) {
       if (!isActive(conn.connectionStatus)) continue;
 
-      // The navigation ID: prefer the catalog UUID stored in metadata, fall back to sessionId
       const navId = conn.metadata?.catalogServerId ?? conn.sessionId;
-
-      // Prefer the full catalog entry if already loaded (matched by catalog UUID)
       const catalogEntry = conn.metadata?.catalogServerId
         ? servers.find((s) => s.id === conn.metadata!.catalogServerId)
         : undefined;
@@ -94,7 +92,34 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
     }
 
     return Array.from(seen.values());
-  }, [servers, connections, activeTab]);
+  }, [servers, connections]);
+
+  // Filtered displayed apps based on active tab
+  const displayedApps = useMemo((): McpServer[] => {
+    if (activeTab === "my-apps") {
+      if (!searchQuery.trim()) return userServers;
+      const q = searchQuery.toLowerCase().trim();
+      return userServers.filter(
+        (s) =>
+          s.name?.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.url?.toLowerCase().includes(q)
+      );
+    }
+
+    if (activeTab === "connected") {
+      if (!searchQuery.trim()) return connectedApps;
+      const q = searchQuery.toLowerCase().trim();
+      return connectedApps.filter(
+        (s) =>
+          s.name?.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.url?.toLowerCase().includes(q)
+      );
+    }
+
+    return servers;
+  }, [servers, connectedApps, userServers, activeTab, searchQuery]);
 
   return (
     <div className="flex-1 overflow-y-auto bg-background text-foreground scrollbar-minimal w-full">
@@ -107,8 +132,14 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
             </h1>
             <p className="text-xs text-muted-foreground font-mono mt-0.5">
               Discover, connect and configure modular MCP tools for your AI agents
-            {totalCount > 0 && (
+            {activeTab === "all" && totalCount > 0 && (
               <span className="ml-1.5 text-muted-foreground/60">· {totalCount.toLocaleString()} total</span>
+            )}
+            {activeTab === "my-apps" && (
+              <span className="ml-1.5 text-muted-foreground/60">· {userServers.length} custom apps</span>
+            )}
+            {activeTab === "connected" && (
+              <span className="ml-1.5 text-muted-foreground/60">· {connectedApps.length} connected</span>
             )}
           </p>
         </div>
@@ -129,7 +160,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
 
       {/* 2. Filter Tabs & Search Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-        {/* All vs Connected Tabs */}
+        {/* All vs My Apps vs Connected Tabs */}
         <div className="flex items-center gap-1 bg-card border border-border p-1 rounded-sm w-fit">
           <button
             onClick={() => setActiveTab("all")}
@@ -143,6 +174,25 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
             All
           </button>
           <button
+            onClick={() => setActiveTab("my-apps")}
+            className={cn(
+              "px-4 py-2 text-xs font-medium rounded-sm transition-all cursor-pointer flex items-center gap-1.5",
+              activeTab === "my-apps"
+                ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span>My Apps</span>
+            {userServers.length > 0 && (
+              <span className={cn(
+                "text-[10px] font-mono",
+                activeTab === "my-apps" ? "text-primary-foreground/90 font-semibold" : "text-muted-foreground"
+              )}>
+                ({userServers.length})
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab("connected")}
             className={cn(
               "px-4 py-2 text-xs font-medium rounded-sm transition-all cursor-pointer flex items-center gap-1.5",
@@ -152,6 +202,14 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
             )}
           >
             <span>Connected</span>
+            {connectedApps.length > 0 && (
+              <span className={cn(
+                "text-[10px] font-mono",
+                activeTab === "connected" ? "text-primary-foreground/90 font-semibold" : "text-emerald-500"
+              )}>
+                ({connectedApps.length})
+              </span>
+            )}
           </button>
         </div>
 
@@ -175,7 +233,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
       </div>
 
       {/* 3. Category Tags Strip */}
-      {!loading && categories.length > 2 && (
+      {!loading && activeTab === "all" && categories.length > 2 && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           {categories.map((cat) => (
             <button
@@ -195,7 +253,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
       )}
 
       {/* 4. Loading skeleton */}
-      {loading && servers.length === 0 && (
+      {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -221,7 +279,11 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
         <div className="bg-card border border-border rounded-md p-12 text-center space-y-3">
           <p className="text-sm text-muted-foreground font-mono">
             {activeTab === "connected"
-              ? "No connected apps found. Switch to 'All' to connect apps."
+              ? "No connected apps found. Switch to 'All' or 'My Apps' to connect apps."
+              : activeTab === "my-apps"
+              ? searchQuery
+                ? `No custom apps found for "${searchQuery}".`
+                : "No custom apps added yet. Click 'Add App' above to configure your first MCP server."
               : searchQuery
               ? `No apps found for "${searchQuery}".`
               : "No apps available."}
@@ -234,14 +296,29 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {displayedApps.map((app) => {
             // For the connected tab, app.connectionStatus is already set from the store.
-            // For the all tab, look up active connection by serverId (mcp_servers.id).
-            const connStatus =
+            // For the all tab, look up active connection by serverId or catalogServerId or URL.
+            const stored = findConnectionForServer(connections, app);
+            const connStatus = (
+              stored?.connectionStatus ??
               app.connectionStatus ??
-              Object.values(connections).find((c) => c.serverId === app.id)
-                ?.connectionStatus;
+              Object.values(connections).find(
+                (c) => c.serverId === app.id || c.metadata?.catalogServerId === app.id
+              )?.connectionStatus
+            )?.toUpperCase();
             const isConnected =
-              connStatus?.toUpperCase() === "READY" ||
-              connStatus?.toUpperCase() === "CONNECTED";
+              connStatus === "READY" ||
+              connStatus === "CONNECTED";
+            const isInProgress = Boolean(
+              connectingId === app.id ||
+              (connStatus && [
+                "INITIALIZING",
+                "VALIDATING",
+                "CONNECTING",
+                "AUTHENTICATING",
+                "AUTHENTICATED",
+                "DISCOVERING",
+              ].includes(connStatus))
+            );
 
             return (
               <div
@@ -273,17 +350,53 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
                     </div>
                   </div>
 
-                  {/* Top Right Action / Badge */}
+                  {/* Top Right Action Button */}
                   <div className="shrink-0">
                     {isConnected ? (
                       <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-500 border border-emerald-500/40 px-2 py-0.5 rounded-sm">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span>Active</span>
                       </div>
+                    ) : connStatus === "AUTHENTICATING" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={connectingId === app.id}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setConnectingId(app.id);
+                          try {
+                            await onAction(app, "deactivate");
+                          } finally {
+                            setConnectingId(null);
+                          }
+                        }}
+                        className="h-7 px-2.5 text-xs border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground font-medium rounded-sm inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        Cancel Auth
+                      </Button>
+                    ) : (connStatus === "INITIALIZING" || connStatus === "VALIDATING" || connStatus === "CONNECTING" || connStatus === "AUTHENTICATED" || connStatus === "DISCOVERING" || connectingId === app.id) ? (
+                      <Button
+                        size="sm"
+                        disabled
+                        className="h-7 px-3 text-xs bg-primary/80 text-primary-foreground font-medium rounded-sm min-w-[72px] inline-flex items-center gap-1.5 cursor-wait"
+                      >
+                        <Loader2 className="size-3.5 animate-spin" />
+                        <span>
+                          {connStatus === "INITIALIZING"
+                            ? "Initializing"
+                            : connStatus === "VALIDATING"
+                              ? "Validating"
+                              : connStatus === "AUTHENTICATED"
+                                ? "Authenticated"
+                                : connStatus === "DISCOVERING"
+                                  ? "Discovering"
+                                  : "Connecting"}
+                        </span>
+                      </Button>
                     ) : (
                       <Button
                         size="sm"
-                        disabled={connectingId === app.id}
                         onClick={async (e) => {
                           e.stopPropagation();
                           setConnectingId(app.id);
@@ -293,13 +406,9 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
                             setConnectingId(null);
                           }
                         }}
-                        className="h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-sm min-w-[72px]"
+                        className="h-7 px-3 text-xs bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-sm min-w-[72px] inline-flex items-center gap-1.5 cursor-pointer"
                       >
-                        {connectingId === app.id ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          "Connect"
-                        )}
+                        Connect
                       </Button>
                     )}
                   </div>

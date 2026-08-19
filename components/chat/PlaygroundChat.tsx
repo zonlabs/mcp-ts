@@ -84,11 +84,7 @@ const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderPa
 }, (prev, next) => {
   if (prev.isLastMessage !== next.isLastMessage) return false;
   if (next.isLastMessage) return false;
-  return (
-    prev.m === next.m &&
-    prev.onEdit === next.onEdit &&
-    prev.renderParts === next.renderParts
-  );
+  return prev.m === next.m && prev.onEdit === next.onEdit;
 });
 
 function ThoughtSummaryTrigger({
@@ -523,7 +519,7 @@ export function PlaygroundChat({
     return "An error occurred";
   };
 
-  const renderMessageParts = (m: McpAgentUIMessage, isLastMessage: boolean) => {
+  const renderMessageParts = useCallback((m: McpAgentUIMessage, isLastMessage: boolean) => {
     const lastPart = m.parts[m.parts.length - 1] as any | undefined;
     const chainOfThought = getChainOfThoughtForMessage(m, isLastMessage);
 
@@ -531,6 +527,22 @@ export function PlaygroundChat({
       .map((p: any, idx: number) => (p?.type === 'text' && p.text ? idx : -1))
       .filter((idx: number) => idx !== -1)
       .pop();
+
+    const isChatGenerating = status === 'streaming' || status === 'submitted';
+
+    const hasActiveToolOrApproval = m.parts.some((p: any) =>
+      p?.state === 'approval-requested' ||
+      p?.state === 'input-streaming' ||
+      p?.state === 'input-available'
+    );
+
+    const isHumanInTheLoopPaused = messages.some((msg) =>
+      msg.parts.some((p: any) => p?.state === 'approval-requested')
+    );
+
+    const isMessageInProgress =
+      (isLastMessage && (isChatGenerating || isHumanInTheLoopPaused)) ||
+      hasActiveToolOrApproval;
 
     const isCoTActive = (
       (isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning') ||
@@ -561,8 +573,8 @@ export function PlaygroundChat({
                 parts={[]}
                 onRegenerate={handleRegenerate}
                 usage={m?.metadata?.usage}
-                showActions={index === lastTextIndex}
-                isStreaming={status === 'streaming'}
+                showActions={index === lastTextIndex && !isMessageInProgress}
+                isStreaming={isMessageInProgress}
               />
             );
           }
@@ -617,10 +629,13 @@ export function PlaygroundChat({
               }
 
               if (toolPart.state === 'approval-responded') {
+                if (toolPart.approval?.approved === true) {
+                  return null;
+                }
                 return (
                   <MCPToolApprovalStatus
                     key={`tool-${index}`}
-                    approved={toolPart.approval?.approved === true}
+                    approved={false}
                     reason={toolPart.approval?.reason}
                   />
                 );
@@ -807,7 +822,15 @@ export function PlaygroundChat({
         })}
       </>
     );
-  };
+  }, [
+    getChainOfThoughtForMessage,
+    status,
+    messages,
+    selectedThoughtMessageId,
+    handleRegenerate,
+    addToolApprovalResponse,
+    t,
+  ]);
 
   return (
     <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-background">

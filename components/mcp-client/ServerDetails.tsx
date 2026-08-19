@@ -259,27 +259,20 @@ export function ServerDetails({
 
         {/* Status bar */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
-          <Tooltip delayDuration={100}>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1.5 cursor-default">
-                <span className={cn(
-                  "h-2 w-2 rounded-full",
-                  isConnected ? "bg-green-500" : isFailed ? "bg-red-500" : "bg-muted-foreground/50"
-                )} />
-                <span className={cn(
-                  "text-xs font-semibold",
-                  isConnected && "text-green-600 dark:text-green-400",
-                  isFailed && "text-red-600 dark:text-red-400",
-                  !isConnected && !isFailed && "text-foreground"
-                )}>
-                  {connectionStatus}
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs whitespace-pre-wrap break-words">
-              {statusTooltipText}
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-1.5 cursor-default">
+            <span className={cn(
+              "h-2 w-2 rounded-full",
+              isConnected ? "bg-green-500" : isFailed ? "bg-red-500" : "bg-muted-foreground/50"
+            )} />
+            <span className={cn(
+              "text-xs font-semibold",
+              isConnected && "text-green-600 dark:text-green-400",
+              isFailed && "text-red-600 dark:text-red-400",
+              !isConnected && !isFailed && "text-foreground"
+            )}>
+              {connectionStatus}
+            </span>
+          </div>
 
           <HoverCard openDelay={100} closeDelay={100}>
             <HoverCardTrigger asChild>

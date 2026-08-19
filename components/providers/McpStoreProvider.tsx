@@ -5,8 +5,9 @@ import { useMcpStore, type McpStore } from '@/lib/stores/mcp-store';
 import { useMcp } from '@mcp-ts/client/react';
 import type { ToolAccessResult, ToolPolicy } from '@/types/mcp';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { openAuthPopup } from '@/lib/auth-popup-utils';
 import { setMcpClient } from '@/lib/mcp-client-store';
+
+import { openAuthPopup } from '@/lib/auth-popup-utils';
 
 type McpHookWithToolPolicy = ReturnType<typeof useMcp> & {
   getToolAccess?: (sessionId: string) => Promise<ToolAccessResult>;
@@ -40,7 +41,6 @@ function McpStoreProviderInner({
 }) {
   const fetchUserServers = useMcpStore((state: McpStore) => state.fetchUserServers);
   const authInFlightStatesRef = useRef<Set<string>>(new Set());
-  const authSuccessDispatchedStatesRef = useRef<Set<string>>(new Set());
 
   // Initialize MCP Hook globally
   const {
@@ -50,7 +50,6 @@ function McpStoreProviderInner({
     reconnect,
     callTool,
     finishAuth,
-    resumeAuth,
     sseClient,
     getToolAccess: _sdkGetToolAccess,
     updateToolPolicy,
@@ -67,57 +66,44 @@ function McpStoreProviderInner({
     onRedirect: (url: string) => {
       void (async () => {
         let state: string | null = null;
-        let serverUrl: string | null = null;
         let ownsInFlightState = false;
         try {
           const parsed = new URL(url);
           state = parsed.searchParams.get('state');
-          serverUrl = parsed.searchParams.get('resource');
-          if (!state) {
-            return;
-          }
+          if (!state) return;
 
-          if (authInFlightStatesRef.current.has(state)) {
-            return;
-          }
+          if (authInFlightStatesRef.current.has(state)) return;
           authInFlightStatesRef.current.add(state);
           ownsInFlightState = true;
 
-          const authResult = await openAuthPopup({
-            url,
-            windowName: `mcp-auth-popup-${state}`,
-          });
+          const authResult = await openAuthPopup({ url });
 
           if (authResult.code && (authResult.sessionId || authResult.state || state)) {
             const authState = authResult.sessionId || authResult.state || state;
             await finishAuth(authState, authResult.code);
-          } else if (authResult.sessionId) {
-            await resumeAuth(authResult.sessionId);
-          }
-
-          // Notify UI components (e.g. playground approval card) that OAuth completed.
-          if (!authSuccessDispatchedStatesRef.current.has(state)) {
-            authSuccessDispatchedStatesRef.current.add(state);
-            window.dispatchEvent(
-              new CustomEvent('mcp-oauth-success', {
-                detail: {
-                  state,
-                  sessionId: authResult.sessionId || authResult.state || state,
-                  serverUrl: authResult.serverUrl || parsed.searchParams.get('resource') || undefined,
-                },
-              })
-            );
           }
         } catch (error) {
-          window.dispatchEvent(
-            new CustomEvent('mcp-oauth-cancelled', {
-              detail: {
-                state,
-                serverUrl,
-                reason: error instanceof Error ? error.message : String(error),
-              },
-            })
-          );
+          const targetSessionId = state ? (state.includes('.') ? state.split('.')[1] : state) : null;
+          if (targetSessionId) {
+            try {
+              await disconnect(targetSessionId);
+            } catch {
+              // ignore
+            }
+          }
+
+          // Clean up only the specific failed session from Zustand store
+          if (targetSessionId) {
+            const store = useMcpStore.getState();
+            if (store.connections[targetSessionId] && store.connections[targetSessionId].connectionStatus !== 'READY') {
+              const updatedConns = { ...store.connections };
+              delete updatedConns[targetSessionId];
+              useMcpStore.setState({
+                connections: updatedConns,
+                activeConnectionCount: Object.values(updatedConns).filter((c) => c.connectionStatus === 'READY').length,
+              });
+            }
+          }
         } finally {
           if (state && ownsInFlightState) {
             authInFlightStatesRef.current.delete(state);
@@ -168,8 +154,8 @@ function McpStoreProviderInner({
 
   // Sync actions to store once (or when they change)
   useEffect(() => {
-    setMcpActions({ connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, getPrompt, listResources, listResourceTemplates, readResource });
-  }, [connect, disconnect, reconnect, callTool, getToolAccess, updateToolPolicy, updateSession, listPrompts, getPrompt, listResources, listResourceTemplates, readResource, setMcpActions]);
+    setMcpActions({ connect, disconnect, reconnect, callTool, finishAuth, getToolAccess, updateToolPolicy, updateSession, listPrompts, getPrompt, listResources, listResourceTemplates, readResource });
+  }, [connect, disconnect, reconnect, callTool, finishAuth, getToolAccess, updateToolPolicy, updateSession, listPrompts, getPrompt, listResources, listResourceTemplates, readResource, setMcpActions]);
 
   // Sync state to store whenever connections change
   useEffect(() => {

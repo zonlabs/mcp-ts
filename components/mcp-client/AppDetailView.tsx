@@ -27,6 +27,8 @@ import {
   Check,
   Info,
   Plug,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { McpServer, ToolInfo } from "@/types/mcp";
 import { UserSession } from "@/components/providers/AuthProvider";
@@ -81,11 +83,20 @@ export function AppDetailView({
   const [isTogglingEnabled, setIsTogglingEnabled] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
-  const isConnected = Boolean(
-    stored &&
-      (stored.connectionStatus?.toUpperCase() === "READY" ||
-        stored.connectionStatus?.toUpperCase() === "CONNECTED")
+  const connStatus = (stored?.connectionStatus ?? server.connectionStatus)?.toUpperCase();
+  const isConnected = connStatus === "READY" || connStatus === "CONNECTED";
+  const isInProgress = Boolean(
+    isActionPending ||
+    (connStatus && [
+      "INITIALIZING",
+      "VALIDATING",
+      "CONNECTING",
+      "AUTHENTICATING",
+      "AUTHENTICATED",
+      "DISCOVERING",
+    ].includes(connStatus))
   );
+  console.log(`[AppDetailView:${server.name}] connStatus: ${connStatus}, isInProgress: ${isInProgress}, isConnected: ${isConnected}, isActionPending: ${isActionPending}`);
   const isServerEnabled = stored ? stored.enabled !== false : true;
 
   const allTools: ToolInfo[] = stored?.tools ?? server.tools ?? [];
@@ -126,9 +137,11 @@ export function AppDetailView({
       if (isConnected) {
         await onAction(server, "deactivate");
         toast.success(`Disconnected from ${server.name}`);
+      } else if (isInProgress) {
+        await onAction(server, "deactivate");
+        toast.success(`Cancelled connection to ${server.name}`);
       } else {
         await onAction(server, "activate");
-        toast.success(`Connected to ${server.name}`);
       }
     } catch (e: any) {
       toast.error(e?.message || "Failed to update connection");
@@ -194,20 +207,21 @@ export function AppDetailView({
                 <h1 className="text-xl sm:text-2xl font-medium tracking-tight text-foreground font-sans">
                   {server.name}
                 </h1>
-                {isConnected ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {isConnected && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-emerald-500 border border-emerald-500/40 px-2 py-0.5 rounded-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Active
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground border border-border px-2 py-0.5 rounded-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
-                    Inactive
                   </span>
                 )}
                 {isConnected && !isServerEnabled && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-sm">
-                    AI Off
+                    Access Off
+                  </span>
+                )}
+                {(connStatus === "FAILED" || (Boolean(stored?.error || server.error) && !isConnected)) && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-destructive border border-destructive/40 px-2 py-0.5 rounded-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                    Failed
                   </span>
                 )}
               </div>
@@ -230,6 +244,18 @@ export function AppDetailView({
                   >
                     {copiedUrl ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
                   </button>
+                </div>
+              )}
+
+              {(stored?.error || server.error) && !isConnected && (
+                <div className="mt-2.5 flex items-start gap-2 rounded-sm border border-destructive/40 p-2.5 text-xs text-destructive">
+                  <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="font-semibold font-mono text-[10px] uppercase tracking-wider">Connection Error</p>
+                    <p className="text-xs text-destructive/90 font-mono break-words leading-relaxed">
+                      {stored?.error || server.error}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -267,24 +293,61 @@ export function AppDetailView({
               </>
             )}
 
-            <Button
-              onClick={handleToggleConnect}
-              disabled={isActionPending}
-              className={cn(
-                "h-8 px-4 text-xs font-medium rounded-sm transition-all",
-                isConnected
-                  ? "bg-card border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90"
-              )}
-            >
-              {isActionPending ? (
-                <RefreshCw className="size-3.5 animate-spin mr-1.5" />
-              ) : isConnected ? (
-                "Disconnect"
-              ) : (
-                "Connect"
-              )}
-            </Button>
+            {(() => {
+              if (isConnected) {
+                return (
+                  <Button
+                    onClick={handleToggleConnect}
+                    disabled={isActionPending}
+                    className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-card border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    Disconnect
+                  </Button>
+                );
+              }
+
+              if (connStatus === "AUTHENTICATING") {
+                return (
+                  <Button
+                    onClick={handleToggleConnect}
+                    className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-card border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    Cancel Auth
+                  </Button>
+                );
+              }
+
+              if (connStatus === "INITIALIZING" || connStatus === "VALIDATING" || connStatus === "CONNECTING" || connStatus === "AUTHENTICATED" || connStatus === "DISCOVERING" || isActionPending) {
+                const label = connStatus === "INITIALIZING"
+                  ? "Initializing"
+                  : connStatus === "VALIDATING"
+                    ? "Validating"
+                    : connStatus === "AUTHENTICATED"
+                      ? "Authenticated"
+                      : connStatus === "DISCOVERING"
+                        ? "Discovering"
+                        : "Connecting";
+
+                return (
+                  <Button
+                    disabled
+                    className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 bg-primary/80 text-primary-foreground cursor-wait"
+                  >
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>{label}</span>
+                  </Button>
+                );
+              }
+
+              return (
+                <Button
+                  onClick={handleToggleConnect}
+                  className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  Connect
+                </Button>
+              );
+            })()}
           </div>
         </div>
 

@@ -66,6 +66,7 @@ type McpActionsBundle = {
   disconnect: any;
   callTool: any;
   reconnect: any;
+  finishAuth?: (state: string, code: string, iss?: string) => Promise<unknown>;
   getToolAccess?: (sessionId: string) => Promise<ToolAccessResult>;
   updateToolPolicy?: (
     sessionId: string,
@@ -144,7 +145,9 @@ export function findConnectionForServer<T extends { id: string; url?: string | n
   connections: Record<string, StoredConnection>,
   server: T
 ): StoredConnection | undefined {
-  const byId = Object.values(connections).find((c) => c.serverId === server.id);
+  const byId = Object.values(connections).find(
+    (c) => c.serverId === server.id || c.metadata?.catalogServerId === server.id
+  );
   if (byId) return byId;
 
   const normalizedServerUrl = normalizeServerUrl(server.url);
@@ -750,11 +753,19 @@ export const useMcpStore = create<McpStore>()(
       {
         name: 'mcp-store',
         storage: createJSONStorage(() => localStorage),
-        // Only persist connection state
-        partialize: (state) => ({
-          connections: state.connections,
-          activeConnectionCount: state.activeConnectionCount,
-        }),
+        // Only persist fully established connections (never transient authenticating/connecting states)
+        partialize: (state) => {
+          const cleanConnections: Record<string, StoredConnection> = {};
+          for (const [key, conn] of Object.entries(state.connections)) {
+            if (conn.connectionStatus === 'READY' || conn.connectionStatus === 'CONNECTED') {
+              cleanConnections[key] = conn;
+            }
+          }
+          return {
+            connections: cleanConnections,
+            activeConnectionCount: Object.keys(cleanConnections).length,
+          };
+        },
       }
     ),
     { name: 'MCP Store' }

@@ -188,7 +188,7 @@ export default function ServerManagement({
             ) : (
               <XCircle className="h-3.5 w-3.5" />
             )}
-            {isAuthenticating ? "Cancel auth" : "Deactivate"}
+            Cancel Auth
           </Button>
         ) : (
           <Button
@@ -202,7 +202,7 @@ export default function ServerManagement({
             ) : (
               <Play className="h-4 w-4" />
             )}
-            {isInProgress ? "Activating..." : "Activate"}
+            {isInProgress ? "Activating" : "Activate"}
           </Button>
         )}
 
