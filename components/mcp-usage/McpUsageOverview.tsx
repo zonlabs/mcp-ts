@@ -108,6 +108,7 @@ export function McpUsageOverview({
   }, [containerWidth]);
 
   const summary = summarizeMcpUsage(metricsEvents);
+  const mcpAssistantCount = totalCount > 0 ? Math.max(totalCount, summary.mcpAssistantCallsTotal) : summary.mcpAssistantCallsTotal;
   const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date());
   const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
   const recentEventGroups = useMemo(() => groupRecentGroupsByDate(groups), [groups]);
@@ -208,13 +209,22 @@ export function McpUsageOverview({
         </div>
 
         {/* Integrated Metric Strip */}
-        <div className="grid grid-cols-3 gap-4 pt-4 sm:pt-5 border-t border-border/50">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 sm:pt-5 border-t border-border/50">
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Tool Calls
             </p>
             <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground tracking-tight">
               {summary.toolCallsTotal.toLocaleString()}
+            </p>
+          </div>
+
+          <div className="space-y-1 min-w-0">
+            <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
+              MCP Assistant
+            </p>
+            <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground tracking-tight">
+              {mcpAssistantCount.toLocaleString()}
             </p>
           </div>
 

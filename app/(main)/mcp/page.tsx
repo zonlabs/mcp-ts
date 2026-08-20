@@ -105,11 +105,11 @@ async function fetchAllMetricsEvents(supabase: any, userId: string) {
     const { data, error } = await supabase
       .from("mcp_tool_call_events")
       .select(
-        "started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type"
+        "id,started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type"
       )
       .eq("user_id", userId)
-      .order("completed_at", { ascending: false })
-      .order("event_type", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to);
 
     if (error) throw error;
