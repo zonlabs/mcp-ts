@@ -40,10 +40,10 @@ export async function proxy(request: NextRequest) {
   // Protected routes that require authentication
   const protectedRoutes = [
     "/chat",
+    "/mcp",
     "/settings/account",
     "/settings/preferences",
     "/settings/api-keys",
-    "/settings/connectors",
   ];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
@@ -67,10 +67,10 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/chat/:path*",
+    "/mcp/:path*",
     "/settings/account/:path*",
     "/settings/preferences/:path*",
     "/settings/api-keys/:path*",
-    "/settings/connectors/:path*",
     "/signin",
   ],
 };

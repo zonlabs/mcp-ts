@@ -135,82 +135,65 @@ export function HomeView({
           </p>
         </div>
 
-        {/* API Health & Endpoint */}
-        <div className="flex items-center gap-2 rounded-sm border border-hairline bg-card px-3 py-2.5 w-fit">
-          <span className={cn(
-            "w-1.5 h-1.5 rounded-full",
-            healthStatus === "loading" ? "bg-muted-foreground/40 animate-pulse" :
-            healthStatus === "healthy" ? "bg-green-500 animate-pulse" :
-            "bg-destructive"
-          )} />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground leading-none">
-            {healthStatus === "loading" ? "checking..." :
-             healthStatus === "healthy" ? "online" :
-             "offline"}
-          </span>
-          {healthStatus === "healthy" && healthData && (
-            <>
-              <span className="text-[10px] text-muted-foreground/45">•</span>
-              <span className="text-xs text-muted-foreground leading-none">
-                v{healthData.version || "1.0.0"}
-              </span>
-              {healthData.uptime_seconds !== undefined && (
-                <>
-                  <span className="text-[10px] text-muted-foreground/45">•</span>
-                  <span className="text-xs text-muted-foreground leading-none">
-                    uptime {formatUptime(healthData.uptime_seconds)}
-                  </span>
-                </>
-              )}
-            </>
-          )}
-          <span className="mx-1 h-3.5 w-px bg-hairline" />
-          <a
-            href={MCP_ASSISTANT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-mono text-muted-foreground hover:text-foreground hover:underline transition-colors leading-none"
-            title={MCP_ASSISTANT_URL}
-          >
-            https://api.mcp-assistant.in/mcp
-          </a>
-        </div>
+        {/* 2. Full Activity Heatmap, Metrics & Recent Activity */}
+        <McpUsageOverview
+          groups={groups}
+          metricsEvents={metricsEvents}
+          totalCount={totalToolCalls}
+          currentPage={page}
+          onPageChange={setPage}
+          isFetching={isFetching}
+        />
 
-      {/* 2. Full Activity Heatmap, Metrics & Recent Activity */}
-      <McpUsageOverview
-        groups={groups}
-        metricsEvents={metricsEvents}
-        totalCount={totalToolCalls}
-        currentPage={page}
-        onPageChange={setPage}
-        isFetching={isFetching}
-      />
+        {/* 3. Standalone MCP Server Card */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Hammer className="size-3.5 text-muted-foreground" />
+            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-medium">
+              Standalone MCP
+            </h2>
+          </div>
 
-      {/* 3. Standalone MCP Server Card */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Hammer className="size-3.5 text-muted-foreground" />
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">
-            Standalone MCP
-          </h2>
-        </div>
-
-        <div className="bg-card border border-border rounded-md p-5 space-y-4">
-          {/* Header Row: Icon, Title, and Compatible Client Icons */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="size-9 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-1">
-                <ServerIcon
-                  serverName="MCP Assistant"
-                  serverUrl={MCP_ASSISTANT_URL}
-                  size={32}
-                />
+          <div className="bg-card border border-border rounded-md p-5 space-y-4">
+            {/* Header Row: Icon, Title with Status Pill, and Compatible Client Icons */}
+            <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="size-9 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-1">
+                  <ServerIcon
+                    serverName="MCP Assistant"
+                    serverUrl={MCP_ASSISTANT_URL}
+                    size={32}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-semibold text-foreground">MCP Assistant</h3>
+                    <span className="text-[10px] text-muted-foreground/45">•</span>
+                    <div className="inline-flex items-center gap-1.5 bg-transparent">
+                      <span className={cn(
+                        "size-1.5 rounded-full",
+                        healthStatus === "loading" ? "bg-muted-foreground/40 animate-pulse" :
+                        healthStatus === "healthy" ? "bg-emerald-500 animate-pulse" :
+                        "bg-destructive"
+                      )} />
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                        {healthStatus === "loading" ? "checking..." :
+                         healthStatus === "healthy" ? "online" :
+                         "offline"}
+                      </span>
+                      {healthStatus === "healthy" && healthData?.version && (
+                        <>
+                          <span className="text-[10px] text-muted-foreground/45">•</span>
+                          <span className="text-[11px] font-mono text-muted-foreground/70">
+                            v{healthData.version}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-mono text-muted-foreground mt-0.5">Universal MCP Hub & Sandbox</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">MCP Assistant</h3>
-                <p className="text-[11px] font-mono text-muted-foreground">Universal MCP Hub & Sandbox</p>
-              </div>
-            </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
               {MCP_CLIENT_ICONS.map((client) => (

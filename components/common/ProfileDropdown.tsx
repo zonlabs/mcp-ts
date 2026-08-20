@@ -114,7 +114,7 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
           <Link
             href="/settings/preferences"
             className={cn(
-              (pathname.startsWith("/settings/preferences") || pathname.startsWith("/settings/connectors")) &&
+              pathname.startsWith("/settings/preferences") &&
                 "bg-card font-medium text-foreground"
             )}
           >

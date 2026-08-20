@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useMemo, useState, useEffect, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Activity, CheckCircle2, Clock3, XCircle, Zap } from "lucide-react";
+import { Activity, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { cn } from "@/lib/utils";
 import type { McpToolCallEventRow, McpToolCallEventGroup, ServerIcon as McpServerIcon } from "@/lib/mcp-usage";
@@ -19,6 +20,8 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+
+const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
 function ServerActivityIcon({
   icons,
@@ -65,6 +68,9 @@ interface McpUsageOverviewProps {
   currentPage: number;
   onPageChange?: (newPage: number) => void;
   isFetching?: boolean;
+  days?: number;
+  healthStatus?: string;
+  healthData?: any;
 }
 
 export function McpUsageOverview({
@@ -75,6 +81,10 @@ export function McpUsageOverview({
   onPageChange,
   isFetching,
 }: McpUsageOverviewProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
 
@@ -109,6 +119,16 @@ export function McpUsageOverview({
   const mostUsedAppServerUrl = mostUsedAppEvent
     ? resolveMcpUsageServerUrl(mostUsedAppEvent) ?? undefined
     : undefined;
+
+  const handlePageChange = (newPage: number) => {
+    if (onPageChange) {
+      onPageChange(newPage);
+      return;
+    }
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("page", newPage.toString());
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <div className="space-y-6">
@@ -230,22 +250,62 @@ export function McpUsageOverview({
         </div>
 
         {recentEventGroups.length > 0 ? (
-          <div className="bg-card border border-border rounded-md divide-y divide-border/60 overflow-hidden">
-            {recentEventGroups.map((dateGroup) => (
-              <div key={dateGroup.dateKey} className="divide-y divide-border/40">
-                <div className="px-4 py-2 bg-background/50 text-[11px] font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
-                  {dateGroup.label}
+          <div className="bg-card border border-border rounded-md overflow-hidden">
+            <div className="divide-y divide-border/60">
+              {recentEventGroups.map((dateGroup) => (
+                <div key={dateGroup.dateKey} className="divide-y divide-border/40">
+                  <div className="px-4 py-2 bg-background/50 text-[11px] font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
+                    {dateGroup.label}
+                  </div>
+                  {dateGroup.groups.map((eventGroup) => (
+                    <Fragment key={eventGroup.parent.id}>
+                      <RecentActivityRow
+                        event={eventGroup.parent}
+                        serverUrl={resolveMcpUsageServerUrl(eventGroup.parent) ?? undefined}
+                        childCount={eventGroup.children.length}
+                      />
+                      {eventGroup.children.length > 0 &&
+                        eventGroup.children.map((child) => (
+                          <RecentActivityRow
+                            key={child.id}
+                            event={child}
+                            serverUrl={resolveMcpUsageServerUrl(child) ?? undefined}
+                            isChild
+                          />
+                        ))}
+                    </Fragment>
+                  ))}
                 </div>
-                {dateGroup.groups.map((eventGroup) => (
-                  <RecentActivityRow
-                    key={eventGroup.parent.id}
-                    event={eventGroup.parent}
-                    serverUrl={resolveMcpUsageServerUrl(eventGroup.parent) ?? undefined}
-                    childCount={eventGroup.children.length}
-                  />
-                ))}
+              ))}
+            </div>
+
+            {/* Pagination footer */}
+            <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between bg-card">
+              <p className="text-xs font-mono text-muted-foreground">
+                Showing {groups.length === 0 ? 0 : (currentPage - 1) * RECENT_ACTIVITY_PAGE_SIZE + 1}-{Math.min(
+                  currentPage * RECENT_ACTIVITY_PAGE_SIZE,
+                  totalCount
+                )} of {totalCount}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center justify-center rounded-sm border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage <= 1 || isFetching}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center justify-center rounded-sm border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage * RECENT_ACTIVITY_PAGE_SIZE >= totalCount || isFetching}
+                >
+                  Next
+                </button>
               </div>
-            ))}
+            </div>
           </div>
         ) : (
           <div className="bg-card border border-border rounded-md p-6 text-center space-y-1">
@@ -263,32 +323,73 @@ function RecentActivityRow({
   event,
   serverUrl,
   childCount,
+  isChild = false,
 }: {
   event: McpToolCallEventRow;
   serverUrl?: string;
   childCount?: number;
+  isChild?: boolean;
 }) {
   const appName = getMcpAppDisplayName(event.app_key, event.server_name);
   const isSuccess = event.status === "success";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[5.5rem_11rem_1fr_4.5rem_3.5rem] items-center gap-3 px-4 py-2.5 text-xs font-sans hover:bg-background/40 transition-colors">
+    <div
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[5.5rem_11rem_1fr_4.5rem_4rem] items-center gap-3 px-4 py-2.5 text-xs font-sans hover:bg-background/40 transition-colors",
+        isChild && "bg-background/20"
+      )}
+    >
       <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[11px]">
-        <Clock3 className="size-3 shrink-0" />
+        <Clock3 className="size-3.5 shrink-0" />
         <span>{formatTime(event.started_at)}</span>
       </div>
 
       <div className="flex min-w-0 items-center gap-2">
         <ServerIcon serverName={appName} serverUrl={serverUrl} size={18} className="shrink-0 rounded-xs" />
-        <span className="truncate font-medium text-foreground">{appName}</span>
+        {event.server_id || serverUrl ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="truncate font-medium text-foreground cursor-help">{appName}</span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <div className="space-y-1 text-xs">
+                {event.server_id && (
+                  <p className="font-mono"><span className="text-muted-foreground">Server ID: </span>{event.server_id}</p>
+                )}
+                {serverUrl && (
+                  <p className="font-mono"><span className="text-muted-foreground">Server URL: </span>{serverUrl}</p>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="truncate font-medium text-foreground">{appName}</span>
+        )}
       </div>
 
-      <div className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-        <span className="text-foreground font-medium">{event.tool_name}</span>
-        {childCount && childCount > 0 ? (
-          <span className="ml-1.5 text-[10px] text-muted-foreground/70">
-            (+{childCount} sub-calls)
-          </span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="truncate font-mono text-[11px] font-medium text-foreground">
+                {event.tool_name}
+              </p>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs break-all">
+              {event.tool_name}
+            </TooltipContent>
+          </Tooltip>
+          {childCount !== undefined && childCount > 0 ? (
+            <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground leading-none">
+              +{childCount}
+            </span>
+          ) : null}
+        </div>
+        {!isSuccess && event.error_preview ? (
+          <p className="mt-0.5 line-clamp-1 text-[11px] text-destructive font-mono">
+            {event.error_preview}
+          </p>
         ) : null}
       </div>
 
@@ -296,15 +397,33 @@ function RecentActivityRow({
         {formatDuration(event.duration_ms)}
       </div>
 
-      <div className="text-right">
+      <div className="flex items-center justify-end gap-1 text-right">
         {isSuccess ? (
-          <span className="inline-flex items-center font-mono text-[10px] font-medium text-emerald-400">
-            OK
-          </span>
+          <>
+            <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+            <span className="font-mono text-[10px] font-medium text-emerald-400">
+              OK
+            </span>
+          </>
         ) : (
-          <span className="inline-flex items-center font-mono text-[10px] font-medium text-rose-400">
-            Error
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 cursor-help">
+                <XCircle className="size-3.5 text-rose-400 shrink-0" />
+                <span className="font-mono text-[10px] font-medium text-rose-400">
+                  Error
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              <div className="space-y-1 text-xs">
+                {event.error_code && (
+                  <p className="font-mono text-muted-foreground">Code: {event.error_code}</p>
+                )}
+                <p>{event.error_preview || "Unknown error"}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
     </div>

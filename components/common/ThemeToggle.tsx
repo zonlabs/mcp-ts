@@ -1,20 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun, Monitor, Check } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 
 export function ThemeToggle() {
-  const { setTheme, theme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -33,49 +25,23 @@ export function ThemeToggle() {
     );
   }
 
-  const options = [
-    { value: "light", label: "Light", icon: Sun },
-    { value: "dark", label: "Dark", icon: Moon },
-    { value: "system", label: "System", icon: Monitor },
-  ] as const;
-
-  const active = theme ?? "system";
+  const isDark = resolvedTheme === "dark";
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          aria-label="Toggle theme"
-          className="h-8 size-8 shrink-0 gap-1.5 rounded-sm px-0 hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {active === "light" && <Sun className="size-4" strokeWidth={1.8} />}
-          {active === "dark" && <Moon className="size-4" strokeWidth={1.8} />}
-          {active === "system" && <Monitor className="size-4" strokeWidth={1.8} />}
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={8}
-        className="w-56 p-1.5 bg-popover border-border rounded-sm shadow-md font-sans text-xs"
-      >
-        {options.map(({ value, label, icon: Icon }) => (
-          <DropdownMenuItem
-            key={value}
-            onClick={() => setTheme(value)}
-            className={cn(
-              "cursor-pointer gap-2.5 rounded-xs px-2.5 py-1.5 text-xs text-foreground hover:bg-card",
-              active === value && "bg-card font-medium text-foreground"
-            )}
-          >
-            <Icon className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} />
-            <span className="flex-1">{label}</span>
-            {active === value && <Check className="size-3.5 shrink-0 text-foreground" strokeWidth={2} />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+      title={`Switch to ${isDark ? "light" : "dark"} mode`}
+      className="h-8 size-8 shrink-0 gap-1.5 rounded-sm px-0 hover:bg-card text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+    >
+      {isDark ? (
+        <Sun className="size-4 text-amber-400" strokeWidth={1.8} />
+      ) : (
+        <Moon className="size-4 text-muted-foreground hover:text-foreground" strokeWidth={1.8} />
+      )}
+      <span className="sr-only">Toggle theme</span>
+    </Button>
   );
 }

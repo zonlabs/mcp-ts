@@ -93,6 +93,35 @@ const SELECT_COLUMNS = [
   "created_at",
 ].join(",");
 
+const METRICS_PAGE_SIZE = 1000;
+
+async function fetchAllMetricsEvents(supabase: any, userId: string) {
+  const allEvents: any[] = [];
+  let page = 0;
+
+  while (true) {
+    const from = page * METRICS_PAGE_SIZE;
+    const to = from + METRICS_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("mcp_tool_call_events")
+      .select(
+        "started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type"
+      )
+      .eq("user_id", userId)
+      .order("completed_at", { ascending: false })
+      .order("event_type", { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allEvents.push(...data);
+    if (data.length < METRICS_PAGE_SIZE) break;
+    page++;
+  }
+
+  return allEvents;
+}
+
 async function fetchServerUsageData(supabase: any, userId: string) {
   try {
     const [paginatedResult, metricsResult] = await Promise.all([
@@ -103,15 +132,7 @@ async function fetchServerUsageData(supabase: any, userId: string) {
         .eq("event_type", "top_level")
         .order("completed_at", { ascending: false })
         .range(0, 9),
-      supabase
-        .from("mcp_tool_call_events")
-        .select(
-          "started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type"
-        )
-        .eq("user_id", userId)
-        .order("completed_at", { ascending: false })
-        .order("event_type", { ascending: false })
-        .range(0, 999),
+      fetchAllMetricsEvents(supabase, userId),
     ]);
 
     const parentEvents = (paginatedResult.data ?? []) as any[];
@@ -145,7 +166,7 @@ async function fetchServerUsageData(supabase: any, userId: string) {
 
     return {
       groups,
-      metricsEvents: metricsResult.data ?? [],
+      metricsEvents: metricsResult ?? [],
       totalCount: paginatedResult.count ?? 0,
       currentPage: 1,
     };

@@ -123,21 +123,21 @@ function ThoughtSummaryTrigger({
   }, [isRunning]);
 
   return (
-    <div className="mb-2 flex max-w-full items-center gap-3 text-sm">
+    <div className="mb-1.5 flex max-w-full items-center gap-2 text-xs">
       <button
         type="button"
         onClick={onClick}
         aria-expanded={isExpanded}
         className={cn(
-          'inline-flex min-w-0 items-center gap-2 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground',
+          'inline-flex min-w-0 items-center gap-1.5 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground cursor-pointer font-medium',
           (isExpanded || isActive) && 'text-foreground'
         )}
       >
-        <BrainIcon className={cn('size-4 shrink-0', (isActive || isExpanded) && 'text-primary')} />
+        <BrainIcon className={cn('size-3.5 shrink-0', (isActive || isExpanded) && 'text-primary')} />
         <span className="truncate">{getThoughtSummaryLabel(duration, isRunning)}</span>
         <ChevronDownIcon
           className={cn(
-            'size-4 shrink-0 transition-transform',
+            'size-3.5 shrink-0 transition-transform',
             isExpanded && 'rotate-180'
           )}
         />
@@ -168,7 +168,7 @@ function MessageThoughtSection({
         onClick={onToggle}
       />
       {isOpen && hasVisibleReasoningText(chainOfThought.reasoningText) && (
-        <div className="mb-3 whitespace-pre-wrap text-[15px] leading-7 text-muted-foreground/90">
+        <div className="my-2 pl-3 border-l border-border/50 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/80 font-sans">
           {chainOfThought.reasoningText}
         </div>
       )}

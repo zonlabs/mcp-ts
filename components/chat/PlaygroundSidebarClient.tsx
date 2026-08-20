@@ -106,7 +106,6 @@ export function PlaygroundSidebarClient({
     { label: t("account"), href: "/settings/account", icon: User },
     { label: t("preferences"), href: "/settings/preferences", icon: SlidersHorizontal },
     { label: t("apiKeys"), href: "/settings/api-keys", icon: KeyRound },
-    { label: t("connectors"), href: "/settings/connectors", icon: Plug },
   ];
 
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Guest";

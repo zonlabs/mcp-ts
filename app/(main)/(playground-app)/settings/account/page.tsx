@@ -70,127 +70,129 @@ export default function AccountSettingsPage() {
   };
 
   return (
-    <div className="w-full max-w-3xl px-6 py-8 space-y-7 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="space-y-1 pb-4 border-b border-border">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">{t("accountTitle")}</h1>
-        <p className="text-xs text-muted-foreground">
-          {t("manageAccount")}
-        </p>
-      </div>
-
-      <div className="space-y-6">
-        {/* Section 1: Profile Details */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          <div className="space-y-1">
-            <h3 className="text-xs font-semibold text-foreground">{t("profile")}</h3>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Your profile name and email address.
-            </p>
-          </div>
-
-          <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3.5 shadow-xs">
-            <div className="flex items-center gap-3.5">
-              {userImage ? (
-                <Image
-                  src={userImage}
-                  alt={userName}
-                  width={44}
-                  height={44}
-                  className="rounded-full border border-border shrink-0"
-                />
-              ) : (
-                <div className="size-11 bg-background border border-border rounded-full flex items-center justify-center text-foreground font-semibold text-xs shrink-0">
-                  {userName.charAt(0).toUpperCase()}
-                </div>
-              )}
-
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-                {user?.email && (
-                  <p className="text-xs text-muted-foreground font-mono truncate">{user.email}</p>
-                )}
-              </div>
-            </div>
-          </div>
+    <div className="flex-1 h-full overflow-y-auto scrollbar-minimal w-full">
+      <div className="w-full max-w-3xl px-6 py-8 pb-20 space-y-7 animate-in fade-in duration-200">
+        {/* Header */}
+        <div className="space-y-1 pb-4 border-b border-border">
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">{t("accountTitle")}</h1>
+          <p className="text-xs text-muted-foreground">
+            {t("manageAccount")}
+          </p>
         </div>
 
-        {/* Section 2: Account Details */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
-          <div className="space-y-1">
-            <h3 className="text-xs font-semibold text-foreground">{t("accountInfo")}</h3>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Membership and verification status.
-            </p>
-          </div>
-
-          <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3 shadow-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-0.5">
-                <p className="text-[11px] text-muted-foreground">{t("memberSince")}</p>
-                <p className="text-xs font-medium text-foreground">{formatDate(user?.created_at)}</p>
-              </div>
-
-              <div className="space-y-0.5">
-                <p className="text-[11px] text-muted-foreground">{t("emailConfirmed")}</p>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                  <CheckCircle2 className="size-3.5" />
-                  <span>Verified</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Connected Providers */}
-        {user?.identities && user.identities.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
+        <div className="space-y-6">
+          {/* Section 1: Profile & Identity */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border first:pt-0 first:border-t-0">
             <div className="space-y-1">
-              <h3 className="text-xs font-semibold text-foreground">{t("connectedProviders")}</h3>
+              <h3 className="text-xs font-semibold text-foreground">{t("profile")}</h3>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                OAuth providers linked to your account.
+                Your profile name and email address.
               </p>
             </div>
 
-            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-2 shadow-xs">
-              {user.identities.map((identity) => (
-                <div
-                  key={identity.id}
-                  className="flex items-center justify-between py-1 border-b border-border/40 last:border-b-0"
-                >
-                  <div className="flex items-center gap-2.5">
-                    {getProviderIcon(identity.provider)}
-                    <span className="text-xs font-medium text-foreground capitalize">
-                      {identity.provider}
-                    </span>
+            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-4 shadow-xs">
+              <div className="flex items-center gap-3">
+                {userImage ? (
+                  <Image
+                    src={userImage}
+                    alt={userName}
+                    width={40}
+                    height={40}
+                    className="rounded-full border border-border object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="size-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
+                    {userName.charAt(0).toUpperCase()}
                   </div>
-
-                  <span className="text-[11px] text-muted-foreground font-mono">
-                    Connected {formatDate(identity.created_at)}
-                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground truncate">{userName}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{user?.email}</p>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Section 4: Sign Out Action */}
-        <div className="pt-4 border-t border-border flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-foreground">Sign out of workspace</p>
-            <p className="text-[11px] text-muted-foreground">End your active session on this browser.</p>
+          {/* Section 2: Account Telemetry */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
+            <div className="space-y-1">
+              <h3 className="text-xs font-semibold text-foreground">{t("accountInfo")}</h3>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Metadata and creation timestamp.
+              </p>
+            </div>
+
+            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between text-xs py-1 border-b border-border/40">
+                <span className="text-muted-foreground">User ID</span>
+                <span className="font-mono text-[11px] text-foreground select-all">{user?.id || "N/A"}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs py-1 border-b border-border/40">
+                <span className="text-muted-foreground">Joined Workspace</span>
+                <span className="text-foreground font-mono text-[11px]">{formatDate(user?.created_at)}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs py-1">
+                <span className="text-muted-foreground">Last Active</span>
+                <div className="flex items-center gap-1.5 text-foreground">
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-mono text-[11px]">Active now</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleSignOut}
-            className="h-7 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-border"
-          >
-            <LogOut className="size-3 mr-1.5" />
-            {t("signOut")}
-          </Button>
+          {/* Section 3: Connected Providers */}
+          {user?.identities && user.identities.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
+              <div className="space-y-1">
+                <h3 className="text-xs font-semibold text-foreground">{t("connectedProviders")}</h3>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  OAuth providers linked to your account.
+                </p>
+              </div>
+
+              <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-2 shadow-xs">
+                {user.identities.map((identity) => (
+                  <div
+                    key={identity.id}
+                    className="flex items-center justify-between py-1 border-b border-border/40 last:border-b-0"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {getProviderIcon(identity.provider)}
+                      <span className="text-xs font-medium text-foreground capitalize">
+                        {identity.provider}
+                      </span>
+                    </div>
+
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      Connected {formatDate(identity.created_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 4: Sign Out Action */}
+          <div className="pt-4 border-t border-border flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-foreground">Sign out of workspace</p>
+              <p className="text-[11px] text-muted-foreground">End your active session on this browser.</p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+              className="h-7 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-border"
+            >
+              <LogOut className="size-3 mr-1.5" />
+              {t("signOut")}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

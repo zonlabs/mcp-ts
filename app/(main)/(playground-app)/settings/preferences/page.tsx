@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Globe2, Languages, Palette, ShieldCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Globe2, Languages, Palette, ShieldCheck } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { ThemeSelector } from "@/components/chat/ThemeSelector";
 import {
@@ -123,7 +122,6 @@ export default function PreferencesPage() {
   const [preferences, setPreferences] = useState<AgentPreferences>(DEFAULT_AGENT_PREFERENCES);
   const [webLanguage, setWebLanguage] = useState("en-US");
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -135,7 +133,6 @@ export default function PreferencesPage() {
   useEffect(() => {
     if (!hasLoaded) return;
     writeAgentPreferencesToStorage(preferences);
-    setSavedAt(new Date());
   }, [preferences, hasLoaded]);
 
   useEffect(() => {
@@ -170,109 +167,104 @@ export default function PreferencesPage() {
   };
 
   return (
-    <div className="w-full max-w-3xl px-6 py-8 space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="pb-4 border-b border-border flex items-center justify-between gap-3">
-        <div className="space-y-1">
+    <div className="flex-1 h-full overflow-y-auto scrollbar-minimal w-full">
+      <div className="w-full max-w-3xl px-6 py-8 pb-20 space-y-6 animate-in fade-in duration-200">
+        {/* Header */}
+        <div className="pb-4 border-b border-border space-y-1">
           <h1 className="text-lg font-semibold tracking-tight text-foreground">{t("preferences")}</h1>
           <p className="text-xs text-muted-foreground">
             {t("chooseAgentBehavior")}
           </p>
         </div>
 
-        <Badge variant="outline" className="gap-1.5 h-6 text-[11px] border-border bg-card">
-          <CheckCircle2 className="size-3 text-emerald-400" />
-          <span>{savedAt ? t("saved") : t("local")}</span>
-        </Badge>
-      </div>
+        <div className="space-y-6">
+          <PreferenceRow
+            icon={Palette}
+            title={t("theme")}
+            description={t("themeDescription")}
+          >
+            <span className="text-xs text-muted-foreground">Theme Mode</span>
+            <ThemeSelector />
+          </PreferenceRow>
 
-      <div className="space-y-6">
-        <PreferenceRow
-          icon={Palette}
-          title={t("theme")}
-          description={t("themeDescription")}
-        >
-          <span className="text-xs text-muted-foreground">Theme Mode</span>
-          <ThemeSelector />
-        </PreferenceRow>
+          <PreferenceRow
+            icon={Globe2}
+            title={t("timezone")}
+            description={t("timezoneDescription")}
+          >
+            <div className="space-y-1 min-w-0 flex-1">
+              <Select
+                value={preferences.timezone}
+                onValueChange={(val) => updatePreferences({ timezone: val })}
+              >
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                  <SelectValue>{timezoneTriggerLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {TIMEZONE_OPTIONS.map((item) => (
+                    <SelectItem key={item.value} value={item.value} className="text-xs">
+                      {formatTimezoneOptionLabel(item.value, now)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground font-mono truncate">{timezoneCurrentTimeLabel}</p>
+            </div>
+          </PreferenceRow>
 
-        <PreferenceRow
-          icon={Globe2}
-          title={t("timezone")}
-          description={t("timezoneDescription")}
-        >
-          <div className="space-y-1 min-w-0 flex-1">
-            <Select
-              value={preferences.timezone}
-              onValueChange={(val) => updatePreferences({ timezone: val })}
-            >
-              <SelectTrigger className="h-8 text-xs bg-background border-border">
-                <SelectValue>{timezoneTriggerLabel}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {TIMEZONE_OPTIONS.map((item) => (
-                  <SelectItem key={item.value} value={item.value} className="text-xs">
-                    {formatTimezoneOptionLabel(item.value, now)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground font-mono truncate">{timezoneCurrentTimeLabel}</p>
-          </div>
-        </PreferenceRow>
+          <PreferenceRow
+            icon={Languages}
+            title={t("language")}
+            description={t("languageWebOnly")}
+          >
+            <div className="min-w-0 flex-1">
+              <Select
+                value={webLanguage}
+                onValueChange={(val) => {
+                  const opt = asWebLanguageOption(val);
+                  setWebLanguage(opt);
+                  writeWebLanguageToStorage(opt);
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WEB_LANGUAGE_OPTIONS.map((item) => (
+                    <SelectItem key={item.value} value={item.value} className="text-xs">
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </PreferenceRow>
 
-        <PreferenceRow
-          icon={Languages}
-          title={t("language")}
-          description={t("languageDescription")}
-        >
-          <div className="min-w-0 flex-1">
-            <Select
-              value={webLanguage}
-              onValueChange={(val) => {
-                const opt = asWebLanguageOption(val);
-                setWebLanguage(opt);
-                writeWebLanguageToStorage(opt);
-              }}
-            >
-              <SelectTrigger className="h-8 text-xs bg-background border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {WEB_LANGUAGE_OPTIONS.map((item) => (
-                  <SelectItem key={item.value} value={item.value} className="text-xs">
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </PreferenceRow>
-
-        <PreferenceRow
-          icon={ShieldCheck}
-          title={t("toolExecutionPolicy")}
-          description={t("toolExecutionPolicyDescription")}
-        >
-          <div className="space-y-1 min-w-0 flex-1">
-            <Select
-              value={preferences.toolApprovalMode}
-              onValueChange={(val) => updatePreferences({ toolApprovalMode: val as ToolApprovalMode })}
-            >
-              <SelectTrigger className="h-8 text-xs bg-background border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TOOL_POLICY_OPTIONS.map((item) => (
-                  <SelectItem key={item.value} value={item.value} className="text-xs">
-                    {t(item.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground font-mono">{policyDescription}</p>
-          </div>
-        </PreferenceRow>
+          <PreferenceRow
+            icon={ShieldCheck}
+            title={t("mcpToolApproval")}
+            description="Choose when the agent requires approval before executing MCP tools."
+          >
+            <div className="space-y-1 min-w-0 flex-1">
+              <Select
+                value={preferences.toolApprovalMode}
+                onValueChange={(val) => updatePreferences({ toolApprovalMode: val as ToolApprovalMode })}
+              >
+                <SelectTrigger className="h-8 text-xs bg-background border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TOOL_POLICY_OPTIONS.map((item) => (
+                    <SelectItem key={item.value} value={item.value} className="text-xs">
+                      {t(item.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground font-mono">{policyDescription}</p>
+            </div>
+          </PreferenceRow>
+        </div>
       </div>
     </div>
   );
