@@ -166,6 +166,7 @@ export class McpGatewayRegistry {
   private readonly searchStrategy = new BM25SearchStrategy();
   private indexedTools: IndexedTool[] = [];
   private readonly traffic: Traffic;
+  private version = 0;
 
   constructor(
     private readonly configs: Record<string, McpServerConfig>,
@@ -176,6 +177,10 @@ export class McpGatewayRegistry {
     } = {},
   ) {
     this.traffic = traffic ?? new Traffic();
+  }
+
+  getVersion(): number {
+    return this.version;
   }
 
   async start(): Promise<void> {
@@ -200,6 +205,7 @@ export class McpGatewayRegistry {
         }
       }),
     );
+    this.version++;
     await this.rebuildIndex();
   }
 
@@ -235,6 +241,8 @@ export class McpGatewayRegistry {
     catalog: CatalogSnapshot,
     invoke: (params: ToolCallParams) => Promise<unknown>,
   ): Promise<void> {
+    const isClearing = catalog.servers.length === 0;
+    const previousRemotes = new Map(this.remoteServers);
     const newRemotes = new Map<string, RemoteServer>();
     for (const descriptor of catalog.servers) {
       if (this.localConnections.has(descriptor.serverId)) {
@@ -242,11 +250,29 @@ export class McpGatewayRegistry {
       }
       newRemotes.set(descriptor.serverId, { descriptor, invoke });
     }
-    this.remoteServers.clear();
-    for (const [id, s] of newRemotes) {
-      this.remoteServers.set(id, s);
+
+    try {
+      this.remoteServers.clear();
+      for (const [id, s] of newRemotes) {
+        this.remoteServers.set(id, s);
+      }
+      this.version++;
+      await this.rebuildIndex();
+    } catch (error) {
+      if (!isClearing) {
+        this.remoteServers.clear();
+        for (const [id, s] of previousRemotes) {
+          this.remoteServers.set(id, s);
+        }
+        this.version++;
+        await this.rebuildIndex().catch(() => {});
+      } else {
+        this.remoteServers.clear();
+        await this.rebuildIndex().catch(() => {});
+        this.version++;
+      }
+      throw error;
     }
-    await this.rebuildIndex();
   }
 
   /**
@@ -320,6 +346,7 @@ export class McpGatewayRegistry {
     Object.assign(this.configs, newConfigs);
 
     // 3. Rebuild routes and BM25 index
+    this.version++;
     await this.rebuildIndex();
 
     // 4. Log reload event to traffic
@@ -365,17 +392,20 @@ export class McpGatewayRegistry {
   }
 
   private async rebuildIndex(): Promise<void> {
-    this.routes.clear();
-    this.routesById.clear();
     const routes = this.allRoutes();
     const counts = new Map<string, number>();
     for (const route of routes) counts.set(route.tool.name, (counts.get(route.tool.name) ?? 0) + 1);
+
+    const newRoutes = new Map<string, ToolRoute>();
+    const newRoutesById = new Map<string, ToolRoute>();
     const indexed: IndexedTool[] = [];
+
     for (const route of routes) {
       const toolId = canonicalToolId(route.serverId, route.tool.name);
-      route.exposedName = counts.get(route.tool.name) === 1 ? route.tool.name : toolId;
-      this.routes.set(route.exposedName, route);
-      this.routesById.set(toolId, route);
+      const exposedName = counts.get(route.tool.name) === 1 ? route.tool.name : toolId;
+      const routeCopy: ToolRoute = { ...route, exposedName };
+      newRoutes.set(exposedName, routeCopy);
+      newRoutesById.set(toolId, routeCopy);
       indexed.push({
         toolName: route.tool.name,
         description: route.tool.description ?? "",
@@ -385,6 +415,11 @@ export class McpGatewayRegistry {
         outputSchema: route.tool.outputSchema,
       });
     }
+
+    this.routes.clear();
+    for (const [k, v] of newRoutes) this.routes.set(k, v);
+    this.routesById.clear();
+    for (const [k, v] of newRoutesById) this.routesById.set(k, v);
     this.indexedTools = indexed;
   }
 
@@ -503,6 +538,7 @@ export class McpGatewayRegistry {
   }
 
   async close(): Promise<void> {
+    this.version++;
     await Promise.all([...this.localConnections.values()].map((connection) => connection.close()));
     this.localConnections.clear();
     this.remoteServers.clear();

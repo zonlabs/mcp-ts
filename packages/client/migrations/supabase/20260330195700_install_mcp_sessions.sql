@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.mcp_sessions (
     code_verifier TEXT,
     client_id TEXT,
     oauth_state JSONB,
+    metadata JSONB,               -- Caller-supplied key-value pairs, stored opaquely
     CONSTRAINT mcp_sessions_user_session_unique
         UNIQUE (user_id, session_id)
 );

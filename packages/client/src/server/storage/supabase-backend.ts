@@ -58,6 +58,7 @@ export class SupabaseStorageBackend implements SessionStore {
             clientId: row.client_id,
             oauthState: row.oauth_state,
             enabled: row.enabled ?? true,
+            metadata: row.metadata ?? undefined,
         };
     }
 
@@ -95,6 +96,7 @@ export class SupabaseStorageBackend implements SessionStore {
             auth_url: session.authUrl ?? null,
             status,
             expires_at: expiresAt === null ? null : new Date(expiresAt).toISOString(),
+            metadata: session.metadata ?? null,
         };
 
         const toolPolicy = normalizeToolPolicy(session.toolPolicy);
@@ -135,6 +137,7 @@ export class SupabaseStorageBackend implements SessionStore {
         if ('authUrl' in data) updateData.auth_url = data.authUrl ?? null;
         if ('toolPolicy' in data) updateData.tool_policy = normalizeToolPolicy(data.toolPolicy);
         if ('enabled' in data) updateData.enabled = data.enabled;
+        if ('metadata' in data) updateData.metadata = data.metadata ?? null;
 
         const shouldUpdateSession = Object.keys(updateData).some((key) => key !== 'updated_at');
 

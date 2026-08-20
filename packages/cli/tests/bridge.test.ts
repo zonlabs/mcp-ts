@@ -224,4 +224,81 @@ describe("RemoteBridgeClient", () => {
       vi.useRealTimers();
     }
   });
+
+  it("resets ready state across disconnect and resolves again upon reconnect initialize", async () => {
+    vi.useFakeTimers();
+    try {
+      const sockets: FakeSocket[] = [];
+      const socketFactory: BridgeSocketFactory = vi.fn(() => {
+        const s = new FakeSocket();
+        sockets.push(s);
+        return s;
+      });
+      const state = setup({ socketFactory, reconnectInitialDelayMs: 100 });
+      await state.bridge.start();
+
+      const socket1 = sockets[0];
+      socket1.open();
+
+      const init1 = JSON.parse(socket1.sent[0]);
+      socket1.receive(
+        createSuccessResponse(init1.id, {
+          protocolVersion: BRIDGE_PROTOCOL_VERSION,
+          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          remoteCatalog: { servers: [] },
+        }),
+      );
+
+      // Flush initialize microtasks
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should be ready
+      const ready1 = await state.bridge.waitForReady(500);
+      expect(ready1).toBe(true);
+
+      // Socket disconnects with abnormal closure code 1006 (triggers reconnect)
+      socket1.close(1006, "connection dropped");
+
+      // After disconnect, waitForReady should timeout to false
+      const waitDisconnected = state.bridge.waitForReady(50);
+      await vi.advanceTimersByTimeAsync(50);
+      expect(await waitDisconnected).toBe(false);
+
+      // Advance timers to trigger reconnect
+      await vi.advanceTimersByTimeAsync(150);
+      expect(sockets.length).toBe(2);
+
+      const socket2 = sockets[1];
+      socket2.open();
+
+      const init2 = JSON.parse(socket2.sent[0]);
+      socket2.receive(
+        createSuccessResponse(init2.id, {
+          protocolVersion: BRIDGE_PROTOCOL_VERSION,
+          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          remoteCatalog: { servers: [] },
+        }),
+      );
+
+      // Flush reconnect initialize microtasks
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Should resolve again upon reconnect initialize
+      const readyAfterReconnect = await state.bridge.waitForReady(500);
+      expect(readyAfterReconnect).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("resolves waitForReady with false immediately when stopped", async () => {
+    const state = setup();
+    await state.bridge.start();
+    const waitPromise = state.bridge.waitForReady(10_000);
+    await state.bridge.stop();
+    const result = await waitPromise;
+    expect(result).toBe(false);
+  });
 });

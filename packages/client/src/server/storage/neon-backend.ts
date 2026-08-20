@@ -104,6 +104,7 @@ export class NeonStorageBackend implements SessionStore {
             clientId: row.client_id ?? undefined,
             oauthState: row.oauth_state as Session['oauthState'],
             enabled: row.enabled ?? true,
+            metadata: (row as any).metadata ?? undefined,
         };
     }
 
@@ -148,6 +149,11 @@ export class NeonStorageBackend implements SessionStore {
             values.push(toolPolicy);
         }
 
+        if (session.metadata) {
+            columns.push('metadata');
+            values.push(session.metadata);
+        }
+
         const placeholders = values.map((_, i) => `$${i + 1}`);
 
         try {
@@ -184,7 +190,8 @@ export class NeonStorageBackend implements SessionStore {
             'headers' in data ||
             'authUrl' in data ||
             'toolPolicy' in data ||
-            'enabled' in data
+            'enabled' in data ||
+            'metadata' in data
         );
 
         if (shouldUpdateSession) {
@@ -215,6 +222,10 @@ export class NeonStorageBackend implements SessionStore {
 
             if ('enabled' in data) {
                 addSet('enabled', updatedSession.enabled);
+            }
+
+            if ('metadata' in data) {
+                addSet('metadata', updatedSession.metadata ?? null);
             }
 
             setClauses.push('updated_at = now()');

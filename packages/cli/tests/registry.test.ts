@@ -73,4 +73,64 @@ describe("McpGatewayRegistry", () => {
     await registry.close();
     expect(close).toHaveBeenCalledOnce();
   });
+
+  it("increments version counter on catalog mutations", async () => {
+    const registry = new McpGatewayRegistry({});
+    const initialVersion = registry.getVersion();
+    expect(initialVersion).toBe(0);
+
+    await registry.start();
+    expect(registry.getVersion()).toBe(1);
+
+    await registry.replaceRemoteCatalog({
+      servers: [
+        {
+          serverId: "remote-test",
+          serverName: "Remote Test",
+          tools: [{ name: "test_tool", inputSchema: { type: "object" } }],
+        },
+      ],
+    }, vi.fn());
+    expect(registry.getVersion()).toBe(2);
+
+    await registry.close();
+    expect(registry.getVersion()).toBe(3);
+  });
+
+  it("rolls back remote catalog if error occurs during replacement", async () => {
+    const registry = new McpGatewayRegistry({});
+    const initialRemote: CatalogSnapshot = {
+      servers: [
+        {
+          serverId: "stable-server",
+          serverName: "Stable",
+          tools: [{ name: "stable_tool", inputSchema: { type: "object" } }],
+        },
+      ],
+    };
+    await registry.replaceRemoteCatalog(initialRemote, vi.fn());
+    expect(registry.getRemoteCatalog().servers).toHaveLength(1);
+
+    // Mock rebuildIndex to throw error
+    const spy = vi.spyOn(registry as unknown as { rebuildIndex: () => Promise<void> }, "rebuildIndex").mockRejectedValueOnce(new Error("Index build failed"));
+
+    try {
+      await expect(
+        registry.replaceRemoteCatalog({
+          servers: [
+            {
+              serverId: "broken-server",
+              serverName: "Broken",
+              tools: [{ name: "broken_tool", inputSchema: { type: "object" } }],
+            },
+          ],
+        }, vi.fn())
+      ).rejects.toThrow("Index build failed");
+
+      // Must rollback to initialRemote
+      expect(registry.getRemoteCatalog().servers[0].serverId).toBe("stable-server");
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });

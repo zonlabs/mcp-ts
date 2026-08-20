@@ -228,6 +228,12 @@ export interface ConnectParams {
   headers?: Record<string, string>;
   clientId?: string;
   clientSecret?: string;
+  /**
+   * Arbitrary caller-supplied key-value pairs stored alongside the session.
+   * The library stores this opaquely and never reads or interprets it.
+   * Use it to attach your own reference IDs (e.g. a catalog server ID, tenant ID, etc.).
+   */
+  metadata?: Record<string, string>;
 }
 
 export interface DisconnectParams {
@@ -318,6 +324,8 @@ export interface SessionInfo {
   protocolEra?: ProtocolEra | null;
   protocolVersion?: string | null;
   discoverResult?: DiscoverResult | null;
+  /** Caller-supplied metadata, stored and returned opaquely. */
+  metadata?: Record<string, string>;
 }
 
 export interface SessionListResult {
