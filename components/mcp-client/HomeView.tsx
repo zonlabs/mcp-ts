@@ -83,18 +83,18 @@ export function HomeView({
   }, []);
 
   // Fetch featured servers first, falling back to public servers
-  const { servers: featuredServers } = usePublicServers({ pageSize: 8, featured: true });
-  const { servers: fallbackServers } = usePublicServers({ pageSize: 8 });
+  const { servers: featuredServers } = usePublicServers({ pageSize: 20, featured: true });
+  const { servers: fallbackServers } = usePublicServers({ pageSize: 20 });
 
   const userDisplayName =
     userSession?.user?.user_metadata?.full_name ||
     userSession?.user?.email ||
     "Developer";
 
-  // Show featured servers if available, else first 8 public servers
+  // Show featured servers if available, else first 20 public servers
   const popularServers = useMemo(() => {
-    if (featuredServers.length > 0) return featuredServers.slice(0, 8);
-    return fallbackServers.filter((s) => s.isPublic !== false).slice(0, 8);
+    if (featuredServers.length > 0) return featuredServers.slice(0, 20);
+    return fallbackServers.filter((s) => s.isPublic !== false).slice(0, 20);
   }, [featuredServers, fallbackServers]);
 
   const totalToolCalls = usageData?.totalCount ?? 0;

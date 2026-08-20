@@ -33,6 +33,7 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { SearchDialog } from "@/components/layout/SearchDialog";
+import { ShareConversationDialog } from "@/components/chat/ShareConversationDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -171,7 +172,7 @@ function ChatItem({
     <Link
       href={`/chat/${chat.id}`}
       className={cn(
-        "group flex items-start justify-between gap-1 px-2 py-1.5 rounded-sm transition-colors",
+        "group flex items-start justify-between gap-1 px-2 py-1 rounded-sm transition-colors",
         isActive
           ? "bg-sidebar-accent text-sidebar-foreground font-medium"
           : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
@@ -180,7 +181,12 @@ function ChatItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 min-w-0">
           {chat.is_pinned && (
-            <Pin className="size-[18px] shrink-0 text-muted-foreground" />
+            <Pin className="size-3.5 shrink-0 text-foreground/75" strokeWidth={2.4} />
+          )}
+          {chat.visibility === "PUBLIC" && (
+            <span title="Publicly shared" className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label="Publicly shared">
+              <Share2 className="size-3.5 shrink-0" strokeWidth={2.4} />
+            </span>
           )}
           <p className="text-[13px] font-medium leading-snug truncate">
             {chat.title || "New Chat"}
@@ -201,119 +207,7 @@ function ChatItem({
   );
 }
 
-/* ─── Share Dialog ─────────────────────────────────────────────────────────── */
 
-function SidebarShareDialog({
-  open,
-  onOpenChange,
-  shareVisibility,
-  shareCopyMessage,
-  onVisibilityChange,
-  onSaveShare,
-  onCopyShareLink,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  shareVisibility: "PRIVATE" | "PUBLIC";
-  shareCopyMessage: string | null;
-  onVisibilityChange: (value: "PRIVATE" | "PUBLIC") => void;
-  onSaveShare: (nextVisibility?: "PRIVATE" | "PUBLIC") => Promise<void>;
-  onCopyShareLink: () => Promise<void>;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-h-[85vh] max-w-xs overflow-y-auto border-border/70 bg-card p-5 text-foreground shadow-2xl sm:max-w-sm">
-        <div className="space-y-5">
-          <DialogHeader className="space-y-1 pr-6">
-            <DialogTitle className="text-base font-semibold leading-none">Share Conversation</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex items-start gap-3 rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-amber-700 dark:text-amber-300">
-            <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm bg-amber-500/10">
-              <AlertTriangle className="size-3.5" />
-            </div>
-            <p className="text-xs font-medium leading-relaxed">This may contain personal information. Review before sharing.</p>
-          </div>
-
-          <div className="space-y-2">
-            {([
-              { value: "PRIVATE", label: "Private", description: "Only you have access" },
-              { value: "PUBLIC", label: "Public Access", description: "Anyone with the link can view" },
-            ] as const).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={async () => {
-                  onVisibilityChange(option.value);
-                  await onSaveShare(option.value);
-                }}
-                className={cn(
-                  "group w-full rounded-md border px-3 py-2.5 text-left transition-colors cursor-pointer",
-                  shareVisibility === option.value
-                    ? "border-primary/45 bg-primary/10"
-                    : "border-border bg-background hover:bg-card/80"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-sm transition-colors",
-                      shareVisibility === option.value
-                        ? "bg-primary/15 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {option.value === "PRIVATE" ? (
-                      <Lock className="size-4" />
-                    ) : (
-                      <Globe className="size-4" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold">{option.label}</span>
-                      <span className="ml-auto inline-flex size-4 items-center justify-center rounded-full border border-muted-foreground/25">
-                        {shareVisibility === option.value ? (
-                          <CheckCircle2 className="size-3.5 text-emerald-500" />
-                        ) : null}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">{option.description}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-2 pt-1">
-            <button
-              onClick={() => void onCopyShareLink()}
-              disabled={shareVisibility !== "PUBLIC"}
-              className={cn(
-                "inline-flex w-full items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium transition-colors",
-                shareVisibility === "PUBLIC"
-                  ? "cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "cursor-not-allowed bg-muted text-muted-foreground"
-              )}
-            >
-              {shareCopyMessage ? (
-                <>
-                  <CheckCircle2 className="size-3.5" />
-                  <span>{shareCopyMessage}</span>
-                </>
-              ) : (
-                <>
-                  <span>Copy Link</span>
-                  <LinkIcon className="size-3.5" />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 interface AppShellProps {
   children: ReactNode;
@@ -613,28 +507,35 @@ export function AppShell({
         {/* Brand / Top Bar */}
         <div
           className={cn(
-            "h-14 flex items-center shrink-0",
+            "h-11 flex items-center shrink-0 border-b border-sidebar-border/40",
             isMobile
-              ? "justify-between px-4 border-b border-sidebar-border/50"
+              ? "justify-between px-3"
               : isExpanded
-                ? "justify-end px-4"
+                ? "justify-between px-3"
                 : "justify-center"
           )}
         >
-          {isMobile ? (
-            <>
-              <span className="text-xs font-mono uppercase tracking-wider text-sidebar-foreground/70 font-semibold">
-                Menu
+          {isExpanded && (
+            <Link
+              href="/mcp?tab=home"
+              onClick={() => isMobile && setMobileDrawerOpen(false)}
+              className="flex items-center gap-1.5 select-none hover:opacity-85 transition-opacity"
+            >
+              <span className="text-[13px] font-bold tracking-tight text-foreground">
+                MCP <span className="font-medium text-muted-foreground">Assistant</span>
               </span>
-              <button
-                onClick={() => setMobileDrawerOpen(false)}
-                className="p-1.5 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                title="Close menu"
-                aria-label="Close navigation menu"
-              >
-                <X className="size-[18px]" />
-              </button>
-            </>
+            </Link>
+          )}
+
+          {isMobile ? (
+            <button
+              onClick={() => setMobileDrawerOpen(false)}
+              className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+              title="Close menu"
+              aria-label="Close navigation menu"
+            >
+              <X className="size-4" />
+            </button>
           ) : (
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -643,29 +544,29 @@ export function AppShell({
               aria-label="Toggle sidebar"
             >
               {sidebarOpen ? (
-                <PanelLeftClose className="size-[18px]" />
+                <PanelLeftClose className="size-4" />
               ) : (
-                <PanelLeftOpen className="size-[18px]" />
+                <PanelLeftOpen className="size-4" />
               )}
             </button>
           )}
         </div>
 
         {/* Nav */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-minimal">
+        <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-0.5 scrollbar-minimal">
           {/* Main Links */}
           <Link
             href="/mcp?tab=home"
             onClick={() => isMobile && setMobileDrawerOpen(false)}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-[13px] font-medium transition-all text-left",
+              "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13px] font-medium transition-all text-left",
               !isExpanded && "justify-center px-0",
               currentNav === "home"
                 ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
                 : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
             )}
           >
-            <Home className="size-[18px] shrink-0" />
+            <Home className="size-4 shrink-0" />
             {isExpanded && <span>Home</span>}
           </Link>
 
@@ -673,14 +574,14 @@ export function AppShell({
             href="/mcp?tab=apps"
             onClick={() => isMobile && setMobileDrawerOpen(false)}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-[13px] font-medium transition-all text-left",
+              "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13px] font-medium transition-all text-left",
               !isExpanded && "justify-center px-0",
               currentNav === "apps"
                 ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
                 : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
             )}
           >
-            <LayoutGrid className="size-[18px] shrink-0" />
+            <LayoutGrid className="size-4 shrink-0" />
             {isExpanded && <span>Apps</span>}
           </Link>
 
@@ -689,58 +590,58 @@ export function AppShell({
             href="/chat"
             onClick={() => isMobile && setMobileDrawerOpen(false)}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-[13px] font-medium transition-all text-left mt-1",
+              "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13px] font-medium transition-all text-left",
               !isExpanded && "justify-center px-0",
               currentNav === "chat" && !currentChatId
                 ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
                 : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
             )}
           >
-            <SquarePen className="size-[18px] shrink-0" />
+            <SquarePen className="size-4 shrink-0" />
             {isExpanded && <span>New Chat</span>}
           </Link>
 
           {/* History */}
           {isExpanded && allChats.length > 0 && (
-            <div className="pt-1">
+            <div className="pt-0.5">
               <button
                 onClick={() => setHistoryOpen((o) => !o)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-sm transition-colors cursor-pointer"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 text-[13px] font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-sm transition-colors cursor-pointer"
               >
-                <div className="flex items-center gap-2">
-                  <Clock className="size-[18px] text-sidebar-foreground/60" />
+                <div className="flex items-center gap-2.5">
+                  <Clock className="size-4 text-sidebar-foreground/60" />
                   <span>History</span>
                 </div>
                 {historyOpen ? (
-                  <ChevronDown className="size-[18px] text-sidebar-foreground/60" />
+                  <ChevronDown className="size-4 text-sidebar-foreground/60" />
                 ) : (
-                  <ChevronRight className="size-[18px] text-sidebar-foreground/60" />
+                  <ChevronRight className="size-4 text-sidebar-foreground/60" />
                 )}
               </button>
 
               {historyOpen && (
-                <div className="mt-1 space-y-2">
-                  <p className="px-2 pt-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                <div className="mt-1 space-y-1">
+                  <p className="px-1.5 pt-0.5 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
                     Your Chats
                   </p>
-                  <div className="relative px-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-[18px] text-sidebar-foreground/50" />
+                  <div className="relative px-0.5">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-sidebar-foreground/50" />
                     <input
                       type="text"
                       placeholder="Search chats"
                       value={chatSearch}
                       onChange={(e) => setChatSearch(e.target.value)}
-                      className="w-full h-8 pl-8 pr-3 text-xs bg-sidebar-accent/40 border border-sidebar-border rounded-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:border-sidebar-foreground/40 transition-colors font-sans"
+                      className="w-full h-7.5 pl-7 pr-2.5 text-xs bg-sidebar-accent/40 border border-sidebar-border rounded-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:border-sidebar-foreground/40 transition-colors font-sans"
                     />
                   </div>
 
                   {/* Pinned */}
                   {pinned.length > 0 && (
                     <div>
-                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                      <p className="px-1.5 py-0.5 pt-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
                         Pinned
                       </p>
-                      <div className="space-y-0.5 px-1">
+                      <div className="space-y-0.5 px-0.5">
                         {pinned.map((chat) => (
                           <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
                             <ChatItem
@@ -1015,7 +916,7 @@ export function AppShell({
       </div>
 
       {/* Share Dialog */}
-      <SidebarShareDialog
+      <ShareConversationDialog
         open={Boolean(shareChat)}
         onOpenChange={(open) => {
           if (!open) {
@@ -1023,6 +924,7 @@ export function AppShell({
             setShareCopyMessage(null);
           }
         }}
+        chatId={shareChat?.id}
         shareVisibility={shareVisibility}
         shareCopyMessage={shareCopyMessage}
         onVisibilityChange={setShareVisibility}

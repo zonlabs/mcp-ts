@@ -10,15 +10,10 @@ import {
   LayoutGrid,
   X,
   KeyRound,
-  Lock,
-  Globe,
-  AlertTriangle,
-  CheckCircle2,
-  Plug,
+  Share2,
   Search,
   MoreHorizontal,
   ArrowUpRight,
-  Link,
   User,
   SlidersHorizontal,
   ExternalLink,
@@ -32,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
+import { ShareConversationDialog } from "@/components/chat/ShareConversationDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -441,21 +437,31 @@ export function PlaygroundSidebarClient({
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <div
         className={cn(
-          "flex flex-shrink-0 items-center px-3 pb-3 pt-3",
-          expanded ? "justify-start" : "justify-center"
+          "flex flex-shrink-0 items-center px-3 h-11 border-b border-border/40",
+          expanded ? "justify-between" : "justify-center"
         )}
       >
+        {expanded && (
+          <button
+            onClick={() => onNavigate("/mcp?tab=home")}
+            className="flex items-center gap-1.5 select-none hover:opacity-85 transition-opacity text-left"
+          >
+            <span className="text-[13px] font-bold tracking-tight text-foreground">
+              MCP <span className="font-medium text-muted-foreground">Assistant</span>
+            </span>
+          </button>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={onToggleSidebar}
-              className="group flex cursor-pointer items-center rounded-md p-2 transition-colors hover:bg-accent/50"
+              className="group flex cursor-pointer items-center rounded-md p-1 transition-colors hover:bg-accent/50 text-muted-foreground hover:text-foreground"
               aria-label={toggleLabel}
             >
               {expanded ? (
-                <PanelLeftClose className="h-6 w-6 text-primary transition-colors group-hover:text-primary/80" />
+                <PanelLeftClose className="h-4 w-4 transition-colors" />
               ) : (
-                <PanelLeftOpen className="h-6 w-6 text-primary transition-colors group-hover:text-primary/80" />
+                <PanelLeftOpen className="h-4 w-4 transition-colors" />
               )}
             </button>
           </TooltipTrigger>
@@ -636,10 +642,10 @@ export function PlaygroundSidebarClient({
         </DialogContent>
       </Dialog>
 
-      <SidebarShareDialog
+      <ShareConversationDialog
         open={isShareOpen}
         onOpenChange={setIsShareOpen}
-        t={t}
+        chatId={shareChatId}
         shareVisibility={shareVisibility}
         shareCopyMessage={shareCopyMessage}
         onVisibilityChange={setShareVisibility}
@@ -909,7 +915,12 @@ function SidebarHistoryPanel({
                 ) : (
                   <button onClick={() => onNavigate(`/chat/${chat.id}`)} className="w-full text-left">
                     <span className="flex items-center gap-1.5">
-                      {chat.is_pinned && <Pin className="h-3 w-3 shrink-0 fill-current" />}
+                      {chat.is_pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-foreground/75" strokeWidth={2.4} />}
+                      {chat.visibility === "PUBLIC" && (
+                        <span title="Publicly shared" className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label="Publicly shared">
+                          <Share2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} />
+                        </span>
+                      )}
                       <span className="block truncate text-[15px]">{formatChatTitle(chat.title)}</span>
                     </span>
                     <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/70">
@@ -1011,121 +1022,5 @@ function SidebarHistoryPanel({
         )}
       </div>
     </>
-  );
-}
-
-interface SidebarShareDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  t: TranslateFn;
-  shareVisibility: "PRIVATE" | "PUBLIC";
-  shareCopyMessage: string | null;
-  onVisibilityChange: (value: "PRIVATE" | "PUBLIC") => void;
-  onSaveShare: (nextVisibility?: "PRIVATE" | "PUBLIC") => Promise<void>;
-  onCopyShareLink: () => Promise<void>;
-}
-
-function SidebarShareDialog({
-  open,
-  onOpenChange,
-  t,
-  shareVisibility,
-  shareCopyMessage,
-  onVisibilityChange,
-  onSaveShare,
-  onCopyShareLink,
-}: SidebarShareDialogProps) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-h-[85vh] max-w-xs overflow-y-auto border-border/70 bg-background p-5 text-foreground shadow-2xl sm:max-w-sm">
-        <div className="space-y-5">
-          <DialogHeader className="space-y-1 pr-6">
-            <DialogTitle className="text-lg font-semibold leading-none">{t("shareConversation")}</DialogTitle>
-          </DialogHeader>
-
-          <div className="flex items-start gap-3 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-3 text-amber-700 dark:text-amber-300">
-            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-            <p className="text-xs font-medium leading-5">{t("shareWarning")}</p>
-          </div>
-
-          <div className="space-y-2">
-            {([
-              { value: "PRIVATE", label: t("private"), description: t("onlyYouAccess") },
-              { value: "PUBLIC", label: t("publicAccess"), description: t("anyoneWithLink") },
-            ] as const).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={async () => {
-                  onVisibilityChange(option.value);
-                  await onSaveShare(option.value);
-                }}
-                className={cn(
-                  "group w-full rounded-lg border px-3 py-3 text-left transition-colors",
-                  shareVisibility === option.value
-                    ? "border-primary/45 bg-primary/10"
-                    : "border-border/70 bg-muted/15 hover:bg-accent/35"
-                )}
-              >
-                <div className="flex items-center gap-3.5">
-                  <div
-                    className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors",
-                      shareVisibility === option.value
-                        ? "bg-primary/15 text-primary"
-                        : "bg-muted/40 text-muted-foreground"
-                    )}
-                  >
-                    {option.value === "PRIVATE" ? (
-                      <Lock className="h-4.5 w-4.5" />
-                    ) : (
-                      <Globe className="h-4.5 w-4.5" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold">{option.label}</span>
-                      <span className="ml-auto inline-flex h-4.5 w-4.5 items-center justify-center rounded-full border border-muted-foreground/25">
-                        {shareVisibility === option.value ? (
-                          <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
-                        ) : null}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{option.description}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-2 pt-1">
-            <button
-              onClick={() => void onCopyShareLink()}
-              disabled={shareVisibility !== "PUBLIC"}
-              className={cn(
-                "inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/70 px-3 py-2.5 text-sm font-medium transition-colors",
-                shareVisibility === "PUBLIC"
-                  ? "cursor-pointer bg-foreground text-background hover:bg-foreground/90"
-                  : "cursor-not-allowed bg-muted text-muted-foreground"
-              )}
-            >
-              {shareCopyMessage ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>{shareCopyMessage}</span>
-                </>
-              ) : (
-                <>
-                  <span>{t("copyLink")}</span>
-                  <Link className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
