@@ -3,6 +3,9 @@ import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import toast from 'react-hot-toast';
 import type { McpServer, ToolInfo, ToolAccessResult, ToolPolicy } from '@/types/mcp';
 import { normalizeServerUrl } from '@/lib/url';
+import type { McpConnection } from '@mcp-ts/client/react';
+
+export type { McpConnection };
 
 /**
  * Stored Connection Type
@@ -57,6 +60,8 @@ export interface StoredConnection {
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
   connectedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   error?: string;
   /** Caller-supplied metadata, stored and returned opaquely. */
   metadata?: Record<string, string>;
@@ -538,6 +543,16 @@ export const useMcpStore = create<McpStore>()(
               if (!val?.sessionId) return acc;
               const normalizedStatus = normalizeConnectionStatus(val.state);
               const existing = get().connections[val.sessionId];
+
+              const rawCreatedAt = val.createdAt
+                ? (val.createdAt instanceof Date ? val.createdAt.toISOString() : String(val.createdAt))
+                : undefined;
+              const rawUpdatedAt = val.updatedAt
+                ? (val.updatedAt instanceof Date ? val.updatedAt.toISOString() : String(val.updatedAt))
+                : undefined;
+              const connectedAt = rawCreatedAt || existing?.connectedAt || new Date().toISOString();
+              const updatedAt = rawUpdatedAt || existing?.updatedAt || connectedAt;
+
               acc[val.sessionId] = {
                 sessionId: val.sessionId,
                 serverId: val.serverId || val.identity,
@@ -552,7 +567,9 @@ export const useMcpStore = create<McpStore>()(
                 resourceTemplates: val.resourceTemplates ?? existing?.resourceTemplates,
                 toolPolicy: val.toolPolicy,
                 enabled: val.enabled ?? existing?.enabled ?? true,
-                connectedAt: new Date().toISOString(),
+                connectedAt,
+                createdAt: rawCreatedAt ?? existing?.createdAt ?? connectedAt,
+                updatedAt,
                 error: val.error,
                 metadata: val.metadata ?? existing?.metadata,
               };
@@ -644,7 +661,7 @@ export const useMcpStore = create<McpStore>()(
                 ? prevActiveCount + 1
                 : prevActiveCount;
 
-            const stampConnectedAt = isNowConnected && !connection.connectedAt;
+            const stampConnectedAt = isNowConnected && (!wasConnected || !connection.connectedAt);
 
             return {
               connections: {
@@ -653,7 +670,8 @@ export const useMcpStore = create<McpStore>()(
                   ...connection,
                   connectionStatus: normalizedStatus,
                   ...(tools && { tools }),
-                  ...(stampConnectedAt ? { connectedAt: new Date().toISOString() } : {}),
+                  updatedAt: new Date().toISOString(),
+                  ...(stampConnectedAt ? { connectedAt: new Date().toISOString(), createdAt: connection.createdAt || new Date().toISOString() } : {}),
                 },
               },
               activeConnectionCount: newActiveCount,

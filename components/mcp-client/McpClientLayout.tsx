@@ -24,8 +24,8 @@ const ToolExecutionPanel = dynamic(() => import("./ToolExecutionPanel"), {
 interface McpClientLayoutProps {
   session: UserSession | null;
   userSession?: UserSession | null;
-  onServerAdd: (data: Record<string, unknown>) => Promise<void>;
-  onServerUpdate: (data: Record<string, unknown>) => Promise<void>;
+  onServerAdd: (data: Record<string, unknown>) => Promise<any>;
+  onServerUpdate: (data: Record<string, unknown>) => Promise<any>;
   onServerDelete: (serverId: string) => Promise<void>;
   onServerAction: (server: McpServer, action: "activate" | "deactivate") => Promise<unknown>;
   initialSelectedServer?: McpServer | null;
@@ -107,10 +107,12 @@ export default function McpClientLayout({
 
   // Handle navigating to an App detail
   const handleSelectApp = useCallback(
-    (app: McpServer) => {
+    (appOrId: McpServer | string) => {
+      const serverId = typeof appOrId === "string" ? appOrId : appOrId.id;
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", "apps");
-      params.set("server", app.id);
+      params.set("server", serverId);
+      params.delete("view");
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [router, pathname, searchParams]
@@ -219,8 +221,14 @@ export default function McpClientLayout({
                 <ServerForm
                   mode="add"
                   onSubmit={async (data) => {
-                    await onServerAdd(data);
-                    handleBackToApps();
+                    const result = await onServerAdd(data);
+                    const serverId = result?.server?.id;
+                    if (serverId) {
+                      handleSelectApp(serverId);
+                    } else {
+                      handleBackToApps();
+                    }
+                    return result;
                   }}
                   onCancel={handleBackToApps}
                   session={userSession || session}
@@ -233,6 +241,7 @@ export default function McpClientLayout({
               userSession={userSession || session}
               onBack={handleBackToApps}
               onAction={onServerAction}
+              onDelete={onServerDelete}
               onTestTool={handleTestTool}
             />
           ) : currentView === "apps" ? (
@@ -240,6 +249,7 @@ export default function McpClientLayout({
               userSession={userSession || session}
               onSelectApp={handleSelectApp}
               onAction={onServerAction}
+              onDeleteApp={onServerDelete}
               onAddApp={handleAddApp}
             />
           ) : (

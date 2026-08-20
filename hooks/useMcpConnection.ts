@@ -9,8 +9,9 @@ import {
 } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
 
-// Re-export StoredConnection for backward compatibility
-export type { StoredConnection };
+// Re-export StoredConnection & McpConnection
+import type { McpConnection } from '@mcp-ts/client/react';
+export type { StoredConnection, McpConnection };
 
 interface UseMcpConnectionProps {
   servers?: McpServer[] | null;

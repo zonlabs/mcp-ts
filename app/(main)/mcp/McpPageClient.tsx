@@ -55,6 +55,7 @@ export default function McpPageClient({
       if (!response.ok || result.error) {
         throw new Error(result.error || "Failed to add server");
       }
+      return result;
     },
     []
   );

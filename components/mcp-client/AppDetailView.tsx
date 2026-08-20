@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -36,8 +36,9 @@ import { ServerIcon } from "@/components/common/ServerIcon";
 import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ToolAccessDialog } from "./ToolAccessDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,7 @@ interface AppDetailViewProps {
   userSession: UserSession | null;
   onBack: () => void;
   onAction: (server: McpServer, action: "activate" | "deactivate") => Promise<unknown>;
+  onDelete?: (serverId: string) => Promise<void>;
   onTestTool?: (toolName: string) => void;
 }
 
@@ -67,21 +69,56 @@ export function AppDetailView({
   userSession,
   onBack,
   onAction,
+  onDelete,
   onTestTool,
 }: AppDetailViewProps) {
   const connections = useMcpStore((s) => s.connections);
+  const userServers = useMcpStore((s) => s.userServers);
   const updateSession = useMcpStore((s) => s.mcpActions?.updateSession);
   const stored = useMemo(
     () => findConnectionForServer(connections, server),
     [connections, server]
   );
 
+  const isOwner = Boolean(
+    userSession?.user?.id && (
+      server.owner === userSession.user.id ||
+      userServers.some((s) => s.id === server.id) ||
+      (!server.isVerified && !server.isPublic)
+    )
+  );
+
   const [activeAccordion, setActiveAccordion] = useState<string | null>("read");
   const [expandedToolName, setExpandedToolName] = useState<string | null>(null);
   const [toolAccessOpen, setToolAccessOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isActionPending, setIsActionPending] = useState(false);
-  const [isTogglingEnabled, setIsTogglingEnabled] = useState(false);
+  const [optimisticEnabled, setOptimisticEnabled] = useState<boolean | null>(null);
+  const [enableError, setEnableError] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
+
+  // Sync optimistic state when stored enabled state updates
+  useEffect(() => {
+    setOptimisticEnabled(null);
+    setEnableError(null);
+  }, [stored?.enabled]);
+
+  const handleDeleteServer = async () => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(server.id);
+      void useMcpStore.getState().fetchUserServers();
+      toast.success(`${server.name} deleted successfully`);
+      setDeleteConfirmOpen(false);
+      onBack();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete server");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const connStatus = (stored?.connectionStatus ?? server.connectionStatus)?.toUpperCase();
   const isConnected = connStatus === "READY" || connStatus === "CONNECTED";
@@ -97,7 +134,7 @@ export function AppDetailView({
     ].includes(connStatus))
   );
   console.log(`[AppDetailView:${server.name}] connStatus: ${connStatus}, isInProgress: ${isInProgress}, isConnected: ${isConnected}, isActionPending: ${isActionPending}`);
-  const isServerEnabled = stored ? stored.enabled !== false : true;
+  const isServerEnabled = optimisticEnabled !== null ? optimisticEnabled : (stored ? stored.enabled !== false : true);
 
   const allTools: ToolInfo[] = stored?.tools ?? server.tools ?? [];
   const prompts = stored?.prompts ?? server.prompts ?? [];
@@ -155,14 +192,19 @@ export function AppDetailView({
       toast.error("Active session required to toggle AI access");
       return;
     }
-    setIsTogglingEnabled(true);
+    // Instant optimistic toggle
+    setOptimisticEnabled(checked);
+    setEnableError(null);
     try {
       await updateSession(stored.sessionId, checked);
-      toast.success(checked ? `${server.name} enabled for AI` : `${server.name} disabled for AI`);
+      toast.success(checked ? `${server.name} access enabled` : `${server.name} access disabled`);
     } catch (err: any) {
-      toast.error(err instanceof Error ? err.message : "Failed to toggle server state");
-    } finally {
-      setIsTogglingEnabled(false);
+      // Rollback on error
+      const previousState = stored ? stored.enabled !== false : !checked;
+      setOptimisticEnabled(previousState);
+      const errorMsg = err instanceof Error ? err.message : "Failed to update AI access";
+      setEnableError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -192,49 +234,191 @@ export function AppDetailView({
         </div>
 
         {/* 2. App Header Card */}
-        <div className="bg-card border border-border rounded-md p-6 flex flex-col sm:flex-row sm:items-start justify-between gap-6">
-          <div className="flex items-start gap-4 min-w-0">
-            <div className="size-14 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-2">
-              <ServerIcon
-                serverName={server.name}
-                serverUrl={server.url}
-                size={36}
-              />
+        <div className="bg-card border border-border rounded-md p-5 sm:p-6 space-y-4">
+          {/* Top Section: App Icon + Title + Action Buttons */}
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5 min-w-0 flex-1">
+              <div className="size-12 sm:size-14 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-2">
+                <ServerIcon
+                  serverName={server.name}
+                  serverUrl={server.url}
+                  size={36}
+                />
+              </div>
+
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-base font-semibold text-foreground truncate">
+                    {server.name}
+                  </h1>
+                  {isConnected && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-emerald-500 border border-emerald-500/40 px-2 py-0.5 rounded-sm shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Active
+                    </span>
+                  )}
+                  {(connStatus === "FAILED" || (Boolean(stored?.error || server.error) && !isConnected)) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-destructive border border-destructive/40 px-2 py-0.5 rounded-sm shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                      Failed
+                    </span>
+                  )}
+                </div>
+
+                {server.description && (
+                  <div className="prose prose-sm dark:prose-invert max-w-full text-xs leading-relaxed text-muted-foreground pt-0.5 [&>p]:mb-1.5 [&>p:last-child]:mb-0">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {server.description}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-medium tracking-tight text-foreground font-sans">
-                  {server.name}
-                </h1>
-                {isConnected && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-emerald-500 border border-emerald-500/40 px-2 py-0.5 rounded-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Active
-                  </span>
-                )}
-                {isConnected && !isServerEnabled && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-sm">
-                    Access Off
-                  </span>
-                )}
-                {(connStatus === "FAILED" || (Boolean(stored?.error || server.error) && !isConnected)) && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-destructive border border-destructive/40 px-2 py-0.5 rounded-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
-                    Failed
-                  </span>
-                )}
-              </div>
+            {/* Action Buttons & Server Enable/Disable Toggle */}
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {isConnected && (
+                <>
+                  {/* Segmented Access On / Access Off Toggle */}
+                  <Tooltip open={Boolean(enableError) ? true : undefined}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          "inline-flex items-center h-8 p-0.5 rounded-sm border transition-colors select-none text-xs font-mono",
+                          enableError
+                            ? "border-destructive/60 bg-destructive/5"
+                            : "border-border bg-muted/30"
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => !isServerEnabled && handleToggleEnabled(true)}
+                          className={cn(
+                            "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
+                            isServerEnabled
+                              ? "bg-background text-foreground font-medium shadow-2xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          title="Turn AI tool access on"
+                          aria-pressed={isServerEnabled}
+                        >
+                          <span>Access On</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => isServerEnabled && handleToggleEnabled(false)}
+                          className={cn(
+                            "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
+                            !isServerEnabled
+                              ? "bg-background text-foreground font-medium shadow-2xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          title="Turn AI tool access off"
+                          aria-pressed={!isServerEnabled}
+                        >
+                          <span>Access Off</span>
+                        </button>
+                      </div>
+                    </TooltipTrigger>
+                    {enableError && (
+                      <TooltipContent
+                        side="top"
+                        className="text-xs text-destructive bg-card border border-destructive/40 shadow-md font-mono"
+                      >
+                        {enableError}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
 
-              <div className="prose prose-sm dark:prose-invert max-w-full text-xs leading-relaxed text-muted-foreground [&>p]:mb-1.5 [&>p:last-child]:mb-0 [&>ul]:mt-1 [&>ol]:mt-1 [&>h1]:text-sm [&>h2]:text-xs [&>h3]:text-xs [&>code]:text-[11px] [&>code]:font-mono">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {server.description || ""}
-                </ReactMarkdown>
-              </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setToolAccessOpen(true)}
+                    className="h-8 px-3 text-xs font-mono text-muted-foreground hover:text-foreground border border-border rounded-sm cursor-pointer"
+                  >
+                    <Lock className="size-3 mr-1.5" />
+                    <span>Permissions</span>
+                  </Button>
+                </>
+              )}
 
+              {(() => {
+                if (isConnected) {
+                  return (
+                    <Button
+                      onClick={handleToggleConnect}
+                      disabled={isActionPending}
+                      className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-card border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      Disconnect
+                    </Button>
+                  );
+                }
+
+                if (connStatus === "AUTHENTICATING") {
+                  return (
+                    <Button
+                      onClick={handleToggleConnect}
+                      className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-card border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      Cancel Auth
+                    </Button>
+                  );
+                }
+
+                if (connStatus === "INITIALIZING" || connStatus === "VALIDATING" || connStatus === "CONNECTING" || connStatus === "AUTHENTICATED" || connStatus === "DISCOVERING" || isActionPending) {
+                  const label = connStatus === "INITIALIZING"
+                    ? "Initializing"
+                    : connStatus === "VALIDATING"
+                      ? "Validating"
+                      : connStatus === "AUTHENTICATED"
+                        ? "Authenticated"
+                        : connStatus === "DISCOVERING"
+                          ? "Discovering"
+                          : "Connecting";
+
+                  return (
+                    <Button
+                      disabled
+                      className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 bg-primary/80 text-primary-foreground cursor-wait"
+                    >
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>{label}</span>
+                    </Button>
+                  );
+                }
+
+                return (
+                  <Button
+                    onClick={handleToggleConnect}
+                    className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 min-w-[80px]"
+                  >
+                    Connect
+                  </Button>
+                );
+              })()}
+
+              {isOwner && onDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border rounded-sm cursor-pointer inline-flex items-center gap-1.5"
+                  title="Delete Server"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span className="hidden sm:inline">Delete</span>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Full-Width Metadata Row */}
+          {(server.url || (isOwner && (server.createdAt || (server as any).created_at)) || stored?.connectedAt) && (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 pt-2 text-[11px] font-mono text-muted-foreground/80">
               {server.url && (
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[11px] font-mono text-muted-foreground/80 truncate max-w-xs sm:max-w-md">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="truncate max-w-xs sm:max-w-md">
                     {server.url}
                   </span>
                   <button
@@ -247,108 +431,44 @@ export function AppDetailView({
                 </div>
               )}
 
-              {(stored?.error || server.error) && !isConnected && (
-                <div className="mt-2.5 flex items-start gap-2 rounded-sm border border-destructive/40 p-2.5 text-xs text-destructive">
-                  <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5 min-w-0">
-                    <p className="font-semibold font-mono text-[10px] uppercase tracking-wider">Connection Error</p>
-                    <p className="text-xs text-destructive/90 font-mono break-words leading-relaxed">
-                      {stored?.error || server.error}
-                    </p>
-                  </div>
-                </div>
+              {isOwner && (server.createdAt || (server as any).created_at) && (
+                <span className="shrink-0">
+                  Created on {new Date(server.createdAt || (server as any).created_at).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+
+              {stored?.connectedAt && (
+                <span className="shrink-0">
+                  {isConnected ? "Connected on" : "Last connected on"}{" "}
+                  {new Date(stored.connectedAt).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
               )}
             </div>
-          </div>
+          )}
 
-          {/* Action Buttons & Server Enable/Disable Toggle */}
-          <div className="shrink-0 flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {isConnected && (
-              <>
-                <div className="flex items-center gap-2 px-2.5 h-8 rounded-sm border border-border bg-card">
-                  <Switch
-                    checked={isServerEnabled}
-                    onCheckedChange={handleToggleEnabled}
-                    disabled={isTogglingEnabled}
-                    id="server-enabled-toggle"
-                    aria-label={isServerEnabled ? "Disable server for AI" : "Enable server for AI"}
-                  />
-                  <label
-                    htmlFor="server-enabled-toggle"
-                    className="text-xs font-mono text-muted-foreground cursor-pointer select-none"
-                  >
-                    {isServerEnabled ? "Enabled" : "Disabled"}
-                  </label>
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setToolAccessOpen(true)}
-                  className="h-8 px-3 text-xs font-mono text-muted-foreground hover:text-foreground border border-border rounded-sm"
-                >
-                  <Lock className="size-3 mr-1.5" />
-                  <span>Permissions</span>
-                </Button>
-              </>
-            )}
-
-            {(() => {
-              if (isConnected) {
-                return (
-                  <Button
-                    onClick={handleToggleConnect}
-                    disabled={isActionPending}
-                    className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-card border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    Disconnect
-                  </Button>
-                );
-              }
-
-              if (connStatus === "AUTHENTICATING") {
-                return (
-                  <Button
-                    onClick={handleToggleConnect}
-                    className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-card border border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    Cancel Auth
-                  </Button>
-                );
-              }
-
-              if (connStatus === "INITIALIZING" || connStatus === "VALIDATING" || connStatus === "CONNECTING" || connStatus === "AUTHENTICATED" || connStatus === "DISCOVERING" || isActionPending) {
-                const label = connStatus === "INITIALIZING"
-                  ? "Initializing"
-                  : connStatus === "VALIDATING"
-                    ? "Validating"
-                    : connStatus === "AUTHENTICATED"
-                      ? "Authenticated"
-                      : connStatus === "DISCOVERING"
-                        ? "Discovering"
-                        : "Connecting";
-
-                return (
-                  <Button
-                    disabled
-                    className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 bg-primary/80 text-primary-foreground cursor-wait"
-                  >
-                    <Loader2 className="size-3.5 animate-spin" />
-                    <span>{label}</span>
-                  </Button>
-                );
-              }
-
-              return (
-                <Button
-                  onClick={handleToggleConnect}
-                  className="h-8 px-4 text-xs font-medium rounded-sm transition-all inline-flex items-center gap-1.5 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Connect
-                </Button>
-              );
-            })()}
-          </div>
+          {(stored?.error || server.error) && !isConnected && (
+            <div className="mt-2 flex items-start gap-2 rounded-sm border border-destructive/40 p-2.5 text-xs text-destructive">
+              <AlertCircle className="size-3.5 shrink-0 mt-0.5" />
+              <div className="space-y-0.5 min-w-0">
+                <p className="font-semibold font-mono text-[10px] uppercase tracking-wider">Connection Error</p>
+                <p className="text-xs text-destructive/90 font-mono break-words leading-relaxed">
+                  {stored?.error || server.error}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 4. Categorized Tools Section (Read / Write / Destructive) */}
@@ -548,6 +668,49 @@ export function AppDetailView({
             onOpenChange={setToolAccessOpen}
           />
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-sm border-border bg-card p-5 text-foreground shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-semibold">Delete Server</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-1">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Are you sure you want to delete <span className="font-semibold text-foreground">{server.name}</span>? This will permanently remove this MCP server from your account.
+              </p>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={() => setDeleteConfirmOpen(false)}
+                  className="h-8 px-3 text-xs cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={isDeleting}
+                  onClick={handleDeleteServer}
+                  className="h-8 px-3.5 text-xs cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="size-3 mr-1.5 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
@@ -569,48 +732,44 @@ function ToolRow({
   onTest?: (toolName: string) => void;
 }) {
   return (
-    <div className={cn(
-      "bg-card border border-border rounded-sm p-3 transition-colors space-y-2",
-      !isAllowed && "opacity-60"
-    )}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1 min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono font-semibold text-foreground">
-              {tool.name}
-            </span>
-            <span
-              className={cn(
-                "text-[10px] font-mono px-1.5 py-0.2 rounded-xs border",
-                category === "Read"
-                  ? "text-sky-400 border-sky-800/40"
-                  : category === "Write"
+    <div
+      className={cn(
+        "bg-card border border-border rounded-sm p-3 transition-colors space-y-2",
+        !isAllowed && "opacity-60"
+      )}
+    >
+      {/* Top row: Tool Name + Category/Blocked badges on left, Test + Schema buttons on right */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <span className="text-xs font-mono font-semibold text-foreground break-all">
+            {tool.name}
+          </span>
+          <span
+            className={cn(
+              "text-[10px] font-mono px-1.5 py-0.5 rounded-xs border shrink-0",
+              category === "Read"
+                ? "text-sky-400 border-sky-800/40"
+                : category === "Write"
                   ? "text-amber-400 border-amber-800/40"
                   : "text-rose-400 border-rose-800/40"
-              )}
-            >
-              {category}
-            </span>
-            {!isAllowed && (
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-xs border text-rose-400 border-rose-800/40">
-                Blocked
-              </span>
             )}
-          </div>
-          {tool.description && (
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              {tool.description}
-            </p>
+          >
+            {category}
+          </span>
+          {!isAllowed && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-xs border text-rose-400 border-rose-800/40 shrink-0">
+              Blocked
+            </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {onTest && (
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onTest(tool.name)}
-              className="h-6 px-2 text-[11px] font-mono text-muted-foreground hover:text-foreground border border-border rounded-sm"
+              className="h-6 px-2 text-[11px] font-mono text-muted-foreground hover:text-foreground border border-border rounded-sm cursor-pointer"
             >
               <Play className="size-2.5 mr-1" />
               <span>Test</span>
@@ -625,9 +784,16 @@ function ToolRow({
         </div>
       </div>
 
+      {/* Description - Full width below header */}
+      {tool.description && (
+        <p className="text-[11px] text-muted-foreground leading-relaxed break-words">
+          {tool.description}
+        </p>
+      )}
+
       {isExpanded && Boolean(tool.inputSchema) && (
         <div className="pt-2 border-t border-border">
-          <pre className="p-2.5 bg-background rounded-sm border border-border text-[11px] font-mono text-body overflow-x-auto">
+          <pre className="p-2.5 bg-background rounded-sm border border-border text-[11px] font-mono text-foreground overflow-x-auto max-w-full">
             {JSON.stringify(tool.inputSchema, null, 2)}
           </pre>
         </div>

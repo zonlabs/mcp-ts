@@ -337,10 +337,16 @@ export function AppShell({
   const queryClient = useQueryClient();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [chatSearch, setChatSearch] = useState("");
   const [editingChat, setEditingChat] = useState<{ id: string; title: string } | null>(null);
+
+  // Auto-close mobile drawer when route changes
+  useEffect(() => {
+    setMobileDrawerOpen(false);
+  }, [pathname, searchParams]);
 
   // Share Dialog state
   const [shareChat, setShareChat] = useState<SidebarChat | null>(null);
@@ -600,17 +606,296 @@ export function AppShell({
     if (currentNav === "chat") setHistoryOpen(true);
   }, [currentNav]);
 
-  const navItemClass = (active: boolean) =>
-    cn(
-      "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-[13px] font-medium transition-all text-left",
-      !sidebarOpen && "justify-center px-0",
-      active
-        ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
-        : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+  const renderSidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => {
+    const isExpanded = isMobile || sidebarOpen;
+    return (
+      <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
+        {/* Brand / Top Bar */}
+        <div
+          className={cn(
+            "h-14 flex items-center shrink-0",
+            isMobile
+              ? "justify-between px-4 border-b border-sidebar-border/50"
+              : isExpanded
+                ? "justify-end px-4"
+                : "justify-center"
+          )}
+        >
+          {isMobile ? (
+            <>
+              <span className="text-xs font-mono uppercase tracking-wider text-sidebar-foreground/70 font-semibold">
+                Menu
+              </span>
+              <button
+                onClick={() => setMobileDrawerOpen(false)}
+                className="p-1.5 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                title="Close menu"
+                aria-label="Close navigation menu"
+              >
+                <X className="size-[18px]" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+              title="Toggle sidebar"
+              aria-label="Toggle sidebar"
+            >
+              {sidebarOpen ? (
+                <PanelLeftClose className="size-[18px]" />
+              ) : (
+                <PanelLeftOpen className="size-[18px]" />
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Nav */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-minimal">
+          {/* Main Links */}
+          <Link
+            href="/mcp?tab=home"
+            onClick={() => isMobile && setMobileDrawerOpen(false)}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-[13px] font-medium transition-all text-left",
+              !isExpanded && "justify-center px-0",
+              currentNav === "home"
+                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+          >
+            <Home className="size-[18px] shrink-0" />
+            {isExpanded && <span>Home</span>}
+          </Link>
+
+          <Link
+            href="/mcp?tab=apps"
+            onClick={() => isMobile && setMobileDrawerOpen(false)}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-[13px] font-medium transition-all text-left",
+              !isExpanded && "justify-center px-0",
+              currentNav === "apps"
+                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+          >
+            <LayoutGrid className="size-[18px] shrink-0" />
+            {isExpanded && <span>Apps</span>}
+          </Link>
+
+          {/* New Chat */}
+          <Link
+            href="/chat"
+            onClick={() => isMobile && setMobileDrawerOpen(false)}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-sm text-[13px] font-medium transition-all text-left mt-1",
+              !isExpanded && "justify-center px-0",
+              currentNav === "chat" && !currentChatId
+                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            )}
+          >
+            <SquarePen className="size-[18px] shrink-0" />
+            {isExpanded && <span>New Chat</span>}
+          </Link>
+
+          {/* History */}
+          {isExpanded && allChats.length > 0 && (
+            <div className="pt-1">
+              <button
+                onClick={() => setHistoryOpen((o) => !o)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-sm transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="size-[18px] text-sidebar-foreground/60" />
+                  <span>History</span>
+                </div>
+                {historyOpen ? (
+                  <ChevronDown className="size-[18px] text-sidebar-foreground/60" />
+                ) : (
+                  <ChevronRight className="size-[18px] text-sidebar-foreground/60" />
+                )}
+              </button>
+
+              {historyOpen && (
+                <div className="mt-1 space-y-2">
+                  <p className="px-2 pt-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                    Your Chats
+                  </p>
+                  <div className="relative px-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-[18px] text-sidebar-foreground/50" />
+                    <input
+                      type="text"
+                      placeholder="Search chats"
+                      value={chatSearch}
+                      onChange={(e) => setChatSearch(e.target.value)}
+                      className="w-full h-8 pl-8 pr-3 text-xs bg-sidebar-accent/40 border border-sidebar-border rounded-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:border-sidebar-foreground/40 transition-colors font-sans"
+                    />
+                  </div>
+
+                  {/* Pinned */}
+                  {pinned.length > 0 && (
+                    <div>
+                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                        Pinned
+                      </p>
+                      <div className="space-y-0.5 px-1">
+                        {pinned.map((chat) => (
+                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                            <ChatItem
+                              chat={chat}
+                              isActive={currentChatId === chat.id}
+                              onDelete={(id) => deleteMutation.mutate(id)}
+                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                              onRename={(id, title) => setEditingChat({ id, title })}
+                              onShare={handleOpenShare}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Today */}
+                  {todayChats.length > 0 && (
+                    <div>
+                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                        Today
+                      </p>
+                      <div className="space-y-0.5 px-1">
+                        {todayChats.map((chat) => (
+                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                            <ChatItem
+                              chat={chat}
+                              isActive={currentChatId === chat.id}
+                              onDelete={(id) => deleteMutation.mutate(id)}
+                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                              onRename={(id, title) => setEditingChat({ id, title })}
+                              onShare={handleOpenShare}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Yesterday */}
+                  {yesterdayChats.length > 0 && (
+                    <div>
+                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                        Yesterday
+                      </p>
+                      <div className="space-y-0.5 px-1">
+                        {yesterdayChats.map((chat) => (
+                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                            <ChatItem
+                              chat={chat}
+                              isActive={currentChatId === chat.id}
+                              onDelete={(id) => deleteMutation.mutate(id)}
+                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                              onRename={(id, title) => setEditingChat({ id, title })}
+                              onShare={handleOpenShare}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Older */}
+                  {olderChats.length > 0 && (
+                    <div>
+                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                        Older
+                      </p>
+                      <div className="space-y-0.5 px-1">
+                        {olderChats.slice(0, 30).map((chat) => (
+                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                            <ChatItem
+                              chat={chat}
+                              isActive={currentChatId === chat.id}
+                              onDelete={(id) => deleteMutation.mutate(id)}
+                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                              onRename={(id, title) => setEditingChat({ id, title })}
+                              onShare={handleOpenShare}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {totalFiltered === 0 && chatSearch && (
+                    <p className="px-2 py-2 text-[11px] text-sidebar-foreground/60 font-mono text-center">
+                      No chats found
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Profile */}
+        <div
+          className={cn(
+            "pt-2 pb-3 border-t border-sidebar-border bg-sidebar shrink-0",
+            isExpanded ? "px-2" : "px-0"
+          )}
+        >
+          {userSession?.user && (
+            <ProfileDropdown
+              user={userSession.user}
+              trigger={
+                <div
+                  className={cn(
+                    "w-full flex items-center gap-2 rounded-sm py-0.5 cursor-pointer transition-colors hover:bg-sidebar-accent",
+                    isExpanded ? "px-1" : "justify-center px-0"
+                  )}
+                  aria-label="Open profile menu"
+                  aria-haspopup="menu"
+                >
+                  {userSession.user?.user_metadata?.avatar_url ? (
+                    <Image
+                      src={userSession.user.user_metadata.avatar_url}
+                      alt=""
+                      width={26}
+                      height={26}
+                      className="rounded-sm object-cover shrink-0"
+                      loading="eager"
+                      priority
+                      aria-hidden
+                    />
+                  ) : (
+                    <div className="flex size-6.5 items-center justify-center rounded-sm bg-primary/10 text-primary shrink-0">
+                      <User className="size-[18px]" strokeWidth={2} aria-hidden />
+                    </div>
+                  )}
+                  {isExpanded && (
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-foreground truncate">{userDisplayName}</p>
+                      {userSession.user?.email && (
+                        <p className="text-[10px] text-muted-foreground truncate font-mono">
+                          {userSession.user.email}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {isExpanded && (
+                    <ChevronRight className="size-[18px] shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+                  )}
+                </div>
+              }
+            />
+          )}
+        </div>
+      </div>
     );
+  };
 
   return (
-    <div className="flex h-screen w-full bg-sidebar text-foreground overflow-hidden font-sans select-none antialiased p-2 gap-2">
+    <div className="flex h-screen w-full bg-sidebar text-foreground overflow-hidden font-sans select-none antialiased p-1.5 sm:p-2 gap-0 lg:gap-2">
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* Rename Dialog */}
@@ -660,229 +945,50 @@ export function AppShell({
         </Dialog>
       )}
 
-      {/* ── Sidebar ── */}
-      <aside className={cn(
-        "h-full bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-150 shrink-0 z-30",
-        sidebarOpen ? "w-64" : "w-14"
-      )}>
-        <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
-
-          {/* Brand */}
-          <div className={cn("h-14 flex items-center shrink-0", sidebarOpen ? "justify-end px-4" : "justify-center")}>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-              title="Toggle sidebar"
-            >
-              {sidebarOpen ? <PanelLeftClose className="size-[18px]" /> : <PanelLeftOpen className="size-[18px]" />}
-            </button>
-          </div>
-
-          {/* Nav */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-minimal">
-
-            {/* Main */}
-            <Link href="/mcp?tab=home" className={navItemClass(currentNav === "home")}>
-              <Home className="size-[18px] shrink-0" />
-              {sidebarOpen && <span>Home</span>}
-            </Link>
-            <Link href="/mcp?tab=apps" className={navItemClass(currentNav === "apps")}>
-              <LayoutGrid className="size-[18px] shrink-0" />
-              {sidebarOpen && <span>Apps</span>}
-            </Link>
-
-            {/* ── New Chat ── */}
-            <Link href="/chat" className={cn(navItemClass(currentNav === "chat" && !currentChatId), "mt-1")}>
-              <SquarePen className="size-[18px] shrink-0" />
-              {sidebarOpen && <span>New Chat</span>}
-            </Link>
-
-            {/* ── History ── */}
-            {sidebarOpen && allChats.length > 0 && (
-              <div className="pt-1">
-                {/* History header */}
-                <button
-                  onClick={() => setHistoryOpen((o) => !o)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[13px] font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-sm transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Clock className="size-[18px] text-sidebar-foreground/60" />
-                    <span>History</span>
-                  </div>
-                  {historyOpen
-                    ? <ChevronDown className="size-[18px] text-sidebar-foreground/60" />
-                    : <ChevronRight className="size-[18px] text-sidebar-foreground/60" />
-                  }
-                </button>
-
-                {historyOpen && (
-                  <div className="mt-1 space-y-2">
-                    {/* YOUR CHATS label + search */}
-                    <p className="px-2 pt-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                      Your Chats
-                    </p>
-                    <div className="relative px-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-[18px] text-sidebar-foreground/50" />
-                      <input
-                        type="text"
-                        placeholder="Search chats"
-                        value={chatSearch}
-                        onChange={(e) => setChatSearch(e.target.value)}
-                        className="w-full h-8 pl-8 pr-3 text-xs bg-sidebar-accent/40 border border-sidebar-border rounded-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:border-sidebar-foreground/40 transition-colors font-sans"
-                      />
-                    </div>
-
-                    {/* Pinned */}
-                    {pinned.length > 0 && (
-                      <div>
-                        <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                          Pinned
-                        </p>
-                        <div className="space-y-0.5 px-1">
-                          {pinned.map((chat) => (
-                            <ChatItem
-                              key={chat.id}
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Today */}
-                    {todayChats.length > 0 && (
-                      <div>
-                        <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                          Today
-                        </p>
-                        <div className="space-y-0.5 px-1">
-                          {todayChats.map((chat) => (
-                            <ChatItem
-                              key={chat.id}
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Yesterday */}
-                    {yesterdayChats.length > 0 && (
-                      <div>
-                        <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                          Yesterday
-                        </p>
-                        <div className="space-y-0.5 px-1">
-                          {yesterdayChats.map((chat) => (
-                            <ChatItem
-                              key={chat.id}
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Older */}
-                    {olderChats.length > 0 && (
-                      <div>
-                        <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                          Older
-                        </p>
-                        <div className="space-y-0.5 px-1">
-                          {olderChats.slice(0, 30).map((chat) => (
-                            <ChatItem
-                              key={chat.id}
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {totalFiltered === 0 && chatSearch && (
-                      <p className="px-2 py-2 text-[11px] text-sidebar-foreground/60 font-mono text-center">
-                        No chats found
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Profile */}
-          <div className={cn("pt-2 pb-3 border-t border-sidebar-border bg-sidebar shrink-0", sidebarOpen ? "px-2" : "px-0")}>
-            {userSession?.user && (
-              <ProfileDropdown
-                user={userSession.user}
-                trigger={
-                  <div
-                    className={cn("w-full flex items-center gap-2 rounded-sm py-0.5 cursor-pointer transition-colors hover:bg-sidebar-accent", sidebarOpen ? "px-1" : "justify-center px-0")}
-                    aria-label="Open profile menu"
-                    aria-haspopup="menu"
-                  >
-                    {userSession.user?.user_metadata?.avatar_url ? (
-                      <Image
-                        src={userSession.user.user_metadata.avatar_url}
-                        alt=""
-                        width={26}
-                        height={26}
-                        className="rounded-sm object-cover shrink-0"
-                        loading="eager"
-                        priority
-                        aria-hidden
-                      />
-                    ) : (
-                      <div className="flex size-6.5 items-center justify-center rounded-sm bg-primary/10 text-primary shrink-0">
-                        <User className="size-[18px]" strokeWidth={2} aria-hidden />
-                      </div>
-                    )}
-                    {sidebarOpen && (
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-foreground truncate">{userDisplayName}</p>
-                        {userSession.user?.email && (
-                          <p className="text-[10px] text-muted-foreground truncate font-mono">
-                            {userSession.user.email}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {sidebarOpen && (
-                      <ChevronRight className="size-[18px] shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
-                    )}
-                  </div>
-                }
-              />
-            )}
-          </div>
-        </div>
+      {/* ── Desktop Sidebar (hidden on <lg) ── */}
+      <aside
+        className={cn(
+          "hidden lg:flex h-full bg-sidebar text-sidebar-foreground flex-col transition-all duration-150 shrink-0 z-30",
+          sidebarOpen ? "w-64" : "w-14"
+        )}
+      >
+        {renderSidebarContent({ isMobile: false })}
       </aside>
 
-      {/* ── Main ── */}
+      {/* ── Mobile Drawer Backdrop ── */}
+      {mobileDrawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden transition-opacity animate-in fade-in duration-200"
+          onClick={() => setMobileDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Mobile Drawer Sidebar (lg:hidden) ── */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-full bg-sidebar text-sidebar-foreground flex flex-col shadow-2xl transition-transform duration-200 ease-out lg:hidden",
+          mobileDrawerOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
+        )}
+      >
+        {renderSidebarContent({ isMobile: true })}
+      </aside>
+
+      {/* ── Main Content Area ── */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-background border border-border rounded-lg relative shadow-xs">
-        <header className="h-14 border-b border-border bg-background px-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center shrink-0 z-20 rounded-t-lg">
-          <div className="flex items-center gap-2 min-w-0 justify-self-start">
+        <header className="h-14 border-b border-border bg-background px-4 sm:px-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center shrink-0 z-20 rounded-t-lg">
+          <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
+            {/* Mobile Menu Hamburger Toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="lg:hidden p-1.5 -ml-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+              title="Open navigation menu"
+              aria-label="Open navigation menu"
+            >
+              <PanelLeftOpen className="size-[18px]" />
+            </button>
+
             {computedBreadcrumb && (
               <span className="text-xs font-mono text-muted-foreground truncate">{computedBreadcrumb}</span>
             )}

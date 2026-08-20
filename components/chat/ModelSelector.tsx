@@ -77,8 +77,8 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
           </DialogHeader>
           
           <div className="px-4 pb-4 pt-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

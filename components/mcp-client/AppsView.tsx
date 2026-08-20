@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, Plus, ShieldCheck, Loader2 } from "lucide-react";
+import { Search, Plus, ShieldCheck, Loader2, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { McpServer } from "@/types/mcp";
 import { UserSession } from "@/components/providers/AuthProvider";
@@ -10,20 +10,24 @@ import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 import { usePublicServers } from "@/hooks/usePublicServers";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
 interface AppsViewProps {
   userSession: UserSession | null;
   onSelectApp: (server: McpServer) => void;
   onAction: (server: McpServer, action: "activate" | "deactivate") => Promise<unknown>;
+  onDeleteApp?: (serverId: string) => Promise<void>;
   onAddApp?: () => void;
 }
 
-export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsViewProps) {
+export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAddApp }: AppsViewProps) {
   const [activeTab, setActiveTab] = useState<"all" | "my-apps" | "connected">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [serverToDelete, setServerToDelete] = useState<McpServer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -41,24 +45,10 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
     void fetchUserServers();
   }, [fetchUserServers]);
 
-  // Fetch servers from API — search & category are sent server-side
+  // Fetch servers from API — search is sent server-side
   const { servers, loading, isLoadingMore, hasNextPage, totalCount, loadMore } = usePublicServers({
     search: searchQuery,
-    categorySlug: selectedCategory !== "all" ? selectedCategory : undefined,
   });
-
-  // Extract unique categories from loaded pages (used for filter strip)
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    for (const server of servers) {
-      if (server.categories && Array.isArray(server.categories)) {
-        for (const c of server.categories) {
-          if (c.name) set.add(c.name);
-        }
-      }
-    }
-    return ["all", ...Array.from(set)];
-  }, [servers]);
 
   // Connected apps count
   const connectedApps = useMemo((): McpServer[] => {
@@ -215,42 +205,15 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
 
         {/* Search Input */}
         <div className="relative w-full sm:w-72">
-          {loading && searchQuery ? (
-            <Loader2 className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground animate-spin" />
-          ) : (
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          )}
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search apps..."
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setSelectedCategory("all");
-            }}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="h-10 pl-8 pr-3 w-full text-xs bg-card border-border font-mono placeholder:font-sans rounded-sm"
           />
         </div>
       </div>
-
-      {/* 3. Category Tags Strip */}
-      {!loading && activeTab === "all" && categories.length > 2 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={cn(
-                "px-2.5 py-1 text-[11px] font-mono rounded-sm border transition-colors whitespace-nowrap capitalize cursor-pointer",
-                selectedCategory === cat
-                  ? "bg-card border-body-strong/60 text-foreground font-medium"
-                  : "bg-transparent border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
-              )}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* 4. Loading skeleton */}
       {loading && (
@@ -320,6 +283,14 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
               ].includes(connStatus))
             );
 
+            const isOwner = Boolean(
+              userSession?.user?.id && (
+                app.owner === userSession.user.id ||
+                userServers.some((s) => s.id === app.id) ||
+                (!app.isVerified && !app.isPublic)
+              )
+            );
+
             return (
               <div
                 key={app.id}
@@ -336,14 +307,9 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
                       />
                     </div>
                     <div className="min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <h2 className="text-[13px] font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                          {app.name}
-                        </h2>
-                        {isConnected && (
-                          <ShieldCheck className="size-3.5 text-emerald-400 shrink-0" />
-                        )}
-                      </div>
+                      <h2 className="text-[13px] font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                        {app.name}
+                      </h2>
                       <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
                         {app.description || ""}
                       </p>
@@ -351,7 +317,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
                   </div>
 
                   {/* Top Right Action Button */}
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex items-center gap-1.5">
                     {isConnected ? (
                       <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-500 border border-emerald-500/40 px-2 py-0.5 rounded-sm">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -411,13 +377,62 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
                         Connect
                       </Button>
                     )}
+
+                    {isOwner && onDeleteApp && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setServerToDelete(app);
+                        }}
+                        className="h-7 w-7 p-0 border border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/40 rounded-sm cursor-pointer"
+                        title="Delete App"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
-                {/* Card Footer: category only */}
-                {app.categories?.[0]?.name && (
-                  <div className="text-[11px] font-mono text-muted-foreground/70 capitalize">
-                    {app.categories[0].name}
+                {/* Card Footer */}
+                {Boolean(app.categories?.[0]?.name || (isOwner && (app.createdAt || (app as any).created_at)) || (isConnected && stored?.connectedAt)) && (
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground/60 pt-1">
+                    {app.categories?.[0]?.name ? (
+                      <span className="truncate capitalize">{app.categories[0].name}</span>
+                    ) : (
+                      <span />
+                    )}
+
+                    {isOwner && (app.createdAt || (app as any).created_at) ? (
+                      <span
+                        className="shrink-0 cursor-default hover:text-foreground transition-colors"
+                        title={[
+                          `Created on ${new Date(app.createdAt || (app as any).created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`,
+                          isConnected && stored?.connectedAt
+                            ? `Connected on ${new Date(stored.connectedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
+                            : null,
+                        ].filter(Boolean).join(" • ")}
+                      >
+                        Created on {new Date(app.createdAt || (app as any).created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    ) : isConnected && stored?.connectedAt ? (
+                      <span
+                        className="shrink-0 cursor-default hover:text-foreground transition-colors"
+                        title={`Connected on ${new Date(stored.connectedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`}
+                      >
+                        Connected on {new Date(stored.connectedAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -444,6 +459,62 @@ export function AppsView({ userSession, onSelectApp, onAction, onAddApp }: AppsV
           </Button>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={Boolean(serverToDelete)} onOpenChange={(open) => !open && setServerToDelete(null)}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm border-border bg-card p-5 text-foreground shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Delete Server</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to delete <span className="font-semibold text-foreground">{serverToDelete?.name}</span>? This will permanently remove this MCP server from your account.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={isDeleting}
+                onClick={() => setServerToDelete(null)}
+                className="h-8 px-3 text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={isDeleting}
+                onClick={async () => {
+                  if (!serverToDelete || !onDeleteApp) return;
+                  setIsDeleting(true);
+                  try {
+                    await onDeleteApp(serverToDelete.id);
+                    void fetchUserServers();
+                    toast.success(`${serverToDelete.name} deleted successfully`);
+                    setServerToDelete(null);
+                  } catch (err: any) {
+                    toast.error(err?.message || "Failed to delete server");
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="h-8 px-3.5 text-xs cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="size-3 mr-1.5 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );

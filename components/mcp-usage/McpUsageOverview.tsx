@@ -208,34 +208,34 @@ export function McpUsageOverview({
         </div>
 
         {/* Integrated Metric Strip */}
-        <div className="grid grid-cols-3 gap-4 pt-5 border-t border-border/60">
-          <div className="space-y-1">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-3 gap-4 pt-4 sm:pt-5 border-t border-border/50">
+          <div className="space-y-1 min-w-0">
+            <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Tool Calls
             </p>
-            <p className="text-2xl font-semibold font-mono text-foreground">
+            <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground tracking-tight">
               {summary.toolCallsTotal.toLocaleString()}
             </p>
           </div>
 
-          <div className="space-y-1">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          <div className="space-y-1 min-w-0">
+            <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Streak
             </p>
-            <p className="text-2xl font-semibold font-mono text-foreground flex items-center gap-1.5">
+            <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground flex items-baseline gap-1.5">
               <span>{summary.streakDays}</span>
-              <span className="text-xs font-normal text-muted-foreground">Days</span>
+              <span className="text-xs sm:text-sm font-normal font-sans text-muted-foreground">Days</span>
             </p>
           </div>
 
-          <div className="space-y-1">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          <div className="space-y-1 min-w-0">
+            <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Most Used App
             </p>
-            <p className="text-lg sm:text-xl font-medium text-foreground truncate flex items-center gap-2">
+            <div className="text-sm sm:text-base lg:text-lg font-medium text-foreground truncate flex items-center gap-2 pt-0.5">
               <ServerIcon serverName={mostUsedAppName} serverUrl={mostUsedAppServerUrl} size={20} className="shrink-0 rounded-xs" />
               <span className="truncate">{mostUsedAppName}</span>
-            </p>
+            </div>
           </div>
         </div>
       </div>
@@ -243,8 +243,8 @@ export function McpUsageOverview({
       {/* 2. Recent Activity Log List */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
-          <Activity className="size-3.5 text-muted-foreground" />
-          <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold">
+          <Activity className="size-4 text-muted-foreground" />
+          <h3 className="text-xs sm:text-sm font-mono uppercase tracking-wider text-muted-foreground font-semibold">
             Recent Activity
           </h3>
         </div>
@@ -254,7 +254,7 @@ export function McpUsageOverview({
             <div className="divide-y divide-border/60">
               {recentEventGroups.map((dateGroup) => (
                 <div key={dateGroup.dateKey} className="divide-y divide-border/40">
-                  <div className="px-4 py-2 bg-background/50 text-[11px] font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
+                  <div className="px-4 py-2.5 bg-background/50 text-[11px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
                     {dateGroup.label}
                   </div>
                   {dateGroup.groups.map((eventGroup) => (
@@ -281,7 +281,7 @@ export function McpUsageOverview({
 
             {/* Pagination footer */}
             <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between bg-card">
-              <p className="text-xs font-mono text-muted-foreground">
+              <p className="text-xs sm:text-sm font-mono text-muted-foreground">
                 Showing {groups.length === 0 ? 0 : (currentPage - 1) * RECENT_ACTIVITY_PAGE_SIZE + 1}-{Math.min(
                   currentPage * RECENT_ACTIVITY_PAGE_SIZE,
                   totalCount
@@ -290,7 +290,7 @@ export function McpUsageOverview({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="inline-flex h-8 items-center justify-center rounded-sm border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                  className="inline-flex h-8 items-center justify-center rounded-sm border border-border bg-background px-3 text-xs sm:text-sm font-medium text-foreground transition-colors hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage <= 1 || isFetching}
                 >
@@ -298,7 +298,7 @@ export function McpUsageOverview({
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-8 items-center justify-center rounded-sm border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                  className="inline-flex h-8 items-center justify-center rounded-sm border border-border bg-background px-3 text-xs sm:text-sm font-medium text-foreground transition-colors hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage * RECENT_ACTIVITY_PAGE_SIZE >= totalCount || isFetching}
                 >
@@ -309,7 +309,7 @@ export function McpUsageOverview({
           </div>
         ) : (
           <div className="bg-card border border-border rounded-md p-6 text-center space-y-1">
-            <p className="text-xs font-mono text-muted-foreground">
+            <p className="text-xs sm:text-sm font-mono text-muted-foreground">
               No recent tool executions recorded yet.
             </p>
           </div>
@@ -336,95 +336,153 @@ function RecentActivityRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[5.5rem_11rem_1fr_4.5rem_4rem] items-center gap-3 px-4 py-2.5 text-xs font-sans hover:bg-background/40 transition-colors",
+        "px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-sans hover:bg-background/40 transition-colors",
         isChild && "bg-background/20"
       )}
     >
-      <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-[11px]">
-        <Clock3 className="size-3.5 shrink-0" />
-        <span>{formatTime(event.started_at)}</span>
-      </div>
+      {/* ── Desktop View (md:) ── */}
+      <div className="hidden md:grid md:grid-cols-[6rem_13rem_1fr_5rem_4.5rem] items-center gap-3">
+        <div className="flex items-center gap-1.5 text-muted-foreground font-mono text-xs sm:text-[13px]">
+          <Clock3 className="size-3.5 shrink-0" />
+          <span>{formatTime(event.started_at)}</span>
+        </div>
 
-      <div className="flex min-w-0 items-center gap-2">
-        <ServerIcon serverName={appName} serverUrl={serverUrl} size={18} className="shrink-0 rounded-xs" />
-        {event.server_id || serverUrl ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="truncate font-medium text-foreground cursor-help">{appName}</span>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <div className="space-y-1 text-xs">
-                {event.server_id && (
-                  <p className="font-mono"><span className="text-muted-foreground">Server ID: </span>{event.server_id}</p>
-                )}
-                {serverUrl && (
-                  <p className="font-mono"><span className="text-muted-foreground">Server URL: </span>{serverUrl}</p>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span className="truncate font-medium text-foreground">{appName}</span>
-        )}
-      </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <ServerIcon serverName={appName} serverUrl={serverUrl} size={18} className="shrink-0 rounded-xs" />
+          {event.server_id || serverUrl ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="truncate font-medium text-foreground cursor-help">{appName}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <div className="space-y-1 text-xs">
+                  {event.server_id && (
+                    <p className="font-mono"><span className="text-muted-foreground">Server ID: </span>{event.server_id}</p>
+                  )}
+                  {serverUrl && (
+                    <p className="font-mono"><span className="text-muted-foreground">Server URL: </span>{serverUrl}</p>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <span className="truncate font-medium text-foreground">{appName}</span>
+          )}
+        </div>
 
-      <div className="min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="truncate font-mono text-[11px] font-medium text-foreground">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="truncate font-mono text-xs sm:text-[13px] font-medium text-foreground">
+                  {event.tool_name}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs break-all">
                 {event.tool_name}
-              </p>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs break-all">
-              {event.tool_name}
-            </TooltipContent>
-          </Tooltip>
-          {childCount !== undefined && childCount > 0 ? (
-            <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground leading-none">
-              +{childCount}
-            </span>
+              </TooltipContent>
+            </Tooltip>
+            {childCount !== undefined && childCount > 0 ? (
+              <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-muted-foreground leading-none">
+                +{childCount}
+              </span>
+            ) : null}
+          </div>
+          {!isSuccess && event.error_preview ? (
+            <p className="mt-0.5 line-clamp-1 text-xs text-destructive font-mono">
+              {event.error_preview}
+            </p>
           ) : null}
         </div>
+
+        <div className="text-right font-mono text-xs sm:text-[13px] text-muted-foreground">
+          {formatDuration(event.duration_ms)}
+        </div>
+
+        <div className="flex items-center justify-end gap-1.5 text-right">
+          {isSuccess ? (
+            <>
+              <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+              <span className="font-mono text-xs font-medium text-emerald-400">
+                OK
+              </span>
+            </>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-help">
+                  <XCircle className="size-4 text-rose-400 shrink-0" />
+                  <span className="font-mono text-xs font-medium text-rose-400">
+                    Error
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <div className="space-y-1 text-xs">
+                  {event.error_code && (
+                    <p className="font-mono text-muted-foreground">Code: {event.error_code}</p>
+                  )}
+                  <p>{event.error_preview || "Unknown error"}</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+
+      {/* ── Mobile / Small Screen View (<md) ── */}
+      <div className="flex flex-col gap-1.5 md:hidden">
+        {/* Top line: Server Icon + Name + Time on left, Status on right */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <ServerIcon serverName={appName} serverUrl={serverUrl} size={16} className="shrink-0 rounded-xs" />
+            <span className="truncate font-medium text-foreground">{appName}</span>
+            <span className="text-muted-foreground/40">•</span>
+            <span className="flex items-center gap-1 text-muted-foreground font-mono text-[11px] sm:text-xs shrink-0">
+              <Clock3 className="size-3.5 shrink-0" />
+              {formatTime(event.started_at)}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {isSuccess ? (
+              <div className="flex items-center gap-1 text-emerald-400">
+                <CheckCircle2 className="size-3.5 shrink-0" />
+                <span className="font-mono text-xs font-medium">OK</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-rose-400">
+                <XCircle className="size-3.5 shrink-0" />
+                <span className="font-mono text-xs font-medium">Error</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom line: Tool Name on left, Duration on right */}
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <p className="truncate font-mono text-xs text-foreground/90 font-medium">
+              {event.tool_name}
+            </p>
+            {childCount !== undefined && childCount > 0 ? (
+              <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-muted-foreground leading-none">
+                +{childCount}
+              </span>
+            ) : null}
+          </div>
+
+          <span className="font-mono text-xs text-muted-foreground shrink-0">
+            {formatDuration(event.duration_ms)}
+          </span>
+        </div>
+
+        {/* Error message (if error) */}
         {!isSuccess && event.error_preview ? (
-          <p className="mt-0.5 line-clamp-1 text-[11px] text-destructive font-mono">
+          <p className="line-clamp-1 text-xs text-destructive font-mono pt-0.5">
             {event.error_preview}
           </p>
         ) : null}
-      </div>
-
-      <div className="text-right font-mono text-[11px] text-muted-foreground">
-        {formatDuration(event.duration_ms)}
-      </div>
-
-      <div className="flex items-center justify-end gap-1 text-right">
-        {isSuccess ? (
-          <>
-            <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
-            <span className="font-mono text-[10px] font-medium text-emerald-400">
-              OK
-            </span>
-          </>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 cursor-help">
-                <XCircle className="size-3.5 text-rose-400 shrink-0" />
-                <span className="font-mono text-[10px] font-medium text-rose-400">
-                  Error
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs">
-              <div className="space-y-1 text-xs">
-                {event.error_code && (
-                  <p className="font-mono text-muted-foreground">Code: {event.error_code}</p>
-                )}
-                <p>{event.error_preview || "Unknown error"}</p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        )}
       </div>
     </div>
   );

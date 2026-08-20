@@ -9,7 +9,6 @@ import {
   Trash2,
   AlertCircle,
   Loader2,
-  CheckCircle2,
   Globe,
   Rss,
 } from "lucide-react";
@@ -23,7 +22,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { McpServer } from "@/types/mcp";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
-import { useMcpConnection } from "@/hooks/useMcpConnection";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { cn } from "@/lib/utils";
 
@@ -78,18 +76,8 @@ interface ServerFormProps {
   server?: McpServer | null;
   mode: "add" | "edit";
   session: UserSession | null;
-  onSubmit: (data: ServerFormData) => Promise<void>;
+  onSubmit: (data: ServerFormData) => Promise<any>;
   onCancel: () => void;
-}
-
-type ValidationStepKey = "format" | "oauth" | "connection" | "save";
-type ValidationMessageState = "pending" | "running" | "done" | "failed";
-
-interface ValidationStep {
-  key: ValidationStepKey;
-  label: string;
-  state: ValidationMessageState;
-  detail?: string;
 }
 
 export default function ServerForm({
@@ -99,10 +87,7 @@ export default function ServerForm({
   onSubmit,
   onCancel,
 }: ServerFormProps) {
-  const [isValidatingBeforeSubmit, setIsValidatingBeforeSubmit] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [validationMessages, setValidationMessages] = useState<ValidationStep[]>([]);
-  const { connect } = useMcpConnection();
 
   const defaultValues: ServerFormData = useMemo(
     () => ({
@@ -140,16 +125,6 @@ export default function ServerForm({
   const transportType = watch("transport");
   const requiresOauth = watch("requiresOauth");
 
-  const upsertValidationStep = (key: ValidationStepKey, update: Partial<ValidationStep>) => {
-    setValidationMessages((prev) => {
-      const idx = prev.findIndex((s) => s.key === key);
-      if (idx === -1) return prev;
-      const next = [...prev];
-      next[idx] = { ...next[idx], ...update };
-      return next;
-    });
-  };
-
   const handleFormSubmit = async (form: ServerFormData) => {
     if (!session) {
       toast.error("Please sign in first.");
@@ -158,66 +133,30 @@ export default function ServerForm({
 
     try {
       setValidationError(null);
-      setIsValidatingBeforeSubmit(true);
 
-      const initialSteps: ValidationStep[] = [
-        { key: "format", label: "Validate URL format", state: "running" },
-        ...(form.requiresOauth ? [{ key: "oauth" as ValidationStepKey, label: "Check OAuth setup", state: "pending" as ValidationMessageState }] : []),
-        { key: "connection", label: "Verify server connection", state: "pending" },
-        { key: "save", label: mode === "add" ? "Create server" : "Update server", state: "pending" },
-      ];
-      setValidationMessages(initialSteps);
-
-      // 1. Validate format
-      let parsed: URL;
+      // Validate URL format
       try {
-        parsed = new URL(form.url);
+        const parsed = new URL(form.url);
         if (!["http:", "https:"].includes(parsed.protocol)) {
           throw new Error("URL must begin with http:// or https://");
         }
-      } catch (err: any) {
-        upsertValidationStep("format", { state: "failed", detail: err?.message || "Invalid URL" });
-        throw err;
-      }
-      upsertValidationStep("format", { state: "done", detail: "Valid URL format" });
-
-      // 2. Validate OAuth if applicable
-      if (form.requiresOauth) {
-        upsertValidationStep("oauth", { state: "running" });
-        if (parsed.protocol !== "https:") {
-          upsertValidationStep("oauth", { state: "failed", detail: "OAuth requires HTTPS" });
+        if (form.requiresOauth && parsed.protocol !== "https:") {
           throw new Error("OAuth requires HTTPS endpoints");
         }
-        upsertValidationStep("oauth", { state: "done", detail: "OAuth configuration validated" });
+      } catch (err: any) {
+        const msg = err?.message || "Invalid URL format";
+        setValidationError(msg);
+        toast.error(msg);
+        return;
       }
 
-      // 3. Connect check
-      upsertValidationStep("connection", { state: "running", detail: "Connecting..." });
-      try {
-        await connect({
-          id: form.url,
-          name: form.name,
-          url: form.url,
-          transport: form.transport,
-          headers: normalizeHeaderRows(form.headers),
-          clientId: form.clientId || null,
-          clientSecret: form.clientSecret || null,
-        } as unknown as McpServer);
-        upsertValidationStep("connection", { state: "done", detail: "Connection verified" });
-      } catch {
-        upsertValidationStep("connection", { state: "done", detail: "Configured" });
-      }
-
-      // 4. Save server
-      upsertValidationStep("save", { state: "running" });
+      // Save server
       await onSubmit(form);
-      upsertValidationStep("save", { state: "done" });
-      onCancel();
+      toast.success(mode === "add" ? "Server added successfully" : "Server updated");
     } catch (err: any) {
-      setValidationError(err?.message || "Failed to save server");
-      toast.error("Failed to save server");
-    } finally {
-      setIsValidatingBeforeSubmit(false);
+      const msg = err?.message || "Failed to save server";
+      setValidationError(msg);
+      toast.error(msg);
     }
   };
 
@@ -425,26 +364,6 @@ export default function ServerForm({
           </TabsContent>
         </Tabs>
 
-        {/* Validation Progress */}
-        {validationMessages.length > 0 && (
-          <div className="p-3 bg-muted/30 border border-border rounded-sm space-y-1.5">
-            <p className="text-xs font-medium text-foreground">Validation Status</p>
-            <div className="space-y-1">
-              {validationMessages.map((step) => (
-                <div key={step.key} className="flex items-center gap-2 text-xs">
-                  {step.state === "running" && <Loader2 className="size-3.5 animate-spin text-primary" />}
-                  {step.state === "done" && <CheckCircle2 className="size-3.5 text-emerald-500" />}
-                  {step.state === "failed" && <AlertCircle className="size-3.5 text-destructive" />}
-                  {step.state === "pending" && <span className="size-3.5 rounded-full border border-border" />}
-                  <span className={cn(step.state === "failed" ? "text-destructive" : "text-foreground")}>
-                    {step.label} {step.detail && <span className="text-muted-foreground font-mono text-[10px]">({step.detail})</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {validationError && (
           <Alert className="border-destructive/30 bg-destructive/10 text-destructive">
             <AlertCircle className="size-4" />
@@ -459,7 +378,7 @@ export default function ServerForm({
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            disabled={isValidatingBeforeSubmit || isSubmitting}
+            disabled={isSubmitting}
             className="h-8 px-3.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
           >
             Cancel
@@ -467,13 +386,13 @@ export default function ServerForm({
           <Button
             type="submit"
             size="sm"
-            disabled={isValidatingBeforeSubmit || isSubmitting}
+            disabled={isSubmitting}
             className="h-8 px-4 text-xs font-medium cursor-pointer"
           >
-            {isValidatingBeforeSubmit ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="size-3.5 mr-1.5 animate-spin" />
-                Validating...
+                Saving...
               </>
             ) : mode === "add" ? (
               "Save Server"

@@ -516,7 +516,10 @@ export default function ToolExecutionPanel({
       <div className="flex-shrink-0 flex items-center border-b border-border bg-muted/20 px-4 py-2">
         <div className="flex items-center gap-1 bg-transparent p-0.5">
           <button
-            onClick={() => setActivePanelTab("tools")}
+            onClick={() => {
+              setActivePanelTab("tools");
+              setToolsViewMode("form");
+            }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
               activePanelTab === "tools"
                 ? "bg-muted text-foreground"
@@ -525,6 +528,7 @@ export default function ToolExecutionPanel({
           >
             <Hammer className="h-3.5 w-3.5" />
             Tools
+            <span className="text-[10px] opacity-75 font-mono">({tools.length})</span>
           </button>
           <button
             onClick={() => setActivePanelTab("resources")}
@@ -557,34 +561,25 @@ export default function ToolExecutionPanel({
           <div className="flex-shrink-0 border-b border-border px-4 py-2 flex items-center justify-between bg-background/50">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  setToolsViewMode("form");
-                }}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 ${
-                  toolsViewMode === "form"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Tools
-                <span className="text-[10px] opacity-75 font-mono">{tools.length}</span>
-              </button>
-              
-              <button
-                onClick={() => setToolsViewMode("saved")}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 ${
+                onClick={() => setToolsViewMode(toolsViewMode === "saved" ? "form" : "saved")}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors ${
                   toolsViewMode === "saved"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 }`}
+                title={toolsViewMode === "saved" ? "Back to tool execution" : "View saved presets"}
               >
                 <Bookmark className="h-3 w-3" />
                 Saved
+                {savedPresets.length > 0 && (
+                  <span className="text-[10px] opacity-75 font-mono">{savedPresets.length}</span>
+                )}
               </button>
 
               <button
                 onClick={() => setActivePanelTab("sessions")}
-                className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                title="View session history"
               >
                 <History className="h-3 w-3" />
                 Sessions
@@ -691,14 +686,14 @@ export default function ToolExecutionPanel({
             ) : !tool ? (
               /* Tool browser / list view if no tool selected */
               <div className="p-4 space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <div className="relative flex items-center">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search tools..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-1.5 border border-border rounded-lg bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="w-full h-8 pl-8 pr-3 border border-border rounded-md bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
                   />
                 </div>
                 
