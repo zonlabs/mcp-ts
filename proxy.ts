@@ -38,13 +38,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes that require authentication
-  const protectedRoutes = [
-    "/chat",
-    "/mcp",
-    "/settings/account",
-    "/settings/preferences",
-    "/settings/api-keys",
-  ];
+  const protectedRoutes = ["/chat", "/mcp", "/settings"];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
@@ -68,9 +62,7 @@ export const config = {
   matcher: [
     "/chat/:path*",
     "/mcp/:path*",
-    "/settings/account/:path*",
-    "/settings/preferences/:path*",
-    "/settings/api-keys/:path*",
+    "/settings/:path*",
     "/signin",
   ],
 };
