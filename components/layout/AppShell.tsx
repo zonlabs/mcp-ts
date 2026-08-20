@@ -572,10 +572,7 @@ export function AppShell({
           <SimpleTooltip content={!isExpanded ? "New Chat" : null} side="right">
             <Link
               href="/chat"
-              onClick={() => {
-                if (isMobile) setMobileDrawerOpen(false);
-                window.dispatchEvent(new CustomEvent('chat:reset'));
-              }}
+              onClick={() => isMobile && setMobileDrawerOpen(false)}
               className={cn(
                 "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
                 isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",

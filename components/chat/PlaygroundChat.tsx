@@ -32,7 +32,7 @@ import {
   Plus,
   Clock,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
@@ -349,21 +349,15 @@ export function PlaygroundChat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
+  const pathname = usePathname();
+
   useEffect(() => {
-    const handleReset = () => {
+    if ((pathname === '/chat' || pathname === '/chat/') && !propChatId) {
       setMessages([]);
       setChatId(crypto.randomUUID());
       setChatInput("");
-      if (typeof window !== 'undefined') {
-        window.history.replaceState(null, '', '/chat');
-      }
-    };
-
-    window.addEventListener('chat:reset', handleReset);
-    return () => {
-      window.removeEventListener('chat:reset', handleReset);
-    };
-  }, [setMessages]);
+    }
+  }, [pathname, propChatId, setMessages]);
 
   const { upsertChat } = useSidebarChats();
 
