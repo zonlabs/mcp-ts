@@ -1,48 +1,47 @@
 "use client";
 
-import React, { useId } from "react";
-
-const AnimatedPlaygroundLogo = () => {
-  const clipId = useId().replace(/:/g, "");
-
-  return (
-    <svg
-      width="48"
-      height="48"
-      viewBox="0 0 256 256"
-      preserveAspectRatio="xMidYMid meet"
-      xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label="Loading"
-      shapeRendering="geometricPrecision"
-      style={{ display: "block" }}
-    >
-      <defs>
-        <clipPath id={clipId}>
-          <rect x="0" y="208" width="60" height="8">
-            <animate attributeName="y" values="208;40;40" keyTimes="0;0.25;1" dur="1.6s" repeatCount="indefinite" />
-            <animate attributeName="height" values="8;176;176" keyTimes="0;0.25;1" dur="1.6s" repeatCount="indefinite" />
-            <animate attributeName="width" values="60;60;256" keyTimes="0;0.25;1" dur="1.6s" repeatCount="indefinite" />
-          </rect>
-        </clipPath>
-      </defs>
-
-      <g fill="#d30000" clipPath={`url(#${clipId})`}>
-        <path d="M58 47 L128 77 L198 47" fill="none" stroke="#d30000" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
-        <rect x="51" y="40" width="14" height="176" rx="7" />
-        <rect x="121" y="70" width="14" height="94" rx="7" />
-        <rect x="191" y="40" width="14" height="96" rx="7" />
-      </g>
-    </svg>
-  );
-};
+import React from "react";
 
 export const LoadingSpinner = () => {
   return (
-    <div className="flex items-center px-4">
-      <div className="relative w-12 h-12 flex items-center justify-center">
-        <AnimatedPlaygroundLogo />
-      </div>
+    <div className="flex items-center px-1 py-1.5" role="status" aria-label="Loading">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 18 18"
+        fill="currentColor"
+        className="text-foreground"
+      >
+        <style>{`
+          @keyframes matrixDot {
+            0%, 100% { opacity: 0.2; }
+            20% { opacity: 1; }
+            40% { opacity: 0.7; }
+            60% { opacity: 0.2; }
+          }
+          .m-1 { animation: matrixDot 1.4s infinite ease-in-out 0.00s; }
+          .m-2 { animation: matrixDot 1.4s infinite ease-in-out 0.15s; }
+          .m-3 { animation: matrixDot 1.4s infinite ease-in-out 0.30s; }
+          .m-4 { animation: matrixDot 1.4s infinite ease-in-out 0.45s; }
+          .m-5 { animation: matrixDot 1.4s infinite ease-in-out 0.60s; }
+          .m-6 { animation: matrixDot 1.4s infinite ease-in-out 0.75s; }
+          .m-7 { animation: matrixDot 1.4s infinite ease-in-out 0.90s; }
+          .m-8 { animation: matrixDot 1.4s infinite ease-in-out 1.05s; }
+          .m-center { opacity: 0.2; }
+        `}</style>
+        {/* Row 1 */}
+        <circle cx="3" cy="3" r="1.8" className="m-1" />
+        <circle cx="9" cy="3" r="1.8" className="m-2" />
+        <circle cx="15" cy="3" r="1.8" className="m-3" />
+        {/* Row 2 */}
+        <circle cx="3" cy="9" r="1.8" className="m-8" />
+        <circle cx="9" cy="9" r="1.8" className="m-center" />
+        <circle cx="15" cy="9" r="1.8" className="m-4" />
+        {/* Row 3 */}
+        <circle cx="3" cy="15" r="1.8" className="m-7" />
+        <circle cx="9" cy="15" r="1.8" className="m-6" />
+        <circle cx="15" cy="15" r="1.8" className="m-5" />
+      </svg>
     </div>
   );
 };

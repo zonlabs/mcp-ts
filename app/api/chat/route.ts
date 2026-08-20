@@ -13,7 +13,6 @@
 import { convertToModelMessages, createIdGenerator, generateText, createUIMessageStreamResponse } from 'ai';
 import { createMcpAgent, type McpAgentUIMessage } from '@/agent/chat-agent';
 import { createClient } from '@/lib/supabase/server';
-import type { GatewayServerSelection } from '@/lib/gateway-access';
 import { NextResponse } from 'next/server';
 import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
 import { getModelFromConfig, getTitleModel } from '@/lib/llm';
@@ -29,8 +28,6 @@ interface ChatRequestBody {
   messages: McpAgentUIMessage[];
   /** Legacy alias for `messages` */
   uiMessages?: McpAgentUIMessage[];
-  /** MCP gateway server selections the user has configured */
-  gatewaySelections?: GatewayServerSelection[];
   /** The chat record ID in the database */
   chatId?: string;
   /**
@@ -181,10 +178,10 @@ function getNewAssistantMessages(
               (newPart as any).toolCallId || (newPart as any).toolInvocation?.toolCallId;
             const existingIndex = newToolCallId
               ? mergedParts.findIndex(
-                  p =>
-                    (p as any).toolCallId === newToolCallId ||
-                    (p as any).toolInvocation?.toolCallId === newToolCallId
-                )
+                p =>
+                  (p as any).toolCallId === newToolCallId ||
+                  (p as any).toolInvocation?.toolCallId === newToolCallId
+              )
               : -1;
 
             if (existingIndex >= 0) {
@@ -271,7 +268,7 @@ export async function POST(req: Request) {
   }
 
   // ── Action Flags ────────────────────────────────────────────────────────────
-  const shouldRegenerate  = body.action === 'regenerate-message';
+  const shouldRegenerate = body.action === 'regenerate-message';
   const shouldEditReplace = body.action === 'edit-message';
 
   // ── Edit-Message: Sync DB to Client State ───────────────────────────────────
@@ -327,7 +324,6 @@ export async function POST(req: Request) {
   // ── MCP Agent Setup ─────────────────────────────────────────────────────────
   const { agent, cleanup } = await createMcpAgent({
     userId: userId,
-    gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : undefined,
     agentPreferences: body.agentPreferences,
   });
   // Ensure tool connections are properly cleaned up if the client disconnects
@@ -354,12 +350,11 @@ export async function POST(req: Request) {
       userId: userId,
       llmConfig: body.llmConfig,
       agentPreferences: body.agentPreferences,
-      gatewaySelections: Array.isArray(body.gatewaySelections) ? body.gatewaySelections : [],
     },
   });
 
   // ── Response Stream ─────────────────────────────────────────────────────────
-  
+
 
   // Response Stream
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({

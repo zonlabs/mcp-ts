@@ -1,6 +1,6 @@
 "use client";
 
-import { XCircle, ShieldAlert, ChevronRight, ChevronDown } from "lucide-react";
+import { XCircle, Wrench, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { useState } from "react";
@@ -31,20 +31,20 @@ export function MCPToolApproval({
   const hasArgs = Object.keys(args).length > 0;
 
   return (
-    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-3 py-2 animate-in fade-in slide-in-from-bottom-2">
+    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2.5 py-2 animate-in fade-in slide-in-from-bottom-2">
       <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-amber-500 flex-shrink-0" />
+          <Wrench className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <span className="text-[14px] font-semibold text-foreground truncate">{toolName}</span>
         </div>
-        <span className="text-xs text-muted-foreground truncate pl-6 mt-0.5">
+        <span className="text-xs text-muted-foreground truncate mt-1">
           {format("requestingToolExecution", { toolName, serverId })}
         </span>
       </div>
       
       {hasArgs && (
-        <div className="pl-6">
-          <button onClick={() => setIsArgsExpanded(!isArgsExpanded)} className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+        <div>
+          <button onClick={() => setIsArgsExpanded(!isArgsExpanded)} className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
             {isArgsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {t("payload")}
           </button>
@@ -56,9 +56,9 @@ export function MCPToolApproval({
         </div>
       )}
 
-      <div className="flex gap-1.5 shrink-0 pl-6 mt-1">
-        <Button size="sm" onClick={onDeny} variant="outline" className="h-8 px-3 text-xs sm:text-sm">{t("deny")}</Button>
-        <Button size="sm" onClick={onApprove} className="gap-1 sm:gap-2 h-8 px-3 text-xs sm:text-sm">{t("approve")}</Button>
+      <div className="flex items-center gap-2 shrink-0 mt-1">
+        <Button size="sm" onClick={onDeny} variant="outline" className="h-8 px-3 text-xs sm:text-sm cursor-pointer">{t("deny")}</Button>
+        <Button size="sm" onClick={onApprove} className="gap-1 sm:gap-2 h-8 px-3 text-xs sm:text-sm cursor-pointer">{t("approve")}</Button>
       </div>
     </div>
   );

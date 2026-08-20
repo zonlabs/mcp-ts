@@ -1,5 +1,3 @@
-import { initiateMcpConnection } from "@/tool/initiate-mcp-connection";
-import { searchMcpServers } from "@/tool/search-mcp-servers";
 import { createOpenAI } from "@ai-sdk/openai";
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, type LanguageModelUsage, type ToolSet } from "ai";
 import { McpManager } from "@mcp-ts/client";
@@ -7,7 +5,6 @@ import { AIAdapter } from "@mcp-ts/client/adapters/ai";
 import { ToolRouter } from "@mcp-ts/client/shared";
 import { z } from "zod";
 import { buildChatAgentInstructions, PINNED_REMOTE_TOOLS } from "@/agent/chat-agent-instructions";
-import type { GatewayServerSelection } from "@/lib/gateway-access";
 import { getModelFromConfig } from "@/lib/llm";
 import {
   type AgentPreferences,
@@ -17,7 +14,6 @@ import {
 
 interface CreateMcpAgentOptions {
   userId?: string;
-  gatewaySelections?: GatewayServerSelection[];
   agentPreferences?: Partial<AgentPreferences>;
 }
 
@@ -28,7 +24,6 @@ type McpAgentCallOptions = {
     apiKey?: string;
     model?: string;
   };
-  gatewaySelections?: { agentId: string; mcpServer: string }[];
   agentPreferences?: Partial<AgentPreferences>;
 };
 
@@ -110,12 +105,7 @@ async function getRemoteMcpTools(
     }
   }
 
-  const baseTools = {
-    MCPASSISTANT_SEARCH_SERVERS: searchMcpServers,
-    MCPASSISTANT_INITIATE_CONNECTION: initiateMcpConnection,
-  };
-
-  let mcpTools: Record<string, any> = { ...baseTools };
+  let mcpTools: Record<string, any> = {};
 
   try {
     const router = new ToolRouter(manager, {
@@ -144,21 +134,13 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   const userId = options.userId?.trim() || "demo-user-123";
   const initialAgentPreferences = normalizeAgentPreferences(options.agentPreferences);
 
-  // Gateway-local tool exposure is intentionally disabled; remote MCP access goes through ToolRouter.
-  const localTools: Record<string, any> = {};
-
   const { manager, tools: remoteTools } = await getRemoteMcpTools(
     userId,
     undefined,
     initialAgentPreferences
   );
 
-  console.log(
-    `[MCP] Loaded ${Object.keys(localTools).length} local tools (including built-ins) and ${Object.keys(remoteTools).length} remote tools.`
-  );
-
   const combinedTools = {
-    ...localTools,
     ...remoteTools,
   };
 
@@ -173,14 +155,6 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
           apiKey: z.string().optional(),
           model: z.string().optional(),
         })
-        .optional(),
-      gatewaySelections: z
-        .array(
-          z.object({
-            agentId: z.string(),
-            mcpServer: z.string(),
-          })
-        )
         .optional(),
       agentPreferences: z
         .object({
