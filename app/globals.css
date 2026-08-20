@@ -9,8 +9,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-geist), var(--font-inter), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-geist: var(--font-geist);
   --font-inter: var(--font-inter);
   --font-geist-mono: var(--font-geist-mono);
   
@@ -90,6 +91,13 @@
 }
 
 :root {
+  --heading-weight: 400;
+  --heading-letter-spacing: -0.035em;
+  --body-weight: 400;
+  --lh-tight: 1.1;
+  --lh-snug: 1.25;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.75;
   --radius: 4px;
   
   /* Clean Modern Studio - Light Mode */

@@ -139,9 +139,9 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
             <Button
               size="sm"
               onClick={onAddApp}
-              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-sm text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-sm text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
             >
-              <Plus className="size-3.5" />
+              <Plus className="size-3.5 shrink-0" strokeWidth={2.5} />
               <span>Add App</span>
             </Button>
           )}

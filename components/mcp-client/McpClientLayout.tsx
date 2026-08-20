@@ -176,16 +176,6 @@ export default function McpClientLayout({
     return "home";
   }, [viewParam, selectedServer, activeTabParam]);
 
-  const activeNav = activeTabParam === "apps" || selectedServer || viewParam === "add" ? "apps" : "home";
-  const titleBreadcrumb =
-    currentView === "add"
-      ? "Apps > Add New App"
-      : currentView === "detail" && selectedServer
-      ? `Apps > ${selectedServer.name}`
-      : currentView === "apps"
-      ? "Apps"
-      : "Home";
-
   return (
     <>
       <Toaster
@@ -198,7 +188,7 @@ export default function McpClientLayout({
             border: "1px solid #3f3a36",
             borderRadius: "4px",
             fontSize: "13px",
-            fontFamily: "var(--font-inter), sans-serif",
+            fontFamily: "var(--font-sans), sans-serif",
           },
         }}
       />
