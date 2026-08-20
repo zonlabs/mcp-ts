@@ -122,7 +122,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
               Apps
             </h1>
             <p className="text-xs text-muted-foreground font-mono mt-0.5">
-              Discover, connect and configure MCP tools for your AI agents
+              Discover, connect and configure MCP tools for your AI
             {activeTab === "all" && totalCount > 0 && (
               <span className="ml-1.5 text-muted-foreground/60">· {totalCount.toLocaleString()} total</span>
             )}

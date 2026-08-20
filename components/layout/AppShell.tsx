@@ -564,53 +564,64 @@ export function AppShell({
         </div>
 
         {/* Nav */}
-        <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-0.5 scrollbar-minimal">
+        <div
+          className={cn(
+            "flex-1 overflow-y-auto space-y-0.5 scrollbar-minimal",
+            isExpanded ? "px-2 py-1.5" : "px-1 py-1.5"
+          )}
+        >
           {/* Main Links */}
-          <Link
-            href="/mcp?tab=home"
-            onClick={() => isMobile && setMobileDrawerOpen(false)}
-            className={cn(
-              "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13px] font-medium transition-all text-left",
-              !isExpanded && "justify-center px-0",
-              currentNav === "home"
-                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
-                : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-            )}
-          >
-            <Home className="size-4 shrink-0" />
-            {isExpanded && <span>Home</span>}
-          </Link>
+          <SimpleTooltip content={!isExpanded ? "Home" : null} side="right">
+            <Link
+              href="/mcp?tab=home"
+              onClick={() => isMobile && setMobileDrawerOpen(false)}
+              className={cn(
+                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
+                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
+                currentNav === "home"
+                  ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                  : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+              )}
+            >
+              <Home className="size-4 shrink-0" />
+              {isExpanded && <span>Home</span>}
+            </Link>
+          </SimpleTooltip>
 
-          <Link
-            href="/mcp?tab=apps"
-            onClick={() => isMobile && setMobileDrawerOpen(false)}
-            className={cn(
-              "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13px] font-medium transition-all text-left",
-              !isExpanded && "justify-center px-0",
-              currentNav === "apps"
-                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
-                : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-            )}
-          >
-            <LayoutGrid className="size-4 shrink-0" />
-            {isExpanded && <span>Apps</span>}
-          </Link>
+          <SimpleTooltip content={!isExpanded ? "Apps" : null} side="right">
+            <Link
+              href="/mcp?tab=apps"
+              onClick={() => isMobile && setMobileDrawerOpen(false)}
+              className={cn(
+                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
+                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
+                currentNav === "apps"
+                  ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                  : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+              )}
+            >
+              <LayoutGrid className="size-4 shrink-0" />
+              {isExpanded && <span>Apps</span>}
+            </Link>
+          </SimpleTooltip>
 
           {/* New Chat */}
-          <Link
-            href="/chat"
-            onClick={() => isMobile && setMobileDrawerOpen(false)}
-            className={cn(
-              "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13px] font-medium transition-all text-left",
-              !isExpanded && "justify-center px-0",
-              currentNav === "chat" && !currentChatId
-                ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
-                : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-            )}
-          >
-            <SquarePen className="size-4 shrink-0" />
-            {isExpanded && <span>New Chat</span>}
-          </Link>
+          <SimpleTooltip content={!isExpanded ? "New Chat" : null} side="right">
+            <Link
+              href="/chat"
+              onClick={() => isMobile && setMobileDrawerOpen(false)}
+              className={cn(
+                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
+                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
+                currentNav === "chat" && !currentChatId
+                  ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                  : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+              )}
+            >
+              <SquarePen className="size-4 shrink-0" />
+              {isExpanded && <span>New Chat</span>}
+            </Link>
+          </SimpleTooltip>
 
           {/* History */}
           {isExpanded && allChats.length > 0 && (
@@ -861,7 +872,7 @@ export function AppShell({
       <aside
         className={cn(
           "hidden lg:flex h-full bg-sidebar text-sidebar-foreground flex-col transition-all duration-150 shrink-0 z-30",
-          sidebarOpen ? "w-64" : "w-14"
+          sidebarOpen ? "w-64" : "w-12"
         )}
       >
         {renderSidebarContent({ isMobile: false })}

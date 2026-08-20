@@ -312,14 +312,14 @@ export function ToolAccessDialog({
               {mode === "allowlist" && (
                 <div className="rounded-sm border border-border bg-card px-3 py-2 text-center">
                   <p className="text-xs font-mono text-muted-foreground">
-                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be accessible by AI agents
+                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be accessible by AI
                   </p>
                 </div>
               )}
               {mode === "denylist" && (
                 <div className="rounded-sm border border-border bg-card px-3 py-2 text-center">
                   <p className="text-xs font-mono text-muted-foreground">
-                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be blocked from AI agents
+                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be blocked from AI Usage
                   </p>
                 </div>
               )}
