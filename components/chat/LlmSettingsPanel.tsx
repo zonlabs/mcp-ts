@@ -71,7 +71,7 @@ export function LlmSettingsPanel() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-[220px]">
-          <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
+          <label className="block text-xs text-mute mb-1">
             {t("provider")}
           </label>
           <Select
@@ -86,7 +86,7 @@ export function LlmSettingsPanel() {
                 <SelectItem key={provider.id} value={provider.id}>
                   <div className="flex items-center gap-2">
                     {provider.iconUrl ? (
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-xs">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-canvas-soft border border-hairline">
                         <img
                           src={provider.iconUrl}
                           alt=""
@@ -103,7 +103,7 @@ export function LlmSettingsPanel() {
         </div>
 
         <div className="flex-1 min-w-[220px]">
-          <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
+          <label className="block text-xs text-mute mb-1">
             {t("model")}
           </label>
           <ModelSelector
@@ -124,7 +124,7 @@ export function LlmSettingsPanel() {
         </div>
 
         <div className="flex-1 min-w-[260px]">
-          <label className="block text-xs font-instrument-serif font-medium uppercase tracking-[0.16em] text-muted-foreground mb-1">
+          <label className="block text-xs text-mute mb-1">
             {t("apiKey")}
           </label>
           <div className="relative">
@@ -133,7 +133,7 @@ export function LlmSettingsPanel() {
               placeholder={t("pasteApiKey")}
               value={config.apiKey || ""}
               onChange={(e) => updateConfig({ apiKey: e.target.value })}
-              className="h-9 rounded-none bg-transparent border-0 border-b border-gray-200 dark:border-zinc-800 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 pr-7 font-mono text-xs px-0"
+              className="h-9 rounded-none bg-transparent border-0 border-b border-hairline shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 pr-7 font-mono text-xs px-0"
             />
             <button
               type="button"
@@ -147,9 +147,9 @@ export function LlmSettingsPanel() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[15px] font-instrument-serif tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-mute">
         {getProviderIconUrl(config.provider) ? (
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-xs">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-canvas-soft border border-hairline">
             <img
               src={getProviderIconUrl(config.provider)}
               alt=""

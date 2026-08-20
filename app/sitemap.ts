@@ -4,9 +4,6 @@ import { getAppUrl } from "@/lib/url";
 const PUBLIC_ROUTES = [
   "",
   "/mcp",
-  "/registry",
-  "/gateway",
-  "/publish",
   "/faq",
   "/privacy",
 ] as const;

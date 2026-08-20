@@ -88,18 +88,11 @@ export function ServerListItem({
         )}
         <div className={`flex items-center justify-between ${showActions ? "pr-8" : ""}`}>
           <div className="flex items-center gap-2 flex-1">
-            <Tooltip delayDuration={100}>
-              <TooltipTrigger asChild>
-                <div
-                  className={`w-2 h-2 rounded-full transition-all ${getStatusColor(
-                    server.connectionStatus
-                  )}`}
-                />
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {`Status: ${server.connectionStatus || "Unknown"}`}
-              </TooltipContent>
-            </Tooltip>
+            <div
+              className={`w-2 h-2 rounded-full transition-all ${getStatusColor(
+                server.connectionStatus
+              )}`}
+            />
             <ServerIcon
               serverName={server.name}
               serverUrl={server.url}
@@ -109,14 +102,7 @@ export function ServerListItem({
             />
             <span className="font-medium text-sm truncate">{server.name}</span>
             {server.requiresOauth2 ? (
-              <Tooltip delayDuration={100}>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Shield className="h-3 w-3 text-amber-500 flex-shrink-0" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top">OAuth2 Required</TooltipContent>
-              </Tooltip>
+              <Shield className="h-3 w-3 text-amber-500 flex-shrink-0" />
             ) : (
               !showActions && (
                 <span className="text-xs font-medium text-red-600 dark:text-red-300">

@@ -5,13 +5,16 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const AUTH_CHANNEL_NAME = "mcp-auth-channel";
 
 function createAuthBroadcastChannel(): BroadcastChannel | null {
   if (typeof BroadcastChannel === "undefined") return null;
-  try { return new BroadcastChannel(AUTH_CHANNEL_NAME); } catch { return null; }
+  try {
+    return new BroadcastChannel(AUTH_CHANNEL_NAME);
+  } catch {
+    return null;
+  }
 }
 
 function LoadingBubbles() {
@@ -66,10 +69,21 @@ function CallbackSuccessContent() {
 
     if (code && authSessionId) {
       hasPostedResultRef.current = true;
-      const payload = { type: "MCP_AUTH_CODE", code, sessionId: authSessionId, state: authSessionId };
+      const payload = {
+        type: "MCP_AUTH_CODE",
+        code,
+        sessionId: authSessionId,
+        state: authSessionId,
+      };
 
       const postAuthCode = () => {
-        if (window.opener) window.opener.postMessage(payload, window.location.origin);
+        if (window.opener) {
+          try {
+            window.opener.postMessage(payload, window.location.origin);
+          } catch {
+            // ignore
+          }
+        }
       };
 
       postAuthCode();
@@ -80,13 +94,17 @@ function CallbackSuccessContent() {
       const retryInterval = window.setInterval(() => {
         postAuthCode();
         channel?.postMessage(payload);
-      }, 250);
+      }, 200);
 
       setTimeout(() => {
         window.clearInterval(retryInterval);
         channel?.close();
-        window.close();
-      }, 1000);
+        try {
+          window.close();
+        } catch {
+          // ignore
+        }
+      }, 800);
       return;
     }
 
@@ -96,12 +114,27 @@ function CallbackSuccessContent() {
 
       const payload = { type: "mcp-auth-success", sessionId, serverName, serverId, serverUrl };
 
-      if (window.opener) window.opener.postMessage(payload, window.location.origin);
+      if (window.opener) {
+        try {
+          window.opener.postMessage(payload, window.location.origin);
+        } catch {
+          // ignore
+        }
+      }
 
       const channel = createAuthBroadcastChannel();
-      if (channel) { channel.postMessage(payload); channel.close(); }
+      if (channel) {
+        channel.postMessage(payload);
+        channel.close();
+      }
 
-      setTimeout(() => window.close(), 2000);
+      setTimeout(() => {
+        try {
+          window.close();
+        } catch {
+          // ignore
+        }
+      }, 800);
     } else if (step === "error" || error) {
       hasPostedResultRef.current = true;
       setStatus("error");
@@ -109,10 +142,19 @@ function CallbackSuccessContent() {
 
       const payload = { type: "mcp-auth-error", error: error || "Authentication failed" };
 
-      if (window.opener) window.opener.postMessage(payload, window.location.origin);
+      if (window.opener) {
+        try {
+          window.opener.postMessage(payload, window.location.origin);
+        } catch {
+          // ignore
+        }
+      }
 
       const channel = createAuthBroadcastChannel();
-      if (channel) { channel.postMessage(payload); channel.close(); }
+      if (channel) {
+        channel.postMessage(payload);
+        channel.close();
+      }
     }
   }, [step, sessionId, serverName, serverId, serverUrl, error, code, state]);
 
@@ -129,7 +171,7 @@ function CallbackSuccessContent() {
               <LoadingBubbles />
               <div>
                 <p className="text-base font-medium text-foreground">Authorizing</p>
-                <p className="mt-1 text-xs text-muted-foreground">please wait while we complete the authentication</p>
+                <p className="mt-1 text-xs text-muted-foreground">Please wait while we complete the authentication...</p>
               </div>
             </div>
           )}
@@ -157,7 +199,13 @@ function CallbackSuccessContent() {
               </div>
               <button
                 type="button"
-                onClick={() => window.close()}
+                onClick={() => {
+                  try {
+                    window.close();
+                  } catch {
+                    // ignore
+                  }
+                }}
                 className="mt-1 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Close Window
@@ -177,7 +225,7 @@ export default function CallbackSuccessPage() {
         <div className="flex min-h-dvh items-center justify-center bg-background p-4">
           <Card className="w-full max-w-sm border-border/60 shadow-lg">
             <CardContent className="flex flex-col items-center px-6 py-10 text-center">
-              <p className="text-sm font-medium text-foreground">please wait while we complete the authentication</p>
+              <p className="text-sm font-medium text-foreground">Please wait while we complete the authentication...</p>
             </CardContent>
           </Card>
         </div>

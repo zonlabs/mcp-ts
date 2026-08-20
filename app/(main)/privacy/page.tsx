@@ -13,16 +13,16 @@ export default function PrivacyPolicy() {
                 <Shield className="h-8 w-8 text-primary" />
               </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-3">Privacy Policy</h1>
-            <p className="text-sm text-muted-foreground">
-              <strong>Last Updated:</strong> October 20, 2025
+            <h1 className="text-3xl md:text-4xl font-normal sm:font-[450] tracking-[-0.03em] mb-3 text-foreground">Privacy Policy</h1>
+            <p className="text-sm text-foreground/80">
+              <strong className="font-medium">Last Updated:</strong> October 20, 2025
             </p>
           </div>
 
           {/* Content */}
           <div className="space-y-8">
             <div>
-              <h2 className="text-2xl font-semibold mb-4">Introduction</h2>
+              <h2 className="text-xl font-medium tracking-tight mb-3 text-foreground">Introduction</h2>
               <p className="text-muted-foreground">
                 MCP Assistant (&quot;we&quot;, &quot;our&quot;, or &quot;the service&quot;) is a platform that helps users manage MCP (Model Context Protocol) servers and interact with AI assistants. This privacy policy explains how we collect, use, and protect your information.
               </p>

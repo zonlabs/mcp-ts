@@ -4,8 +4,8 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, Check, Copy, Search, Server, Star, Hammer } from "lucide-react";
-import { toast } from "react-hot-toast";
 import { ServerIcon } from "@/components/common/ServerIcon";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import type { McpServer } from "@/types/mcp";
 
 interface ServerPlaceholderProps {
@@ -78,10 +78,9 @@ export function ServerPlaceholder({
     try {
       await navigator.clipboard.writeText(MCP_ASSISTANT_URL);
       setUrlCopied(true);
-      toast.success("Copied MCP endpoint");
       window.setTimeout(() => setUrlCopied(false), 1600);
     } catch {
-      toast.error("Could not copy MCP endpoint");
+      // clipboard unavailable — ignore
     }
   };
 
@@ -120,22 +119,22 @@ export function ServerPlaceholder({
 
                 <div className="flex shrink-0 items-center gap-1.5">
                   {MCP_CLIENT_ICONS.map((client) => (
-                    <div
-                      key={client.name}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background"
-                      title={client.name}
-                    >
-                      <img
-                        src={client.fallbackImage}
-                        alt={`${client.name} icon`}
-                        width={15}
-                        height={15}
-                        className={`rounded-sm ${client.name === 'Cursor' || client.name === 'ChatGPT' ? 'dark:invert' : ''}`}
-                        loading="lazy"
-                        decoding="async"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
+                    <SimpleTooltip key={client.name} content={client.name} side="top">
+                      <div
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background"
+                      >
+                        <img
+                          src={client.fallbackImage}
+                          alt={`${client.name} icon`}
+                          width={15}
+                          height={15}
+                          className={`rounded-sm ${client.name === 'Cursor' || client.name === 'ChatGPT' ? 'dark:invert' : ''}`}
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    </SimpleTooltip>
                   ))}
                 </div>
               </div>
@@ -152,14 +151,16 @@ export function ServerPlaceholder({
                       {MCP_ASSISTANT_URL}
                     </code>
                   </div>
-                  <button
-                    type="button"
-                    aria-label="Copy MCP endpoint"
-                    onClick={handleCopyAssistantUrl}
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-colors"
-                  >
-                    {urlCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                  </button>
+                  <SimpleTooltip content={urlCopied ? "Copied!" : "Copy endpoint"} side="left">
+                    <button
+                      type="button"
+                      aria-label="Copy MCP endpoint"
+                      onClick={handleCopyAssistantUrl}
+                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-colors"
+                    >
+                      {urlCopied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                    </button>
+                  </SimpleTooltip>
                 </div>
 
                 <div className="flex items-center justify-end pt-1">

@@ -1,6 +1,6 @@
 {
   "name": "mcp-assistant",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": true,
   "engines": {
     "node": ">=22 <23"
@@ -19,7 +19,7 @@
     "@ai-sdk/openai": "^3.0.9",
     "@ai-sdk/react": "^3.0.35",
     "@hookform/resolvers": "^5.2.1",
-    "@mcp-ts/client": "^4.1.2",
+    "@mcp-ts/client": "^4.2.0",
     "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/core": "^2.0.0",
     "@radix-ui/react-accordion": "^1.2.12",

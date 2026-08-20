@@ -3,7 +3,7 @@
 import { Copy, Check, RefreshCw, Gauge, ArrowUpRight, ArrowDownLeft, Sigma, Pencil, X, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -19,27 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/web-i18n";
 
-type MessageLike = {
-  role?: string;
-  content?: any;
-  text?: string;
-};
-
-function AssistantAvatar() {
-  return (
-    <div className="w-full h-full flex items-center justify-center rounded-full bg-muted">
-      <Image
-        src="/logo.svg"
-        alt="Assistant avatar"
-        width={32}
-        height={32}
-        className="rounded-full object-contain"
-      />
-    </div>
-  );
-}
-
-export function UserMessage({ message, parts, onEdit }: {
+export const UserMessage = memo(function UserMessage({ message, parts, onEdit }: {
   message: any;
   parts?: any[];
   onEdit?: (newContent: string) => void
@@ -98,27 +78,27 @@ export function UserMessage({ message, parts, onEdit }: {
   return (
     <div className="flex flex-col items-end gap-2 w-full">
       {textContent && (
-        <div className="flex flex-col items-end gap-1 w-full max-w-[75%] sm:max-w-[640px]">
+        <div className="flex flex-col items-end gap-1 w-full max-w-[85%] sm:max-w-[560px]">
           {isEditing ? (
-            <div className="flex flex-col gap-3 w-full bg-secondary/30 p-4 rounded-2xl border border-border/50 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col gap-3 w-full bg-card p-3.5 rounded-md border border-border">
               <Textarea
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
-                className="min-h-[100px] bg-background border-none focus-visible:ring-1 focus-visible:ring-primary/20 resize-none text-sm p-0 shadow-none leading-relaxed"
+                className="min-h-[90px] bg-background border border-border focus-visible:ring-1 focus-visible:ring-ring resize-none text-xs font-sans p-2 shadow-none leading-relaxed text-foreground rounded-sm"
                 placeholder={t("editYourMessage")}
                 autoFocus
               />
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50">
-                <div className="flex items-center gap-1.5 text-[11px] text-orange-500/90 font-medium">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border">
+                <div className="flex items-center gap-1.5 text-[11px] text-amber-500 font-medium">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                   <span>{t("subsequentMessagesDeleted")}</span>
                 </div>
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-1.5 ml-auto">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setIsEditing(false)}
-                    className="h-8 px-3 text-xs hover:bg-background/80"
+                    className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-sm"
                   >
                     {t("cancel")}
                   </Button>
@@ -126,7 +106,7 @@ export function UserMessage({ message, parts, onEdit }: {
                     size="sm"
                     onClick={handleSave}
                     disabled={editValue.trim() === "" || editValue === textContent}
-                    className="h-8 px-4 text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
+                    className="h-7 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground rounded-sm"
                   >
                     {t("updateAndContinue")}
                   </Button>
@@ -135,14 +115,14 @@ export function UserMessage({ message, parts, onEdit }: {
             </div>
           ) : (
             <>
-              <div className="bg-secondary px-4 py-2.5 rounded-[20px] text-[17px] leading-relaxed w-fit max-w-full">
+              <div className="bg-card border border-border px-3.5 py-2 rounded-md text-xs sm:text-[13px] leading-relaxed w-fit max-w-full text-foreground shadow-xs">
                 <p className={`whitespace-pre-wrap break-words ${isLong && !isExpanded ? "line-clamp-3" : ""}`}>
                   {textContent}
                 </p>
                 {isLong && (
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="mt-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="mt-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono"
                   >
                     {isExpanded ? "Show less" : "Show more"}
                   </button>
@@ -150,34 +130,34 @@ export function UserMessage({ message, parts, onEdit }: {
               </div>
 
               <TooltipProvider>
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
                   {onEdit && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                          className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                          <Pencil className="w-3.5 h-3.5" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom">{t("edit")}</TooltipContent>
+                      <TooltipContent side="bottom" className="text-xs">{t("edit")}</TooltipContent>
                     </Tooltip>
                   )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         onClick={handleCopy}
-                        className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                        className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {copied ? (
-                          <Check className="w-4 h-4 text-green-500" />
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
                         ) : (
-                          <Copy className="w-4 h-4 text-muted-foreground" />
+                          <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">{t("copy")}</TooltipContent>
+                    <TooltipContent side="bottom" className="text-xs">{t("copy")}</TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>
@@ -195,7 +175,7 @@ export function UserMessage({ message, parts, onEdit }: {
               width={300}
               height={300}
               alt={`attachment-${index}`}
-              className="rounded-lg max-w-[300px] h-auto"
+              className="rounded-md border border-border max-w-[300px] h-auto"
             />
           );
         }
@@ -207,7 +187,7 @@ export function UserMessage({ message, parts, onEdit }: {
               width={400}
               height={500}
               aria-label={`pdf-${index}`}
-              className="rounded-lg border"
+              className="rounded-md border border-border"
             />
           );
         }
@@ -215,9 +195,39 @@ export function UserMessage({ message, parts, onEdit }: {
       })}
     </div>
   );
-}
+});
 
-export function AssistantMessage({
+const MarkdownCodeBlock = memo(function MarkdownCodeBlock({
+  language,
+  value,
+  theme,
+}: {
+  language: string;
+  value: string;
+  theme?: string;
+}) {
+  const codeStyle = theme === 'dark' ? oneDark : oneLight;
+  return (
+    <div className="rounded-md border border-border overflow-hidden my-2">
+      <SyntaxHighlighter
+        style={codeStyle}
+        language={language}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          padding: '12px',
+          background: 'transparent',
+          fontSize: '12px',
+          fontFamily: 'var(--font-geist-mono), monospace',
+        }}
+      >
+        {value}
+      </SyntaxHighlighter>
+    </div>
+  );
+});
+
+export const AssistantMessage = memo(function AssistantMessage({
   text,
   parts,
   onRegenerate,
@@ -228,7 +238,6 @@ export function AssistantMessage({
   const { t } = useI18n();
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [showUsage, setShowUsage] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -247,26 +256,23 @@ export function AssistantMessage({
   };
 
   return (
-    <div className="flex flex-col items-start gap-3 w-full">
+    <div className="flex flex-col items-start gap-2.5 w-full text-foreground">
       {text && (
         <div className="flex flex-col gap-1 w-full">
-          <div className="prose prose-sm dark:prose-invert max-w-full leading-relaxed text-muted-foreground/90 text-[17px]">
+          <div className="prose prose-sm dark:prose-invert max-w-full leading-relaxed text-body-strong text-xs sm:text-[13px]">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
                 code({ inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || '');
-                  const codeStyle = mounted && resolvedTheme === 'dark' ? oneDark : oneLight;
+                  const rawCode = String(children).replace(/\n$/, '');
 
                   return !inline && match ? (
-                    <SyntaxHighlighter
-                      style={codeStyle}
+                    <MarkdownCodeBlock
                       language={match[1]}
-                      PreTag="div"
-                      {...props}
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
+                      value={rawCode}
+                      theme={mounted ? resolvedTheme : 'dark'}
+                    />
                   ) : (
                     <code className={className} {...props}>
                       {children}
@@ -279,67 +285,70 @@ export function AssistantMessage({
             </ReactMarkdown>
           </div>
 
-          <TooltipProvider>
-            <div className="flex flex-col gap-3 mt-2">
-              {/* Action Buttons Row */}
-              {showActions && !isStreaming && (
-                <div className="flex gap-1 items-center">
+          {showActions && !isStreaming && (
+            <TooltipProvider>
+              <div className="flex items-center gap-1 mt-1.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleCopy}
+                      className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">{t("copy")}</TooltipContent>
+                </Tooltip>
+
+                {onRegenerate && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button onClick={handleCopy} className="p-1.5 rounded-md hover:bg-accent transition-colors">
-                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                      <button
+                        onClick={onRegenerate}
+                        className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>{t("copy")}</TooltipContent>
+                    <TooltipContent className="text-xs">{t("regenerate")}</TooltipContent>
                   </Tooltip>
+                )}
 
-                  {onRegenerate && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button onClick={onRegenerate} className="p-1.5 rounded-md hover:bg-accent transition-colors">
-                          <RefreshCw className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>{t("regenerate")}</TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {usage && (usage.inputTokens !== undefined || usage.outputTokens !== undefined || usage.totalTokens !== undefined) && (
-                    <Tooltip delayDuration={200}>
-                      <TooltipTrigger asChild>
-                        <div className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors cursor-default">
-                          <Gauge className="w-4 h-4" />
+                {usage && (usage.inputTokens !== undefined || usage.outputTokens !== undefined || usage.totalTokens !== undefined) && (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <div className="p-1 rounded-xs hover:bg-card text-muted-foreground hover:text-foreground transition-colors cursor-default">
+                        <Gauge className="w-3.5 h-3.5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="flex flex-col gap-1.5 p-2.5 bg-card border border-border text-foreground font-mono text-[11px]">
+                      {usage.inputTokens !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <ArrowDownLeft className="w-3 h-3 text-emerald-400" />
+                          <span className="text-muted-foreground">{t("inputTokens")}:</span>
+                          <span className="ml-auto font-semibold">{usage.inputTokens.toLocaleString()}</span>
                         </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="flex flex-col gap-2 p-3 bg-background border border-border/50 text-foreground shadow-md">
-                        {usage.inputTokens !== undefined && (
-                          <div className="flex items-center gap-2">
-                            <ArrowDownLeft className="w-3.5 h-3.5 text-green-500" />
-                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("inputTokens")}</span>
-                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.inputTokens.toLocaleString()}</span>
-                          </div>
-                        )}
-                        {usage.outputTokens !== undefined && (
-                          <div className="flex items-center gap-2">
-                            <ArrowUpRight className="w-3.5 h-3.5 text-orange-500" />
-                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("outputTokens")}</span>
-                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.outputTokens.toLocaleString()}</span>
-                          </div>
-                        )}
-                        {usage.totalTokens !== undefined && (
-                          <div className="flex items-center gap-2 border-t border-border/50 pt-2 mt-1">
-                            <Sigma className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("totalTokens")}</span>
-                            <span className="text-[11px] font-bold ml-auto text-foreground">{usage.totalTokens.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              )}
-            </div>
-          </TooltipProvider>
+                      )}
+                      {usage.outputTokens !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <ArrowUpRight className="w-3 h-3 text-amber-400" />
+                          <span className="text-muted-foreground">{t("outputTokens")}:</span>
+                          <span className="ml-auto font-semibold">{usage.outputTokens.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {usage.totalTokens !== undefined && (
+                        <div className="flex items-center gap-2 border-t border-border pt-1 mt-0.5">
+                          <Sigma className="w-3 h-3 text-blue-400" />
+                          <span className="text-muted-foreground">{t("totalTokens")}:</span>
+                          <span className="ml-auto font-semibold">{usage.totalTokens.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </TooltipProvider>
+          )}
         </div>
       )}
 
@@ -352,7 +361,7 @@ export function AssistantMessage({
               width={500}
               height={500}
               alt={`attachment-${index}`}
-              className="rounded-lg max-w-full h-auto"
+              className="rounded-md border border-border max-w-full h-auto"
             />
           );
         }
@@ -364,7 +373,7 @@ export function AssistantMessage({
               width={500}
               height={600}
               aria-label={`pdf-${index}`}
-              className="rounded-lg border"
+              className="rounded-md border border-border"
             />
           );
         }
@@ -372,4 +381,4 @@ export function AssistantMessage({
       })}
     </div>
   );
-}
+});

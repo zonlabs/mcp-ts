@@ -40,7 +40,7 @@ async function getUserMcpConnections(): Promise<McpConnectionRecord[]> {
 }
 
 export const searchMcpServers = tool({
-  description: `Search for MCP servers in the registry by analyzing user intent and finding relevant capabilities. Matches both server name and description text in the catalog.
+  description: `Search for MCP servers by analyzing user intent and finding relevant capabilities. Matches both server name and description text in the catalog.
 
 **CRITICAL - Intent Analysis Required:**
 detect an specific MCP server name that the user want to use or connect to, you can use that directly.

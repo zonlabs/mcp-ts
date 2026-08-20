@@ -107,8 +107,21 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'llm_config') load();
     };
+    const handlePromptInsert = (event: Event) => {
+      const customEvent = event as CustomEvent<{ text: string }>;
+      if (customEvent.detail?.text) {
+        setInput(customEvent.detail.text);
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }
+    };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('mcp:insert-prompt', handlePromptInsert);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('mcp:insert-prompt', handlePromptInsert);
+    };
   }, []);
 
   const modelOptions = useMemo(() => {
@@ -143,11 +156,10 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     <div className="w-full px-0">
       <div
         className="
-          bg-white dark:bg-transparent
-          rounded-2xl border-2
-          border-gray-400 dark:border-zinc-700
-          shadow-xl
-          hover:border-gray-500 dark:hover:border-zinc-600
+          bg-card
+          rounded-md border
+          border-border
+          hover:border-foreground/30
           transition-colors
         "
       >
@@ -344,18 +356,17 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
                     (disabled || (!input.trim() && !fileArray.length)))
                 }
                 className="
-                  bg-gray-900 hover:bg-gray-800
-                  dark:bg-zinc-800 dark:hover:bg-zinc-700
-                  dark:text-white text-white
+                  bg-primary hover:bg-primary/90
+                  text-primary-foreground
                   h-7 w-7 sm:h-8 sm:w-8
-                  rounded-lg p-1.5
-                  shadow-lg
+                  rounded-sm p-1.5
                   cursor-pointer
                   disabled:opacity-50
+                  transition-all
                 "
               >
                 {isPending ? (
-                  <Square className="w-3.5 h-3.5 text-white" />
+                  <Square className="w-3.5 h-3.5" />
                 ) : (
                   <ArrowUp className="w-4 h-4" />
                 )}

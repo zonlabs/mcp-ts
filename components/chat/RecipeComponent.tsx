@@ -60,41 +60,41 @@ export const RecipeComponent: React.FC<Props> = ({ onAction }) => {
   ];
 
   return (
-    <div className="grid sm:grid-cols-3 gap-2 max-w-4xl mx-auto">
+    <div className="grid sm:grid-cols-3 gap-2.5 w-full max-w-2xl mx-auto">
       {localizedRecipeData.map((item) => (
         <button
           key={item.id}
           onClick={() => onAction(item.description)}
           className="
             group relative text-left
-            h-[96px]
-            rounded-lg border border-zinc-200 dark:border-white/10
-            bg-white dark:bg-zinc-900/70
-            px-4 py-3
+            h-[92px]
+            rounded-sm border border-border
+            bg-card
+            px-3.5 py-2.5
             flex flex-col justify-between
-            hover:bg-zinc-50 dark:hover:bg-zinc-800/70
-            hover:border-zinc-300 dark:hover:border-white/20
+            hover:border-foreground/40
             transition-all
+            cursor-pointer
           "
         >
           {/* Icons */}
-          <div className="absolute top-3 right-3 flex gap-1">
+          <div className="absolute top-2.5 right-2.5 flex gap-1">
             {item.icons.map((icon, i) => (
               <img
                 key={i}
                 src={icon}
-                className="w-6 h-6 opacity-70 group-hover:opacity-100"
+                className="w-5 h-5 rounded-xs opacity-70 group-hover:opacity-100 object-contain"
                 alt=""
               />
             ))}
           </div>
 
           {/* Content */}
-          <div className="pr-10">
-            <h3 className="text-[15px] text-zinc-900 dark:text-white leading-tight">
+          <div className="pr-8">
+            <h3 className="text-xs font-semibold text-foreground leading-tight">
               {item.title}
             </h3>
-            <p className="mt-1 text-[13px] text-zinc-600 dark:text-zinc-400 leading-snug line-clamp-2">
+            <p className="mt-1 text-[11px] text-muted-foreground leading-snug line-clamp-2">
               {item.description}
             </p>
           </div>

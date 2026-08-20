@@ -14,7 +14,7 @@ import { useSearchParams } from "next/navigation";
 
 function getSafeRedirectPath(redirect: string | null | undefined): string {
   if (!redirect?.startsWith("/") || redirect.startsWith("//")) {
-    return "/";
+    return "/mcp";
   }
 
   return redirect;
@@ -84,7 +84,7 @@ export default function SignInPage() {
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="flex items-center gap-2">
-            <div className="rounded-md overflow-hidden"><Logo /></div>
+            <Logo size={36} />
             <span className="text-lg font-semibold text-foreground">MCP Assistant</span>
           </div>
           <p className="text-base text-foreground/80">

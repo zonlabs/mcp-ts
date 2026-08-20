@@ -22,11 +22,14 @@ import {
   Hammer,
   History,
   Trash2,
-  Bookmark
+  Bookmark,
+  Database,
+  Boxes,
 } from "lucide-react";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
-import { useMcpStore } from "@/lib/stores/mcp-store";
+import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -34,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, SimpleTooltip } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +50,6 @@ import {
 interface ToolExecutionPanelProps {
   server: McpServer;
   tools: ToolInfo[];
-  onClose: () => void;
   initialToolName?: string | null;
 }
 
@@ -82,11 +84,10 @@ interface SessionRun {
 export default function ToolExecutionPanel({
   server,
   tools,
-  onClose,
   initialToolName,
 }: ToolExecutionPanelProps) {
-  // Tabs: 'tools' or 'sessions'
-  const [activePanelTab, setActivePanelTab] = useState<"tools" | "sessions">("tools");
+  // Tabs: 'tools', 'sessions', 'resources', or 'templates'
+  const [activePanelTab, setActivePanelTab] = useState<"tools" | "sessions" | "resources" | "templates">("tools");
   
   // View mode inside Tools: 'form', 'saved', or 'list' (if no selected tool)
   const [toolsViewMode, setToolsViewMode] = useState<"form" | "saved">("form");
@@ -119,6 +120,31 @@ export default function ToolExecutionPanel({
 
   const { theme } = useTheme();
   const tool = tools.find((t) => t.name === selectedToolName);
+
+  const connections = useMcpStore((s) => s.connections);
+  const stored = useMemo(
+    () => findConnectionForServer(connections, server),
+    [connections, server]
+  );
+  const sessionId = stored?.sessionId;
+
+  const resources = stored?.resources ?? server.resources ?? [];
+  const resourceTemplates = stored?.resourceTemplates ?? [];
+  const prompts = stored?.prompts ?? server.prompts ?? [];
+
+  // Resource / Template view states
+  const [expandedResource, setExpandedResource] = useState<string | null>(null);
+  const [resourceContents, setResourceContents] = useState<
+    Record<string, { text?: string; mimeType?: string }>
+  >({});
+  const [loadingResource, setLoadingResource] = useState<string | null>(null);
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [templateParams, setTemplateParams] = useState<Record<string, string>>({});
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateContent, setTemplateContent] = useState<{
+    text?: string;
+    mimeType?: string;
+  } | null>(null);
 
   // Load Saved Presets & Sessions History on mount or server change
   useEffect(() => {
@@ -274,12 +300,6 @@ export default function ToolExecutionPanel({
     const toolInput = buildPayload();
 
     try {
-      // Get sessionId from store
-      const connection =
-        useMcpStore.getState().getConnectionByServerId(server.id) ||
-        (server.url ? useMcpStore.getState().getConnectionByServerId(server.url) : undefined);
-      const sessionId = connection?.sessionId;
-
       if (!sessionId) {
         toast.error("Not connected to this server");
         setIsSubmitting(false);
@@ -410,10 +430,75 @@ export default function ToolExecutionPanel({
     toast.success("Run history item deleted");
   };
 
-  const handleClose = () => {
-    setResult(null);
-    setShowResult(false);
-    onClose();
+  const mcpActions = useMcpStore((s) => s.mcpActions);
+
+  const handleReadResource = async (uri: string) => {
+    if (loadingResource === uri) return;
+    if (expandedResource === uri) {
+      setExpandedResource(null);
+      return;
+    }
+    setLoadingResource(uri);
+    try {
+      if (!sessionId || !mcpActions?.readResource) return;
+      const result = await mcpActions.readResource(sessionId, uri);
+      const contents = (result as any)?.contents;
+      if (contents?.[0]) {
+        setResourceContents((prev) => ({
+          ...prev,
+          [uri]: { text: contents[0].text, mimeType: contents[0].mimeType },
+        }));
+      }
+      setExpandedResource(uri);
+    } catch {
+      setResourceContents((prev) => ({
+        ...prev,
+        [uri]: { text: "Failed to read resource" },
+      }));
+      setExpandedResource(uri);
+    } finally {
+      setLoadingResource(null);
+    }
+  };
+
+  const extractTemplateVars = useMemo(
+    () => (uriTemplate: string): string[] => {
+      const vars: string[] = [];
+      const regex = /\{([^}]+)\}/g;
+      let match;
+      while ((match = regex.exec(uriTemplate)) !== null) {
+        vars.push(match[1]);
+      }
+      return vars;
+    },
+    []
+  );
+
+  const substituteTemplate = useMemo(
+    () =>
+      (uriTemplate: string, params: Record<string, string>): string =>
+        uriTemplate.replace(/\{([^}]+)\}/g, (_, key) => params[key] || `{${key}}`),
+    []
+  );
+
+  const handleReadTemplate = async (uriTemplate: string) => {
+    if (templateLoading) return;
+    setTemplateLoading(true);
+    setTemplateContent(null);
+    try {
+      const uri = substituteTemplate(uriTemplate, templateParams);
+      if (!sessionId || !mcpActions?.readResource) return;
+      const result = await mcpActions.readResource(sessionId, uri);
+      const contents = (result as any)?.contents;
+      setTemplateContent({
+        text: contents?.[0]?.text ?? "(empty)",
+        mimeType: contents?.[0]?.mimeType,
+      });
+    } catch {
+      setTemplateContent({ text: "Failed to read resource" });
+    } finally {
+      setTemplateLoading(false);
+    }
   };
 
   // Filter tools based on search query
@@ -428,10 +513,13 @@ export default function ToolExecutionPanel({
   return (
     <div className="h-full flex flex-col bg-background select-none">
       {/* Top Tab Bar Header */}
-      <div className="flex-shrink-0 flex items-center justify-between border-b border-border bg-muted/20 px-4 py-2">
+      <div className="flex-shrink-0 flex items-center border-b border-border bg-muted/20 px-4 py-2">
         <div className="flex items-center gap-1 bg-transparent p-0.5">
           <button
-            onClick={() => setActivePanelTab("tools")}
+            onClick={() => {
+              setActivePanelTab("tools");
+              setToolsViewMode("form");
+            }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
               activePanelTab === "tools"
                 ? "bg-muted text-foreground"
@@ -440,30 +528,31 @@ export default function ToolExecutionPanel({
           >
             <Hammer className="h-3.5 w-3.5" />
             Tools
+            <span className="text-[10px] opacity-75 font-mono">({tools.length})</span>
           </button>
           <button
-            onClick={() => setActivePanelTab("sessions")}
+            onClick={() => setActivePanelTab("resources")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              activePanelTab === "sessions"
+              activePanelTab === "resources"
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <History className="h-3.5 w-3.5" />
-            Sessions
+            <Database className="h-3.5 w-3.5" />
+            Resources
+          </button>
+          <button
+            onClick={() => setActivePanelTab("templates")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              activePanelTab === "templates"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
+          >
+            <Boxes className="h-3.5 w-3.5" />
+            Templates
           </button>
         </div>
-        
-        {/* Close Button */}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={handleClose}
-          className="cursor-pointer text-muted-foreground hover:text-foreground"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {activePanelTab === "tools" ? (
@@ -471,31 +560,34 @@ export default function ToolExecutionPanel({
           {/* Subheader Toolbar */}
           <div className="flex-shrink-0 border-b border-border px-4 py-2 flex items-center justify-between bg-background/50">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setToolsViewMode("form");
-                }}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 ${
-                  toolsViewMode === "form"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Tools
-                <span className="text-[10px] opacity-75 font-mono">{tools.length}</span>
-              </button>
-              
-              <button
-                onClick={() => setToolsViewMode("saved")}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 ${
-                  toolsViewMode === "saved"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Bookmark className="h-3 w-3" />
-                Saved
-              </button>
+              <SimpleTooltip content={toolsViewMode === "saved" ? "Back to tool execution" : "View saved presets"} side="bottom">
+                <button
+                  onClick={() => setToolsViewMode(toolsViewMode === "saved" ? "form" : "saved")}
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors ${
+                    toolsViewMode === "saved"
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                  aria-label={toolsViewMode === "saved" ? "Back to tool execution" : "View saved presets"}
+                >
+                  <Bookmark className="h-3 w-3" />
+                  Saved
+                  {savedPresets.length > 0 && (
+                    <span className="text-[10px] opacity-75 font-mono">{savedPresets.length}</span>
+                  )}
+                </button>
+              </SimpleTooltip>
+
+              <SimpleTooltip content="View session history" side="bottom">
+                <button
+                  onClick={() => setActivePanelTab("sessions")}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  aria-label="View session history"
+                >
+                  <History className="h-3 w-3" />
+                  Sessions
+                </button>
+              </SimpleTooltip>
             </div>
 
             {/* Quick Action Tools and Run Button */}
@@ -598,14 +690,14 @@ export default function ToolExecutionPanel({
             ) : !tool ? (
               /* Tool browser / list view if no tool selected */
               <div className="p-4 space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <div className="relative flex items-center">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search tools..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-1.5 border border-border rounded-lg bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="w-full h-8 pl-8 pr-3 border border-border rounded-md bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
                   />
                 </div>
                 
@@ -870,7 +962,7 @@ export default function ToolExecutionPanel({
             )}
           </div>
         </>
-      ) : (
+      ) : activePanelTab === "sessions" ? (
         /* Sessions execution history */
         <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-minimal">
           <h3 className="text-sm font-semibold text-foreground">Execution History</h3>
@@ -918,6 +1010,140 @@ export default function ToolExecutionPanel({
                 />
               ))}
             </div>
+          )}
+        </div>
+      ) : activePanelTab === "resources" ? (
+        /* Resources */
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-minimal">
+          <h3 className="text-sm font-semibold text-foreground">Resources</h3>
+          {resources.length === 0 ? (
+            <div className="text-center py-16 border border-dashed border-border rounded-lg bg-muted/10">
+              <p className="text-xs text-muted-foreground">No resources available</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1">
+                Connect to a server that exposes resources to browse and read them here.
+              </p>
+            </div>
+          ) : (
+            resources.map((resource) => {
+              const isExpanded = expandedResource === resource.uri;
+              const content = resourceContents[resource.uri];
+              const isLoading = loadingResource === resource.uri;
+              return (
+                <div key={resource.uri} className="border border-border rounded-lg bg-card overflow-hidden">
+                  <button
+                    onClick={() => handleReadResource(resource.uri)}
+                    className="w-full text-left p-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <code className="text-xs font-mono font-semibold text-foreground truncate">{resource.name}</code>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {resource.mimeType && (
+                          <span className="text-[10px] text-muted-foreground font-mono">{resource.mimeType}</span>
+                        )}
+                        {isLoading ? (
+                          <Loader className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                        )}
+                      </div>
+                    </div>
+                    {resource.description && (
+                      <p className="text-[11px] text-muted-foreground mb-2 line-clamp-2">{resource.description}</p>
+                    )}
+                    <div className="text-[10px] text-muted-foreground font-mono truncate">{resource.uri}</div>
+                  </button>
+                  {isExpanded && content && (
+                    <div className="border-t border-border/50 bg-muted/10 p-3 select-text">
+                      {content.mimeType && (
+                        <div className="text-[10px] text-muted-foreground font-mono mb-2">{content.mimeType}</div>
+                      )}
+                      <pre className="text-[11px] whitespace-pre-wrap break-words font-mono max-h-64 overflow-y-auto">
+                        {content.text || "(binary content)"}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        /* Resource Templates */
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-minimal">
+          <h3 className="text-sm font-semibold text-foreground">Resource Templates</h3>
+          {resourceTemplates.length === 0 ? (
+            <div className="text-center py-16 border border-dashed border-border rounded-lg bg-muted/10">
+              <p className="text-xs text-muted-foreground">No resource templates available</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-1">
+                Templates allow parameterized resource URIs — fill in the variables and read them here.
+              </p>
+            </div>
+          ) : (
+            resourceTemplates.map((template) => {
+              const vars = extractTemplateVars(template.uriTemplate);
+              const isExpanded = expandedTemplate === template.uriTemplate;
+              return (
+                <div key={template.uriTemplate} className="border border-border rounded-lg bg-card overflow-hidden">
+                  <button
+                    onClick={() => {
+                      const next = isExpanded ? null : template.uriTemplate;
+                      setExpandedTemplate(next);
+                      setTemplateContent(null);
+                    }}
+                    className="w-full text-left p-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <code className="text-xs font-mono font-semibold text-foreground truncate">{template.name}</code>
+                      <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform flex-shrink-0", isExpanded && "rotate-180")} />
+                    </div>
+                    {template.description && (
+                      <p className="text-[11px] text-muted-foreground mb-2 line-clamp-2">{template.description}</p>
+                    )}
+                    <div className="text-[10px] text-muted-foreground font-mono">{template.uriTemplate}</div>
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-border/50 p-3 space-y-2.5">
+                      {vars.length > 0 ? (
+                        vars.map((v) => (
+                          <div key={v}>
+                            <label className="text-[10px] font-mono text-muted-foreground block mb-1">{v}</label>
+                            <input
+                              value={templateParams[v] || ""}
+                              onChange={(e) => setTemplateParams((p) => ({ ...p, [v]: e.target.value }))}
+                              placeholder={`Enter ${v}`}
+                              className="w-full px-3 py-1.5 border border-border bg-background rounded-md text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-ring select-text"
+                            />
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground italic">No variables in this template.</p>
+                      )}
+                      {vars.length > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleReadTemplate(template.uriTemplate)}
+                          disabled={templateLoading || vars.some((v) => !templateParams[v])}
+                          className="h-7 text-xs bg-red-500 hover:bg-red-600 text-white cursor-pointer"
+                        >
+                          {templateLoading ? <Loader className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
+                          {templateLoading ? "Reading..." : "Read"}
+                        </Button>
+                      )}
+                      {templateContent && (
+                        <div className="rounded-md bg-muted/40 border border-border/40 p-3 select-text">
+                          {templateContent.mimeType && (
+                            <div className="text-[10px] text-muted-foreground font-mono mb-2">{templateContent.mimeType}</div>
+                          )}
+                          <pre className="text-[11px] whitespace-pre-wrap break-words font-mono max-h-64 overflow-y-auto">
+                            {templateContent.text}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}

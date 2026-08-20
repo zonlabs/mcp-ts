@@ -8,9 +8,11 @@ import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
 import { ServerIcon } from '@/components/common/ServerIcon';
+import { Button } from '@/components/ui/button';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
+import { SimpleTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useMcpStore } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
@@ -24,7 +26,12 @@ import {
   ChevronDownIcon,
   X,
   Maximize2,
+  MessageSquare,
+  Code2,
+  Plus,
+  Clock,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
@@ -78,11 +85,7 @@ const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderPa
 }, (prev, next) => {
   if (prev.isLastMessage !== next.isLastMessage) return false;
   if (next.isLastMessage) return false;
-  return (
-    prev.m === next.m &&
-    prev.onEdit === next.onEdit &&
-    prev.renderParts === next.renderParts
-  );
+  return prev.m === next.m && prev.onEdit === next.onEdit;
 });
 
 function ThoughtSummaryTrigger({
@@ -121,21 +124,21 @@ function ThoughtSummaryTrigger({
   }, [isRunning]);
 
   return (
-    <div className="mb-2 flex max-w-full items-center gap-3 text-sm">
+    <div className="mb-1.5 flex max-w-full items-center gap-2 text-xs">
       <button
         type="button"
         onClick={onClick}
         aria-expanded={isExpanded}
         className={cn(
-          'inline-flex min-w-0 items-center gap-2 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground',
+          'inline-flex min-w-0 items-center gap-1.5 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground cursor-pointer font-medium',
           (isExpanded || isActive) && 'text-foreground'
         )}
       >
-        <BrainIcon className={cn('size-4 shrink-0', (isActive || isExpanded) && 'text-primary')} />
+        <BrainIcon className={cn('size-3.5 shrink-0', (isActive || isExpanded) && 'text-primary')} />
         <span className="truncate">{getThoughtSummaryLabel(duration, isRunning)}</span>
         <ChevronDownIcon
           className={cn(
-            'size-4 shrink-0 transition-transform',
+            'size-3.5 shrink-0 transition-transform',
             isExpanded && 'rotate-180'
           )}
         />
@@ -166,7 +169,7 @@ function MessageThoughtSection({
         onClick={onToggle}
       />
       {isOpen && hasVisibleReasoningText(chainOfThought.reasoningText) && (
-        <div className="mb-3 whitespace-pre-wrap text-[15px] leading-7 text-muted-foreground/90">
+        <div className="my-2 pl-3 border-l border-border/50 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/80 font-sans">
           {chainOfThought.reasoningText}
         </div>
       )}
@@ -252,6 +255,7 @@ export function PlaygroundChat({
   initialDraft,
   isReadOnly = false 
 }: PlaygroundChatProps) {
+  const router = useRouter();
   const { t } = useI18n();
   const [chatInput, setChatInput] = useState("");
   const [activeMcpApp, setActiveMcpApp] = useState<{
@@ -267,7 +271,7 @@ export function PlaygroundChat({
   const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
 
-  const chatContentWidthClass = "w-full max-w-none sm:max-w-3xl mx-auto px-2 sm:px-4 lg:px-6";
+  const chatContentWidthClass = "w-full max-w-2xl mx-auto px-4 sm:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
   
   const getCurrentLlmConfig = () => {
@@ -363,9 +367,18 @@ export function PlaygroundChat({
       window.dispatchEvent(new CustomEvent('chat:title', {
         detail: { chatId, title },
       }));
+      window.dispatchEvent(new CustomEvent('chat:updated', {
+        detail: { chatId, title },
+      }));
       return;
     }
   }, [messages, chatId]);
+
+  useEffect(() => {
+    if (status === 'ready' && messages.length > 0) {
+      window.dispatchEvent(new CustomEvent('chat:updated', { detail: { chatId } }));
+    }
+  }, [status, messages.length, chatId]);
 
   const contextUsage = useMemo(
     () => [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage)?.metadata?.usage,
@@ -432,15 +445,6 @@ export function PlaygroundChat({
     if (messages.some((message) => message.id === selectedThoughtMessageId)) return;
     setSelectedThoughtMessageId(null);
   }, [messages, selectedThoughtMessageId]);
-
-  useEffect(() => {
-    if (status !== 'streaming') return;
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || lastMessage.role !== 'assistant') return;
-    const summary = getChainOfThoughtForMessage(lastMessage, true);
-    if (!summary.hasChainOfThought) return;
-    setSelectedThoughtMessageId((current) => current ?? lastMessage.id);
-  }, [getChainOfThoughtForMessage, messages, status]);
 
 
 
@@ -516,7 +520,7 @@ export function PlaygroundChat({
     return "An error occurred";
   };
 
-  const renderMessageParts = (m: McpAgentUIMessage, isLastMessage: boolean) => {
+  const renderMessageParts = useCallback((m: McpAgentUIMessage, isLastMessage: boolean) => {
     const lastPart = m.parts[m.parts.length - 1] as any | undefined;
     const chainOfThought = getChainOfThoughtForMessage(m, isLastMessage);
 
@@ -524,6 +528,22 @@ export function PlaygroundChat({
       .map((p: any, idx: number) => (p?.type === 'text' && p.text ? idx : -1))
       .filter((idx: number) => idx !== -1)
       .pop();
+
+    const isChatGenerating = status === 'streaming' || status === 'submitted';
+
+    const hasActiveToolOrApproval = m.parts.some((p: any) =>
+      p?.state === 'approval-requested' ||
+      p?.state === 'input-streaming' ||
+      p?.state === 'input-available'
+    );
+
+    const isHumanInTheLoopPaused = messages.some((msg) =>
+      msg.parts.some((p: any) => p?.state === 'approval-requested')
+    );
+
+    const isMessageInProgress =
+      (isLastMessage && (isChatGenerating || isHumanInTheLoopPaused)) ||
+      hasActiveToolOrApproval;
 
     const isCoTActive = (
       (isLastMessage && status === 'streaming' && lastPart?.type === 'reasoning') ||
@@ -554,8 +574,8 @@ export function PlaygroundChat({
                 parts={[]}
                 onRegenerate={handleRegenerate}
                 usage={m?.metadata?.usage}
-                showActions={index === lastTextIndex}
-                isStreaming={status === 'streaming'}
+                showActions={index === lastTextIndex && !isMessageInProgress}
+                isStreaming={isMessageInProgress}
               />
             );
           }
@@ -610,10 +630,13 @@ export function PlaygroundChat({
               }
 
               if (toolPart.state === 'approval-responded') {
+                if (toolPart.approval?.approved === true) {
+                  return null;
+                }
                 return (
                   <MCPToolApprovalStatus
                     key={`tool-${index}`}
-                    approved={toolPart.approval?.approved === true}
+                    approved={false}
                     reason={toolPart.approval?.reason}
                   />
                 );
@@ -652,19 +675,21 @@ export function PlaygroundChat({
                       result={undefined}
                       status="executing"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setActiveMcpApp({
-                        name: actualToolName,
-                        args: actualArgs,
-                        result: undefined,
-                        status: 'executing',
-                      })}
-                      className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in"
-                      title="Expand to full view"
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </button>
+                    <SimpleTooltip content="Expand to full view" side="left">
+                      <button
+                        type="button"
+                        onClick={() => setActiveMcpApp({
+                          name: actualToolName,
+                          args: actualArgs,
+                          result: undefined,
+                          status: 'executing',
+                        })}
+                        className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in cursor-pointer"
+                        aria-label="Expand to full view"
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </button>
+                    </SimpleTooltip>
                   </div>
                 );
               }
@@ -688,19 +713,21 @@ export function PlaygroundChat({
                       result={toolPart.output}
                       status="complete"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setActiveMcpApp({
-                        name: actualToolName,
-                        args: actualArgs,
-                        result: toolPart.output,
-                        status: 'complete',
-                      })}
-                      className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in"
-                      title="Expand to full view"
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </button>
+                    <SimpleTooltip content="Expand to full view" side="left">
+                      <button
+                        type="button"
+                        onClick={() => setActiveMcpApp({
+                          name: actualToolName,
+                          args: actualArgs,
+                          result: toolPart.output,
+                          status: 'complete',
+                        })}
+                        className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in cursor-pointer"
+                        aria-label="Expand to full view"
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </button>
+                    </SimpleTooltip>
                   </div>
                 );
               }
@@ -800,10 +827,18 @@ export function PlaygroundChat({
         })}
       </>
     );
-  };
+  }, [
+    getChainOfThoughtForMessage,
+    status,
+    messages,
+    selectedThoughtMessageId,
+    handleRegenerate,
+    addToolApprovalResponse,
+    t,
+  ]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-background">
       {!hasMessages ? (
         <>
           <div className="sm:hidden flex-1 min-h-0 flex flex-col">
@@ -818,7 +853,7 @@ export function PlaygroundChat({
                 />
               </div>
               <div className="w-full max-w-xs">
-                <p className="mb-2 px-1 text-[10px] font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                <p className="mb-2 px-1 text-[10px] font-mono font-medium uppercase tracking-wider text-muted-foreground/80">
                   {t("quickActions")}
                 </p>
                 <div className="space-y-1">
@@ -862,10 +897,10 @@ export function PlaygroundChat({
             </div>
           </div>
 
-          <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center px-6">
-            <div className="w-full max-w-3xl space-y-8">
-            <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
-                <h1 className="text-5xl md:text-7xl tracking-tight text-foreground mb-10 leading-tight">
+          <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+            <div className="w-full max-w-3xl mx-auto space-y-7 animate-in fade-in zoom-in-95 duration-500">
+              <div className="text-center">
+                <h1 className="text-4xl md:text-5xl font-sans font-normal tracking-[-1.5px] text-foreground leading-tight">
                   {t("chatHeroTitle")}
                 </h1>
               </div>
@@ -886,7 +921,7 @@ export function PlaygroundChat({
                 />
               )}
 
-              <div className="px-4">
+              <div className="w-full px-1">
                 <RecipeComponent
                   onAction={(prompt) => setChatInput(prompt)}
                 />
@@ -919,7 +954,7 @@ export function PlaygroundChat({
                 />
               </div>
             ) : (
-              <Conversation className="flex-1 min-h-0">
+              <Conversation className="flex-1 min-h-0 w-full">
                 <ConversationContent>
                   <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
                   {messages.map((m, index) => {
@@ -954,7 +989,7 @@ export function PlaygroundChat({
               </Conversation>
             )}
 
-            <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8">
+            <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-8 w-full flex justify-center">
               <div className={chatContentWidthClass}>
                 {isReadOnly ? (
                   <div className="w-full text-center p-3 sm:p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm shadow-sm max-w-2xl mx-auto">

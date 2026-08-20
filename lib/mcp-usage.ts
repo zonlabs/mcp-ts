@@ -37,6 +37,7 @@ export interface McpToolCallEventGroup {
 
 export interface McpUsageSummary {
   toolCallsTotal: number;
+  mcpAssistantCallsTotal: number;
   orchestrationCallsTotal: number;
   successRate: number;
   streakDays: number;
@@ -107,12 +108,17 @@ export function summarizeMcpUsage(
   if (toolCallsTotal === 0) {
     return {
       toolCallsTotal: 0,
+      mcpAssistantCallsTotal: 0,
       orchestrationCallsTotal: 0,
       successRate: 0,
       streakDays: 0,
       mostUsedApp: null,
     };
   }
+
+  // Upstream tool calls from MCP Assistant only (excluding downstream tool calls)
+  const upstreamEvents = events.filter((e) => !e.event_type || e.event_type === "top_level");
+  const mcpAssistantCallsTotal = upstreamEvents.length;
 
   const successCount = events.filter((event) => event.status === "success").length;
   const appCounts = new Map<string, { name: string; count: number }>();
@@ -148,6 +154,7 @@ export function summarizeMcpUsage(
 
   return {
     toolCallsTotal,
+    mcpAssistantCallsTotal,
     orchestrationCallsTotal,
     successRate: Math.round((successCount / toolCallsTotal) * 100),
     streakDays: countActiveDayStreak(activeDates, now),

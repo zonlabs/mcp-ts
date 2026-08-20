@@ -6,9 +6,9 @@ test("ServerDetails removes the ID row and uses shadcn tooltips instead of nativ
   const source = await readFile(new URL("./ServerDetails.tsx", import.meta.url), "utf8");
 
   assert.doesNotMatch(source, /<span className="font-medium whitespace-nowrap">ID:<\/span>/);
-  assert.match(source, /from "@\/components\/ui\/tooltip"/);
-  assert.match(source, /<TooltipTrigger asChild>/);
-  assert.match(source, /<TooltipContent/);
+  assert.match(source, /from "@\/components\/ui\/hover-card"/);
+  assert.match(source, /<HoverCardTrigger asChild>/);
+  assert.match(source, /<HoverCardContent/);
   assert.doesNotMatch(source, /title=\{/);
   assert.doesNotMatch(source, /title="/);
 });

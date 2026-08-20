@@ -49,20 +49,20 @@ function ToolDetailBlock({
   tone?: 'default' | 'error';
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <div
         className={cn(
-          'text-[10px] font-medium uppercase tracking-[0.14em]',
-          tone === 'error' ? 'text-red-500/90 dark:text-red-400/90' : 'text-muted-foreground'
+          'text-[9px] font-mono font-medium uppercase tracking-wider',
+          tone === 'error' ? 'text-rose-400' : 'text-muted-foreground/70'
         )}
       >
         {label}
       </div>
       <pre
         className={cn(
-          'max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-md border px-3 py-2 text-xs leading-5',
-          'bg-muted/35 text-muted-foreground',
-          tone === 'error' && 'border-red-500/20 bg-red-500/5 text-red-600 dark:text-red-300'
+          'max-h-44 overflow-y-auto whitespace-pre-wrap break-words rounded-xs border border-border px-2 py-1.5 text-[11px] font-mono leading-relaxed',
+          'bg-card text-foreground/80',
+          tone === 'error' && 'border-rose-500/30 bg-rose-500/5 text-rose-300'
         )}
       >
         {formatToolDetail(value)}
@@ -82,43 +82,43 @@ function ToolCallRow({ step }: { step: ChainOfThoughtToolStep }) {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="rounded-lg bg-background/70">
+      <div className="rounded-sm border border-transparent hover:border-border/60 hover:bg-card/40 transition-colors">
         <CollapsibleTrigger
           className={cn(
-            'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-accent/35',
-            !hasDetails && 'cursor-default hover:bg-transparent'
+            'flex w-full items-start gap-2 px-2 py-1.5 text-left transition-colors cursor-pointer',
+            !hasDetails && 'cursor-default'
           )}
           disabled={!hasDetails}
         >
-          <div className="mt-0.5">
+          <div className="mt-0.5 shrink-0">
             {step.status === 'active' ? (
-              <Loader2 className="size-4 animate-spin text-primary" />
+              <Loader2 className="size-3.5 animate-spin text-primary" />
             ) : step.hasError ? (
-              <AlertCircle className="size-4 text-red-500" />
+              <AlertCircle className="size-3.5 text-rose-500" />
             ) : (
-              <ToolIcon className="size-4 text-muted-foreground" />
+              <ToolIcon className="size-3.5 text-muted-foreground" />
             )}
           </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="truncate text-sm font-medium text-foreground">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="truncate text-xs font-mono font-medium text-foreground">
               {step.label}
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-[10px] font-mono text-muted-foreground/70 truncate">
               {step.description}
             </div>
           </div>
           {hasDetails && (
             <ChevronDownIcon
               className={cn(
-                'mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform',
+                'mt-0.5 size-3.5 shrink-0 text-muted-foreground/60 transition-transform',
                 open && 'rotate-180'
               )}
             />
           )}
         </CollapsibleTrigger>
         {hasDetails && (
-          <CollapsibleContent className="px-3 pb-3">
-            <div className="space-y-3 pt-1">
+          <CollapsibleContent className="px-2 pb-2 pt-0.5">
+            <div className="space-y-2 pt-1 border-t border-border/40">
               {hasArgs && <ToolDetailBlock label={t('args')} value={step.input} />}
               {hasResult && <ToolDetailBlock label={t('result')} value={step.output} />}
               {hasError && <ToolDetailBlock label={t('error')} value={step.errorText} tone="error" />}
@@ -140,25 +140,27 @@ export const ToolCallSidebar = memo(function ToolCallSidebar({
   toolSteps,
 }: ToolCallSidebarProps) {
   return (
-    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-      <div className="flex items-center justify-between gap-3 px-4 py-4">
-        <h2 className="text-base font-semibold text-foreground">Tool calls</h2>
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-border bg-background">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border">
+        <h2 className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground">
+          Tool calls
+        </h2>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="size-8"
+          className="size-6 text-muted-foreground hover:text-foreground cursor-pointer"
           onClick={onClose}
           aria-label="Close tool calls panel"
         >
-          <X className="size-4" />
+          <X className="size-3.5" />
         </Button>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <div className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2 scrollbar-minimal">
         {toolSteps.length > 0 ? (
           toolSteps.map((step) => <ToolCallRow key={step.key} step={step} />)
         ) : (
-          <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+          <div className="rounded-sm border border-dashed border-border px-3 py-4 text-center text-xs font-mono text-muted-foreground">
             No tool calls for this message.
           </div>
         )}

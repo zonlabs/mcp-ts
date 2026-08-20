@@ -6,7 +6,8 @@ import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { createClient } from "@/lib/supabase/server";
-import { plusJakartaSans, instrumentSerif, geistMono } from "@/lib/fonts";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { geist, inter, geistMono } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: "MCP Assistant",
@@ -33,8 +34,8 @@ export default async function RootLayout({
   } = await supabase.auth.getUser();
 
   return (
-    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${instrumentSerif.variable} ${geistMono.variable}`}>
-      <body className="antialiased">
+    <html lang="en" suppressHydrationWarning className={`${geist.variable} ${inter.variable} ${geistMono.variable}`}>
+      <body className="antialiased font-sans">
         <AuthProvider userSession={user ? { user } : null}>
           <QueryProvider>
             <McpStoreProvider>
@@ -44,8 +45,10 @@ export default async function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                <WebLanguageProvider />
-                {children}
+                <TooltipProvider delayDuration={150}>
+                  <WebLanguageProvider />
+                  {children}
+                </TooltipProvider>
               </ThemeProvider>
             </McpStoreProvider>
           </QueryProvider>

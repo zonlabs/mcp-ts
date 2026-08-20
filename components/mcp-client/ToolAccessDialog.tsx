@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Search, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -29,7 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
+import { useMcpStore, findConnectionForServer, type StoredConnection } from "@/lib/stores/mcp-store";
 import type { McpServer, ToolAccessInfo, ToolAccessResult, ToolPolicyMode } from "@/types/mcp";
 
 type ToolAccessDialogProps = {
@@ -53,12 +52,16 @@ export function ToolAccessDialog({
   open,
   onOpenChange,
 }: ToolAccessDialogProps) {
+  const storeConnections = useMcpStore((state) => state.connections);
+  const activeConn = connection || findConnectionForServer(storeConnections, server);
+
   const getToolAccess = useMcpStore((state) => state.mcpActions?.getToolAccess);
   const updateToolPolicy = useMcpStore((state) => state.mcpActions?.updateToolPolicy);
   const updateConnectionToolAccess = useMcpStore((state) => state.updateConnectionToolAccess);
+
   const initialAccess = useMemo<ToolAccessResult | null>(() => {
-    const targetTools = server.tools ?? connection?.tools ?? [];
-    const targetPolicy = connection?.toolPolicy ?? { mode: "all", toolIds: [] };
+    const targetTools = server.tools ?? activeConn?.tools ?? [];
+    const targetPolicy = activeConn?.toolPolicy ?? { mode: "all", toolIds: [] };
 
     return {
       toolPolicy: targetPolicy,
@@ -70,18 +73,18 @@ export function ToolAccessDialog({
           allowed: targetPolicy.mode === "all"
             ? true
             : targetPolicy.mode === "allowlist"
-              ? targetPolicy.toolIds.includes(toolId)
-              : !targetPolicy.toolIds.includes(toolId),
+              ? targetPolicy.toolIds.includes(toolId) || targetPolicy.toolIds.includes(t.name)
+              : !targetPolicy.toolIds.includes(toolId) && !targetPolicy.toolIds.includes(t.name),
         };
       }),
       toolCount: targetTools.length,
       allowedToolCount: targetTools.length,
     };
-  }, [connection, server]);
+  }, [activeConn, server]);
 
   const [access, setAccess] = useState<ToolAccessResult | null>(() => initialAccess);
-  const [mode, setMode] = useState<ToolPolicyMode>(() => connection?.toolPolicy?.mode ?? "all");
-  const [selectedToolIds, setSelectedToolIds] = useState<Set<string>>(() => new Set(connection?.toolPolicy?.toolIds ?? []));
+  const [mode, setMode] = useState<ToolPolicyMode>(() => activeConn?.toolPolicy?.mode ?? "all");
+  const [selectedToolIds, setSelectedToolIds] = useState<Set<string>>(() => new Set(activeConn?.toolPolicy?.toolIds ?? []));
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -95,7 +98,7 @@ export function ToolAccessDialog({
     modeRef.current = mode;
   }, [mode]);
 
-  const sessionId = connection?.sessionId;
+  const sessionId = activeConn?.sessionId;
 
   useEffect(() => {
     if (!open || !sessionId) return;
@@ -110,7 +113,7 @@ export function ToolAccessDialog({
         return;
       }
 
-      if (!connection || !connection.tools || connection.tools.length === 0) {
+      if (!activeConn || !activeConn.tools || activeConn.tools.length === 0) {
         setLoading(true);
       }
       setError(null);
@@ -135,7 +138,7 @@ export function ToolAccessDialog({
         }
       } catch (loadError) {
         if (!active) return;
-        if (!connection || !connection.tools || connection.tools.length === 0) {
+        if (!activeConn || !activeConn.tools || activeConn.tools.length === 0) {
           setError(loadError instanceof Error ? loadError.message : "Could not load tool access.");
         }
       } finally {
@@ -147,7 +150,7 @@ export function ToolAccessDialog({
     return () => {
       active = false;
     };
-  }, [getToolAccess, open, sessionId]);
+  }, [getToolAccess, open, sessionId, activeConn]);
 
   const tools = access?.tools ?? [];
   const allToolIds = useMemo(() => tools.map((tool) => tool.toolId), [tools]);
@@ -163,11 +166,11 @@ export function ToolAccessDialog({
   }, [query, tools]);
 
   const allowedCount = useMemo(() => {
-    if (!access) return connection?.tools.length ?? 0;
+    if (!access) return activeConn?.tools.length ?? 0;
     if (mode === "all") return access.toolCount;
     if (mode === "allowlist") return selectedToolIds.size;
     return Math.max(0, access.toolCount - selectedToolIds.size);
-  }, [access, connection?.tools.length, mode, selectedToolIds]);
+  }, [access, activeConn?.tools.length, mode, selectedToolIds]);
 
   const hasChanges = useMemo(() => {
     if (!access) return false;
@@ -256,16 +259,18 @@ export function ToolAccessDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden p-0 sm:max-w-2xl bg-background border border-border rounded-md shadow-none">
           <DialogHeader className="border-b border-border px-5 py-4 text-left">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted/40">
-                <ShieldCheck className="h-4 w-4 text-foreground/80" />
+              <div className="flex size-9 items-center justify-center rounded-sm border border-border bg-card">
+                <ShieldCheck className="size-4 text-foreground/80" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-base">Tool access</DialogTitle>
-                <DialogDescription className="truncate text-xs">
-                  {server.name} - {allowedCount} of {access?.toolCount ?? connection?.tools.length ?? 0} tools allowed
+                <DialogTitle className="text-sm font-medium tracking-tight text-foreground font-sans">
+                  Tool Permissions
+                </DialogTitle>
+                <DialogDescription className="truncate text-xs font-mono text-muted-foreground mt-0.5">
+                  {server.name} · {allowedCount} of {access?.toolCount ?? activeConn?.tools.length ?? 0} tools allowed for AI
                 </DialogDescription>
               </div>
             </div>
@@ -277,12 +282,12 @@ export function ToolAccessDialog({
               onValueChange={(val) => handleModeChange(val as ToolPolicyMode)}
               className="w-full"
             >
-              <TabsList className="grid grid-cols-3 w-full">
+              <TabsList className="grid grid-cols-3 w-full bg-card border border-border p-1 rounded-sm h-auto">
                 {MODE_OPTIONS.map((option) => (
                   <TabsTrigger
                     key={option.mode}
                     value={option.mode}
-                    className="text-xs cursor-pointer dark:data-[state=active]:bg-background"
+                    className="text-xs font-mono rounded-sm px-3 py-1 transition-all cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-semibold"
                   >
                     {option.label}
                   </TabsTrigger>
@@ -291,64 +296,64 @@ export function ToolAccessDialog({
             </Tabs>
 
             {error && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              <div className="rounded-sm border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs font-mono text-destructive">
                 {error}
               </div>
             )}
 
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
               {mode === "all" && (
-                <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-center">
-                  <p className="text-xs text-muted-foreground">
+                <div className="rounded-sm border border-border bg-card px-3 py-2 text-center">
+                  <p className="text-xs font-mono text-muted-foreground">
                     All tools are accessible. Switch to Allowlist or Denylist to restrict access.
                   </p>
                 </div>
               )}
               {mode === "allowlist" && (
-                <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be accessible by agents
+                <div className="rounded-sm border border-border bg-card px-3 py-2 text-center">
+                  <p className="text-xs font-mono text-muted-foreground">
+                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be accessible by AI
                   </p>
                 </div>
               )}
               {mode === "denylist" && (
-                <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be inaccessible by agents
+                <div className="rounded-sm border border-border bg-card px-3 py-2 text-center">
+                  <p className="text-xs font-mono text-muted-foreground">
+                    {selectedToolIds.size} selected tool{selectedToolIds.size === 1 ? "" : "s"} will be blocked from AI Usage
                   </p>
                 </div>
               )}
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="relative min-w-0 flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                   <Input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search tools"
-                    className="h-8 pl-8 text-xs"
+                    placeholder="Search tools..."
+                    className="h-8 pl-8 pr-3 text-xs font-mono bg-card border-border rounded-sm placeholder:font-sans"
                   />
                 </div>
                 {mode !== "all" && (
-                  <div className="flex items-center gap-1.5">
-                    <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={selectAll}>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button type="button" variant="outline" size="sm" className="h-8 px-2.5 text-xs font-mono rounded-sm border-border" onClick={selectAll}>
                       Select all
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelected}>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-mono rounded-sm" onClick={clearSelected}>
                       Clear
                     </Button>
                   </div>
                 )}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-sm border border-border bg-card/30 scrollbar-minimal">
                 {loading ? (
-                  <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading tools
+                  <div className="flex h-40 items-center justify-center text-xs font-mono text-muted-foreground">
+                    <Loader2 className="mr-2 size-3.5 animate-spin" />
+                    Loading tools...
                   </div>
                 ) : filteredTools.length === 0 ? (
-                  <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+                  <div className="flex h-40 items-center justify-center text-xs font-mono text-muted-foreground">
                     No tools match this search.
                   </div>
                 ) : (
@@ -363,43 +368,46 @@ export function ToolAccessDialog({
                         <label
                           key={tool.toolId}
                           className={cn(
-                            "flex items-center gap-3 px-3 py-2.5",
-                            isAllMode ? "" : "cursor-pointer hover:bg-muted/30",
+                            "flex items-center gap-3 px-3 py-2.5 transition-colors",
+                            isAllMode ? "" : "cursor-pointer hover:bg-card/70",
                           )}
                         >
                           <Checkbox
                             checked={checked}
                             disabled={isAllMode}
                             onCheckedChange={(value) => toggleTool(tool.toolId, value === true)}
-                            className="shrink-0"
+                            className="size-4 shrink-0 rounded-xs border-border data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                             aria-label={`${
                               isAllMode ? "Allow" : mode === "allowlist" ? "Allow" : "Deny"
                             } ${tool.name}`}
                           />
-                          <ServerIcon
-                            serverName={server.name}
-                            serverUrl={server.url}
-                            size={36}
-                            className="rounded-lg shrink-0"
-                          />
+                          <div className="size-8 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-1">
+                            <ServerIcon
+                              serverName={server.name}
+                              serverUrl={server.url}
+                              icon={server.icon || (server as any).icon}
+                              size={24}
+                            />
+                          </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <code className="truncate font-mono text-[11px] text-foreground">{tool.name}</code>
-                              <Badge variant="outline" className={cn("text-[10px] font-medium px-1.5 py-0.5 h-auto",
-                                badge === "Destructive" && "text-red-500 border-red-500/30",
-                                badge === "Write" && "text-amber-500 border-amber-500/30",
-                                badge === "Read" && "text-emerald-500 border-emerald-500/30",
-                                badge === "Idempotent" && "text-blue-500 border-blue-500/30",
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <code className="truncate font-mono text-[11px] font-semibold text-foreground">{tool.name}</code>
+                              <span className={cn(
+                                "text-[10px] font-mono px-1.5 py-0.2 rounded-xs border",
+                                badge === "Destructive" && "text-rose-400 border-rose-800/40",
+                                badge === "Write" && "text-amber-400 border-amber-800/40",
+                                badge === "Read" && "text-sky-400 border-sky-800/40",
+                                badge === "Idempotent" && "text-sky-300 border-sky-700/40",
                               )}>
                                 {badge}
-                              </Badge>
+                              </span>
                               {isApp && (
-                                <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0.5 h-auto text-purple-500 dark:text-purple-400 border-purple-500/30">
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-xs border text-purple-400 border-purple-800/40">
                                   App
-                                </Badge>
+                                </span>
                               )}
                             </div>
-                            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                            <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
                               {tool.description || "No description provided."}
                             </p>
                           </div>
@@ -412,12 +420,23 @@ export function ToolAccessDialog({
             </div>
           </div>
 
-          <DialogFooter className="border-t border-border px-5 py-3">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <DialogFooter className="border-t border-border px-5 py-3 flex items-center justify-end gap-2 bg-background">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+              className="h-8 px-3 text-xs font-medium rounded-sm text-muted-foreground hover:text-foreground"
+            >
               Cancel
             </Button>
-            <Button type="button" onClick={() => void savePolicy()} disabled={!hasChanges || saving || loading}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button
+              type="button"
+              onClick={() => void savePolicy()}
+              disabled={!hasChanges || saving || loading}
+              className="h-8 px-4 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-sm disabled:opacity-50"
+            >
+              {saving && <Loader2 className="mr-2 size-3.5 animate-spin" />}
               Save changes
             </Button>
           </DialogFooter>
@@ -425,16 +444,23 @@ export function ToolAccessDialog({
       </Dialog>
 
       <AlertDialog open={confirmZeroOpen} onOpenChange={setConfirmZeroOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-background border border-border rounded-md shadow-none max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>No tools selected?</AlertDialogTitle>
-            <AlertDialogDescription>
-              No tools will be available to agents for this server.
+            <AlertDialogTitle className="text-sm font-medium font-sans text-foreground">
+              No tools selected?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs font-mono text-muted-foreground">
+              No tools will be available to AI agents for this server.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void savePolicy(true)}>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="h-8 px-3 text-xs font-medium rounded-sm border-border">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void savePolicy(true)}
+              className="h-8 px-3 text-xs font-medium rounded-sm bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               Save anyway
             </AlertDialogAction>
           </AlertDialogFooter>

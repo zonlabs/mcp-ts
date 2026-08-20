@@ -1,8 +1,11 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import toast from 'react-hot-toast';
-import type { McpServer, ToolInfo, ParsedRegistryServer, ToolAccessResult, ToolPolicy } from '@/types/mcp';
+import type { McpServer, ToolInfo, ToolAccessResult, ToolPolicy } from '@/types/mcp';
 import { normalizeServerUrl } from '@/lib/url';
+import type { McpConnection } from '@mcp-ts/client/react';
+
+export type { McpConnection };
 
 /**
  * Stored Connection Type
@@ -57,13 +60,18 @@ export interface StoredConnection {
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
   connectedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   error?: string;
+  /** Caller-supplied metadata, stored and returned opaquely. */
+  metadata?: Record<string, string>;
 }
 type McpActionsBundle = {
   connect: any;
   disconnect: any;
   callTool: any;
   reconnect: any;
+  finishAuth?: (state: string, code: string, iss?: string) => Promise<unknown>;
   getToolAccess?: (sessionId: string) => Promise<ToolAccessResult>;
   updateToolPolicy?: (
     sessionId: string,
@@ -76,6 +84,11 @@ type McpActionsBundle = {
   listPrompts?: (sessionId: string) => Promise<{
     prompts: Array<{ name: string; description?: string; arguments?: Array<{ name: string; description?: string; required?: boolean }> }>;
   }>;
+  getPrompt?: (
+    sessionId: string,
+    name: string,
+    args?: Record<string, string>
+  ) => Promise<unknown>;
   listResources?: (sessionId: string) => Promise<{
     resources: Array<{ uri: string; name: string; description?: string; mimeType?: string }>;
   }>;
@@ -137,7 +150,9 @@ export function findConnectionForServer<T extends { id: string; url?: string | n
   connections: Record<string, StoredConnection>,
   server: T
 ): StoredConnection | undefined {
-  const byId = Object.values(connections).find((c) => c.serverId === server.id);
+  const byId = Object.values(connections).find(
+    (c) => c.serverId === server.id || c.metadata?.catalogServerId === server.id
+  );
   if (byId) return byId;
 
   const normalizedServerUrl = normalizeServerUrl(server.url);
@@ -166,14 +181,6 @@ interface ServerState {
   userServersLoading: boolean;
   userServersError: string | null;
   userServersTotalCount: number;
-
-  // Registry servers (external registry)
-  registryServers: ParsedRegistryServer[];
-  registryLoading: boolean;
-  registryError: string | null;
-  registryNextCursor: string | null;
-  registryCurrentCursor: string | null;
-  registryCursorHistory: string[];
 }
 
 /**
@@ -201,7 +208,6 @@ interface UIState {
 
   // Selected items
   selectedServer: McpServer | null;
-  selectedRegistryServer: ParsedRegistryServer | null;
 
   // View modes
   viewMode: 'browse' | 'add' | 'edit';
@@ -238,11 +244,6 @@ interface ServerActions {
   addServer: (server: Partial<McpServer>) => Promise<McpServer | null>;
   updateServer: (serverId: string, updates: Partial<McpServer>) => Promise<McpServer | null>;
   deleteServer: (serverId: string) => Promise<boolean>;
-
-  // Registry servers
-  fetchRegistryServers: (search?: string, cursor?: string) => Promise<void>;
-  goToNextRegistryPage: () => Promise<void>;
-  goToPreviousRegistryPage: () => Promise<void>;
 }
 
 /**
@@ -276,7 +277,6 @@ interface UIActions {
   setSelectedCategory: (category: string | null) => void;
   setActiveTab: (tab: 'public' | 'user') => void;
   setSelectedServer: (server: McpServer | null) => void;
-  setSelectedRegistryServer: (server: ParsedRegistryServer | null) => void;
   setViewMode: (mode: 'browse' | 'add' | 'edit') => void;
   setEditingServer: (server: McpServer | null) => void;
   openToolTester: (toolName: string) => void;
@@ -312,13 +312,6 @@ const initialServerState: ServerState = {
   userServersLoading: false,
   userServersError: null,
   userServersTotalCount: 0,
-
-  registryServers: [],
-  registryLoading: false,
-  registryError: null,
-  registryNextCursor: null,
-  registryCurrentCursor: null,
-  registryCursorHistory: [],
 };
 
 const initialConnectionState: ConnectionState = {
@@ -335,7 +328,6 @@ const initialUIState: UIState = {
   selectedCategory: null,
   activeTab: 'public',
   selectedServer: null,
-  selectedRegistryServer: null,
   viewMode: 'browse',
   editingServer: null,
   toolTesterOpen: false,
@@ -537,69 +529,6 @@ export const useMcpStore = create<McpStore>()(
           }
         },
 
-        /**
-         * Fetch registry servers
-         */
-        fetchRegistryServers: async (search = '', cursor) => {
-          set({ registryLoading: true, registryError: null });
-
-          try {
-            const params = new URLSearchParams({
-              limit: '20',
-              ...(search && { search }),
-              ...(cursor && { cursor }),
-            });
-
-            const response = await fetch(`/api/registry?${params}`);
-
-            if (!response.ok) {
-              throw new Error('Failed to fetch registry servers');
-            }
-
-            const data = await response.json();
-
-            set({
-              registryServers: data.servers || [],
-              registryNextCursor: data.nextCursor || null,
-              registryCurrentCursor: cursor || null,
-              registryLoading: false,
-            });
-          } catch (error) {
-            set({
-              registryError: error instanceof Error ? error.message : 'Unknown error',
-              registryLoading: false,
-            });
-          }
-        },
-
-        /**
-         * Navigate to next registry page
-         */
-        goToNextRegistryPage: async () => {
-          const { registryNextCursor, registryCurrentCursor, registryCursorHistory } = get();
-          if (!registryNextCursor) return;
-
-          // Save current cursor to history
-          if (registryCurrentCursor) {
-            set({ registryCursorHistory: [...registryCursorHistory, registryCurrentCursor] });
-          }
-
-          await get().fetchRegistryServers(get().searchQuery, registryNextCursor);
-        },
-
-        /**
-         * Navigate to previous registry page
-         */
-        goToPreviousRegistryPage: async () => {
-          const { registryCursorHistory } = get();
-          if (registryCursorHistory.length === 0) return;
-
-          const previousCursor = registryCursorHistory[registryCursorHistory.length - 1];
-          set({ registryCursorHistory: registryCursorHistory.slice(0, -1) });
-
-          await get().fetchRegistryServers(get().searchQuery, previousCursor);
-        },
-
         // ==================== CONNECTION ACTIONS ====================
 
         /**
@@ -614,6 +543,16 @@ export const useMcpStore = create<McpStore>()(
               if (!val?.sessionId) return acc;
               const normalizedStatus = normalizeConnectionStatus(val.state);
               const existing = get().connections[val.sessionId];
+
+              const rawCreatedAt = val.createdAt
+                ? (val.createdAt instanceof Date ? val.createdAt.toISOString() : String(val.createdAt))
+                : undefined;
+              const rawUpdatedAt = val.updatedAt
+                ? (val.updatedAt instanceof Date ? val.updatedAt.toISOString() : String(val.updatedAt))
+                : undefined;
+              const connectedAt = rawCreatedAt || existing?.connectedAt || new Date().toISOString();
+              const updatedAt = rawUpdatedAt || existing?.updatedAt || connectedAt;
+
               acc[val.sessionId] = {
                 sessionId: val.sessionId,
                 serverId: val.serverId || val.identity,
@@ -628,8 +567,11 @@ export const useMcpStore = create<McpStore>()(
                 resourceTemplates: val.resourceTemplates ?? existing?.resourceTemplates,
                 toolPolicy: val.toolPolicy,
                 enabled: val.enabled ?? existing?.enabled ?? true,
-                connectedAt: new Date().toISOString(),
+                connectedAt,
+                createdAt: rawCreatedAt ?? existing?.createdAt ?? connectedAt,
+                updatedAt,
                 error: val.error,
+                metadata: val.metadata ?? existing?.metadata,
               };
               return acc;
             }, {} as Record<string, StoredConnection>),
@@ -719,7 +661,7 @@ export const useMcpStore = create<McpStore>()(
                 ? prevActiveCount + 1
                 : prevActiveCount;
 
-            const stampConnectedAt = isNowConnected && !connection.connectedAt;
+            const stampConnectedAt = isNowConnected && (!wasConnected || !connection.connectedAt);
 
             return {
               connections: {
@@ -728,7 +670,8 @@ export const useMcpStore = create<McpStore>()(
                   ...connection,
                   connectionStatus: normalizedStatus,
                   ...(tools && { tools }),
-                  ...(stampConnectedAt ? { connectedAt: new Date().toISOString() } : {}),
+                  updatedAt: new Date().toISOString(),
+                  ...(stampConnectedAt ? { connectedAt: new Date().toISOString(), createdAt: connection.createdAt || new Date().toISOString() } : {}),
                 },
               },
               activeConnectionCount: newActiveCount,
@@ -806,7 +749,6 @@ export const useMcpStore = create<McpStore>()(
         setSelectedCategory: (category) => set({ selectedCategory: category }),
         setActiveTab: (tab) => set({ activeTab: tab }),
         setSelectedServer: (server) => set({ selectedServer: server }),
-        setSelectedRegistryServer: (server) => set({ selectedRegistryServer: server }),
         setViewMode: (mode) => set({ viewMode: mode }),
         setEditingServer: (server) => set({ editingServer: server }),
 
@@ -829,11 +771,19 @@ export const useMcpStore = create<McpStore>()(
       {
         name: 'mcp-store',
         storage: createJSONStorage(() => localStorage),
-        // Only persist connection state
-        partialize: (state) => ({
-          connections: state.connections,
-          activeConnectionCount: state.activeConnectionCount,
-        }),
+        // Only persist fully established connections (never transient authenticating/connecting states)
+        partialize: (state) => {
+          const cleanConnections: Record<string, StoredConnection> = {};
+          for (const [key, conn] of Object.entries(state.connections)) {
+            if (conn.connectionStatus === 'READY' || conn.connectionStatus === 'CONNECTED') {
+              cleanConnections[key] = conn;
+            }
+          }
+          return {
+            connections: cleanConnections,
+            activeConnectionCount: Object.keys(cleanConnections).length,
+          };
+        },
       }
     ),
     { name: 'MCP Store' }
@@ -906,8 +856,7 @@ export const selectIsLoading = (state: McpStore) => {
   return (
     state.publicServersLoading ||
     state.userServersLoading ||
-    state.connectionsLoading ||
-    state.registryLoading
+    state.connectionsLoading
   );
 };
 

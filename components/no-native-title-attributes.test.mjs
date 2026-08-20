@@ -5,7 +5,8 @@ import { test } from "node:test";
 
 const ROOTS = ["app", "components", "lib", "hooks", "types"];
 const ALLOWED_TITLE_FILES = new Set([
-  path.join("app", "(main)", "(playground-app)", "settings", "preferences", "page.tsx"),
+  path.join("app", "(main)", "settings", "preferences", "page.tsx"),
+  path.join("app", "mcp", "oauth", "consent", "ConsentForm.tsx"),
 ]);
 
 async function walk(dir) {

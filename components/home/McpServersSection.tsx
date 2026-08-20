@@ -8,8 +8,6 @@ import { ArrowRight, Check, Copy, Star } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { McpServer } from "@/types/mcp";
 import { ServerIcon } from "@/components/common/ServerIcon";
-import { useRegistryRecentServers } from "@/hooks/useRegistryRecentServers";
-import { RegistryServerCard } from "@/components/registry/RegistryServerCard";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 function ServerItemSkeleton() {
@@ -45,6 +43,7 @@ function ServerCard({ server }: { server: McpServer }) {
         <ServerIcon
           serverName={server.name}
           serverUrl={server.url}
+          icon={server.icon || (server as any).icon}
           size={40}
         />
         <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-md font-normal">
@@ -97,8 +96,6 @@ function ServerCard({ server }: { server: McpServer }) {
 }
 
 export default function McpServersSection() {
-  const { servers: registryServers, loading: registryLoading } = useRegistryRecentServers(12);
-
   const [localLoading, setLocalLoading] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
   const [localServers, setLocalServers] = useState<McpServer[]>([]);
@@ -136,42 +133,6 @@ export default function McpServersSection() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
-      {(registryLoading || registryServers.length > 0) && (
-        <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-red-200/75 sm:bg-card/25 sm:p-8 dark:sm:border-red-400/25">
-          <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="space-y-2">
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Official MCP Registry</h2>
-              <p className="text-sm md:text-base text-muted-foreground">
-              Explore the newest additions and updates from the official MCP registry.
-              </p>
-            </div>
-            <Link href="/registry" className="group inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-              Browse Registry
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-
-          {registryLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0 sm:gap-4">
-              <ServerItemSkeleton />
-              <ServerItemSkeleton />
-              <ServerItemSkeleton />
-              <ServerItemSkeleton />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0 sm:gap-4">
-              {registryServers.map((server) => (
-                <div key={server.id} className="border-b border-red-200/70 last:border-b-0 md:border-b-0 dark:border-red-400/25">
-                  <RegistryServerCard
-                    server={server}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
       {!localError && (localLoading || localServers.length > 0) && (
         <section className="relative overflow-hidden p-0 sm:rounded-3xl sm:border sm:border-red-200/75 sm:bg-card/25 sm:p-8 dark:sm:border-red-400/25">
           <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

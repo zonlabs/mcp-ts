@@ -9,8 +9,9 @@ import {
 } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
 
-// Re-export StoredConnection for backward compatibility
-export type { StoredConnection };
+// Re-export StoredConnection & McpConnection
+import type { McpConnection } from '@mcp-ts/client/react';
+export type { StoredConnection, McpConnection };
 
 interface UseMcpConnectionProps {
   servers?: McpServer[] | null;
@@ -200,6 +201,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
         headers: normalizeHeaders(server.headers),
         clientId: server.clientId || undefined,
         clientSecret: server.clientSecret || undefined,
+        metadata: server.id ? { catalogServerId: server.id } : undefined,
       });
 
     } catch (error) {
@@ -213,17 +215,33 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   }, []);
 
   const disconnect = useCallback(async (server: ConnectableServer) => {
+    const store = useMcpStore.getState();
     const storedConnection =
-      useMcpStore.getState().getConnectionByServerId(server.id) ||
+      findConnectionForServer(store.connections, server) ||
+      store.getConnectionByServerId(server.id) ||
       (extractServerUrl(server)
-        ? useMcpStore.getState().getConnectionByServerId(extractServerUrl(server) as string)
+        ? store.getConnectionByServerId(extractServerUrl(server) as string)
         : undefined);
 
     if (!storedConnection?.sessionId) {
       // Try lookup by assuming server.id is sessionId (legacy behavior?)
       const directConn = getConnection(server.id);
       if (!directConn) {
-        showMcpErrorToast('disconnect', "Connection information not found");
+        // Clear any pending state for this server from store if present
+        const updatedConns = { ...store.connections };
+        let changed = false;
+        for (const [key, conn] of Object.entries(updatedConns)) {
+          if (conn.serverId === server.id || (server.url && conn.url === server.url)) {
+            delete updatedConns[key];
+            changed = true;
+          }
+        }
+        if (changed) {
+          useMcpStore.setState({
+            connections: updatedConns,
+            activeConnectionCount: Object.values(updatedConns).filter((c) => c.connectionStatus === 'READY').length,
+          });
+        }
         return;
       }
       try {

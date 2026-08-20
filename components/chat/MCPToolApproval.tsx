@@ -1,8 +1,7 @@
 "use client";
 
-import { CheckCircle2, XCircle, ShieldAlert, ChevronRight, ChevronDown } from "lucide-react";
+import { XCircle, ShieldAlert, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { useState } from "react";
 import { useI18n } from "@/lib/web-i18n";
@@ -75,12 +74,7 @@ export function MCPToolApprovalStatus({
   const { t } = useI18n();
   
   if (approved) {
-    return (
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground py-1">
-        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-        <span>{t("toolExecutionApproved")}</span>
-      </div>
-    );
+    return null;
   }
 
   return (

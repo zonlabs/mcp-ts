@@ -89,7 +89,7 @@ export const ChainOfThoughtHeader = memo(
       <Collapsible onOpenChange={setIsOpen} open={isOpen}>
         <CollapsibleTrigger
           className={cn(
-            "inline-flex items-center gap-2 text-muted-foreground text-[15px] font-instrument-serif transition-colors hover:text-foreground",
+            "inline-flex items-center gap-1.5 text-muted-foreground text-xs font-mono font-medium transition-colors hover:text-foreground cursor-pointer",
             className
           )}
           {...props}

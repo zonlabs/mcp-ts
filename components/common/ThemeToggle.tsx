@@ -1,64 +1,50 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 
 export function ThemeToggle() {
-  const { setTheme, theme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
-  // useEffect only runs on the client, so now we can safely show the UI
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon">
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-8 size-8 shrink-0 gap-1.5 rounded-sm px-0 hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
+      >
         <span className="sr-only">Toggle theme</span>
       </Button>
     );
   }
 
+  const isDark = resolvedTheme === "dark";
+  const tooltipText = `Switch to ${isDark ? "light" : "dark"} mode`;
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Sun className={`h-[1.2rem] w-[1.2rem] transition-all ${
-            theme === 'light' ? 'rotate-0 scale-100' : 'rotate-90 scale-0'
-          }`} strokeWidth={2} />
-          <Moon className={`absolute h-[1.2rem] w-[1.2rem] transition-all ${
-            theme === 'dark' ? 'rotate-0 scale-100' : '-rotate-90 scale-0'
-          }`} strokeWidth={2} />
-          <Monitor className={`absolute h-[1.2rem] w-[1.2rem] transition-all ${
-            theme === 'system' ? 'rotate-0 scale-100' : 'rotate-90 scale-0'
-          }`} strokeWidth={2} />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")} className="flex items-center gap-2">
-          <Sun className="h-4 w-4" strokeWidth={2} />
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")} className="flex items-center gap-2">
-          <Moon className="h-4 w-4" strokeWidth={2} />
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")} className="flex items-center gap-2">
-          <Monitor className="h-4 w-4" strokeWidth={2} />
-          System
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <SimpleTooltip content={tooltipText} side="bottom">
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => setTheme(isDark ? "light" : "dark")}
+        aria-label={tooltipText}
+        className="h-8 size-8 shrink-0 gap-1.5 rounded-sm px-0 hover:bg-card text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+      >
+        {isDark ? (
+          <Sun className="size-4 text-white" strokeWidth={1.8} />
+        ) : (
+          <Moon className="size-4 text-muted-foreground hover:text-foreground" strokeWidth={1.8} />
+        )}
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    </SimpleTooltip>
   );
 }

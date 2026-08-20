@@ -1,157 +1,81 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { ArrowUpRight } from 'lucide-react';
-import { ChatInput } from '@/components/chat/ChatInput';
-import { RecipeComponent } from '@/components/chat/RecipeComponent';
-import { createClient } from '@/lib/supabase/client';
-import { useI18n } from '@/lib/web-i18n';
-
-const MOBILE_STARTER_PROMPTS = [
-   {
-    label: 'Draft Follow-Up Email',
-    prompt: 'Using Composio MCP to get access to Gmail, draft a clear, professional follow-up email. Infer an appropriate subject line and message content from the available context. The email should be concise, polite, and ready for review',
-    icon: 'https://logos.composio.dev/api/gmail',
-  },
-  {
-    label: 'Semantic Search',
-    prompt: 'Search the web using Exa to find the latest research papers on LLM optimization from the past month.',
-    icon: 'https://awsmp-logos.s3.amazonaws.com/seller-7s5a3z2w3unay/b6519f9126c0432087c79827b95283c6.png',
-  },
-  {
-    label: 'Notion Meeting Prep',
-    prompt: 'Generate a briefing document by synthesizing project notes and recent updates directly from Notion.',
-    icon: 'https://api.iconify.design/logos:notion-icon.svg',
-  },
-  {
-    label: 'Market Analysis',
-    prompt: 'Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.',
-    icon: 'https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q',
-  },
-];
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ChatInput } from "@/components/chat/ChatInput";
+import { RecipeComponent } from "@/components/chat/RecipeComponent";
+import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/web-i18n";
 
 export function PlaygroundDraft() {
   const { t } = useI18n();
   const router = useRouter();
-  const [status, setStatus] = useState<'ready' | 'submitted' | 'streaming' | 'error'>('ready');
-  const [chatInput, setChatInput] = useState('');
+  const [status, setStatus] = useState<"ready" | "submitted" | "streaming" | "error">("ready");
+  const [chatInput, setChatInput] = useState("");
 
   const sendDraft = async (data: { text?: string; parts?: any[] }) => {
-    if (status !== 'ready') return;
+    if (status !== "ready") return;
     if (!data?.text && (!data?.parts || data.parts.length === 0)) return;
-    setStatus('submitted');
+    setStatus("submitted");
     try {
       const supabase = createClient();
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
       if (!userId) {
-        setStatus('ready');
+        setStatus("ready");
         return;
       }
 
       const { data: chatRow, error } = await supabase
-        .from('chats')
-        .insert({ user_id: userId, title: 'New Chat' })
-        .select('id')
+        .from("chats")
+        .insert({ user_id: userId, title: "New Chat" })
+        .select("id")
         .single();
 
       if (error || !chatRow?.id) {
-        console.error('[PlaygroundDraft] failed to create chat:', error);
-        setStatus('error');
+        console.error("[PlaygroundDraft] failed to create chat:", error);
+        setStatus("error");
         return;
       }
 
-      const payload = data.parts?.length
-        ? { parts: data.parts }
-        : { text: data.text };
-      sessionStorage.setItem('pending_chat_message', JSON.stringify(payload));
+      const payload = data.parts?.length ? { parts: data.parts } : { text: data.text };
+      sessionStorage.setItem("pending_chat_message", JSON.stringify(payload));
 
-      window.dispatchEvent(new CustomEvent('chat:created', { detail: { chatId: chatRow.id } }));
+      window.dispatchEvent(new CustomEvent("chat:created", { detail: { chatId: chatRow.id } }));
       router.push(`/chat/${chatRow.id}`);
     } finally {
-      setStatus('ready');
+      setStatus("ready");
     }
   };
 
-  const promptButtons = useMemo(() => MOBILE_STARTER_PROMPTS, []);
-
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background">
-      {/* Mobile Empty State */}
-      <div className="sm:hidden flex-1 min-h-0 flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
-          <div className="mb-7">
-            <Image
-              src="/logo.svg"
-              alt="Assistant logo"
-              width={46}
-              height={46}
-              className="opacity-90"
-            />
-          </div>
-          <div className="w-full max-w-xs">
-            <p className="mb-2 px-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
-              {t("quickActions")}
-            </p>
-            <div className="space-y-1">
-              {promptButtons.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => setChatInput(item.prompt)}
-                  className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-foreground/90 hover:bg-accent/30 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={item.icon}
-                      alt=""
-                      className="w-4 h-4 rounded-sm object-cover shrink-0 opacity-90"
-                    />
-                    <span className="line-clamp-1">{item.label}</span>
-                    <ArrowUpRight className="w-3.5 h-3.5 ml-auto text-muted-foreground" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-background font-sans select-none items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-2xl mx-auto space-y-7 animate-in fade-in zoom-in-95 duration-500">
+        {/* Warp Headline */}
+        <div className="text-center">
+          <h1 className="text-4xl md:text-5xl font-sans font-normal tracking-[-1.5px] text-foreground leading-tight">
+            {t("chatHeroTitle")}
+          </h1>
         </div>
 
-        <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
-          <div className="px-1">
-            <ChatInput
-              input={chatInput}
-              onInputChange={setChatInput}
-              onSend={sendDraft}
-              status={status}
-              disabled={status === 'submitted' || status === 'streaming'}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop Empty State */}
-      <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center px-6">
-        <div className="w-full max-w-3xl space-y-8">
-          <div className="text-center animate-in fade-in zoom-in-95 duration-1000">
-              <h1 className="text-5xl md:text-6xl font-serif tracking-tight text-foreground mb-10 leading-tight">
-              {t("chatHeroTitle")}
-            </h1>
-          </div>
-
+        {/* Elevated Chat Input */}
+        <div className="w-full">
           <ChatInput
             input={chatInput}
             onInputChange={setChatInput}
             onSend={sendDraft}
             status={status}
-            disabled={status === 'submitted' || status === 'streaming'}
+            disabled={status === "submitted" || status === "streaming"}
           />
+        </div>
 
-          <div className="px-4">
-            <RecipeComponent
-              onAction={(prompt) => setChatInput(prompt)}
-            />
-          </div>
+        {/* Authentic Prompt Recipes */}
+        <div className="w-full px-1">
+          <RecipeComponent
+            onAction={(prompt) => {
+              setChatInput(prompt);
+            }}
+          />
         </div>
       </div>
     </div>

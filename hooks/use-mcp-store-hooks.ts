@@ -289,40 +289,6 @@ export function useUIState() {
 }
 
 /**
- * Hook: Registry servers
- */
-export function useRegistryServers() {
-  const servers = useMcpStore((state: McpStore) => state.registryServers);
-  const loading = useMcpStore((state: McpStore) => state.registryLoading);
-  const error = useMcpStore((state: McpStore) => state.registryError);
-  const hasNextPage = useMcpStore((state: McpStore) => !!state.registryNextCursor);
-  const hasPreviousPage = useMcpStore((state: McpStore) => state.registryCursorHistory.length > 0);
-
-  const fetchServers = useMcpStore((state: McpStore) => state.fetchRegistryServers);
-  const goToNext = useMcpStore((state: McpStore) => state.goToNextRegistryPage);
-  const goToPrevious = useMcpStore((state: McpStore) => state.goToPreviousRegistryPage);
-  const searchQuery = useMcpStore((state: McpStore) => state.searchQuery);
-
-  useEffect(() => {
-    // Fetch on mount or when search changes
-    if (servers.length === 0 && !loading) {
-      fetchServers(searchQuery);
-    }
-  }, [fetchServers, searchQuery, servers.length, loading]);
-
-  return {
-    servers,
-    loading,
-    error,
-    hasNextPage,
-    hasPreviousPage,
-    goToNext,
-    goToPrevious,
-    refetch: () => fetchServers(searchQuery),
-  };
-}
-
-/**
  * Hook: Overall loading state
  */
 export function useGlobalLoading() {
