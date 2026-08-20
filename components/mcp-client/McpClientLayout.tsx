@@ -54,6 +54,7 @@ export default function McpClientLayout({
 
   const { connect, disconnect } = useMcpConnection();
   const connections = useMcpStore((s) => s.connections);
+  const userServers = useMcpStore((s) => s.userServers);
 
   // Only fetch the default page size — no need to over-fetch for resolution
   const { servers: catalogServers } = usePublicServers();
@@ -65,19 +66,24 @@ export default function McpClientLayout({
    * Resolve the selected server for AppDetailView.
    *
    * Priority:
-   *  1. Loaded catalog page (mcp_servers) — match by id
-   *  2. Active runtime connections with metadata.catalogServerId — reliable DB-persisted link
-   *  3. Active runtime connections by sessionId (fallback for non-catalog servers)
-   *  4. SSR-provided initialSelectedServer
+   *  1. Custom user servers (mcp_servers created by user with full headers & config)
+   *  2. Loaded catalog page (mcp_servers) — match by id
+   *  3. Active runtime connections with metadata.catalogServerId — reliable DB-persisted link
+   *  4. Active runtime connections by sessionId (fallback for non-catalog servers)
+   *  5. SSR-provided initialSelectedServer
    */
   const selectedServer = useMemo((): McpServer | null => {
     if (!serverParam) return null;
 
-    // 1. Check loaded catalog servers by their UUID primary key
+    // 1. Check custom user servers
+    const fromUser = userServers.find((s) => s.id === serverParam);
+    if (fromUser) return fromUser;
+
+    // 2. Check loaded catalog servers by their UUID primary key
     const fromCatalog = catalogServers.find((s) => s.id === serverParam);
     if (fromCatalog) return fromCatalog;
 
-    // 2 & 3. Check active connections — prefer metadata.catalogServerId match,
+    // 3 & 4. Check active connections — prefer metadata.catalogServerId match,
     // fall back to sessionId (used for custom/non-catalog servers)
     const conn: StoredConnection | undefined =
       connections[serverParam] ??
@@ -86,8 +92,17 @@ export default function McpClientLayout({
       );
 
     if (conn) {
-      // If the connection has a catalogServerId, try to fetch the full catalog entry.
-      // For now build from connection data — AppDetailView will enrich from the store.
+      // If connection matches a user server or catalog server, prefer that
+      const matchedUserServer = userServers.find(
+        (s) => s.id === conn.metadata?.catalogServerId || s.id === conn.serverId
+      );
+      if (matchedUserServer) return matchedUserServer;
+
+      const matchedCatalogServer = catalogServers.find(
+        (s) => s.id === conn.metadata?.catalogServerId || s.id === conn.serverId
+      );
+      if (matchedCatalogServer) return matchedCatalogServer;
+
       return {
         id: conn.metadata?.catalogServerId ?? conn.serverId,
         name: conn.serverName,
@@ -95,6 +110,7 @@ export default function McpClientLayout({
         transport: conn.transport ?? "streamable-http",
         tools: conn.tools ?? [],
         connectionStatus: conn.connectionStatus,
+        headers: (conn as any).headers ?? (conn.metadata as any)?.headers,
         isPublic: true,
         requiresOauth2: false,
         description: "",
@@ -102,9 +118,9 @@ export default function McpClientLayout({
       };
     }
 
-    // 4. SSR fallback
+    // 5. SSR fallback
     return initialSelectedServer ?? null;
-  }, [serverParam, catalogServers, connections, initialSelectedServer]);
+  }, [serverParam, userServers, catalogServers, connections, initialSelectedServer]);
 
   // Handle navigating to an App detail
   const handleSelectApp = useCallback(
@@ -168,10 +184,23 @@ export default function McpClientLayout({
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }, [router, pathname, searchParams]);
 
+  // Handle editing an app
+  const handleEditApp = useCallback(
+    (server: McpServer) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "apps");
+      params.set("server", server.id);
+      params.set("view", "edit");
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
+
   // Determine active view
   const viewParam = searchParams.get("view");
   const currentView = useMemo(() => {
     if (viewParam === "add") return "add";
+    if (viewParam === "edit" && selectedServer) return "edit";
     if (selectedServer) return "detail";
     if (activeTabParam === "apps") return "apps";
     return "home";
@@ -226,12 +255,39 @@ export default function McpClientLayout({
                 />
               </div>
             </div>
+          ) : currentView === "edit" && selectedServer ? (
+            <div className="flex-1 overflow-y-auto min-h-0 scrollbar-minimal">
+              <div className="w-full max-w-lg px-6 py-5 space-y-3">
+                <div>
+                  <button
+                    onClick={() => handleSelectApp(selectedServer.id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="size-3.5" />
+                    <span>Back to {selectedServer.name}</span>
+                  </button>
+                </div>
+                <ServerForm
+                  mode="edit"
+                  server={selectedServer}
+                  onSubmit={async (data) => {
+                    const result = await onServerUpdate({ id: selectedServer.id, ...data });
+                    void useMcpStore.getState().fetchUserServers();
+                    handleSelectApp(selectedServer.id);
+                    return result;
+                  }}
+                  onCancel={() => handleSelectApp(selectedServer.id)}
+                  session={userSession || session}
+                />
+              </div>
+            </div>
           ) : currentView === "detail" && selectedServer ? (
             <AppDetailView
               server={selectedServer}
               userSession={userSession || session}
               onBack={handleBackToApps}
               onAction={onServerAction}
+              onEdit={handleEditApp}
               onDelete={onServerDelete}
               onTestTool={handleTestTool}
             />

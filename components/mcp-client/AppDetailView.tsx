@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Eye,
   Edit3,
+  Pencil,
   AlertTriangle,
   Play,
   Copy,
@@ -29,6 +30,7 @@ import {
   Plug,
   Loader2,
   AlertCircle,
+  MoreVertical,
 } from "lucide-react";
 import { McpServer, ToolInfo } from "@/types/mcp";
 import { UserSession } from "@/components/providers/AuthProvider";
@@ -38,6 +40,13 @@ import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { ToolAccessDialog } from "./ToolAccessDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +55,7 @@ interface AppDetailViewProps {
   userSession: UserSession | null;
   onBack: () => void;
   onAction: (server: McpServer, action: "activate" | "deactivate") => Promise<unknown>;
+  onEdit?: (server: McpServer) => void;
   onDelete?: (serverId: string) => Promise<void>;
   onTestTool?: (toolName: string) => void;
 }
@@ -68,6 +78,7 @@ export function AppDetailView({
   userSession,
   onBack,
   onAction,
+  onEdit,
   onDelete,
   onTestTool,
 }: AppDetailViewProps) {
@@ -291,7 +302,7 @@ export function AppDetailView({
                         "inline-flex items-center h-8 p-0.5 rounded-sm border transition-colors select-none text-xs font-mono",
                         enableError
                           ? "border-destructive/60 bg-destructive/5"
-                          : "border-border bg-muted/30"
+                          : "border-border bg-muted/80"
                       )}
                     >
                       <button
@@ -300,8 +311,8 @@ export function AppDetailView({
                         className={cn(
                           "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
                           isServerEnabled
-                            ? "bg-background text-foreground font-medium shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground"
+                            ? "bg-background text-foreground font-semibold shadow-xs border border-border"
+                            : "text-muted-foreground/60 hover:text-foreground"
                         )}
                         aria-label="Turn AI tool access on"
                         aria-pressed={isServerEnabled}
@@ -314,8 +325,8 @@ export function AppDetailView({
                         className={cn(
                           "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
                           !isServerEnabled
-                            ? "bg-background text-foreground font-medium shadow-2xs"
-                            : "text-muted-foreground hover:text-foreground"
+                            ? "bg-background text-foreground font-semibold shadow-xs border border-border"
+                            : "text-muted-foreground/60 hover:text-foreground"
                         )}
                         aria-label="Turn AI tool access off"
                         aria-pressed={!isServerEnabled}
@@ -393,19 +404,44 @@ export function AppDetailView({
                 );
               })()}
 
-              {isOwner && onDelete && (
-                <SimpleTooltip content="Delete Server" side="top">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDeleteConfirmOpen(true)}
-                    className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border rounded-sm cursor-pointer inline-flex items-center gap-1.5"
-                    aria-label="Delete Server"
-                  >
-                    <Trash2 className="size-3.5" />
-                    <span className="hidden sm:inline">Delete</span>
-                  </Button>
-                </SimpleTooltip>
+              {isOwner && (onEdit || onDelete) && (
+                <DropdownMenu>
+                  <SimpleTooltip content="More options" side="top">
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-card/80 rounded-sm cursor-pointer inline-flex items-center justify-center transition-colors"
+                        aria-label="More options"
+                      >
+                        <MoreVertical className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </SimpleTooltip>
+                  <DropdownMenuContent align="end" className="w-40 text-xs font-sans">
+                    {onEdit && (
+                      <DropdownMenuItem
+                        onClick={() => onEdit(server)}
+                        className="gap-2 cursor-pointer"
+                      >
+                        <Pencil className="size-3.5" />
+                        <span>Edit Server</span>
+                      </DropdownMenuItem>
+                    )}
+                    {onDelete && (
+                      <>
+                        {onEdit && <DropdownMenuSeparator />}
+                        <DropdownMenuItem
+                          onClick={() => setDeleteConfirmOpen(true)}
+                          className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                        >
+                          <Trash2 className="size-3.5" />
+                          <span>Delete Server</span>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           </div>
