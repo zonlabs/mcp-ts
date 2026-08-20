@@ -206,8 +206,8 @@ export default function McpClientLayout({
         <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
           {currentView === "add" ? (
             <div className="flex-1 overflow-y-auto min-h-0 scrollbar-minimal">
-              <div className="w-full max-w-xl px-6 sm:px-8 py-8">
-                <div className="mb-4">
+              <div className="w-full max-w-lg px-6 py-5 space-y-3">
+                <div>
                   <button
                     onClick={handleBackToApps}
                     className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
