@@ -15,6 +15,7 @@ export interface GatewayContextOptions {
   dir?: string;
   remoteUrl?: string;
   enableBridge?: boolean;
+  bridgeTimeout?: number;
 }
 
 /**
@@ -105,7 +106,7 @@ export async function withMcpGateway<T>(
           getAccessToken: async () => (await ensureFreshAuthSession(remote)).accessToken,
         });
         await bridge.start();
-        await bridge.waitForReady(10_000);
+        await bridge.waitForReady(options?.bridgeTimeout ?? 2_000);
       } catch {
         // Remote bridge connection is best effort for one-shot commands
       }

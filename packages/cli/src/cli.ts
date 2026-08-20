@@ -26,7 +26,7 @@ Usage:
   mcpa call <tool> [jsonArgs]                   Directly execute a local MCP tool
   mcpa search [url] <query> [--limit <count>]   Search local or remote tool catalog
   mcpa schema <tool...>                         Inspect tool JSON schemas
-  mcpa list                                     List all local servers and tools
+  mcpa list [server] [--tools]                  List configured MCP servers (or tools)
   mcpa connect [name] [url] [--auth <token>]    Test & register a remote/local MCP server
   mcpa disconnect <name>                        Remove a server from mcp.json (aliases: remove, rm)
   mcpa enable <name>                            Enable a disabled MCP server in mcp.json
@@ -128,7 +128,10 @@ export async function runCli(
     }
 
     if (command === "list" || command === "servers") {
-      await cmdList(dir, streams.output);
+      const values = positional(commandArgs);
+      const serverName = values[0];
+      const showTools = commandArgs.includes("--tools") || commandArgs.includes("-t");
+      await cmdList(dir, streams.output, { showTools, serverName });
       return 0;
     }
 
