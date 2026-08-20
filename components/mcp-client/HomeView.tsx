@@ -8,6 +8,7 @@ import { ServerIcon } from "@/components/common/ServerIcon";
 import { McpUsageOverview } from "@/components/mcp-usage/McpUsageOverview";
 import { useMcpUsage } from "@/hooks/useMcpUsage";
 import { usePublicServers } from "@/hooks/usePublicServers";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const MCP_ASSISTANT_URL = "https://api.mcp-assistant.in/mcp";
@@ -197,22 +198,22 @@ export function HomeView({
 
             <div className="flex items-center gap-1.5 shrink-0">
               {MCP_CLIENT_ICONS.map((client) => (
-                <div
-                  key={client.name}
-                  className="size-7 flex items-center justify-center rounded-sm border border-border/80 bg-background"
-                  title={client.name}
-                >
-                  <img
-                    src={client.fallbackImage}
-                    alt={`${client.name} icon`}
-                    width={15}
-                    height={15}
-                    className={`rounded-xs ${client.name === "Cursor" || client.name === "ChatGPT" ? "dark:invert" : ""}`}
-                    loading="lazy"
-                    decoding="async"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
+                <SimpleTooltip key={client.name} content={client.name} side="top">
+                  <div
+                    className="size-7 flex items-center justify-center rounded-sm border border-border/80 bg-background"
+                  >
+                    <img
+                      src={client.fallbackImage}
+                      alt={`${client.name} icon`}
+                      width={15}
+                      height={15}
+                      className={`rounded-xs ${client.name === "Cursor" || client.name === "ChatGPT" ? "dark:invert" : ""}`}
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </SimpleTooltip>
               ))}
             </div>
           </div>
@@ -227,14 +228,16 @@ export function HomeView({
             <code className="text-xs font-mono text-muted-foreground truncate">
               {MCP_ASSISTANT_URL}
             </code>
-            <button
-              type="button"
-              onClick={handleCopyAssistantUrl}
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-muted-foreground hover:text-foreground hover:bg-card transition-colors cursor-pointer"
-              title="Copy endpoint"
-            >
-              {urlCopied ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}
-            </button>
+            <SimpleTooltip content={urlCopied ? "Copied!" : "Copy endpoint"} side="left">
+              <button
+                type="button"
+                onClick={handleCopyAssistantUrl}
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-muted-foreground hover:text-foreground hover:bg-card transition-colors cursor-pointer"
+                aria-label="Copy endpoint"
+              >
+                {urlCopied ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}
+              </button>
+            </SimpleTooltip>
           </div>
         </div>
       </div>

@@ -35,8 +35,7 @@ import { UserSession } from "@/components/providers/AuthProvider";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import { ToolAccessDialog } from "./ToolAccessDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
@@ -281,55 +280,50 @@ export function AppDetailView({
               {isConnected && (
                 <>
                   {/* Segmented Access On / Access Off Toggle */}
-                  <Tooltip open={Boolean(enableError) ? true : undefined}>
-                    <TooltipTrigger asChild>
-                      <div
+                  <SimpleTooltip
+                    open={Boolean(enableError) ? true : undefined}
+                    content={enableError}
+                    side="top"
+                    className="text-xs text-destructive bg-card border border-destructive/40 shadow-md font-mono"
+                  >
+                    <div
+                      className={cn(
+                        "inline-flex items-center h-8 p-0.5 rounded-sm border transition-colors select-none text-xs font-mono",
+                        enableError
+                          ? "border-destructive/60 bg-destructive/5"
+                          : "border-border bg-muted/30"
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => !isServerEnabled && handleToggleEnabled(true)}
                         className={cn(
-                          "inline-flex items-center h-8 p-0.5 rounded-sm border transition-colors select-none text-xs font-mono",
-                          enableError
-                            ? "border-destructive/60 bg-destructive/5"
-                            : "border-border bg-muted/30"
+                          "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
+                          isServerEnabled
+                            ? "bg-background text-foreground font-medium shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground"
                         )}
+                        aria-label="Turn AI tool access on"
+                        aria-pressed={isServerEnabled}
                       >
-                        <button
-                          type="button"
-                          onClick={() => !isServerEnabled && handleToggleEnabled(true)}
-                          className={cn(
-                            "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
-                            isServerEnabled
-                              ? "bg-background text-foreground font-medium shadow-2xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                          title="Turn AI tool access on"
-                          aria-pressed={isServerEnabled}
-                        >
-                          <span>Access On</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => isServerEnabled && handleToggleEnabled(false)}
-                          className={cn(
-                            "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
-                            !isServerEnabled
-                              ? "bg-background text-foreground font-medium shadow-2xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                          title="Turn AI tool access off"
-                          aria-pressed={!isServerEnabled}
-                        >
-                          <span>Access Off</span>
-                        </button>
-                      </div>
-                    </TooltipTrigger>
-                    {enableError && (
-                      <TooltipContent
-                        side="top"
-                        className="text-xs text-destructive bg-card border border-destructive/40 shadow-md font-mono"
+                        <span>Access On</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => isServerEnabled && handleToggleEnabled(false)}
+                        className={cn(
+                          "h-full px-2.5 rounded-xs transition-all flex items-center justify-center cursor-pointer",
+                          !isServerEnabled
+                            ? "bg-background text-foreground font-medium shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                        aria-label="Turn AI tool access off"
+                        aria-pressed={!isServerEnabled}
                       >
-                        {enableError}
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
+                        <span>Access Off</span>
+                      </button>
+                    </div>
+                  </SimpleTooltip>
 
                   <Button
                     variant="ghost"
@@ -400,16 +394,18 @@ export function AppDetailView({
               })()}
 
               {isOwner && onDelete && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDeleteConfirmOpen(true)}
-                  className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border rounded-sm cursor-pointer inline-flex items-center gap-1.5"
-                  title="Delete Server"
-                >
-                  <Trash2 className="size-3.5" />
-                  <span className="hidden sm:inline">Delete</span>
-                </Button>
+                <SimpleTooltip content="Delete Server" side="top">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border rounded-sm cursor-pointer inline-flex items-center gap-1.5"
+                    aria-label="Delete Server"
+                  >
+                    <Trash2 className="size-3.5" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </Button>
+                </SimpleTooltip>
               )}
             </div>
           </div>
@@ -422,13 +418,15 @@ export function AppDetailView({
                   <span className="truncate max-w-xs sm:max-w-md">
                     {server.url}
                   </span>
-                  <button
-                    onClick={handleCopyUrl}
-                    className="text-muted-foreground hover:text-foreground p-0.5 rounded-sm cursor-pointer"
-                    title="Copy endpoint"
-                  >
-                    {copiedUrl ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-                  </button>
+                  <SimpleTooltip content={copiedUrl ? "Copied!" : "Copy endpoint"} side="top">
+                    <button
+                      onClick={handleCopyUrl}
+                      className="text-muted-foreground hover:text-foreground p-0.5 rounded-sm cursor-pointer"
+                      aria-label="Copy endpoint"
+                    >
+                      {copiedUrl ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+                    </button>
+                  </SimpleTooltip>
                 </div>
               )}
 

@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, SimpleTooltip } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -560,30 +560,34 @@ export default function ToolExecutionPanel({
           {/* Subheader Toolbar */}
           <div className="flex-shrink-0 border-b border-border px-4 py-2 flex items-center justify-between bg-background/50">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setToolsViewMode(toolsViewMode === "saved" ? "form" : "saved")}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors ${
-                  toolsViewMode === "saved"
-                    ? "bg-muted text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-                title={toolsViewMode === "saved" ? "Back to tool execution" : "View saved presets"}
-              >
-                <Bookmark className="h-3 w-3" />
-                Saved
-                {savedPresets.length > 0 && (
-                  <span className="text-[10px] opacity-75 font-mono">{savedPresets.length}</span>
-                )}
-              </button>
+              <SimpleTooltip content={toolsViewMode === "saved" ? "Back to tool execution" : "View saved presets"} side="bottom">
+                <button
+                  onClick={() => setToolsViewMode(toolsViewMode === "saved" ? "form" : "saved")}
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 transition-colors ${
+                    toolsViewMode === "saved"
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                  aria-label={toolsViewMode === "saved" ? "Back to tool execution" : "View saved presets"}
+                >
+                  <Bookmark className="h-3 w-3" />
+                  Saved
+                  {savedPresets.length > 0 && (
+                    <span className="text-[10px] opacity-75 font-mono">{savedPresets.length}</span>
+                  )}
+                </button>
+              </SimpleTooltip>
 
-              <button
-                onClick={() => setActivePanelTab("sessions")}
-                className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                title="View session history"
-              >
-                <History className="h-3 w-3" />
-                Sessions
-              </button>
+              <SimpleTooltip content="View session history" side="bottom">
+                <button
+                  onClick={() => setActivePanelTab("sessions")}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  aria-label="View session history"
+                >
+                  <History className="h-3 w-3" />
+                  Sessions
+                </button>
+              </SimpleTooltip>
             </div>
 
             {/* Quick Action Tools and Run Button */}

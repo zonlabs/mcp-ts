@@ -21,10 +21,6 @@ import {
   Share2,
   X,
   User,
-  AlertTriangle,
-  Globe,
-  Lock,
-  CheckCircle2,
   Link as LinkIcon,
   Github,
 } from "lucide-react";
@@ -44,6 +40,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
@@ -72,25 +69,30 @@ function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: Cha
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen((prev) => !prev);
-          }}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-card/80 transition-all cursor-pointer"
-          title="More options"
-        >
-          <MoreHorizontal className="size-[18px]" />
-        </button>
-      </DropdownMenuTrigger>
+      <SimpleTooltip content={open ? null : "More options"}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-card/80 transition-all cursor-pointer"
+            aria-label="More options"
+          >
+            <MoreHorizontal className="size-[18px]" />
+          </button>
+        </DropdownMenuTrigger>
+      </SimpleTooltip>
       <DropdownMenuContent
         align="end"
         sideOffset={4}
         className="w-44 text-[12px] font-sans"
         onClick={(e) => {
+          e.preventDefault();
           e.stopPropagation();
         }}
       >
@@ -185,9 +187,11 @@ function ChatItem({
             <Pin className="size-3.5 shrink-0 text-foreground/75" strokeWidth={2.4} />
           )}
           {chat.visibility === "PUBLIC" && (
-            <span title="Publicly shared" className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label="Publicly shared">
-              <Share2 className="size-3.5 shrink-0" strokeWidth={2.4} />
-            </span>
+            <SimpleTooltip content="Publicly shared">
+              <span className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label="Publicly shared">
+                <Share2 className="size-3.5 shrink-0 text-primary/70" />
+              </span>
+            </SimpleTooltip>
           )}
           <p className="text-[13px] font-medium leading-snug truncate">
             {chat.title || "New Chat"}
@@ -533,27 +537,29 @@ export function AppShell({
           )}
 
           {isMobile ? (
-            <button
-              onClick={() => setMobileDrawerOpen(false)}
-              className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-              title="Close menu"
-              aria-label="Close navigation menu"
-            >
-              <X className="size-4" />
-            </button>
+            <SimpleTooltip content="Close menu" side="bottom">
+              <button
+                onClick={() => setMobileDrawerOpen(false)}
+                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                aria-label="Close navigation menu"
+              >
+                <X className="size-4" />
+              </button>
+            </SimpleTooltip>
           ) : (
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-              title="Toggle sidebar"
-              aria-label="Toggle sidebar"
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose className="size-4" />
-              ) : (
-                <PanelLeftOpen className="size-4" />
-              )}
-            </button>
+            <SimpleTooltip content="Toggle sidebar" side="bottom">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                aria-label="Toggle sidebar"
+              >
+                {sidebarOpen ? (
+                  <PanelLeftClose className="size-4" />
+                ) : (
+                  <PanelLeftOpen className="size-4" />
+                )}
+              </button>
+            </SimpleTooltip>
           )}
         </div>
 
@@ -885,15 +891,16 @@ export function AppShell({
         <header className="h-14 border-b border-border bg-background px-4 sm:px-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center shrink-0 z-20 rounded-t-lg">
           <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
             {/* Mobile Menu Hamburger Toggle */}
-            <button
-              type="button"
-              onClick={() => setMobileDrawerOpen(true)}
-              className="lg:hidden p-1.5 -ml-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
-              title="Open navigation menu"
-              aria-label="Open navigation menu"
-            >
-              <PanelLeftOpen className="size-[18px]" />
-            </button>
+            <SimpleTooltip content="Open navigation menu" side="bottom">
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen(true)}
+                className="lg:hidden p-1.5 -ml-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+                aria-label="Open navigation menu"
+              >
+                <PanelLeftOpen className="size-[18px]" />
+              </button>
+            </SimpleTooltip>
 
             {computedBreadcrumb && (
               <span className="text-xs font-mono text-muted-foreground truncate">{computedBreadcrumb}</span>

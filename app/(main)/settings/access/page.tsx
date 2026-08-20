@@ -13,6 +13,7 @@ import {
   Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
@@ -184,15 +185,17 @@ export default function AccessPage() {
                           {client.name}
                         </p>
                         {client.uri && (
-                          <a
-                            href={client.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                            title="Visit website"
-                          >
-                            <ExternalLink className="size-3" />
-                          </a>
+                          <SimpleTooltip content="Visit website" side="top">
+                            <a
+                              href={client.uri}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                              aria-label="Visit website"
+                            >
+                              <ExternalLink className="size-3" />
+                            </a>
+                          </SimpleTooltip>
                         )}
                       </div>
 

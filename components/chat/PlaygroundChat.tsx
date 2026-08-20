@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
+import { SimpleTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useMcpStore } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
@@ -674,19 +675,21 @@ export function PlaygroundChat({
                       result={undefined}
                       status="executing"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setActiveMcpApp({
-                        name: actualToolName,
-                        args: actualArgs,
-                        result: undefined,
-                        status: 'executing',
-                      })}
-                      className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in"
-                      title="Expand to full view"
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </button>
+                    <SimpleTooltip content="Expand to full view" side="left">
+                      <button
+                        type="button"
+                        onClick={() => setActiveMcpApp({
+                          name: actualToolName,
+                          args: actualArgs,
+                          result: undefined,
+                          status: 'executing',
+                        })}
+                        className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in cursor-pointer"
+                        aria-label="Expand to full view"
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </button>
+                    </SimpleTooltip>
                   </div>
                 );
               }
@@ -710,19 +713,21 @@ export function PlaygroundChat({
                       result={toolPart.output}
                       status="complete"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setActiveMcpApp({
-                        name: actualToolName,
-                        args: actualArgs,
-                        result: toolPart.output,
-                        status: 'complete',
-                      })}
-                      className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in"
-                      title="Expand to full view"
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </button>
+                    <SimpleTooltip content="Expand to full view" side="left">
+                      <button
+                        type="button"
+                        onClick={() => setActiveMcpApp({
+                          name: actualToolName,
+                          args: actualArgs,
+                          result: toolPart.output,
+                          status: 'complete',
+                        })}
+                        className="absolute top-2 right-2 opacity-0 group-hover/app:opacity-100 p-1.5 rounded-md bg-background/80 hover:bg-background border shadow text-muted-foreground hover:text-foreground transition-all duration-200 z-10 animate-in fade-in cursor-pointer"
+                        aria-label="Expand to full view"
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </button>
+                    </SimpleTooltip>
                   </div>
                 );
               }

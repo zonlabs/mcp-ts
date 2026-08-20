@@ -27,6 +27,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  SimpleTooltip,
 } from "@/components/ui/tooltip";
 import { HeroGridPattern } from "@/components/home/hero-grid-pattern";
 import { Stack } from "@/components/stack";
@@ -209,20 +210,20 @@ export default function Home() {
                       { name: "Parallel Search", icon: "https://logos.composio.dev/api/parallel", invert: true },
                       { name: "Exa", icon: "https://logos.composio.dev/api/exa" },
                     ].map((plat) => (
-                      <div
-                        key={plat.name}
-                        className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-card/40 backdrop-blur-xs transition-all duration-200 hover:scale-110 hover:bg-card/75 p-1"
-                        title={plat.name}
-                      >
-                        <Image
-                          src={plat.icon}
-                          alt={plat.name}
-                          width={36}
-                          height={36}
-                          className={`h-8 w-8 sm:h-9 sm:w-9 object-contain rounded-xs ${plat.invert ? "dark:invert" : ""}`}
-                          unoptimized
-                        />
-                      </div>
+                      <SimpleTooltip key={plat.name} content={plat.name} side="top">
+                        <div
+                          className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-card/40 backdrop-blur-xs transition-all duration-200 hover:scale-110 hover:bg-card/75 p-1"
+                        >
+                          <Image
+                            src={plat.icon}
+                            alt={plat.name}
+                            width={36}
+                            height={36}
+                            className={`h-8 w-8 sm:h-9 sm:w-9 object-contain rounded-xs ${plat.invert ? "dark:invert" : ""}`}
+                            unoptimized
+                          />
+                        </div>
+                      </SimpleTooltip>
                     ))}
                   </div>
                 </motion.div>
@@ -445,20 +446,20 @@ export default function Home() {
                   ["Intercom", "intercom"],
                   ["Mailchimp", "mailchimp"],
                 ] as const).map(([name, slug, invert = false]) => (
-                  <div
-                    key={name}
-                    className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-card/40 backdrop-blur-xs transition-all duration-200 hover:scale-110 hover:bg-card/75 p-1"
-                    title={name}
-                  >
-                    <Image
-                      src={`https://logos.composio.dev/api/${slug}`}
-                      alt={name}
-                      width={36}
-                      height={36}
-                      className={`h-8 w-8 sm:h-9 sm:w-9 object-contain rounded-xs ${invert ? "dark:invert" : ""}`}
-                      unoptimized
-                    />
-                  </div>
+                  <SimpleTooltip key={name} content={name} side="top">
+                    <div
+                      className="flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-card/40 backdrop-blur-xs transition-all duration-200 hover:scale-110 hover:bg-card/75 p-1"
+                    >
+                      <Image
+                        src={`https://logos.composio.dev/api/${slug}`}
+                        alt={name}
+                        width={36}
+                        height={36}
+                        className={`h-8 w-8 sm:h-9 sm:w-9 object-contain rounded-xs ${invert ? "dark:invert" : ""}`}
+                        unoptimized
+                      />
+                    </div>
+                  </SimpleTooltip>
                 ))}
               </motion.div>
 
@@ -481,21 +482,22 @@ export default function Home() {
                     { name: "Cline", icon: "https://api.iconify.design/simple-icons:cline.svg", invert: false },
                   ].map((client) => {
                     const content = (
-                      <div
-                        className={`flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-card/40 transition-all duration-200 p-1 ${client.href ? "hover:scale-110 hover:bg-card/75 cursor-pointer" : ""}`}
-                        title={client.href ? `Install in ${client.name}` : client.name}
-                      >
-                        <img
-                          src={client.icon}
-                          alt={client.name}
-                          width={32}
-                          height={32}
-                          className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 object-contain rounded-xs ${client.invert ? "dark:invert" : ""}`}
-                          loading="lazy"
-                          decoding="async"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
+                      <SimpleTooltip content={client.href ? `Install in ${client.name}` : client.name} side="top">
+                        <div
+                          className={`flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-card/40 transition-all duration-200 p-1 ${client.href ? "hover:scale-110 hover:bg-card/75 cursor-pointer" : ""}`}
+                        >
+                          <img
+                            src={client.icon}
+                            alt={client.name}
+                            width={32}
+                            height={32}
+                            className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 object-contain rounded-xs ${client.invert ? "dark:invert" : ""}`}
+                            loading="lazy"
+                            decoding="async"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      </SimpleTooltip>
                     );
 
                     if (client.href) {

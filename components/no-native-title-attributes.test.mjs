@@ -6,13 +6,7 @@ import { test } from "node:test";
 const ROOTS = ["app", "components", "lib", "hooks", "types"];
 const ALLOWED_TITLE_FILES = new Set([
   path.join("app", "(main)", "settings", "preferences", "page.tsx"),
-  path.join("app", "(main)", "settings", "access", "page.tsx"),
   path.join("app", "mcp", "oauth", "consent", "ConsentForm.tsx"),
-  path.join("app", "page.tsx"),
-  path.join("components", "mcp-client", "AppDetailView.tsx"),
-  path.join("components", "mcp-client", "HomeView.tsx"),
-  path.join("components", "mcp-client", "ServerPlaceholder.tsx"),
-  path.join("components", "remote-mcp", "RemoteMcpPanel.tsx"),
 ]);
 
 async function walk(dir) {

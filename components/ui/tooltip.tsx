@@ -58,4 +58,50 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export interface SimpleTooltipProps {
+  content: React.ReactNode
+  children: React.ReactNode
+  side?: "top" | "right" | "bottom" | "left"
+  align?: "start" | "center" | "end"
+  sideOffset?: number
+  className?: string
+  delayDuration?: number
+  asChild?: boolean
+  open?: boolean
+  defaultOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+function SimpleTooltip({
+  content,
+  children,
+  side = "top",
+  align = "center",
+  sideOffset = 4,
+  className,
+  delayDuration,
+  asChild = true,
+  open,
+  defaultOpen,
+  onOpenChange,
+}: SimpleTooltipProps) {
+  if (!content && open === undefined) return <>{children}</>
+
+  return (
+    <Tooltip
+      delayDuration={delayDuration}
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange}
+    >
+      <TooltipTrigger asChild={asChild}>{children}</TooltipTrigger>
+      {content && (
+        <TooltipContent side={side} align={align} sideOffset={sideOffset} className={className}>
+          {content}
+        </TooltipContent>
+      )}
+    </Tooltip>
+  )
+}
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, SimpleTooltip }

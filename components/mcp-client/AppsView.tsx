@@ -10,6 +10,7 @@ import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
 import { usePublicServers } from "@/hooks/usePublicServers";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
@@ -380,19 +381,20 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
                     )}
 
                     {isOwner && onDeleteApp && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setServerToDelete(app);
-                        }}
-                        className="h-7 w-7 p-0 border border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/40 rounded-sm cursor-pointer"
-                        title="Delete App"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
+                      <SimpleTooltip content="Delete App">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setServerToDelete(app);
+                          }}
+                          className="h-7 w-7 p-0 border border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/40 rounded-sm cursor-pointer"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </SimpleTooltip>
                     )}
                   </div>
                 </div>
@@ -407,15 +409,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
                     )}
 
                     {isOwner && (app.createdAt || (app as any).created_at) ? (
-                      <span
-                        className="shrink-0 cursor-default hover:text-foreground transition-colors"
-                        title={[
-                          `Created on ${new Date(app.createdAt || (app as any).created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`,
-                          isConnected && stored?.connectedAt
-                            ? `Connected on ${new Date(stored.connectedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
-                            : null,
-                        ].filter(Boolean).join(" • ")}
-                      >
+                      <span className="shrink-0">
                         Created on {new Date(app.createdAt || (app as any).created_at).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -423,10 +417,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
                         })}
                       </span>
                     ) : isConnected && stored?.connectedAt ? (
-                      <span
-                        className="shrink-0 cursor-default hover:text-foreground transition-colors"
-                        title={`Connected on ${new Date(stored.connectedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`}
-                      >
+                      <span className="shrink-0">
                         Connected on {new Date(stored.connectedAt).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",

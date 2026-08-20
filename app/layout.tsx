@@ -6,6 +6,7 @@ import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
 import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { createClient } from "@/lib/supabase/server";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { geist, inter, geistMono } from "@/lib/fonts";
 
 export const metadata: Metadata = {
@@ -44,8 +45,10 @@ export default async function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                <WebLanguageProvider />
-                {children}
+                <TooltipProvider delayDuration={150}>
+                  <WebLanguageProvider />
+                  {children}
+                </TooltipProvider>
               </ThemeProvider>
             </McpStoreProvider>
           </QueryProvider>

@@ -10,6 +10,7 @@ import { HomeView } from "./HomeView";
 import { AppsView } from "./AppsView";
 import { AppDetailView } from "./AppDetailView";
 import { ServerIcon } from "@/components/common/ServerIcon";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 import { McpServer } from "@/types/mcp";
 import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
@@ -282,14 +283,15 @@ export default function McpClientLayout({
                     {selectedToolName}
                   </span>
                 </div>
-                <button
-                  onClick={() => { setToolTesterOpen(false); setSelectedToolName(null); }}
-                  className="shrink-0 p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors cursor-pointer"
-                  aria-label="Close"
-                  title="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <SimpleTooltip content="Close" side="bottom">
+                  <button
+                    onClick={() => { setToolTesterOpen(false); setSelectedToolName(null); }}
+                    className="shrink-0 p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-card transition-colors cursor-pointer"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </SimpleTooltip>
               </div>
               <div className="flex-1 overflow-hidden">
                 <ToolExecutionPanel
