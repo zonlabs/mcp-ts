@@ -287,22 +287,37 @@ export async function POST(req: Request) {
   let isNewChat = false;
 
   if (chatId && userId) {
-    const { data: chatRow, error: chatError } = await supabase
+    const { data: chatRow } = await supabase
       .from('chats')
       .select('title')
       .eq('id', chatId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (!chatError && (!chatRow?.title || chatRow.title === 'New Chat')) {
-      const userText = extractUserText(messages);
+    const userText = extractUserText(messages);
+    const initialFallbackTitle = userText
+      ? (userText.length > 50 ? userText.slice(0, 47) + '...' : userText)
+      : 'New Chat';
+
+    if (!chatRow) {
+      await supabase
+        .from('chats')
+        .insert({
+          id: chatId,
+          user_id: user.id,
+          title: initialFallbackTitle,
+          updated_at: new Date().toISOString(),
+        });
+    }
+
+    if (!chatRow || !chatRow.title || chatRow.title === 'New Chat' || chatRow.title === initialFallbackTitle) {
       if (userText) {
         newChatTitle = await generateChatTitle({ prompt: userText, llmConfig: body.llmConfig });
         if (newChatTitle) {
           isNewChat = true;
           await supabase
             .from('chats')
-            .update({ title: newChatTitle })
+            .update({ title: newChatTitle, updated_at: new Date().toISOString() })
             .eq('id', chatId)
             .eq('user_id', user.id);
         }

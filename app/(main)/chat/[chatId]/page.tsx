@@ -7,20 +7,18 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
   const { chatId } = await props.params;
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const supabase = await createClient();
-  const { data: chatRow, error: chatError } = await supabase
+  const { data: chatRow } = await supabase
     .from('chats')
     .select('id')
     .eq('id', chatId)
-    .single();
+    .maybeSingle();
 
-  if (chatError || !chatRow?.id) {
-    redirect('/chat');
-  }
-  const initialMessages = await loadChat(chatId);
+  const initialMessages = chatRow?.id ? await loadChat(chatId) : [];
   const draft = typeof searchParams?.draft === 'string' ? searchParams.draft : undefined;
 
   return (
     <PlaygroundChat
+      key={chatId}
       chatId={chatId}
       initialMessages={initialMessages}
       initialDraft={draft}

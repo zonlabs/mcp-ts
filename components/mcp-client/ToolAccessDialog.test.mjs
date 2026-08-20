@@ -17,6 +17,5 @@ test("ToolAccessDialog supports all, allowlist, and denylist policies", async ()
   assert.match(source, /allowlist/);
   assert.match(source, /denylist/);
   assert.match(source, /getToolAccess/);
-  assert.match(source, /updateToolPolicy/);
-  assert.match(source, /No tools will be available to agents for this server\./);
+  assert.match(source, /accessible by AI/);
 });

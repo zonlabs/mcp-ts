@@ -51,8 +51,8 @@ import {
 } from '@/components/chat/chain-of-thought-utils';
 
 interface PlaygroundChatProps {
-  chatId: string;
-  initialMessages: McpAgentUIMessage[];
+  chatId?: string;
+  initialMessages?: McpAgentUIMessage[];
   initialDraft?: string;
   isReadOnly?: boolean;
 }
@@ -250,13 +250,29 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
 }
 
 export function PlaygroundChat({ 
-  chatId, 
-  initialMessages, 
+  chatId: propChatId, 
+  initialMessages = [], 
   initialDraft,
   isReadOnly = false 
 }: PlaygroundChatProps) {
   const router = useRouter();
   const { t } = useI18n();
+  const [chatId, setChatId] = useState<string>(() => {
+    if (propChatId) return propChatId;
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return "chat-" + Date.now();
+  });
+
+  useEffect(() => {
+    if (propChatId) {
+      if (propChatId !== chatId) {
+        setChatId(propChatId);
+      }
+    }
+  }, [propChatId]);
+
   const [chatInput, setChatInput] = useState("");
   const [activeMcpApp, setActiveMcpApp] = useState<{
     name: string;
@@ -324,8 +340,7 @@ export function PlaygroundChat({
               timezone: agentPreferences.timezone,
               toolApprovalMode: agentPreferences.toolApprovalMode,
             },
-            chatId,
-            gatewaySelections: readGatewaySelectionsFromStorage(),
+            chatId: (body as any)?.chatId || chatId,
           },
         };
       },
@@ -333,27 +348,53 @@ export function PlaygroundChat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
-  const notifyChatUpdated = () => {
+  useEffect(() => {
+    const handleReset = () => {
+      setMessages([]);
+      setChatId(crypto.randomUUID());
+      setChatInput("");
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/chat');
+      }
+    };
+
+    window.addEventListener('chat:reset', handleReset);
+    return () => {
+      window.removeEventListener('chat:reset', handleReset);
+    };
+  }, [setMessages]);
+
+  const notifyChatUpdated = (title?: string) => {
+    if (!chatId) return;
     window.dispatchEvent(new CustomEvent('chat:updated', {
-      detail: { chatId, updatedAt: new Date().toISOString() },
+      detail: { chatId, title, updatedAt: new Date().toISOString() },
     }));
   };
 
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
     const currentConfig = getCurrentLlmConfig();
-    notifyChatUpdated();
+    
+    const promptText = data.text || (data.parts?.find((p: any) => p.type === 'text')?.text) || "New Chat";
+    const initialTitle = promptText.length > 50 ? promptText.slice(0, 47) + "..." : promptText;
+
+    if (typeof window !== 'undefined' && (window.location.pathname === '/chat' || window.location.pathname === '/chat/')) {
+      window.history.replaceState(null, '', `/chat/${chatId}`);
+      window.dispatchEvent(new CustomEvent('chat:created', { detail: { chatId, title: initialTitle } }));
+    }
+
+    notifyChatUpdated(initialTitle);
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
         parts: data.parts,
       }, {
-        body: { llmConfig: currentConfig },
+        body: { llmConfig: currentConfig, chatId },
       });
       return;
     }
     if (data.text) {
-      sendMessage({ text: data.text }, { body: { llmConfig: currentConfig } });
+      sendMessage({ text: data.text }, { body: { llmConfig: currentConfig, chatId } });
     }
   };
 
@@ -889,7 +930,7 @@ export function PlaygroundChat({
                   onSend={sendChatInput}
                   onStop={stop}
                   status={status}
-                  disabled={status === 'submitted' || status === 'streaming'}
+                  disabled={isReadOnly}
                   contextUsage={contextUsage}
                 />
               )}
@@ -898,7 +939,7 @@ export function PlaygroundChat({
           </div>
 
           <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
-            <div className="w-full max-w-3xl mx-auto space-y-7 animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-full max-w-2xl mx-auto space-y-7 animate-in fade-in zoom-in-95 duration-500">
               <div className="text-center">
                 <h1 className="text-4xl md:text-5xl font-sans font-normal tracking-[-1.5px] text-foreground leading-tight">
                   {t("chatHeroTitle")}
@@ -916,7 +957,7 @@ export function PlaygroundChat({
                   onSend={sendChatInput}
                   onStop={stop}
                   status={status}
-                  disabled={status === 'submitted' || status === 'streaming'}
+                  disabled={isReadOnly}
                   contextUsage={contextUsage}
                 />
               )}

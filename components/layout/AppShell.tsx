@@ -367,18 +367,76 @@ export function AppShell({
 
   // Listen to chat lifecycle events
   useEffect(() => {
-    const handleInvalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ["sidebar-chats"] });
+    const handleChatCreated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ chatId: string; title?: string }>;
+      const newId = customEvent.detail?.chatId;
+      const initialTitle = customEvent.detail?.title || "New Chat";
+      if (newId) {
+        queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => {
+          const list = old?.chats ?? [];
+          if (list.some((c) => c.id === newId)) return old;
+          const newEntry: SidebarChat = {
+            id: newId,
+            title: initialTitle,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_pinned: false,
+          };
+          return { chats: [newEntry, ...list] };
+        });
+      }
     };
 
-    window.addEventListener("chat:created", handleInvalidate);
-    window.addEventListener("chat:updated", handleInvalidate);
-    window.addEventListener("chat:title", handleInvalidate);
+    const handleChatUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ chatId: string; title?: string; updatedAt?: string }>;
+      const { chatId: updatedId, title, updatedAt } = customEvent.detail ?? {};
+      if (updatedId) {
+        queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => {
+          const list = old?.chats ?? [];
+          const exists = list.some((c) => c.id === updatedId);
+          if (!exists) {
+            const newEntry: SidebarChat = {
+              id: updatedId,
+              title: title || "New Chat",
+              created_at: updatedAt || new Date().toISOString(),
+              updated_at: updatedAt || new Date().toISOString(),
+              is_pinned: false,
+            };
+            return { chats: [newEntry, ...list] };
+          }
+          return {
+            chats: list.map((c) =>
+              c.id === updatedId
+                ? {
+                    ...c,
+                    ...(title ? { title } : {}),
+                    updated_at: updatedAt || new Date().toISOString(),
+                  }
+                : c
+            ),
+          };
+        });
+      }
+    };
+
+    const handleChatTitle = (event: Event) => {
+      const customEvent = event as CustomEvent<{ chatId: string; title: string }>;
+      const { chatId: titleId, title } = customEvent.detail ?? {};
+      if (titleId && title) {
+        queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => ({
+          chats: (old?.chats ?? []).map((c) => (c.id === titleId ? { ...c, title } : c)),
+        }));
+      }
+    };
+
+    window.addEventListener("chat:created", handleChatCreated);
+    window.addEventListener("chat:updated", handleChatUpdated);
+    window.addEventListener("chat:title", handleChatTitle);
 
     return () => {
-      window.removeEventListener("chat:created", handleInvalidate);
-      window.removeEventListener("chat:updated", handleInvalidate);
-      window.removeEventListener("chat:title", handleInvalidate);
+      window.removeEventListener("chat:created", handleChatCreated);
+      window.removeEventListener("chat:updated", handleChatUpdated);
+      window.removeEventListener("chat:title", handleChatTitle);
     };
   }, [queryClient]);
 
@@ -609,7 +667,10 @@ export function AppShell({
           <SimpleTooltip content={!isExpanded ? "New Chat" : null} side="right">
             <Link
               href="/chat"
-              onClick={() => isMobile && setMobileDrawerOpen(false)}
+              onClick={() => {
+                if (isMobile) setMobileDrawerOpen(false);
+                window.dispatchEvent(new CustomEvent('chat:reset'));
+              }}
               className={cn(
                 "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
                 isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
