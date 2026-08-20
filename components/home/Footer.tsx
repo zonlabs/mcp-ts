@@ -45,8 +45,6 @@ export default function Footer() {
               </a>
               <a
                 href="https://github.com/zonlabs/mcp-ts/issues"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
               >
                 <Bug className="h-4 w-4 flex-shrink-0" />

@@ -8,6 +8,7 @@ import {
   Layers,
   Search,
   Terminal,
+  Github,
 } from "lucide-react";
 import Footer from "@/components/home/Footer";
 import { LogoBadge } from "@/components/common/Logo";
@@ -92,7 +93,16 @@ export default function Home() {
             <LogoBadge />
           </Link>
 
-          <div className="flex items-center gap-2.5 sm:gap-3.5">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="https://github.com/zonlabs/mcp-ts"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-sm hover:bg-muted/50 flex items-center justify-center"
+              aria-label="GitHub Repository"
+            >
+              <Github className="size-4" />
+            </Link>
             <ThemeToggle />
             {userSession?.user ? (
               <Link
@@ -712,11 +722,11 @@ export default function Home() {
                   },
                   {
                     q: "How does mcp-ts compare to services like Composio, Nango, Smithery, FastMCP, Mnufact, or Klavis Strata?",
-                    a: "The idea of connecting AI models to tools is not new, and the ecosystem offers many great frameworks, hosted services, and integration platforms (such as Composio, Nango, Smithery, FastMCP, Mnufact, Klavis Strata, Cloudflare Agents, or Pipedream). Developers are free to choose whichever service or platform best fits their requirements. mcp-ts is simply a modular TypeScript client library that can be plugged directly into your application codebase to handle user sessions, dynamic tool discovery with ToolRouter, sandboxed CodeMode execution, and AI framework adapters."
+                    a: "The idea of connecting AI models to tools is not new, and the ecosystem offers many great frameworks, hosted services, and integration platforms (such as Composio, Nango, Smithery, FastMCP, Mnufact, Klavis Strata, Cloudflare Agents, or Pipedream). Developers are free to choose whichever service or platform best fits their requirements. mcp-ts is simply a modular TypeScript client library built for quick prototyping, experimenting, and running in production inside your own infrastructure, offering direct support for connecting to both local (via gateway) and remote MCP servers without routing private data through third-party proprietary clouds or paying per-call proxy markups."
                   },
                   {
                     q: "Why use mcp-ts instead of just the official MCP SDK?",
-                    a: "The official MCP SDK provides the core protocol primitives (like listTools and callTool). mcp-ts provides client-side application utilities around them: multi-user session management, automatic OAuth 2.1 authorization with token refresh, pluggable storage backends (Redis, SQLite, Postgres, Memory), reconnect handling, and framework adapters (AI SDK, LangChain, Mastra, AG-UI)."
+                    a: "The official MCP SDK provides the core protocol primitives (like listTools and callTool). mcp-ts provides client-side application utilities around them: multi-user session management, automatic OAuth 2.1 authorization with token refresh, pluggable storage backends, reconnect handling, and framework adapters (AI SDK, LangChain, Mastra, AG-UI)."
                   },
                   {
                     q: "What can I do with the Developer CLI (@mcp-ts/cli)?",

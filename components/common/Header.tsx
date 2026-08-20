@@ -19,13 +19,10 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-[200] w-full bg-background/95 backdrop-blur-md select-none font-sans">
       <div className="w-full max-w-[1360px] mx-auto px-6 sm:px-8 lg:px-12 h-13 flex items-center justify-between">
-        {/* Left: Logo & Wordmark */}
+        {/* Left: Logo */}
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <Logo size={28} />
-            <span className="text-sm font-semibold text-foreground tracking-tight">
-              MCP Assistant
-            </span>
+          <Link href="/" className="flex items-center group" aria-label="MCP Assistant Home">
+            <Logo size={36} />
           </Link>
         </div>
 

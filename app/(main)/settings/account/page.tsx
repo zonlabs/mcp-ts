@@ -1,7 +1,6 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Github, Mail, LogOut, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";

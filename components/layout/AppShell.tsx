@@ -26,6 +26,7 @@ import {
   Lock,
   CheckCircle2,
   Link as LinkIcon,
+  Github,
 } from "lucide-react";
 import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -910,7 +911,16 @@ export function AppShell({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2.5 shrink-0 justify-self-end">
+          <div className="flex items-center gap-1.5 shrink-0 justify-self-end">
+            <Link
+              href="https://github.com/zonlabs/mcp-ts"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-sm hover:bg-muted/50 flex items-center justify-center"
+              aria-label="GitHub Repository"
+            >
+              <Github className="size-4" />
+            </Link>
             <ThemeToggle />
           </div>
         </header>

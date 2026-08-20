@@ -1,18 +1,15 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
   Columns2,
   MessageSquare,
   Wrench,
-  Server,
-  Sparkles,
   ChevronRight,
   Cpu,
-  Radio,
+  Github,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useMcpStore } from "@/lib/stores/mcp-store";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
@@ -129,6 +126,15 @@ export function DashboardHeader({
           </span>
         </div>
 
+        <Link
+          href="https://github.com/zonlabs/mcp-ts"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-sm hover:bg-muted/50 flex items-center justify-center"
+          aria-label="GitHub Repository"
+        >
+          <Github className="size-4" />
+        </Link>
         <ThemeToggle />
         {session?.user && <ProfileDropdown user={session.user} />}
       </div>

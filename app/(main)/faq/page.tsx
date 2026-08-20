@@ -51,7 +51,7 @@ const faqs = [
                     The idea of connecting AI models to external tools and APIs is not new. The ecosystem offers many great frameworks, hosted services, and integration platforms (such as <strong>Composio</strong>, <strong>Nango</strong>, <strong>Smithery</strong>, <strong>FastMCP</strong>, <strong>Mnufact</strong>, <strong>Klavis Strata</strong>, <strong>Cloudflare Agents</strong>, or <strong>Pipedream</strong>)—and developers are completely free to choose whichever architecture or platform best fits their project.
                 </p>
                 <p>
-                    <code>mcp-ts</code> is simply a modular TypeScript client library designed to be easily plugged directly into your application codebase when you want to handle user sessions, dynamic tool discovery, and AI framework adapters in your own infrastructure (Redis, SQLite, Postgres, Supabase, or Memory).
+                    <code>mcp-ts</code> is simply a modular client library built for quick prototyping, experimenting, and running in production inside your own infrastructure, offering direct support for connecting to both local (via gateway) and remote MCP servers without routing private data through third-party proprietary clouds or paying per-call proxy markups.
                 </p>
             </div>
         ),
