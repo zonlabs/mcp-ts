@@ -37,7 +37,7 @@ export function ThemeToggle() {
       className="h-8 size-8 shrink-0 gap-1.5 rounded-sm px-0 hover:bg-card text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
     >
       {isDark ? (
-        <Sun className="size-4 text-amber-400" strokeWidth={1.8} />
+        <Sun className="size-4 text-white" strokeWidth={1.8} />
       ) : (
         <Moon className="size-4 text-muted-foreground hover:text-foreground" strokeWidth={1.8} />
       )}

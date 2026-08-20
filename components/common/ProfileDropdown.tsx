@@ -119,7 +119,7 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
             )}
           >
             <SlidersHorizontal className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} />
-            <span>Settings</span>
+            <span>Preferences</span>
           </Link>
         </DropdownMenuItem>
 

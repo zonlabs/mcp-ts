@@ -848,7 +848,7 @@ export function PlaygroundChat({
                 />
               </div>
               <div className="w-full max-w-xs">
-                <p className="mb-2 px-1 text-[10px] font-instrument-serif font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                <p className="mb-2 px-1 text-[10px] font-mono font-medium uppercase tracking-wider text-muted-foreground/80">
                   {t("quickActions")}
                 </p>
                 <div className="space-y-1">

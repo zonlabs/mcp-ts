@@ -10,6 +10,8 @@ import {
   Terminal,
 } from "lucide-react";
 import Footer from "@/components/home/Footer";
+import { LogoBadge } from "@/components/common/Logo";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import Image from "next/image";
 import { motion, Variants } from 'framer-motion';
 import {
@@ -49,7 +51,7 @@ const item: Variants = {
     y: 0,
     transition: {
       duration: 0.6,
-      ease: [0.25, 0.46, 0.45, 0.94] as const // Smooth easing
+      ease: [0.25, 0.46, 0.45, 0.94] as const
     },
   },
 };
@@ -69,9 +71,9 @@ function ServiceBadge({ name, icon, init, bg, invert, className }: { name: strin
 
   return (
     <div className={`flex flex-col items-center gap-1.5 group ${className ?? ""}`}>
-      <div className={`flex h-14 w-14 items-center justify-center rounded-xl border border-border/60 transition-all duration-200 group-hover:border-red-200/60 group-hover:scale-110 dark:group-hover:border-red-400/30 ${errored ? bg : "bg-card/40"}`}>
+      <div className={`flex h-14 w-14 items-center justify-center rounded-xl border border-border/60 transition-all duration-200 group-hover:border-primary/40 group-hover:scale-110 ${errored ? bg : "bg-card/40"}`}>
         {errored ? (
-          <span className="text-sm font-bold tracking-tight text-white">{init}</span>
+          <span className="text-sm font-bold tracking-tight text-foreground">{init}</span>
         ) : (
           <Image
             src={`https://logos.composio.dev/api/${icon}`}
@@ -116,7 +118,26 @@ export default function Home() {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-background text-foreground font-sans">
+      {/* Minimal Header */}
+      <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="group">
+            <LogoBadge />
+          </Link>
+
+          <div className="flex items-center gap-3 sm:gap-4">
+            <ThemeToggle />
+            <Link
+              href="/signin"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-sm text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs"
+            >
+              Sign In
+            </Link>
+          </div>
+        </div>
+      </header>
+
       <div className="relative max-w-5xl mx-auto min-h-0">
         {/* Hero Section */}
         <Stack
@@ -137,12 +158,12 @@ export default function Home() {
               <div className="relative z-10 w-full max-w-6xl mx-auto text-center px-4 sm:px-6 lg:px-8">
                 <motion.h1
                   variants={item}
-                  className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-5"
+                  className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-5 text-foreground"
                 >
                   Every resource is
                   <br className="hidden sm:block" />
                   {" "}
-                  <span className="text-red-600">context</span>
+                  <span className="text-primary">context</span>
                   {" "}
                   for your AI
                 </motion.h1>
@@ -151,7 +172,8 @@ export default function Home() {
                   variants={item}
                   className="mx-auto max-w-3xl text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed mb-8"
                 >
-                  Connect remote MCP servers, set granular tool-execution policies for your AI, and give agents access to tools, prompts, and resources—all from one place              </motion.p>
+                  Connect remote MCP servers, set granular tool-execution policies for your AI, and give agents access to tools, prompts, and resources—all from one place.
+                </motion.p>
 
                 <motion.div
                   variants={item}
@@ -160,7 +182,7 @@ export default function Home() {
                   <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                     <Link
                       href="/mcp"
-                      className="inline-flex w-full items-center justify-center px-3 py-2.5 rounded-lg text-base font-medium bg-red-600 text-white hover:bg-red-500 dark:bg-red-600 dark:text-white dark:hover:bg-red-500 transition border border-transparent shadow-xs"
+                      className="inline-flex w-full items-center justify-center px-3 py-2.5 rounded-sm text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-2xs"
                     >
                       Explore
                     </Link>
@@ -169,7 +191,7 @@ export default function Home() {
                   <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                     <Link
                       href="/chat"
-                      className="inline-flex w-full items-center justify-center px-3 py-2.5 rounded-lg text-base font-medium border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground transition"
+                      className="inline-flex w-full items-center justify-center px-3 py-2.5 rounded-sm text-sm font-medium border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground transition"
                     >
                       Playground
                     </Link>
@@ -266,7 +288,7 @@ export default function Home() {
                   { title: "CodeMode sandbox", desc: "Run programmatic tool calls inside a secure sandbox, avoiding expensive LLM tool-calling loops." },
                 ].map((item) => (
                   <div key={item.title} className="flex gap-3">
-                    <div className="shrink-0 mt-1.5 h-2 w-2 rounded-full bg-red-400" />
+                    <div className="shrink-0 mt-1.5 h-2 w-2 rounded-full bg-primary/70" />
                     <div>
                       <p className="font-medium text-foreground text-sm">{item.title}</p>
                       <p className="text-sm text-muted-foreground">{item.desc}</p>
@@ -312,19 +334,19 @@ export default function Home() {
                   <motion.div
                     key={i}
                     variants={item}
-                    whileHover={{ y: -5 }}
-                    className="group flex flex-col gap-4 rounded-2xl border border-red-200/75 bg-card/30 p-8 transition-all duration-300 hover:border-red-400/70 hover:bg-card/60 dark:border-red-400/25 dark:hover:border-red-300/60"
+                    whileHover={{ y: -4 }}
+                    className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-6 sm:p-8 transition-all duration-200 hover:border-primary/40 hover:shadow-xs"
                   >
-                    <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-600 transition-transform duration-300 group-hover:scale-110 dark:bg-red-950/40 dark:text-red-300">
+                    <div className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-secondary-foreground transition-transform duration-200 group-hover:scale-105">
                       {pkg.icon}
                     </div>
                     <div className="space-y-2">
-                      <h3 className="font-semibold text-xl text-foreground/90 group-hover:text-primary transition-colors">
+                      <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">
                         <a href={pkg.href} target="_blank" rel="noopener noreferrer" className="hover:underline">
                           {pkg.title}
                         </a>
                       </h3>
-                      <p className="text-muted-foreground leading-relaxed">
+                      <p className="text-muted-foreground text-sm leading-relaxed">
                         {pkg.desc}
                       </p>
                     </div>
@@ -510,7 +532,7 @@ export default function Home() {
 
               <motion.div variants={fadeInUp} className="max-w-lg mx-auto mb-8">
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-red-600 text-xs font-semibold dark:bg-red-950/40 dark:text-red-300 shrink-0">1</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-secondary-foreground text-xs font-semibold shrink-0">1</span>
                   <span className="font-semibold text-foreground text-sm">Install the package</span>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-[#1e1e1e] overflow-hidden">
@@ -541,7 +563,7 @@ export default function Home() {
 
               <motion.div variants={fadeInUp} className="max-w-lg mx-auto mb-8">
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-red-600 text-xs font-semibold dark:bg-red-950/40 dark:text-red-300 shrink-0">2</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-secondary-foreground text-xs font-semibold shrink-0">2</span>
                   <span className="font-semibold text-foreground text-sm">Connect and explore</span>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-[#1e1e1e] overflow-hidden">
@@ -717,9 +739,9 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        < Footer />
+        <Footer />
       </div>
-    </>
+    </div>
   );
 }
 

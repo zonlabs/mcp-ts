@@ -218,7 +218,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock({
           padding: '12px',
           background: 'transparent',
           fontSize: '12px',
-          fontFamily: 'var(--font-dm-mono), monospace',
+          fontFamily: 'var(--font-geist-mono), monospace',
         }}
       >
         {value}

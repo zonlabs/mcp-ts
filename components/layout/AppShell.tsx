@@ -66,12 +66,19 @@ interface ChatMenuProps {
 }
 
 function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: ChatMenuProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-card/80 transition-all"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((prev) => !prev);
+          }}
+          className="opacity-0 group-hover:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-card/80 transition-all cursor-pointer"
           title="More options"
         >
           <MoreHorizontal className="size-[18px]" />
@@ -81,42 +88,47 @@ function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: Cha
         align="end"
         sideOffset={4}
         className="w-44 text-[12px] font-sans"
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
       >
         <DropdownMenuItem
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTogglePin(chat.id, !chat.is_pinned); }}
-          className="gap-2 py-1.5"
+          onSelect={() => {
+            setOpen(false);
+            onTogglePin(chat.id, !chat.is_pinned);
+          }}
+          className="gap-2 py-1.5 cursor-pointer"
         >
           {chat.is_pinned ? <PinOff className="size-[18px] text-muted-foreground" /> : <Pin className="size-[18px] text-muted-foreground" />}
           {chat.is_pinned ? "Unpin chat" : "Pin chat"}
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+          onSelect={() => {
+            setOpen(false);
             onRename(chat.id, chat.title || "New Chat");
           }}
-          className="gap-2 py-1.5"
+          className="gap-2 py-1.5 cursor-pointer"
         >
           <Pencil className="size-[18px] text-muted-foreground" />
           Rename
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="gap-2 py-1.5">
+        <DropdownMenuItem asChild className="gap-2 py-1.5 cursor-pointer">
           <a
             href={`/chat/${chat.id}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
           >
             <ExternalLink className="size-[18px] text-muted-foreground" />
             Open in new tab
           </a>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+          onSelect={() => {
+            setOpen(false);
             onShare(chat);
           }}
-          className="gap-2 py-1.5"
+          className="gap-2 py-1.5 cursor-pointer"
         >
           <Share2 className="size-[18px] text-muted-foreground" />
           Share
@@ -124,8 +136,11 @@ function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: Cha
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(chat.id); }}
-          className="gap-2 py-1.5"
+          onSelect={() => {
+            setOpen(false);
+            onDelete(chat.id);
+          }}
+          className="gap-2 py-1.5 cursor-pointer text-destructive focus:text-destructive"
         >
           <X className="size-[18px] text-destructive" />
           Delete
@@ -908,6 +923,59 @@ export function AppShell({
         onSaveShare={handleSaveShare}
         onCopyShareLink={handleCopyShareLink}
       />
+
+      {/* Rename Dialog */}
+      <Dialog
+        open={Boolean(editingChat)}
+        onOpenChange={(open) => {
+          if (!open) setEditingChat(null);
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm border-border bg-card p-5 text-foreground shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Rename Chat</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (editingChat && editingChat.title.trim()) {
+                renameMutation.mutate({ id: editingChat.id, title: editingChat.title.trim() });
+              }
+            }}
+            className="space-y-4 pt-2"
+          >
+            <input
+              type="text"
+              value={editingChat?.title || ""}
+              onChange={(e) =>
+                setEditingChat((prev) => (prev ? { ...prev, title: e.target.value } : null))
+              }
+              className="w-full h-9 px-3 text-xs bg-background border border-border rounded-sm text-foreground focus:outline-none focus:border-primary font-sans"
+              placeholder="Enter new chat title"
+              autoFocus
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingChat(null)}
+                className="h-8 px-3 text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!editingChat?.title?.trim()}
+                className="h-8 px-3 text-xs cursor-pointer"
+              >
+                Save
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

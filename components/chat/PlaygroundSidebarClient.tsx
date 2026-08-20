@@ -985,7 +985,7 @@ function SidebarHistoryPanel({
     <>
       <div className="px-3 pb-3">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-instrument-serif uppercase tracking-[0.16em] text-muted-foreground/80">
+          <div className="flex items-center gap-2 text-[11px] font-mono font-medium uppercase tracking-wider text-muted-foreground/80">
             <span>{t("yourChats")}</span>
           </div>
           <div className="relative mt-2">
