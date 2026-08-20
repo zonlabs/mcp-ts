@@ -112,22 +112,25 @@ describe("McpGatewayRegistry", () => {
     expect(registry.getRemoteCatalog().servers).toHaveLength(1);
 
     // Mock rebuildIndex to throw error
-    const spy = vi.spyOn(registry as never, "rebuildIndex").mockRejectedValueOnce(new Error("Index build failed"));
+    const spy = vi.spyOn(registry as unknown as { rebuildIndex: () => Promise<void> }, "rebuildIndex").mockRejectedValueOnce(new Error("Index build failed"));
 
-    await expect(
-      registry.replaceRemoteCatalog({
-        servers: [
-          {
-            serverId: "broken-server",
-            serverName: "Broken",
-            tools: [{ name: "broken_tool", inputSchema: { type: "object" } }],
-          },
-        ],
-      }, vi.fn())
-    ).rejects.toThrow("Index build failed");
+    try {
+      await expect(
+        registry.replaceRemoteCatalog({
+          servers: [
+            {
+              serverId: "broken-server",
+              serverName: "Broken",
+              tools: [{ name: "broken_tool", inputSchema: { type: "object" } }],
+            },
+          ],
+        }, vi.fn())
+      ).rejects.toThrow("Index build failed");
 
-    // Must rollback to initialRemote
-    expect(registry.getRemoteCatalog().servers[0].serverId).toBe("stable-server");
-    spy.mockRestore();
+      // Must rollback to initialRemote
+      expect(registry.getRemoteCatalog().servers[0].serverId).toBe("stable-server");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -54,7 +54,7 @@ describe("Gateway End-to-End Integration Suite", () => {
   });
 
   describe("LocalHttpMcp router caching and mutation invalidation", () => {
-    it("caches McpServer instance and invalidates when catalog version changes", async () => {
+    it("caches ToolRouter instance and invalidates when catalog version changes", async () => {
       const registry = new McpGatewayRegistry({});
       await registry.start();
       const initialVersion = registry.getVersion();
@@ -64,17 +64,17 @@ describe("Gateway End-to-End Integration Suite", () => {
       const httpMcp = new LocalHttpMcp(registry, { host: "127.0.0.1", port: 0, path: "/mcp" }, traffic);
       const url = await httpMcp.start();
 
-      const serverInstance1 = await (httpMcp as never as { getOrBuildMcpServer: () => Promise<unknown> }).getOrBuildMcpServer();
-      const serverInstance2 = await (httpMcp as never as { getOrBuildMcpServer: () => Promise<unknown> }).getOrBuildMcpServer();
-      expect(serverInstance1).toBe(serverInstance2);
+      const routerInstance1 = await (httpMcp as never as { getOrBuildRouter: () => Promise<unknown> }).getOrBuildRouter();
+      const routerInstance2 = await (httpMcp as never as { getOrBuildRouter: () => Promise<unknown> }).getOrBuildRouter();
+      expect(routerInstance1).toBe(routerInstance2);
 
       // Verify HTTP JSON-RPC endpoint responds
       const response = await fetch(url, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
       });
-      const body = await response.json();
+      const body = await response.text();
       expect(body).toBeDefined();
 
       // Mutate catalog by replacing remote servers
@@ -90,8 +90,8 @@ describe("Gateway End-to-End Integration Suite", () => {
 
       expect(registry.getVersion()).toBeGreaterThan(initialVersion);
 
-      const serverInstance3 = await (httpMcp as never as { getOrBuildMcpServer: () => Promise<unknown> }).getOrBuildMcpServer();
-      expect(serverInstance3).not.toBe(serverInstance1);
+      const routerInstance3 = await (httpMcp as never as { getOrBuildRouter: () => Promise<unknown> }).getOrBuildRouter();
+      expect(routerInstance3).not.toBe(routerInstance1);
 
       await httpMcp.close();
       await registry.close();
@@ -131,8 +131,8 @@ describe("Gateway End-to-End Integration Suite", () => {
 
       // 1. Initial State: serverAlpha active
       expect(registry.aggregatedTools().map((t) => t.name)).toContain("serverAlpha_action");
-      const mcpV1 = await (httpMcp as any).getOrBuildMcpServer();
-      expect(mcpV1).toBeDefined();
+      const routerV1 = await (httpMcp as any).getOrBuildRouter();
+      expect(routerV1).toBeDefined();
 
       // 2. Hot-reload: Add serverBeta, Remove serverAlpha
       const reload1 = await registry.reload({
@@ -144,8 +144,8 @@ describe("Gateway End-to-End Integration Suite", () => {
       expect(registry.aggregatedTools().map((t) => t.name)).toContain("serverBeta_action");
       expect(registry.aggregatedTools().map((t) => t.name)).not.toContain("serverAlpha_action");
 
-      const mcpV2 = await (httpMcp as any).getOrBuildMcpServer();
-      expect(mcpV2).not.toBe(mcpV1);
+      const routerV2 = await (httpMcp as any).getOrBuildRouter();
+      expect(routerV2).not.toBe(routerV1);
 
       // 3. Disable serverBeta on-the-fly
       const reload2 = await registry.reload({
@@ -154,8 +154,8 @@ describe("Gateway End-to-End Integration Suite", () => {
       expect(reload2.removed).toEqual(["serverBeta"]);
       expect(registry.aggregatedTools().map((t) => t.name)).not.toContain("serverBeta_action");
 
-      const mcpV3 = await (httpMcp as any).getOrBuildMcpServer();
-      expect(mcpV3).not.toBe(mcpV2);
+      const routerV3 = await (httpMcp as any).getOrBuildRouter();
+      expect(routerV3).not.toBe(routerV2);
 
       // 4. Re-enable serverBeta on-the-fly
       const reload3 = await registry.reload({
@@ -164,8 +164,8 @@ describe("Gateway End-to-End Integration Suite", () => {
       expect(reload3.added).toEqual(["serverBeta"]);
       expect(registry.aggregatedTools().map((t) => t.name)).toContain("serverBeta_action");
 
-      const mcpV4 = await (httpMcp as any).getOrBuildMcpServer();
-      expect(mcpV4).not.toBe(mcpV3);
+      const routerV4 = await (httpMcp as any).getOrBuildRouter();
+      expect(routerV4).not.toBe(routerV3);
 
       await httpMcp.close();
       await registry.close();

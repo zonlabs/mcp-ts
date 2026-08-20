@@ -1,7 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createMcpHandler, fromJsonSchema, McpServer } from "@modelcontextprotocol/server";
 import type { CallToolResult } from "@modelcontextprotocol/client";
-import { createToolRouter, type ToolDefinition } from "@mcp-ts/tool-router";
+import { createToolRouter, type ToolRouter, type ToolDefinition, type ToolSearchResult } from "@mcp-ts/tool-router";
+import type { McpServerDescriptor, McpToolDescriptor } from "@mcp-ts/bridge-protocol";
 import type { McpGatewayRegistry } from "./registry.js";
 import type { Traffic } from "../traffic.js";
 import { CLI_VERSION } from "../ux.js";
@@ -87,37 +88,56 @@ function textResult(value: unknown, isError = false): CallToolResult {
 
 export class LocalHttpMcp {
   private server: ReturnType<typeof createServer> | null = null;
-  private cachedMcpServer: McpServer | null = null;
+  private cachedRouter: ToolRouter | null = null;
   private cachedVersion = -1;
+  private routerPromise: Promise<ToolRouter> | null = null;
 
-  private async getOrBuildMcpServer(): Promise<McpServer> {
+  private async getOrBuildRouter(): Promise<ToolRouter> {
     const currentVersion = this.registry.getVersion();
-    if (this.cachedMcpServer && this.cachedVersion === currentVersion) {
-      return this.cachedMcpServer;
+    if (this.cachedRouter && this.cachedVersion === currentVersion) {
+      return this.cachedRouter;
+    }
+    if (this.routerPromise) {
+      return this.routerPromise;
     }
 
+    this.routerPromise = (async () => {
+      try {
+        const router = await createToolRouter({
+          servers: this.registry.getCombinedCatalog().servers.map((server: McpServerDescriptor) => ({
+            id: server.serverId,
+            name: server.serverName,
+            listTools: async () => ({
+              tools: server.tools.map((tool: McpToolDescriptor) => ({
+                ...tool,
+                annotations: tool.annotations as ToolDefinition["annotations"],
+              })),
+            }),
+            callTool: (toolName: string, args?: Record<string, unknown>) =>
+              this.registry.callToolByServer(server.serverId, toolName, args ?? {}),
+          })),
+        });
+        this.cachedRouter = router;
+        this.cachedVersion = currentVersion;
+        return router;
+      } finally {
+        this.routerPromise = null;
+      }
+    })();
+
+    return this.routerPromise;
+  }
+
+  private async createMcpServer(): Promise<McpServer> {
+    const router = await this.getOrBuildRouter();
     const mcp = new McpServer(
       { name: "mcp-assistant-gateway", version: CLI_VERSION },
       { capabilities: { tools: {} } },
     );
-    const tools = this.registry.aggregatedTools();
-    const router = await createToolRouter({
-      servers: this.registry.getCombinedCatalog().servers.map((server) => ({
-        id: server.serverId,
-        name: server.serverName,
-        listTools: async () => ({
-          tools: server.tools.map((tool) => ({
-            ...tool,
-            annotations: tool.annotations as ToolDefinition["annotations"],
-          })),
-        }),
-        callTool: (toolName, args) =>
-          this.registry.callToolByServer(server.serverId, toolName, args),
-      })),
-    });
     const progressive = isSearchDiscoveryMode(this.options.mode);
 
     if (!progressive) {
+      const tools = this.registry.aggregatedTools();
       for (const tool of tools) {
         mcp.registerTool(
           tool.name,
@@ -125,15 +145,15 @@ export class LocalHttpMcp {
             description: tool.description,
             inputSchema: fromJsonSchema(tool.inputSchema as never),
           },
-          async (args) =>
-            (await router.callTool({
+          async (raw: unknown) => {
+            const args = (raw ?? {}) as Record<string, unknown>;
+            return (await router.callTool({
               toolId: tool.toolId,
-              args: (args ?? {}) as Record<string, unknown>,
-            })) as CallToolResult,
+              args,
+            })) as CallToolResult;
+          },
         );
       }
-      this.cachedMcpServer = mcp;
-      this.cachedVersion = currentVersion;
       return mcp;
     }
 
@@ -159,7 +179,7 @@ export class LocalHttpMcp {
           serverName: args.server_name ? String(args.server_name) : undefined,
         });
         return textResult(
-          matches.map((match) => {
+          matches.map((match: ToolSearchResult) => {
             return {
               tool_id: match.toolId,
               server_id: match.serverId,
@@ -183,7 +203,7 @@ export class LocalHttpMcp {
       },
       async (raw) => {
         const query = String((raw as Record<string, unknown>)?.query ?? "").toLowerCase();
-        const servers = router.listServers(query).map((server) => ({
+        const servers = router.listServers(query).map((server: { serverId: string; serverName: string; toolCount: number }) => ({
           server_id: server.serverId,
           server_name: server.serverName,
           tool_count: server.toolCount,
@@ -246,12 +266,10 @@ export class LocalHttpMcp {
         }
       },
     );
-    this.cachedMcpServer = mcp;
-    this.cachedVersion = currentVersion;
     return mcp;
   }
 
-  private readonly handler = createMcpHandler(async () => this.getOrBuildMcpServer());
+  private readonly handler = createMcpHandler(async () => this.createMcpServer());
 
   constructor(
     private readonly registry: McpGatewayRegistry,

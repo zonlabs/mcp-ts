@@ -46,18 +46,34 @@ export async function pingGateway(
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
       signal: controller.signal,
     }).catch(() => null);
     clearTimeout(timer);
     if (response && (response.status === 200 || response.status === 406)) {
       const contentType = response.headers.get("content-type") ?? "";
-      if (contentType.includes("json") || contentType.includes("application/")) {
+      if (
+        !contentType.includes("application/json") &&
+        !contentType.includes("+json") &&
+        !contentType.includes("text/event-stream")
+      ) {
+        return null;
+      }
+      if (contentType.includes("text/event-stream")) {
         return url;
       }
-      const data = await response.json().catch(() => null);
-      if (data && (data.jsonrpc === "2.0" || data.result !== undefined || data.error !== undefined)) {
+      const data = (await response.json().catch(() => null)) as {
+        jsonrpc?: string;
+        result?: unknown;
+        error?: unknown;
+      } | null;
+      if (
+        data &&
+        typeof data === "object" &&
+        data.jsonrpc === "2.0" &&
+        ("result" in data || "error" in data)
+      ) {
         return url;
       }
     }
