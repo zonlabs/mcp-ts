@@ -303,6 +303,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
                       <ServerIcon
                         serverName={app.name}
                         serverUrl={app.url}
+                        icon={app.icon}
                         size={36}
                       />
                     </div>

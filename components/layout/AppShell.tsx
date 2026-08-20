@@ -215,6 +215,7 @@ interface AppShellProps {
   titleBreadcrumb?: string;
   headerActions?: ReactNode;
   initialChats?: SidebarChat[];
+  currentChatId?: string;
 }
 
 export function AppShell({
@@ -223,6 +224,7 @@ export function AppShell({
   titleBreadcrumb,
   headerActions,
   initialChats = [],
+  currentChatId: explicitChatId,
 }: AppShellProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -304,7 +306,7 @@ export function AppShell({
 
   const currentNav = useMemo(() => {
     if (activeNav) return activeNav;
-    if (pathname.startsWith("/chat")) return "chat";
+    if (pathname.startsWith("/chat") || pathname.startsWith("/share")) return "chat";
     if (pathname.startsWith("/settings")) return "settings";
     if (pathname.startsWith("/mcp")) {
       if (tabParam === "apps" || searchParams.get("view") === "app" || searchParams.has("server")) return "apps";
@@ -315,6 +317,7 @@ export function AppShell({
 
   const computedBreadcrumb = useMemo(() => {
     if (titleBreadcrumb) return titleBreadcrumb;
+    if (pathname.startsWith("/share")) return "Shared Chat";
     if (pathname.startsWith("/chat")) return "Chat";
     if (pathname.startsWith("/settings/api-keys")) return "Settings > API Keys";
     if (pathname.startsWith("/settings/access")) return "Settings > Access";
@@ -332,9 +335,10 @@ export function AppShell({
   }, [titleBreadcrumb, pathname, searchParams]);
 
   const currentChatId = useMemo(() => {
-    const match = pathname.match(/^\/chat\/([^/]+)/);
+    if (explicitChatId) return explicitChatId;
+    const match = pathname.match(/^\/(?:chat|share)\/([^/]+)/);
     return match ? match[1] : null;
-  }, [pathname]);
+  }, [explicitChatId, pathname]);
 
   const userDisplayName =
     userSession?.user?.user_metadata?.full_name ||
@@ -521,8 +525,8 @@ export function AppShell({
               onClick={() => isMobile && setMobileDrawerOpen(false)}
               className="flex items-center gap-1.5 select-none hover:opacity-85 transition-opacity"
             >
-              <span className="text-[13px] font-bold tracking-tight text-foreground">
-                MCP <span className="font-medium text-muted-foreground">Assistant</span>
+              <span className="text-[15px] font-bold tracking-tight text-foreground">
+                MCP <span className="font-semibold text-foreground/80">Assistant</span>
               </span>
             </Link>
           )}

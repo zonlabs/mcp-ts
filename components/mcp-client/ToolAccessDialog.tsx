@@ -385,6 +385,7 @@ export function ToolAccessDialog({
                             <ServerIcon
                               serverName={server.name}
                               serverUrl={server.url}
+                              icon={server.icon || (server as any).icon}
                               size={24}
                             />
                           </div>

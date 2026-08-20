@@ -9,12 +9,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
-  --font-serif: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
-  --font-mono: var(--font-dm-mono), "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-inter), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-inter: var(--font-inter);
-  --font-dm-mono: var(--font-dm-mono);
-  --font-instrument-serif: var(--font-instrument-serif);
+  --font-geist-mono: var(--font-geist-mono);
   
   /* Warp custom semantic tokens */
   --color-canvas: var(--canvas);
@@ -96,7 +94,7 @@
   
   /* Clean Modern Studio - Light Mode */
   --canvas: #ffffff;
-  --canvas-soft: #f8fafc;
+  --canvas-soft: #f1f5f9;
   --hairline: #e2e8f0;
   --ink: #0f172a;
   --body-strong: #334155;
@@ -115,7 +113,7 @@
   --secondary-foreground: #0f172a;
   --muted: #f8fafc;
   --muted-foreground: #64748b;
-  --accent: #f1f5f9;
+  --accent: #e2e8f0;
   --accent-foreground: #0f172a;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -127,14 +125,14 @@
   --chart-3: #6366f1;
   --chart-4: #f59e0b;
   --chart-5: #ec4899;
-  --sidebar: #f8fafc;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #0f172a;
+  --sidebar: #f7f6f2;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #1c1917;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #94a3b8;
+  --sidebar-accent: #edebe4;
+  --sidebar-accent-foreground: #1c1917;
+  --sidebar-border: #e6e3da;
+  --sidebar-ring: #a8a29e;
 }
 
 .dark,
@@ -142,61 +140,67 @@
 html.dark {
   --radius: 4px;
   
-  /* Clean Modern Studio - Dark Mode */
-  --canvas: #090d16;
-  --canvas-soft: #0f172a;
-  --hairline: #1e293b;
-  --ink: #f8fafc;
-  --body-strong: #e2e8f0;
-  --body-text: #cbd5e1;
-  --mute: #94a3b8;
+  /* Neutral Charcoal & Zinc - Dark Mode */
+  --canvas: #121214;
+  --canvas-soft: #18181b;
+  --hairline: #27272a;
+  --ink: #f4f4f5;
+  --body-strong: #e4e4e7;
+  --body-text: #a1a1aa;
+  --mute: #71717a;
 
-  --background: #090d16;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  --primary: #f8fafc;
-  --primary-foreground: #090d16;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
+  --background: #121214;
+  --foreground: #f4f4f5;
+  --card: #18181b;
+  --card-foreground: #f4f4f5;
+  --popover: #18181b;
+  --popover-foreground: #f4f4f5;
+  --primary: #f4f4f5;
+  --primary-foreground: #09090b;
+  --secondary: #27272a;
+  --secondary-foreground: #f4f4f5;
+  --muted: #27272a;
+  --muted-foreground: #71717a;
+  --accent: #27272a;
+  --accent-foreground: #f4f4f5;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #334155;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #52525b;
   --chart-1: #3b82f6;
   --chart-2: #10b981;
   --chart-3: #6366f1;
   --chart-4: #f59e0b;
   --chart-5: #ec4899;
-  --sidebar: #06090e;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #f8fafc;
-  --sidebar-primary-foreground: #06090e;
-  --sidebar-accent: #111827;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #334155;
+  --sidebar: #09090b;
+  --sidebar-foreground: #f4f4f5;
+  --sidebar-primary: #f4f4f5;
+  --sidebar-primary-foreground: #09090b;
+  --sidebar-accent: #18181b;
+  --sidebar-accent-foreground: #f4f4f5;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #52525b;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-sans font-medium leading-tight tracking-tight text-foreground;
+    @apply font-sans font-semibold leading-tight tracking-tight text-foreground;
   }
 
   input, textarea, button, select, label {

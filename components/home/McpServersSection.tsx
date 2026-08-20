@@ -43,6 +43,7 @@ function ServerCard({ server }: { server: McpServer }) {
         <ServerIcon
           serverName={server.name}
           serverUrl={server.url}
+          icon={server.icon || (server as any).icon}
           size={40}
         />
         <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-md font-normal">

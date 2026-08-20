@@ -282,7 +282,12 @@ export default function McpClientLayout({
               {/* Panel Header */}
               <div className="h-14 px-4 border-b border-border flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <ServerIcon serverName={selectedServer.name} serverUrl={selectedServer.url} size={16} />
+                  <ServerIcon
+                    serverName={selectedServer.name}
+                    serverUrl={selectedServer.url}
+                    icon={selectedServer.icon || (selectedServer as any).icon}
+                    size={16}
+                  />
                   <span className="text-xs font-mono font-medium text-foreground truncate">
                     {selectedToolName}
                   </span>

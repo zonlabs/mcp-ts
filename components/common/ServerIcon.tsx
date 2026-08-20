@@ -30,8 +30,18 @@ export function ServerIcon({
     setIconError(false);
   }, [serverUrl, serverName, icon]);
 
-  // If an explicit icon URL is provided, render it directly with fallback
+  // If an explicit icon is provided (URL or inline SVG), render it first
   if (icon && !iconError) {
+    if (typeof icon === "string" && icon.trim().startsWith("<svg")) {
+      return (
+        <span
+          className={className}
+          style={{ width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+          dangerouslySetInnerHTML={{ __html: icon }}
+        />
+      );
+    }
+
     return (
       <img
         key={`icon:${icon}`}
