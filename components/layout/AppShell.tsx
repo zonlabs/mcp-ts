@@ -25,10 +25,11 @@ import {
   Github,
 } from "lucide-react";
 import Image from "next/image";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useSidebarChats } from "@/lib/hooks/use-sidebar-chats";
 import { SearchDialog } from "@/components/layout/SearchDialog";
 import { ShareConversationDialog } from "@/components/chat/ShareConversationDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -235,7 +236,9 @@ export function AppShell({
   const searchParams = useSearchParams();
   const router = useRouter();
   const { userSession } = useAuth();
-  const queryClient = useQueryClient();
+  const { chats: allChats, removeChat, upsertChat } = useSidebarChats(initialChats, {
+    enabled: Boolean(userSession?.user),
+  });
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -280,9 +283,7 @@ export function AppShell({
 
     setShareVisibility(targetVisibility);
     setShareChat((prev) => prev ? { ...prev, visibility: targetVisibility } : null);
-    queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => ({
-      chats: (old?.chats ?? []).map((c) => c.id === shareChat.id ? { ...c, visibility: targetVisibility } : c),
-    }));
+    upsertChat({ id: shareChat.id, visibility: targetVisibility });
     setIsSavingShare(false);
     toast.success("Share settings updated");
   };
@@ -350,96 +351,6 @@ export function AppShell({
     userSession?.user?.email?.split("@")[0] ||
     "Developer";
 
-  // Fetch sidebar chats (seeded with server-side initialChats)
-  const { data: chatData } = useQuery<{ chats: SidebarChat[] }>({
-    queryKey: ["sidebar-chats"],
-    queryFn: async () => {
-      const res = await fetch("/api/chats");
-      if (!res.ok) return { chats: [] };
-      return res.json();
-    },
-    initialData: initialChats && initialChats.length > 0 ? { chats: initialChats } : undefined,
-    enabled: Boolean(userSession?.user),
-    staleTime: 5_000,
-    refetchOnWindowFocus: true,
-  });
-  const allChats = chatData?.chats ?? [];
-
-  // Listen to chat lifecycle events
-  useEffect(() => {
-    const handleChatCreated = (event: Event) => {
-      const customEvent = event as CustomEvent<{ chatId: string; title?: string }>;
-      const newId = customEvent.detail?.chatId;
-      const initialTitle = customEvent.detail?.title || "New Chat";
-      if (newId) {
-        queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => {
-          const list = old?.chats ?? [];
-          if (list.some((c) => c.id === newId)) return old;
-          const newEntry: SidebarChat = {
-            id: newId,
-            title: initialTitle,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            is_pinned: false,
-          };
-          return { chats: [newEntry, ...list] };
-        });
-      }
-    };
-
-    const handleChatUpdated = (event: Event) => {
-      const customEvent = event as CustomEvent<{ chatId: string; title?: string; updatedAt?: string }>;
-      const { chatId: updatedId, title, updatedAt } = customEvent.detail ?? {};
-      if (updatedId) {
-        queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => {
-          const list = old?.chats ?? [];
-          const exists = list.some((c) => c.id === updatedId);
-          if (!exists) {
-            const newEntry: SidebarChat = {
-              id: updatedId,
-              title: title || "New Chat",
-              created_at: updatedAt || new Date().toISOString(),
-              updated_at: updatedAt || new Date().toISOString(),
-              is_pinned: false,
-            };
-            return { chats: [newEntry, ...list] };
-          }
-          return {
-            chats: list.map((c) =>
-              c.id === updatedId
-                ? {
-                    ...c,
-                    ...(title ? { title } : {}),
-                    updated_at: updatedAt || new Date().toISOString(),
-                  }
-                : c
-            ),
-          };
-        });
-      }
-    };
-
-    const handleChatTitle = (event: Event) => {
-      const customEvent = event as CustomEvent<{ chatId: string; title: string }>;
-      const { chatId: titleId, title } = customEvent.detail ?? {};
-      if (titleId && title) {
-        queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => ({
-          chats: (old?.chats ?? []).map((c) => (c.id === titleId ? { ...c, title } : c)),
-        }));
-      }
-    };
-
-    window.addEventListener("chat:created", handleChatCreated);
-    window.addEventListener("chat:updated", handleChatUpdated);
-    window.addEventListener("chat:title", handleChatTitle);
-
-    return () => {
-      window.removeEventListener("chat:created", handleChatCreated);
-      window.removeEventListener("chat:updated", handleChatUpdated);
-      window.removeEventListener("chat:title", handleChatTitle);
-    };
-  }, [queryClient]);
-
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -448,9 +359,7 @@ export function AppShell({
       return id;
     },
     onSuccess: (id) => {
-      queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => ({
-        chats: (old?.chats ?? []).filter((c) => c.id !== id),
-      }));
+      removeChat(id);
       toast.success("Chat deleted");
       if (pathname === `/chat/${id}`) {
         router.push("/chat");
@@ -471,9 +380,7 @@ export function AppShell({
       return { id, pinned };
     },
     onSuccess: ({ id, pinned }) => {
-      queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => ({
-        chats: (old?.chats ?? []).map((c) => c.id === id ? { ...c, is_pinned: pinned } : c),
-      }));
+      upsertChat({ id, is_pinned: pinned });
       toast.success(pinned ? "Chat pinned" : "Chat unpinned");
     },
     onError: () => toast.error("Failed to update chat"),
@@ -491,9 +398,7 @@ export function AppShell({
       return { id, title };
     },
     onSuccess: ({ id, title }) => {
-      queryClient.setQueryData<{ chats: SidebarChat[] }>(["sidebar-chats"], (old) => ({
-        chats: (old?.chats ?? []).map((c) => c.id === id ? { ...c, title } : c),
-      }));
+      upsertChat({ id, title });
       toast.success("Chat renamed");
       setEditingChat(null);
     },

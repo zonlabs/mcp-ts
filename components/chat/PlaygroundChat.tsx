@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   ChevronDownIcon,
   X,
+  ArrowLeft,
   Maximize2,
   MessageSquare,
   Code2,
@@ -32,11 +33,11 @@ import {
   Clock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { readGatewaySelectionsFromStorage } from '@/lib/gateway-access';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
 import { useI18n } from '@/lib/web-i18n';
+import { useSidebarChats } from '@/lib/hooks/use-sidebar-chats';
 
 import {
   Conversation,
@@ -70,7 +71,7 @@ const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderPa
     .map((p: any) => p.text)
     .join(' ');
   return (
-    <div className={cn('group flex flex-col gap-3', m.role === 'user' ? 'items-end' : 'items-start')}>
+    <div className={cn('group flex flex-col gap-3 w-full', m.role === 'user' ? 'items-end' : 'items-start')}>
       {m.role === 'user' ? (
         <UserMessage
           message={{ text }}
@@ -192,7 +193,7 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
   const isFailed = connectionStatus === 'FAILED' || connectionStatus === 'DISCONNECTED';
 
   return (
-    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2 p-2 sm:p-3 bg-background rounded-lg animate-in fade-in slide-in-from-bottom-2">
+    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2 p-2 sm:p-3 bg-background rounded-lg">
       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
         <ServerIcon
           serverName={input.serverName || ''}
@@ -364,12 +365,7 @@ export function PlaygroundChat({
     };
   }, [setMessages]);
 
-  const notifyChatUpdated = (title?: string) => {
-    if (!chatId) return;
-    window.dispatchEvent(new CustomEvent('chat:updated', {
-      detail: { chatId, title, updatedAt: new Date().toISOString() },
-    }));
-  };
+  const { upsertChat } = useSidebarChats();
 
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
@@ -380,10 +376,9 @@ export function PlaygroundChat({
 
     if (typeof window !== 'undefined' && (window.location.pathname === '/chat' || window.location.pathname === '/chat/')) {
       window.history.replaceState(null, '', `/chat/${chatId}`);
-      window.dispatchEvent(new CustomEvent('chat:created', { detail: { chatId, title: initialTitle } }));
     }
 
-    notifyChatUpdated(initialTitle);
+    upsertChat({ id: chatId, title: initialTitle });
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
@@ -405,21 +400,16 @@ export function PlaygroundChat({
       if (!meta?.isNewChat || !title) continue;
       if (lastTitleRef.current === title) return;
       lastTitleRef.current = title;
-      window.dispatchEvent(new CustomEvent('chat:title', {
-        detail: { chatId, title },
-      }));
-      window.dispatchEvent(new CustomEvent('chat:updated', {
-        detail: { chatId, title },
-      }));
+      upsertChat({ id: chatId, title });
       return;
     }
-  }, [messages, chatId]);
+  }, [messages, chatId, upsertChat]);
 
   useEffect(() => {
     if (status === 'ready' && messages.length > 0) {
-      window.dispatchEvent(new CustomEvent('chat:updated', { detail: { chatId } }));
+      upsertChat({ id: chatId });
     }
-  }, [status, messages.length, chatId]);
+  }, [status, messages.length, chatId, upsertChat]);
 
   const contextUsage = useMemo(
     () => [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage)?.metadata?.usage,
@@ -501,7 +491,7 @@ export function PlaygroundChat({
       .reverse()
       .find((m: any) => m?.role === 'assistant' && m?.id);
     const currentConfig = getCurrentLlmConfig();
-    notifyChatUpdated();
+    upsertChat({ id: chatId });
     if (!lastAssistant) {
       regenerate({ body: { llmConfig: currentConfig } });
       return;
@@ -536,7 +526,7 @@ export function PlaygroundChat({
     setMessages(updatedMessages as McpAgentUIMessage[]);
 
     const currentConfig = getCurrentLlmConfig();
-    notifyChatUpdated();
+    upsertChat({ id: chatId });
     regenerate({
       body: { 
         llmConfig: currentConfig,
@@ -648,7 +638,7 @@ export function PlaygroundChat({
                     <MCPToolApproval
                       input={input || {}}
                       onApprove={() => {
-                        notifyChatUpdated();
+                        upsertChat({ id: chatId });
                         if (approvalId && addToolApprovalResponse) {
                           addToolApprovalResponse({
                             id: approvalId,
@@ -657,7 +647,7 @@ export function PlaygroundChat({
                         }
                       }}
                       onDeny={() => {
-                        notifyChatUpdated();
+                        upsertChat({ id: chatId });
                         approvalId &&
                           addToolApprovalResponse?.({
                             id: approvalId,
@@ -787,7 +777,7 @@ export function PlaygroundChat({
                       transportType={input.transportType || 'sse'}
                       approvalId={approvalId || ''}
                       onApprove={() => {
-                        notifyChatUpdated();
+                        upsertChat({ id: chatId });
                         if (approvalId && addToolApprovalResponse) {
                           addToolApprovalResponse({
                             id: approvalId,
@@ -796,7 +786,7 @@ export function PlaygroundChat({
                         }
                       }}
                       onDeny={() => {
-                        notifyChatUpdated();
+                        upsertChat({ id: chatId });
                         approvalId &&
                           addToolApprovalResponse?.({
                             id: approvalId,
@@ -939,7 +929,7 @@ export function PlaygroundChat({
           </div>
 
           <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
-            <div className="w-full max-w-2xl mx-auto space-y-7 animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-full max-w-2xl mx-auto space-y-7">
               <div className="text-center">
                 <h1 className="text-4xl md:text-5xl font-sans font-normal tracking-[-1.5px] text-foreground leading-tight">
                   {t("chatHeroTitle")}
@@ -981,28 +971,29 @@ export function PlaygroundChat({
                 <button
                   type="button"
                   onClick={() => setActiveMcpApp(null)}
-                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors z-20"
-                  aria-label="Minimize app"
+                  className="absolute top-4 left-4 p-2 rounded-md bg-secondary hover:bg-secondary/80 text-foreground transition-all duration-200 z-20 flex items-center gap-2 text-sm font-medium cursor-pointer"
+                  aria-label="Back to chat"
                 >
-                  <X className="h-6 w-6" />
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to chat</span>
                 </button>
-                <McpAppRenderer
-                  name={activeMcpApp.name}
-                  args={activeMcpApp.args}
-                  result={activeMcpApp.result}
-                  status={activeMcpApp.status}
-                  className="w-full h-full !border-0 !my-0 !rounded-none !bg-background"
-                />
+                <div className="w-full h-full p-4">
+                  <McpAppRenderer
+                    name={activeMcpApp.name}
+                    args={activeMcpApp.args}
+                    result={activeMcpApp.result}
+                    status={activeMcpApp.status}
+                  />
+                </div>
               </div>
             ) : (
               <Conversation className="flex-1 min-h-0 w-full">
-                <ConversationContent>
-                  <div className={cn(chatContentWidthClass, "py-4 sm:py-8")}>
+                <ConversationContent className={cn(chatContentWidthClass, "py-6 sm:py-8 space-y-6")}>
                   {messages.map((m, index) => {
                     const isLastMessage = index === messages.length - 1;
                     return (
                       <MessageRow
-                        key={m.id}
+                        key={m.id || index}
                         m={m}
                         isLastMessage={isLastMessage}
                         onEdit={handleEditMessage}
@@ -1012,7 +1003,7 @@ export function PlaygroundChat({
                   })}
 
                   {(status === 'streaming' || status === 'submitted') && (
-                    <div className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-start gap-3 w-full">
                       <div className="p-1"><LoadingSpinner /></div>
                     </div>
                   )}
@@ -1025,7 +1016,6 @@ export function PlaygroundChat({
                     />
                   )}
                   <div ref={messagesEndRef} className="h-4" />
-                  </div>
                 </ConversationContent>
               </Conversation>
             )}

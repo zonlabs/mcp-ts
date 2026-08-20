@@ -163,7 +163,7 @@ export function MCPConnectionApproval({
   };
 
   return (
-    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2 p-2 sm:p-3 bg-background rounded-lg animate-in fade-in slide-in-from-bottom-2">
+    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2 p-2 sm:p-3 bg-background rounded-lg">
       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <ServerIcon

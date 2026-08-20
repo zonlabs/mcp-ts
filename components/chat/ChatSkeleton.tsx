@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ChatSkeleton() {
   return (
-    <div className="flex flex-col h-full w-full flex-1 min-h-0 bg-background animate-in fade-in duration-300">
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 bg-background">
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 max-w-2xl w-full mx-auto space-y-7">
         {/* 1. Starts with User prompt message skeleton (right-aligned) */}

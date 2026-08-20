@@ -31,7 +31,7 @@ export function MCPToolApproval({
   const hasArgs = Object.keys(args).length > 0;
 
   return (
-    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2.5 py-2 animate-in fade-in slide-in-from-bottom-2">
+    <div className="w-full max-w-none sm:max-w-2xl flex flex-col gap-2.5 py-2">
       <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-2">
           <Wrench className="h-4 w-4 text-muted-foreground flex-shrink-0" />
