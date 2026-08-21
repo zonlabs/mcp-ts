@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SidebarChat } from "@/lib/sidebar-chats";
 
@@ -27,7 +28,7 @@ export function useSidebarChats(
    * Deterministically upserts a chat into the local React Query cache.
    * If it's a new chat, it prepends to the list; if existing, updates fields in-place.
    */
-  const upsertChat = (chat: Partial<SidebarChat> & { id: string }) => {
+  const upsertChat = useCallback((chat: Partial<SidebarChat> & { id: string }) => {
     queryClient.setQueryData<{ chats: SidebarChat[] }>(SIDEBAR_CHATS_QUERY_KEY, (old) => {
       const list = old?.chats ?? [];
       const index = list.findIndex((c) => c.id === chat.id);
@@ -49,20 +50,21 @@ export function useSidebarChats(
       updated[index] = {
         ...updated[index],
         ...chat,
+        title: chat.title !== undefined ? chat.title : updated[index].title,
         updated_at: chat.updated_at || now,
       };
       return { chats: updated };
     });
-  };
+  }, [queryClient]);
 
   /**
    * Removes a chat from the local React Query cache.
    */
-  const removeChat = (chatId: string) => {
+  const removeChat = useCallback((chatId: string) => {
     queryClient.setQueryData<{ chats: SidebarChat[] }>(SIDEBAR_CHATS_QUERY_KEY, (old) => ({
       chats: (old?.chats ?? []).filter((c) => c.id !== chatId),
     }));
-  };
+  }, [queryClient]);
 
   return {
     ...query,

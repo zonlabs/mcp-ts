@@ -18,7 +18,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
   // Determine if the chat exists and whether current user has access
   const { data: chatData, error } = await supabase
     .from('chats')
-    .select('id, user_id, visibility')
+    .select('id, user_id, visibility, title')
     .eq('id', chatId)
     .maybeSingle();
 
@@ -41,7 +41,9 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
 
   return (
     <PlaygroundChat
+      key={chatId}
       chatId={chatId}
+      initialTitle={chatData.title}
       initialMessages={messages}
       isReadOnly={isReadOnly}
     />

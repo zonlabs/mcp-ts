@@ -55,6 +55,7 @@ interface PlaygroundChatProps {
   chatId?: string;
   initialMessages?: McpAgentUIMessage[];
   initialDraft?: string;
+  initialTitle?: string | null;
   isReadOnly?: boolean;
 }
 
@@ -254,6 +255,7 @@ export function PlaygroundChat({
   chatId: propChatId, 
   initialMessages = [], 
   initialDraft,
+  initialTitle,
   isReadOnly = false 
 }: PlaygroundChatProps) {
   const router = useRouter();
@@ -290,7 +292,7 @@ export function PlaygroundChat({
 
   const chatContentWidthClass = "w-full max-w-2xl mx-auto px-4 sm:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
-  
+
   const getCurrentLlmConfig = () => {
     const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
     return {
@@ -386,6 +388,12 @@ export function PlaygroundChat({
       sendMessage({ text: data.text }, { body: { llmConfig: currentConfig, chatId } });
     }
   };
+
+  useEffect(() => {
+    if (initialTitle) {
+      upsertChat({ id: chatId, title: initialTitle });
+    }
+  }, [initialTitle, chatId, upsertChat]);
 
   useEffect(() => {
     for (const message of messages) {
