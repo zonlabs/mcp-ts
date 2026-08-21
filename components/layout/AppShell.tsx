@@ -602,7 +602,6 @@ export function AppShell({
             <Link
               href="/chat"
               onClick={() => {
-                console.log('[NewChat:click] Navigating to /chat to start fresh session');
                 if (isMobile) setMobileDrawerOpen(false);
               }}
               className={cn(

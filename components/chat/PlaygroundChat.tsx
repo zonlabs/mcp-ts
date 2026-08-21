@@ -280,15 +280,6 @@ export function PlaygroundChat({
   const chatContentWidthClass = "w-full max-w-2xl mx-auto px-4 sm:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
 
-  useEffect(() => {
-    console.log('[PlaygroundChat:mount]', {
-      chatId,
-      propChatId,
-      initialMessagesCount: safeInitialMessages.length,
-      locationPathname: typeof window !== 'undefined' ? window.location.pathname : '',
-    });
-  }, [chatId, propChatId, safeInitialMessages.length]);
-
   const getCurrentLlmConfig = () => {
     const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
     return {
@@ -332,7 +323,6 @@ export function PlaygroundChat({
 
         const baseBody = {
           id: (body as any)?.chatId || id,
-          chatId: (body as any)?.chatId || id,
           llmConfig: currentConfig,
           userPreferences: {
             timezone: userPreferences.timezone,
@@ -346,7 +336,6 @@ export function PlaygroundChat({
             body: {
               ...baseBody,
               trigger: 'submit-user-message',
-              id: (body as any)?.chatId || id,
               message: chatMessages[chatMessages.length - 1],
               messages: chatMessages,
               messageId,
@@ -357,7 +346,6 @@ export function PlaygroundChat({
             body: {
               ...baseBody,
               trigger: 'regenerate-assistant-message',
-              id: (body as any)?.chatId || id,
               messages: chatMessages,
               messageId,
             },
@@ -375,7 +363,7 @@ export function PlaygroundChat({
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
 
-    // If starting a chat from the /chat landing page (no propChatId), redirect to /chat/[newChatId]
+    // If starting from the /chat landing page (no propChatId), redirect to /chat/[newChatId]
     if (!propChatId) {
       const newChatId = typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`;
       try {
@@ -383,17 +371,14 @@ export function PlaygroundChat({
       } catch (err) {
         console.error('[PlaygroundChat] Failed to store pending chat message:', err);
       }
-      console.log(`[PlaygroundChat:sendChatInput] Redirecting from /chat to /chat/${newChatId}`);
       router.push(`/chat/${newChatId}`);
       return;
     }
 
     const currentConfig = getCurrentLlmConfig();
-    
     const promptText = data.text || (data.parts?.find((p: any) => p.type === 'text')?.text) || "New Chat";
     const initialTitle = promptText.length > 50 ? promptText.slice(0, 47) + "..." : promptText;
 
-    console.log('[PlaygroundChat:sendChatInput]', { chatId, promptText });
     upsertChat({ id: chatId, title: initialTitle, user_id: chatUserId });
     if (data.parts && data.parts.length > 0) {
       sendMessage({
