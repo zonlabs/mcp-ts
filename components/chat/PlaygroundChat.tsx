@@ -4,7 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
 import { useRef, useEffect, useMemo, useState, useCallback, memo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
@@ -251,6 +251,11 @@ function MCPConnectionApprovedStatus({ input }: { input: any }) {
   );
 }
 
+function extractChatId(pathname: string): string | null {
+  const match = pathname.match(/\/chat\/([^/]+)/);
+  return match ? match[1] : null;
+}
+
 export function PlaygroundChat({ 
   chatId: propChatId, 
   initialMessages = [], 
@@ -261,7 +266,19 @@ export function PlaygroundChat({
 }: PlaygroundChatProps) {
   const { t } = useI18n();
   const router = useRouter();
-  const chatId = propChatId || (typeof crypto !== "undefined" ? crypto.randomUUID() : `chat-${Date.now()}`);
+  const pathname = usePathname();
+
+  const chatIdFromUrl = extractChatId(pathname) || propChatId;
+  const isNewChat = !chatIdFromUrl;
+  const newChatIdRef = useRef(typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`);
+  const prevPathnameRef = useRef(pathname);
+
+  if (isNewChat && prevPathnameRef.current !== pathname) {
+    newChatIdRef.current = typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`;
+  }
+  prevPathnameRef.current = pathname;
+
+  const chatId = chatIdFromUrl ?? newChatIdRef.current;
 
   const [chatInput, setChatInput] = useState("");
   const [activeMcpApp, setActiveMcpApp] = useState<{
@@ -363,16 +380,8 @@ export function PlaygroundChat({
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
 
-    // If starting from the /chat landing page (no propChatId), redirect to /chat/[newChatId]
-    if (!propChatId) {
-      const newChatId = typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`;
-      try {
-        sessionStorage.setItem('pending_chat_message', JSON.stringify(data));
-      } catch (err) {
-        console.error('[PlaygroundChat] Failed to store pending chat message:', err);
-      }
-      router.push(`/chat/${newChatId}`);
-      return;
+    if (typeof window !== 'undefined' && (window.location.pathname === '/chat' || window.location.pathname === '/chat/')) {
+      window.history.replaceState(null, '', `/chat/${chatId}`);
     }
 
     const currentConfig = getCurrentLlmConfig();
@@ -393,6 +402,16 @@ export function PlaygroundChat({
       sendMessage({ text: data.text }, { body: { llmConfig: currentConfig } });
     }
   };
+
+  const prevChatIdRef = useRef(chatId);
+  useEffect(() => {
+    if (prevChatIdRef.current !== chatId) {
+      prevChatIdRef.current = chatId;
+      if (isNewChat) {
+        setMessages([]);
+      }
+    }
+  }, [chatId, isNewChat, setMessages]);
 
   // Only sync initialTitle if this is an existing saved chat (has propChatId and initialTitle)
   useEffect(() => {
@@ -448,22 +467,6 @@ export function PlaygroundChat({
 
   useEffect(() => {
     if (hasSentInitialDraft.current) return;
-    const stored = sessionStorage.getItem('pending_chat_message');
-    if (stored) {
-      sessionStorage.removeItem('pending_chat_message');
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed?.parts?.length) {
-          pendingDraftRef.current = { parts: parsed.parts };
-          return;
-        }
-        if (typeof parsed?.text === 'string' && parsed.text.trim()) {
-          pendingDraftRef.current = { text: parsed.text };
-          return;
-        }
-      } catch {
-      }
-    }
     if (initialDraft && initialDraft.trim()) {
       pendingDraftRef.current = { text: initialDraft };
     }
