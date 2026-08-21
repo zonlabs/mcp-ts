@@ -602,7 +602,7 @@ export function AppShell({
             <Link
               href="/chat"
               onClick={() => {
-                console.log('[NewChat:click] Router pathname:', pathname, 'Window pathname:', typeof window !== 'undefined' ? window.location.pathname : '');
+                console.log('[NewChat:click] Navigating to /chat to start fresh session');
                 if (isMobile) setMobileDrawerOpen(false);
               }}
               className={cn(

@@ -1,8 +1,6 @@
-import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
-
-export const dynamic = 'force-dynamic';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
   const newChatId = crypto.randomUUID();
-  return <PlaygroundChat key={newChatId} chatId={newChatId} />;
+  redirect(`/chat/${newChatId}`);
 }

@@ -379,10 +379,7 @@ export function PlaygroundChat({
     const promptText = data.text || (data.parts?.find((p: any) => p.type === 'text')?.text) || "New Chat";
     const initialTitle = promptText.length > 50 ? promptText.slice(0, 47) + "..." : promptText;
 
-    if (typeof window !== 'undefined' && (window.location.pathname === '/chat' || window.location.pathname === '/chat/')) {
-      window.history.replaceState(null, '', `/chat/${chatId}`);
-    }
-
+    console.log('[PlaygroundChat:sendChatInput]', { chatId, promptText });
     upsertChat({ id: chatId, title: initialTitle, user_id: chatUserId });
     if (data.parts && data.parts.length > 0) {
       sendMessage({
