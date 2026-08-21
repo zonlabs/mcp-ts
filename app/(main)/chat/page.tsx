@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
+import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
 
 export default function Page() {
-  const newChatId = crypto.randomUUID();
-  redirect(`/chat/${newChatId}`);
+  return <PlaygroundChat />;
 }

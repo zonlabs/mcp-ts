@@ -374,6 +374,20 @@ export function PlaygroundChat({
 
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
+
+    // If starting a chat from the /chat landing page (no propChatId), redirect to /chat/[newChatId]
+    if (!propChatId) {
+      const newChatId = typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`;
+      try {
+        sessionStorage.setItem('pending_chat_message', JSON.stringify(data));
+      } catch (err) {
+        console.error('[PlaygroundChat] Failed to store pending chat message:', err);
+      }
+      console.log(`[PlaygroundChat:sendChatInput] Redirecting from /chat to /chat/${newChatId}`);
+      router.push(`/chat/${newChatId}`);
+      return;
+    }
+
     const currentConfig = getCurrentLlmConfig();
     
     const promptText = data.text || (data.parts?.find((p: any) => p.type === 'text')?.text) || "New Chat";
