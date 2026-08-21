@@ -322,7 +322,7 @@ export function PlaygroundChat({
         const userPreferences = readUserPreferencesFromStorage();
 
         const baseBody = {
-          id: (body as any)?.chatId || id,
+          id,
           llmConfig: currentConfig,
           userPreferences: {
             timezone: userPreferences.timezone,
@@ -385,12 +385,12 @@ export function PlaygroundChat({
         role: 'user',
         parts: data.parts,
       }, {
-        body: { llmConfig: currentConfig, chatId },
+        body: { llmConfig: currentConfig },
       });
       return;
     }
     if (data.text) {
-      sendMessage({ text: data.text }, { body: { llmConfig: currentConfig, chatId } });
+      sendMessage({ text: data.text }, { body: { llmConfig: currentConfig } });
     }
   };
 
@@ -539,8 +539,7 @@ export function PlaygroundChat({
         llmConfig: currentConfig,
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReadOnly, messages, setMessages, regenerate]);
+  }, [isReadOnly, messages, setMessages, regenerate, chatId, upsertChat]);
 
   const formatErrorMessage = (err: any) => {
     const raw = err?.message || "An error occurred";

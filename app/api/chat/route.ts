@@ -15,7 +15,6 @@ import { normalizeMessagesForModel } from '@/lib/chat-message-normalization';
 
 interface ChatRequestBody {
   id?: string;
-  chatId?: string;
   trigger?: 'submit-user-message' | 'regenerate-assistant-message';
   messageId?: string;
   message?: McpAgentUIMessage;
@@ -106,7 +105,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json()) as ChatRequestBody;
   const { trigger = 'submit-user-message', message, messageId, llmConfig, userPreferences } = body;
-  const chatId = body.id || body.chatId;
+  const chatId = body.id;
 
   // 1. Build messages list based on standard AI SDK trigger
   let chatMessages = Array.isArray(body.messages) ? [...body.messages] : [];
