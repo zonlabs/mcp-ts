@@ -117,16 +117,15 @@ function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: Cha
           <Pencil className="size-[18px] text-muted-foreground" />
           Rename
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="gap-2 py-1.5 cursor-pointer">
-          <a
-            href={`/chat/${chat.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-          >
-            <ExternalLink className="size-[18px] text-muted-foreground" />
-            Open in new tab
-          </a>
+        <DropdownMenuItem
+          onSelect={() => {
+            setOpen(false);
+            window.open(`/chat/${chat.id}`, "_blank", "noopener,noreferrer");
+          }}
+          className="gap-2 py-1.5 cursor-pointer"
+        >
+          <ExternalLink className="size-[18px] text-muted-foreground" />
+          Open in new tab
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {

@@ -1,23 +1,43 @@
-import { loadPublicChat } from '@/lib/chat-store';
+import { notFound } from 'next/navigation';
+import { loadPublicChat, loadChat } from '@/lib/chat-store';
 import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
 import { createClient } from '@/lib/supabase/server';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function Page(props: { params: Promise<{ chatId: string }> }) {
   const { chatId } = await props.params;
+
+  if (!UUID_REGEX.test(chatId)) {
+    notFound();
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const messages = await loadPublicChat(chatId);
 
-  // Determine if the current user owns this chat
-  const { data: chatData } = await supabase
+  // Determine if the chat exists and whether current user has access
+  const { data: chatData, error } = await supabase
     .from('chats')
-    .select('user_id, visibility')
+    .select('id, user_id, visibility')
     .eq('id', chatId)
-    .single();
+    .maybeSingle();
 
-  // It's read-only if no user is logged in (unauthenticated users cannot collaborate)
-  // or if for some reason the chat is PRIVATE and they are not the owner.
-  const isReadOnly = !user || (chatData?.visibility !== 'PUBLIC' && chatData?.user_id !== user.id);
+  if (error || !chatData) {
+    notFound();
+  }
+
+  const isOwner = Boolean(user && chatData.user_id === user.id);
+  const isPublic = chatData.visibility === 'PUBLIC';
+
+  // If the chat is not public and current user is not the owner, show 404
+  if (!isPublic && !isOwner) {
+    notFound();
+  }
+
+  const messages = isPublic ? await loadPublicChat(chatId) : await loadChat(chatId);
+
+  // It's read-only only if no user is logged in (unauthenticated users cannot participate)
+  const isReadOnly = !user;
 
   return (
     <PlaygroundChat
