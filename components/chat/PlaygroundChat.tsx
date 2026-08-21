@@ -259,7 +259,7 @@ export function PlaygroundChat({
   isReadOnly = false 
 }: PlaygroundChatProps) {
   const { t } = useI18n();
-  const [chatId] = useState<string>(() => propChatId || (typeof crypto !== "undefined" ? crypto.randomUUID() : `chat-${Date.now()}`));
+  const chatId = propChatId || (typeof crypto !== "undefined" ? crypto.randomUUID() : `chat-${Date.now()}`);
 
   const [chatInput, setChatInput] = useState("");
   const [activeMcpApp, setActiveMcpApp] = useState<{
