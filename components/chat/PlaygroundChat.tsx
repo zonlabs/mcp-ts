@@ -50,6 +50,8 @@ import {
   hasVisibleReasoningText,
 } from '@/components/chat/chain-of-thought-utils';
 
+export const PENDING_CHAT_MESSAGE_STORAGE_KEY = "mcp-assistant:pending-chat-message:v1";
+
 interface PlaygroundChatProps {
   chatId?: string;
   initialMessages?: McpAgentUIMessage[];
