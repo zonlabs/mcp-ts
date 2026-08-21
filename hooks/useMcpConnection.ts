@@ -167,7 +167,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   const connect = useCallback(async (server: ConnectableServer) => {
     const serverUrl = extractServerUrl(server);
     if (!serverUrl) {
-      showMcpErrorToast('connect', "No URL available for this server");
+      toast.error(`Failed to connect ${server.title || server.name || "server"}`);
       return;
     }
 
