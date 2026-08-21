@@ -181,10 +181,10 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
         : [];
         
     const usage = message?.metadata?.usage as any;
-    const externalId = (message as any)?.id;
+    const externalId = (message as any)?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
     
     return {
-      ...(externalId ? { external_id: externalId } : {}),
+      external_id: externalId,
       chat_id: chatId,
       role: message.role,
       parts,
@@ -199,28 +199,11 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
   const hasAnyMessage = rows.some((row) => row.external_id || row.role || row.created_at);
   if (!hasAnyMessage) return;
 
-  const rowsWithExternalId = rows.filter((row) => row.external_id);
-  const rowsWithoutExternalId = rows.filter((row) => !row.external_id);
-
-  // Sync existing messages by external ID
-  if (rowsWithExternalId.length > 0) {
-    const { error: upsertError } = await supabase
-      .from('chat_messages')
-      .upsert(rowsWithExternalId, { onConflict: 'chat_id,external_id' });
-    
-    if (upsertError) {
-      console.error('[chat-store] failed to upsert messages:', upsertError);
-    }
-  }
-
-  // Insert any messages that don't have a specific ID assigned yet
-  if (rowsWithoutExternalId.length > 0) {
-    const { error: insertError } = await supabase
-      .from('chat_messages')
-      .insert(rowsWithoutExternalId);
-
-    if (insertError) {
-      console.error('[chat-store] failed to insert messages:', insertError);
-    }
+  const { error: upsertError } = await supabase
+    .from('chat_messages')
+    .upsert(rows, { onConflict: 'chat_id,external_id' });
+  
+  if (upsertError) {
+    console.error('[chat-store] failed to upsert messages:', upsertError);
   }
 }

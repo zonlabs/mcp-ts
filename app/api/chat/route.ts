@@ -1,78 +1,38 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/chat
 //
-// This is the core AI streaming endpoint. It handles:
-//   • Chat message streaming via the AI SDK
-//   • Chat persistence (save user messages before stream, save assistant after)
-//   • Auto-generating chat titles for new conversations
-//   • History normalization (mapping custom MCP states to SDK-compatible ones)
-//   • Edit-message: replacing DB history with truncated client history
-//   • Regenerate-message: deleting the last assistant reply and regenerating
+// Clean AI SDK streaming endpoint with trigger-based routing.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { convertToModelMessages, createIdGenerator, generateText, createUIMessageStreamResponse } from 'ai';
+import { convertToModelMessages, createIdGenerator, generateText } from 'ai';
 import { createMcpAgent, type McpAgentUIMessage } from '@/agent/chat-agent';
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
-import { getModelFromConfig, getTitleModel } from '@/lib/llm';
-import type { AgentPreferences } from '@/lib/agent-preferences';
+import { getTitleModel } from '@/lib/llm';
+import type { UserPreferences } from '@/lib/user-preferences';
 import { normalizeMessagesForModel } from '@/lib/chat-message-normalization';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
 interface ChatRequestBody {
-  /** The full UI message history from the client */
-  messages: McpAgentUIMessage[];
-  /** Legacy alias for `messages` */
-  uiMessages?: McpAgentUIMessage[];
-  /** The chat record ID in the database */
+  id?: string;
   chatId?: string;
-  /**
-   * Optional action flag:
-   *   - "regenerate-message" → delete last assistant reply and re-generate
-   *   - "edit-message"       → replace all DB records with truncated client history
-   */
-  action?: string;
-  /** LLM provider/model configuration (overrides user defaults) */
+  trigger?: 'submit-user-message' | 'regenerate-assistant-message';
+  messageId?: string;
+  message?: McpAgentUIMessage;
+  messages?: McpAgentUIMessage[];
   llmConfig?: {
     provider?: string;
     apiKey?: string;
     model?: string;
     baseUrl?: string;
   };
-  agentPreferences?: Partial<AgentPreferences>;
+  userPreferences?: Partial<UserPreferences>;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Utility Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Returns the last user message in the array, or null if none exists. */
-function getLastUserMessage(messages: McpAgentUIMessage[]): McpAgentUIMessage | null {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i]?.role === 'user') return messages[i];
-  }
-  return null;
-}
-
-/**
- * Verifies that the requesting user is allowed to read/write `chatId`.
- *
- * Rules:
- *  • If the chat doesn't exist yet → only authenticated users may create it.
- *  • If the chat exists and is PRIVATE → only its owner may modify it.
- *  • If the chat exists and is PUBLIC → any authenticated user may participate.
- *  • Unauthenticated users may never write to any chat.
- *
- * @returns A `NextResponse` error response when access is denied, or `null` when permitted.
- */
 async function assertChatPermission(
   supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
   chatId: string,
-  userId: string | undefined
+  userId: string
 ): Promise<NextResponse | null> {
   const { data: chat, error } = await supabase
     .from('chats')
@@ -80,45 +40,13 @@ async function assertChatPermission(
     .eq('id', chatId)
     .maybeSingle();
 
-  if (error) {
-    console.error('[chat] Failed to fetch chat ownership:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  if (error) return NextResponse.json({ error: 'Database error' }, { status: 500 });
+  if (chat && chat.user_id !== userId && chat.visibility !== 'PUBLIC') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-
-  if (!chat) {
-    // Chat doesn't exist yet – only authenticated users may create it
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized: You must be logged in to create chats.' },
-        { status: 401 }
-      );
-    }
-    return null; // allowed – will be created on first save
-  }
-
-  // Chat exists – unauthenticated users can never participate
-  if (!userId) {
-    return NextResponse.json(
-      { error: 'Unauthorized: You must be logged in to participate in chats.' },
-      { status: 401 }
-    );
-  }
-
-  // Authenticated but not the owner of a private chat
-  if (chat.user_id !== userId && chat.visibility !== 'PUBLIC') {
-    return NextResponse.json(
-      { error: 'Forbidden: You do not have permission to modify this private chat.' },
-      { status: 403 }
-    );
-  }
-
-  return null; // allowed
+  return null;
 }
 
-/**
- * Extracts the first meaningful text string from a list of user messages.
- * Used for auto-generating a chat title.
- */
 function extractUserText(messages: McpAgentUIMessage[]): string {
   for (const message of messages) {
     if (message?.role !== 'user') continue;
@@ -136,293 +64,110 @@ function extractUserText(messages: McpAgentUIMessage[]): string {
   return '';
 }
 
-/**
- * After a stream finishes, identifies only the *new* assistant messages that
- * weren't already in the original request. Also handles the special "resume"
- * case where we merge new streamed parts into an existing message to avoid data loss.
- *
- * @param streamed        - The full message list returned by the AI SDK after streaming.
- * @param requestMessages - The messages that were sent *in* the request (before streaming).
- * @param resumeId        - If resuming a partially-streamed message, its ID.
- */
-function getNewAssistantMessages(
-  streamed: McpAgentUIMessage[],
-  requestMessages: McpAgentUIMessage[],
-  resumeId?: string
-): McpAgentUIMessage[] {
-  const existingIds = new Set(
-    requestMessages
-      .map((msg: any) => msg?.id)
-      .filter((id): id is string => Boolean(id))
-  );
+async function handleAutoTitle(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  chatId: string | undefined,
+  userId: string,
+  messages: McpAgentUIMessage[],
+  llmConfig?: ChatRequestBody['llmConfig']
+): Promise<string | null> {
+  if (!chatId) return null;
+  const userText = extractUserText(messages);
+  if (!userText) return null;
 
-  return (Array.isArray(streamed) ? streamed : [])
-    .filter((msg: any) => {
-      if (msg?.role === 'user') return false;        // never persist user messages here
-      const id = msg?.id;
-      if (resumeId && id === resumeId) return true;  // always include the resumed message
-      return !id || !existingIds.has(id);            // include only new messages
-    })
-    .map((msg: any) => {
-      const id = msg?.id;
-      // For a resumed message, merge new parts into the existing ones to avoid data loss
-      if (resumeId && id === resumeId) {
-        const originalMsg = requestMessages.find((m: any) => m?.id === id);
-        if (originalMsg && Array.isArray(originalMsg.parts)) {
-          const oldParts = originalMsg.parts;
-          const newParts = Array.isArray(msg.parts) ? msg.parts : [];
-          const mergedParts = [...oldParts];
+  const { data: chat } = await supabase.from('chats').select('title').eq('id', chatId).maybeSingle();
+  if (chat?.title && chat.title !== 'New Chat') return null;
 
-          for (const newPart of newParts) {
-            const newToolCallId =
-              (newPart as any).toolCallId || (newPart as any).toolInvocation?.toolCallId;
-            const existingIndex = newToolCallId
-              ? mergedParts.findIndex(
-                p =>
-                  (p as any).toolCallId === newToolCallId ||
-                  (p as any).toolInvocation?.toolCallId === newToolCallId
-              )
-              : -1;
-
-            if (existingIndex >= 0) {
-              // Replace – keep old properties but apply new ones on top
-              mergedParts[existingIndex] = { ...mergedParts[existingIndex], ...newPart };
-            } else {
-              // Append – but skip exact-duplicate text parts
-              if (newPart.type === 'text' && mergedParts.some(p => p.type === 'text' && p.text === newPart.text)) continue;
-              mergedParts.push(newPart);
-            }
-          }
-          return { ...msg, parts: mergedParts };
-        }
-      }
-      return msg;
-    });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Title Generation
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Generates a short, descriptive chat title (3-6 words) using the LLM.
- * Called once per new or untitled chat on the first message.
- */
-async function generateChatTitle(input: {
-  prompt: string;
-  llmConfig?: {
-    provider?: string;
-    apiKey?: string;
-    model?: string;
-    baseUrl?: string;
-  };
-}): Promise<string | null> {
-  const model = getTitleModel(input.llmConfig);
+  let title: string | null = null;
   try {
     const result = await generateText({
-      model,
-      prompt: `Create a concise chat title (3-6 words). Avoid quotes and punctuation.\nMessage: ${input.prompt}`,
+      model: getTitleModel(llmConfig),
+      prompt: `Create a concise chat title (3-6 words). Avoid quotes and punctuation.\nMessage: ${userText}`,
       maxOutputTokens: 24,
     });
-    const raw = result.text?.trim() || '';
-    if (!raw) return null;
-    return raw.replace(/^["']|["']$/g, '').trim();
-  } catch (error) {
-    console.error('[chat] title generation failed:', error);
-    return null;
+    title = result.text?.trim()?.replace(/^["']|["']$/g, '') || null;
+  } catch {
+    title = userText.length > 50 ? userText.slice(0, 47) + '...' : userText;
   }
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST Handler
-// ─────────────────────────────────────────────────────────────────────────────
+  if (title) {
+    await supabase.from('chats').upsert({ id: chatId, user_id: userId, title, updated_at: new Date().toISOString() });
+  }
+  return title;
+}
 
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const body = (await req.json()) as Partial<ChatRequestBody>;
-
-  // Support both `messages` and legacy `uiMessages` field names
-  const messages = Array.isArray(body.messages)
-    ? body.messages
-    : Array.isArray(body.uiMessages)
-      ? body.uiMessages
-      : [];
-
-  const chatId = typeof body.chatId === 'string' ? body.chatId : undefined;
-
-  if (messages.length === 0) {
-    return NextResponse.json({ error: 'messages parameter must be provided' }, { status: 400 });
-  }
-
-  // ── Authentication & Authorization ──────────────────────────────────────────
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError) {
-    console.error('[chat] Auth error:', authError);
-    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
-  }
-  const userId = user?.id;
 
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = (await req.json()) as ChatRequestBody;
+  const { trigger = 'submit-user-message', message, messageId, llmConfig, userPreferences } = body;
+  const chatId = body.id || body.chatId;
+
+  // 1. Build messages list based on standard AI SDK trigger
+  let chatMessages = Array.isArray(body.messages) ? [...body.messages] : [];
+  if (trigger === 'submit-user-message' && message) {
+    chatMessages = [...chatMessages.filter((m) => m.id !== message.id), message];
+  } else if (trigger === 'regenerate-assistant-message' && messageId) {
+    const idx = chatMessages.findIndex((m) => m.id === messageId);
+    if (idx !== -1) chatMessages = chatMessages.slice(0, idx);
+  }
+
+  if (chatMessages.length === 0) {
+    return NextResponse.json({ error: 'No messages provided' }, { status: 400 });
+  }
+
+  // 2. Permission check and pre-stream database sync
   if (chatId) {
-    const denied = await assertChatPermission(supabase, chatId, userId);
+    const denied = await assertChatPermission(supabase, chatId, user.id);
     if (denied) return denied;
-  }
 
-  // ── Action Flags ────────────────────────────────────────────────────────────
-  const shouldRegenerate = body.action === 'regenerate-message';
-  const shouldEditReplace = body.action === 'edit-message';
-
-  // ── Edit-Message: Sync DB to Client State ───────────────────────────────────
-  // When the user edits a previous message, the client sends the truncated history.
-  // We wipe the existing DB records and re-insert just what the client sent,
-  // making the DB the authoritative source of truth once again.
-  if (shouldEditReplace && chatId) {
-    await deleteAllChatMessages(chatId);
-    await saveChat(chatId, messages);
-  }
-
-  // ── Auto-Title Generation ───────────────────────────────────────────────────
-  // If this chat is new or still has the default "New Chat" title,
-  // generate a meaningful title from the user's first meaningful message.
-  let newChatTitle: string | null = null;
-  let isNewChat = false;
-
-  if (chatId && userId) {
-    const { data: chatRow } = await supabase
-      .from('chats')
-      .select('title')
-      .eq('id', chatId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    const userText = extractUserText(messages);
-    const initialFallbackTitle = userText
-      ? (userText.length > 50 ? userText.slice(0, 47) + '...' : userText)
-      : 'New Chat';
-
-    if (!chatRow) {
-      await supabase
-        .from('chats')
-        .insert({
-          id: chatId,
-          user_id: user.id,
-          title: initialFallbackTitle,
-          updated_at: new Date().toISOString(),
-        });
-    }
-
-    if (!chatRow || !chatRow.title || chatRow.title === 'New Chat' || chatRow.title === initialFallbackTitle) {
-      if (userText) {
-        newChatTitle = await generateChatTitle({ prompt: userText, llmConfig: body.llmConfig });
-        if (newChatTitle) {
-          isNewChat = true;
-          await supabase
-            .from('chats')
-            .update({ title: newChatTitle, updated_at: new Date().toISOString() })
-            .eq('id', chatId)
-            .eq('user_id', user.id);
-        }
-      }
+    const isEditSync = trigger === 'regenerate-assistant-message' && chatMessages[chatMessages.length - 1]?.role === 'user';
+    if (isEditSync) {
+      await deleteAllChatMessages(chatId);
+      await saveChat(chatId, chatMessages);
+    } else if (trigger === 'submit-user-message' && message) {
+      await saveChat(chatId, [message]);
     }
   }
 
-  // ── Pre-Stream Persistence ──────────────────────────────────────────────────
-  // Persist the latest user message before the stream begins so it appears in
-  // the sidebar even if the stream fails mid-way.
-  // Skip for edit-message as we already re-saved the entire history above.
-  if (chatId && !shouldEditReplace) {
-    const lastUserMessage = getLastUserMessage(messages);
-    if (lastUserMessage) {
-      await saveChat(chatId, [lastUserMessage]);
-    }
-  }
+  // 3. Auto-title generation for new/untitled chats
+  const newChatTitle = await handleAutoTitle(supabase, chatId, user.id, chatMessages, llmConfig);
 
-  // ── MCP Agent Setup ─────────────────────────────────────────────────────────
-  const { agent, cleanup } = await createMcpAgent({
-    userId: userId,
-    agentPreferences: body.agentPreferences,
-  });
-  // Ensure tool connections are properly cleaned up if the client disconnects
+  // 4. Stream response via MCP Agent
+  const { agent, cleanup } = await createMcpAgent({ userId: user.id, userPreferences });
   req.signal.addEventListener('abort', cleanup, { once: true });
 
-  // ── History Normalization ───────────────────────────────────────────────────
-  // Normalize custom MCP assistant history while preserving SDK approval states
-  // that must be resumed, such as approved mcp_execute_tool calls.
-  const normalizedMessages = normalizeMessagesForModel(messages);
-
-  // ── Stream Setup ────────────────────────────────────────────────────────────
-  // If the last message is an assistant message (partial/interrupted stream),
-  // reuse its ID so the SDK resumes it rather than starting a brand-new message.
-  const lastMessage = normalizedMessages[normalizedMessages.length - 1];
-  const initialResumeId = lastMessage?.role === 'assistant' ? (lastMessage as any)?.id : undefined;
-  let resumeId = initialResumeId;
-
+  const normalizedMessages = normalizeMessagesForModel(chatMessages);
   const generateId = createIdGenerator({ prefix: 'msg', size: 16 });
 
   const result = await agent.stream({
     messages: await convertToModelMessages(normalizedMessages),
     abortSignal: req.signal,
-    options: {
-      userId: userId,
-      llmConfig: body.llmConfig,
-      agentPreferences: body.agentPreferences,
-    },
+    options: { userId: user.id, llmConfig, userPreferences },
   });
 
-  // ── Response Stream ─────────────────────────────────────────────────────────
-
-
-  // Response Stream
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({
     originalMessages: normalizedMessages,
-    // Reuse the existing ID for resumed streams; generate a fresh one otherwise
-    generateMessageId: () => {
-      if (resumeId) {
-        const id = resumeId;
-        resumeId = undefined;
-        return id;
-      }
-      return generateId();
-    },
-
-    // Attach metadata (new title, token usage) to the relevant stream events
+    generateMessageId: () => generateId(),
     messageMetadata: ({ part }) => {
-      const base = isNewChat && newChatTitle ? { isNewChat: true, chatTitle: newChatTitle } : undefined;
-      if (part.type === 'finish-step') {
-        return base ? { ...base, usage: part.usage } : { usage: part.usage };
-      }
-      return base;
+      const base = newChatTitle ? { isNewChat: true, chatTitle: newChatTitle } : undefined;
+      return part.type === 'finish-step' ? { ...base, usage: part.usage } : base;
     },
+    onFinish: async ({ responseMessage }) => {
+      if (!chatId || !responseMessage) return;
 
-    // onFinish: Post-Stream Persistence
-    onFinish: async ({ messages: finalMessages }) => {
-      if (!chatId) return;
-
-      // For regenerate-message: delete the stale last assistant reply first,
-      // then save the freshly generated one in its place.
-      if (shouldRegenerate) {
-        const { data: latestAssistant } = await supabase
-          .from('chat_messages')
-          .select('external_id')
-          .eq('chat_id', chatId)
-          .eq('role', 'assistant')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (latestAssistant?.external_id) {
-          await supabase
-            .from('chat_messages')
-            .delete()
-            .eq('chat_id', chatId)
-            .eq('external_id', latestAssistant.external_id);
+      try {
+        if (trigger === 'regenerate-assistant-message' && messageId) {
+          await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('external_id', messageId);
         }
-      }
-
-      // Persist only the newly generated assistant messages.
-      // This avoids duplicating messages that were already saved pre-stream.
-      const assistantMessages = getNewAssistantMessages(finalMessages, normalizedMessages, initialResumeId);
-      if (assistantMessages.length > 0) {
-        await saveChat(chatId, assistantMessages);
+        await saveChat(chatId, [responseMessage]);
+      } catch (err) {
+        console.error('[chat:onFinish] Error saving assistant message:', err);
       }
     },
   });

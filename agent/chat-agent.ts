@@ -7,14 +7,14 @@ import { z } from "zod";
 import { buildChatAgentInstructions, PINNED_REMOTE_TOOLS } from "@/agent/chat-agent-instructions";
 import { getModelFromConfig } from "@/lib/llm";
 import {
-  type AgentPreferences,
-  normalizeAgentPreferences,
+  type UserPreferences,
+  normalizeUserPreferences,
   shouldRequireMcpToolApproval,
-} from "@/lib/agent-preferences";
+} from "@/lib/user-preferences";
 
 interface CreateMcpAgentOptions {
   userId?: string;
-  agentPreferences?: Partial<AgentPreferences>;
+  userPreferences?: Partial<UserPreferences>;
 }
 
 type McpAgentCallOptions = {
@@ -24,7 +24,7 @@ type McpAgentCallOptions = {
     apiKey?: string;
     model?: string;
   };
-  agentPreferences?: Partial<AgentPreferences>;
+  userPreferences?: Partial<UserPreferences>;
 };
 
 /** OpenAI (and several providers) cap tool/function names at 64 chars; @mcp-ts AIAdapter uses `tool_${serverId}_${name}` which often exceeds that. */
@@ -61,7 +61,6 @@ function shortenToolKeysForProvider(tools: Record<string, any>): Record<string, 
       out[key] = spec;
       continue;
     }
-    /* Long / invalid name, or original key already used by another aliased tool */
 
     const h = hashToolKeyForShortName(key);
     let newKey: string;
@@ -93,7 +92,7 @@ function shortenToolKeysForProvider(tools: Record<string, any>): Record<string, 
 async function getRemoteMcpTools(
   userId: string,
   client?: McpManager,
-  agentPreferences: Partial<AgentPreferences> = {}
+  userPreferences: Partial<UserPreferences> = {}
 ) {
   const manager = client || new McpManager(userId);
 
@@ -117,7 +116,7 @@ async function getRemoteMcpTools(
     if (discoveredTools.mcp_execute_tool) {
       discoveredTools.mcp_execute_tool = {
         ...discoveredTools.mcp_execute_tool,
-        needsApproval: () => shouldRequireMcpToolApproval(normalizeAgentPreferences(agentPreferences)),
+        needsApproval: () => shouldRequireMcpToolApproval(normalizeUserPreferences(userPreferences)),
       };
     }
     mcpTools = { ...mcpTools, ...discoveredTools };
@@ -132,12 +131,12 @@ async function getRemoteMcpTools(
 
 export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   const userId = options.userId?.trim() || "demo-user-123";
-  const initialAgentPreferences = normalizeAgentPreferences(options.agentPreferences);
+  const initialUserPreferences = normalizeUserPreferences(options.userPreferences);
 
   const { manager, tools: remoteTools } = await getRemoteMcpTools(
     userId,
     undefined,
-    initialAgentPreferences
+    initialUserPreferences
   );
 
   const combinedTools = {
@@ -145,7 +144,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
   };
 
   const agent = new ToolLoopAgent<McpAgentCallOptions, ToolSet>({
-    instructions: buildChatAgentInstructions(new Date(), initialAgentPreferences),
+    instructions: buildChatAgentInstructions(new Date(), initialUserPreferences),
     model: createOpenAI()("gpt-4o-mini"),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
@@ -156,7 +155,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
           model: z.string().optional(),
         })
         .optional(),
-      agentPreferences: z
+      userPreferences: z
         .object({
           timezone: z.string().optional(),
           toolApprovalMode: z.enum(["always", "risky", "never"]).optional(),
@@ -172,9 +171,10 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         }, { once: true });
       }
 
+      const activePreferences = callOptions?.userPreferences || initialUserPreferences;
       const instructions = buildChatAgentInstructions(
         new Date(),
-        callOptions?.agentPreferences || initialAgentPreferences
+        activePreferences
       );
       const messagesToUse = messages || [];
 

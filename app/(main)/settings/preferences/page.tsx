@@ -12,13 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AgentPreferences,
-  DEFAULT_AGENT_PREFERENCES,
+  UserPreferences,
+  DEFAULT_USER_PREFERENCES,
   ToolApprovalMode,
-  normalizeAgentPreferences,
-  readAgentPreferencesFromStorage,
-  writeAgentPreferencesToStorage,
-} from "@/lib/agent-preferences";
+  normalizeUserPreferences,
+  readUserPreferencesFromStorage,
+  writeUserPreferencesToStorage,
+} from "@/lib/user-preferences";
 import {
   WEB_LANGUAGE_OPTIONS,
   asWebLanguageOption,
@@ -49,44 +49,53 @@ const TOOL_POLICY_OPTIONS: Array<{
   { value: "never", labelKey: "runAutomatically" },
 ];
 
-function getGmtOffsetLabel(timezone: string, date: Date): string {
+function formatTimezoneOffset(timezone: string, date: Date): string {
   try {
     const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
       timeZoneName: "shortOffset",
     }).formatToParts(date);
-    const tzName = parts.find((part) => part.type === "timeZoneName")?.value || "GMT";
-    return tzName.replace("UTC", "GMT");
+    const tzPart = parts.find((part) => part.type === "timeZoneName");
+    return tzPart?.value || timezone;
   } catch {
-    return "GMT";
+    return timezone;
+  }
+}
+
+function formatCurrentTimeInTimezone(timezone: string, date: Date, locale: string): string {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      timeZone: timezone,
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      month: "short",
+      day: "numeric",
+    }).format(date);
   }
 }
 
 function formatTimezoneOptionLabel(timezone: string, date: Date): string {
-  return `${timezone} (${getGmtOffsetLabel(timezone, date)})`;
+  const matched = TIMEZONE_OPTIONS.find((item) => item.value === timezone);
+  const title = matched ? matched.label : timezone;
+  const offset = formatTimezoneOffset(timezone, date);
+  return `${title} (${offset})`;
 }
 
-function formatCurrentTimeInTimezone(timezone: string, date: Date, locale: string): string {
-  let dateText = "";
-  try {
-    dateText = new Intl.DateTimeFormat(locale, {
-      timeZone: timezone,
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(date);
-  } catch {
-    dateText = new Intl.DateTimeFormat(locale, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(date);
-  }
-  return `${dateText} (${getGmtOffsetLabel(timezone, date)})`;
+interface PreferenceRowProps {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  children: React.ReactNode;
 }
 
 function PreferenceRow({
@@ -94,23 +103,19 @@ function PreferenceRow({
   title,
   description,
   children,
-}: {
-  icon: typeof Globe2;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
+}: PreferenceRowProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border first:pt-0 first:border-t-0">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Icon className="size-3.5 text-foreground" />
-          <h3 className="text-xs font-semibold text-foreground">{title}</h3>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-border bg-card/40">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className="p-2 rounded-lg bg-muted text-foreground flex-shrink-0 mt-0.5 sm:mt-0">
+          <Icon className="h-4 w-4" />
         </div>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">{description}</p>
+        <div className="space-y-0.5 min-w-0">
+          <Label className="text-xs font-semibold text-foreground tracking-tight">{title}</Label>
+          <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+        </div>
       </div>
-
-      <div className="md:col-span-2 bg-card border border-border rounded-md p-4 flex items-center justify-between gap-4 shadow-xs">
+      <div className="flex items-center gap-2 flex-shrink-0 sm:w-64">
         {children}
       </div>
     </div>
@@ -119,20 +124,20 @@ function PreferenceRow({
 
 export default function PreferencesPage() {
   const { t } = useI18n();
-  const [preferences, setPreferences] = useState<AgentPreferences>(DEFAULT_AGENT_PREFERENCES);
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
   const [webLanguage, setWebLanguage] = useState("en-US");
   const [hasLoaded, setHasLoaded] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    setPreferences(readAgentPreferencesFromStorage());
+    setPreferences(readUserPreferencesFromStorage());
     setWebLanguage(readWebLanguageFromStorage());
     setHasLoaded(true);
   }, []);
 
   useEffect(() => {
     if (!hasLoaded) return;
-    writeAgentPreferencesToStorage(preferences);
+    writeUserPreferencesToStorage(preferences);
   }, [preferences, hasLoaded]);
 
   useEffect(() => {
@@ -162,8 +167,8 @@ export default function PreferencesPage() {
     [preferences.timezone, now, webLanguage]
   );
 
-  const updatePreferences = (patch: Partial<AgentPreferences>) => {
-    setPreferences((current) => normalizeAgentPreferences({ ...current, ...patch }));
+  const updatePreferences = (patch: Partial<UserPreferences>) => {
+    setPreferences((current) => normalizeUserPreferences({ ...current, ...patch }));
   };
 
   return (

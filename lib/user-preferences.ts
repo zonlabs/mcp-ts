@@ -1,25 +1,25 @@
 export type ToolApprovalMode = "always" | "risky" | "never";
 
-export interface AgentPreferences {
+export interface UserPreferences {
   timezone: string;
   toolApprovalMode: ToolApprovalMode;
 }
 
-export const AGENT_PREFERENCES_STORAGE_KEY = "mcp-assistant:agent-preferences:v1";
+export const USER_PREFERENCES_STORAGE_KEY = "mcp-assistant:user-preferences:v1";
 
-export const DEFAULT_AGENT_PREFERENCES: AgentPreferences = {
+export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   timezone: "Asia/Kolkata",
   toolApprovalMode: "always",
 };
 
 const TOOL_APPROVAL_MODES = new Set<ToolApprovalMode>(["always", "risky", "never"]);
 
-export function getDefaultAgentPreferences(): AgentPreferences {
-  return { ...DEFAULT_AGENT_PREFERENCES };
+export function getDefaultUserPreferences(): UserPreferences {
+  return { ...DEFAULT_USER_PREFERENCES };
 }
 
-export function normalizeAgentPreferences(input: Partial<AgentPreferences> | null | undefined): AgentPreferences {
-  const defaults = getDefaultAgentPreferences();
+export function normalizeUserPreferences(input: Partial<UserPreferences> | null | undefined): UserPreferences {
+  const defaults = getDefaultUserPreferences();
   const rawMode = input?.toolApprovalMode;
   const toolApprovalMode = rawMode && TOOL_APPROVAL_MODES.has(rawMode)
     ? rawMode
@@ -31,29 +31,29 @@ export function normalizeAgentPreferences(input: Partial<AgentPreferences> | nul
   };
 }
 
-export function readAgentPreferencesFromStorage(): AgentPreferences {
-  if (typeof window === "undefined") return getDefaultAgentPreferences();
+export function readUserPreferencesFromStorage(): UserPreferences {
+  if (typeof window === "undefined") return getDefaultUserPreferences();
 
-  const stored = localStorage.getItem(AGENT_PREFERENCES_STORAGE_KEY);
-  if (!stored) return getDefaultAgentPreferences();
+  const stored = localStorage.getItem(USER_PREFERENCES_STORAGE_KEY);
+  if (!stored) return getDefaultUserPreferences();
 
   try {
-    return normalizeAgentPreferences(JSON.parse(stored));
+    return normalizeUserPreferences(JSON.parse(stored));
   } catch {
-    return getDefaultAgentPreferences();
+    return getDefaultUserPreferences();
   }
 }
 
-export function writeAgentPreferencesToStorage(preferences: AgentPreferences) {
+export function writeUserPreferencesToStorage(preferences: UserPreferences) {
   if (typeof window === "undefined") return;
   localStorage.setItem(
-    AGENT_PREFERENCES_STORAGE_KEY,
-    JSON.stringify(normalizeAgentPreferences(preferences))
+    USER_PREFERENCES_STORAGE_KEY,
+    JSON.stringify(normalizeUserPreferences(preferences))
   );
 }
 
 export function shouldRequireMcpToolApproval(
-  preferences: Pick<AgentPreferences, "toolApprovalMode">
+  preferences: Pick<UserPreferences, "toolApprovalMode">
 ): boolean {
   if (preferences.toolApprovalMode === "never") return false;
   return true;

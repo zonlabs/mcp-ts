@@ -1,4 +1,4 @@
-type AgentPreferencesLike = {
+type UserPreferencesLike = {
   timezone?: string;
 };
 
@@ -6,9 +6,9 @@ export const PINNED_REMOTE_TOOLS = ["codemode_run"] as const;
 
 export function buildChatAgentInstructions(
   now: Date = new Date(),
-  agentPreferences: AgentPreferencesLike = {}
+  userPreferences: UserPreferencesLike = {}
 ): string {
-  const timezone = agentPreferences.timezone || "Asia/Kolkata";
+  const timezone = userPreferences.timezone || "Asia/Kolkata";
   let localizedDateTime: string;
 
   try {

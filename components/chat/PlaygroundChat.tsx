@@ -31,7 +31,7 @@ import {
   Plus,
   Clock,
 } from 'lucide-react';
-import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
+import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
 import { useI18n } from '@/lib/web-i18n';
@@ -314,23 +314,46 @@ export function PlaygroundChat({
     messages: safeInitialMessages,
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      prepareSendMessagesRequest: ({ body, messages: chatMessages }) => {
+      prepareSendMessagesRequest: ({ id, messages: chatMessages, trigger, messageId, body }) => {
         const bodyConfig = (body as any)?.llmConfig;
         const currentConfig = bodyConfig ?? getCurrentLlmConfig();
-        const agentPreferences = readAgentPreferencesFromStorage();
+        const userPreferences = readUserPreferencesFromStorage();
 
-        return {
-          body: {
-            messages: chatMessages,
-            ...(body ?? {}),
-            llmConfig: currentConfig,
-            agentPreferences: {
-              timezone: agentPreferences.timezone,
-              toolApprovalMode: agentPreferences.toolApprovalMode,
-            },
-            chatId: (body as any)?.chatId || chatId,
+        const baseBody = {
+          id: (body as any)?.chatId || id,
+          chatId: (body as any)?.chatId || id,
+          llmConfig: currentConfig,
+          userPreferences: {
+            timezone: userPreferences.timezone,
+            toolApprovalMode: userPreferences.toolApprovalMode,
           },
+          ...(body ?? {}),
         };
+
+        if (trigger === 'submit-message' || (trigger as string) === 'submit-user-message') {
+          return {
+            body: {
+              ...baseBody,
+              trigger: 'submit-user-message',
+              id: (body as any)?.chatId || id,
+              message: chatMessages[chatMessages.length - 1],
+              messages: chatMessages,
+              messageId,
+            },
+          };
+        } else if (trigger === 'regenerate-message' || (trigger as string) === 'regenerate-assistant-message') {
+          return {
+            body: {
+              ...baseBody,
+              trigger: 'regenerate-assistant-message',
+              id: (body as any)?.chatId || id,
+              messages: chatMessages,
+              messageId,
+            },
+          };
+        }
+
+        throw new Error(`Unsupported trigger: ${trigger}`);
       },
     }),
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
@@ -481,7 +504,6 @@ export function PlaygroundChat({
       messageId: lastAssistant.id,
       body: {
         llmConfig: currentConfig,
-        action: 'regenerate-message',
       },
     });
   };
@@ -508,7 +530,6 @@ export function PlaygroundChat({
     regenerate({
       body: { 
         llmConfig: currentConfig,
-        action: 'edit-message'
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
