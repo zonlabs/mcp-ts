@@ -27,28 +27,15 @@ const SELECT_COLUMNS = [
 const METRICS_PAGE_SIZE = 1000;
 
 async function fetchAllMetricsEvents(supabase: any, userId: string) {
-  const allEvents: any[] = [];
-  let page = 0;
+  const { data, error } = await supabase
+    .from("mcp_tool_call_events")
+    .select("id,started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(2000);
 
-  while (true) {
-    const from = page * METRICS_PAGE_SIZE;
-    const to = from + METRICS_PAGE_SIZE - 1;
-    const { data, error } = await supabase
-      .from("mcp_tool_call_events")
-      .select("id,started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .range(from, to);
-
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    allEvents.push(...data);
-    if (data.length < METRICS_PAGE_SIZE) break;
-    page++;
-  }
-
-  return allEvents;
+  if (error) return [];
+  return data ?? [];
 }
 
 export const dynamic = "force-dynamic";
@@ -76,7 +63,7 @@ export async function GET(request: NextRequest) {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const [connections, oauthGrantsResult, paginatedResult, metricsResult] = await Promise.all([
+    const [connections, oauthGrantsResult, paginatedResult, metricsResult, totalCountResult] = await Promise.all([
       getStoredMcpConnectionsForIdentity(user.id),
       supabase.auth.oauth.listGrants(),
       supabase
@@ -87,6 +74,10 @@ export async function GET(request: NextRequest) {
         .order("completed_at", { ascending: false })
         .range(from, to),
       fetchAllMetricsEvents(supabase, user.id),
+      supabase
+        .from("mcp_tool_call_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id),
     ]);
 
     const { data: grantsData, error: grantsError } = oauthGrantsResult;
@@ -139,12 +130,16 @@ export async function GET(request: NextRequest) {
       created_at: g.granted_at,
     }));
 
+    const mcpAssistantCallsTotal = count ?? 0;
+    const exactTotalCalls = totalCountResult?.count ?? mcpAssistantCallsTotal;
+
     return NextResponse.json({
       connections: connections ?? [],
       grants,
       groups,
       metricsEvents: metricsData ?? [],
-      totalCount: count ?? 0,
+      totalCount: exactTotalCalls,
+      mcpAssistantCount: mcpAssistantCallsTotal,
       currentPage,
     });
   } catch (error) {

@@ -63,7 +63,9 @@ export function HomeView({
     let active = true;
     async function checkHealth() {
       try {
-        const res = await fetch("https://api.mcp-assistant.in/healthz");
+        const res = await fetch("https://api.mcp-assistant.in/healthz", {
+          signal: AbortSignal.timeout(1500),
+        });
         if (res.ok) {
           const json = await res.json().catch(() => ({}));
           if (active) {
@@ -83,20 +85,18 @@ export function HomeView({
     };
   }, []);
 
-  // Fetch featured servers first, falling back to public servers
-  const { servers: featuredServers } = usePublicServers({ pageSize: 20, featured: true });
-  const { servers: fallbackServers } = usePublicServers({ pageSize: 20 });
+  // Use public servers directly from TanStack Query cache (shared with AppsView)
+  const { servers: publicServers } = usePublicServers({ pageSize: 20 });
 
   const userDisplayName =
     userSession?.user?.user_metadata?.full_name ||
     userSession?.user?.email ||
     "Developer";
 
-  // Show featured servers if available, else first 20 public servers
+  // Show top popular public servers directly
   const popularServers = useMemo(() => {
-    if (featuredServers.length > 0) return featuredServers.slice(0, 20);
-    return fallbackServers.filter((s) => s.isPublic !== false).slice(0, 20);
-  }, [featuredServers, fallbackServers]);
+    return publicServers.slice(0, 20);
+  }, [publicServers]);
 
   const totalToolCalls = usageData?.totalCount ?? 0;
   const metricsEvents = usageData?.metricsEvents ?? [];
@@ -141,6 +141,7 @@ export function HomeView({
           groups={groups}
           metricsEvents={metricsEvents}
           totalCount={totalToolCalls}
+          mcpAssistantCount={usageData?.mcpAssistantCount}
           currentPage={page}
           onPageChange={setPage}
           isFetching={isFetching}

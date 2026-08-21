@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { listMcpServersCatalog } from "@/lib/mcp-servers/service";
+import { listMcpServersCatalog, SERVER_SELECT } from "@/lib/mcp-servers/service";
 import { restMcpServer } from "@/lib/mcp-servers/rest-serialize";
+import { mapServerRow } from "@/lib/mcp-servers/types";
 
 /** `?key=true` / `?key=false` only; missing or invalid → defaultValue. */
 function parseQueryBoolean(
@@ -36,11 +37,8 @@ function parseOrderBy(orderBy: string | null): {
 /**
  * GET /api/mcp — MCP catalog (REST).
  *
- * With default `public=true` (or omitted), anonymous clients may read the public catalog (RLS: is_public rows).
- * With `public=false`, requires a signed-in user (RLS returns own + public rows).
- *
- * Query: first, after, orderBy (-createdAt | name | -name | …), categorySlug, search (name only),
- * `featured=true|false`, `public=true|false` (booleans as strings; default public=true, featured=false).
+ * Supports querying a single server by ?id=<uuid>
+ * Or querying list with first, after, orderBy, categorySlug, search, etc.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -51,6 +49,29 @@ export async function GET(request: Request) {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+
+  // If specific server id is requested
+  const serverId = searchParams.get("id");
+  if (serverId) {
+    const { data: row, error } = await supabase
+      .from("mcp_servers")
+      .select(SERVER_SELECT)
+      .eq("id", serverId)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!row) {
+      return NextResponse.json({ error: "Server not found" }, { status: 404 });
+    }
+    const node = mapServerRow(row);
+    const server = restMcpServer(node, {
+      includeHeaders: true,
+      includeCredentials: user ? node.owner === user.id : false,
+    });
+    return NextResponse.json({ server });
+  }
 
   // Public catalog (default public=true): allow anonymous reads; RLS limits rows to is_public.
   // public=false requires auth (RLS still restricts rows for that user).

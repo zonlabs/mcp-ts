@@ -65,6 +65,7 @@ interface McpUsageOverviewProps {
   groups: McpToolCallEventGroup[];
   metricsEvents: McpToolCallEventRow[];
   totalCount: number;
+  mcpAssistantCount?: number;
   currentPage: number;
   onPageChange?: (newPage: number) => void;
   isFetching?: boolean;
@@ -77,6 +78,7 @@ export function McpUsageOverview({
   groups,
   metricsEvents,
   totalCount,
+  mcpAssistantCount,
   currentPage,
   onPageChange,
   isFetching,
@@ -107,8 +109,8 @@ export function McpUsageOverview({
     return Math.min(365, columns * 7);
   }, [containerWidth]);
 
-  const summary = summarizeMcpUsage(metricsEvents);
-  const mcpAssistantCount = totalCount > 0 ? Math.max(totalCount, summary.mcpAssistantCallsTotal) : summary.mcpAssistantCallsTotal;
+  const summary = summarizeMcpUsage(metricsEvents, undefined, totalCount);
+  const resolvedMcpAssistantCount = mcpAssistantCount ?? summary.mcpAssistantCallsTotal;
   const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date());
   const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
   const recentEventGroups = useMemo(() => groupRecentGroupsByDate(groups), [groups]);
@@ -224,7 +226,7 @@ export function McpUsageOverview({
               MCP Assistant
             </p>
             <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground tracking-tight">
-              {mcpAssistantCount.toLocaleString()}
+              {resolvedMcpAssistantCount.toLocaleString()}
             </p>
           </div>
 
