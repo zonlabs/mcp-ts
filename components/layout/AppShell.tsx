@@ -601,11 +601,15 @@ export function AppShell({
           <SimpleTooltip content={!isExpanded ? "New Chat" : null} side="right">
             <Link
               href="/chat"
-              onClick={() => isMobile && setMobileDrawerOpen(false)}
+              onClick={() => {
+                if (isMobile) setMobileDrawerOpen(false);
+                router.push("/chat");
+                router.refresh();
+              }}
               className={cn(
                 "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
                 isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
-                currentNav === "chat" && !currentChatId
+                currentNav === "chat" && (pathname === "/chat" || pathname === "/chat/")
                   ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
                   : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}

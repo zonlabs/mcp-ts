@@ -1,5 +1,8 @@
 import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
 
+export const dynamic = 'force-dynamic';
+
 export default function Page() {
-  return <PlaygroundChat key="new-chat" />;
+  const newChatId = crypto.randomUUID();
+  return <PlaygroundChat key={newChatId} chatId={newChatId} />;
 }

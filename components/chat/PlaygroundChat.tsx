@@ -27,12 +27,10 @@ import {
   X,
   ArrowLeft,
   Maximize2,
-  MessageSquare,
   Code2,
   Plus,
   Clock,
 } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
 import { readAgentPreferencesFromStorage } from '@/lib/agent-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { McpAgentUIMessage } from '@/agent/chat-agent';
@@ -260,7 +258,6 @@ export function PlaygroundChat({
   chatUserId,
   isReadOnly = false 
 }: PlaygroundChatProps) {
-  const router = useRouter();
   const { t } = useI18n();
   const [chatId, setChatId] = useState<string>(() => {
     if (propChatId) return propChatId;
@@ -353,16 +350,6 @@ export function PlaygroundChat({
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if ((pathname === '/chat' || pathname === '/chat/') && !propChatId) {
-      setMessages([]);
-      setChatId(crypto.randomUUID());
-      setChatInput("");
-    }
-  }, [pathname, propChatId, setMessages]);
-
   const { upsertChat } = useSidebarChats();
 
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
@@ -376,7 +363,7 @@ export function PlaygroundChat({
       window.history.replaceState(null, '', `/chat/${chatId}`);
     }
 
-    upsertChat({ id: chatId, title: initialTitle });
+    upsertChat({ id: chatId, title: initialTitle, user_id: chatUserId });
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
@@ -391,9 +378,12 @@ export function PlaygroundChat({
     }
   };
 
+  // Only sync initialTitle if this is an existing saved chat (has propChatId and initialTitle)
   useEffect(() => {
-    upsertChat({ id: chatId, title: initialTitle || undefined, user_id: chatUserId });
-  }, [initialTitle, chatId, chatUserId, upsertChat]);
+    if (initialTitle && propChatId) {
+      upsertChat({ id: propChatId, title: initialTitle, user_id: chatUserId });
+    }
+  }, [initialTitle, propChatId, chatUserId, upsertChat]);
 
   useEffect(() => {
     for (const message of messages) {
