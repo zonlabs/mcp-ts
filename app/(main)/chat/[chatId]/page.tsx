@@ -16,7 +16,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
   const supabase = await createClient();
   const { data: chatRow, error } = await supabase
     .from('chats')
-    .select('id, title')
+    .select('id, title, user_id')
     .eq('id', chatId)
     .maybeSingle();
 
@@ -32,6 +32,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
       key={chatId}
       chatId={chatId}
       initialTitle={chatRow.title}
+      chatUserId={chatRow.user_id}
       initialMessages={initialMessages}
       initialDraft={draft}
     />

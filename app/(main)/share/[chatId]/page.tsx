@@ -44,6 +44,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
       key={chatId}
       chatId={chatId}
       initialTitle={chatData.title}
+      chatUserId={chatData.user_id}
       initialMessages={messages}
       isReadOnly={isReadOnly}
     />

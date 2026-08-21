@@ -56,6 +56,7 @@ interface PlaygroundChatProps {
   initialMessages?: McpAgentUIMessage[];
   initialDraft?: string;
   initialTitle?: string | null;
+  chatUserId?: string | null;
   isReadOnly?: boolean;
 }
 
@@ -256,6 +257,7 @@ export function PlaygroundChat({
   initialMessages = [], 
   initialDraft,
   initialTitle,
+  chatUserId,
   isReadOnly = false 
 }: PlaygroundChatProps) {
   const router = useRouter();
@@ -390,10 +392,8 @@ export function PlaygroundChat({
   };
 
   useEffect(() => {
-    if (initialTitle) {
-      upsertChat({ id: chatId, title: initialTitle });
-    }
-  }, [initialTitle, chatId, upsertChat]);
+    upsertChat({ id: chatId, title: initialTitle || undefined, user_id: chatUserId });
+  }, [initialTitle, chatId, chatUserId, upsertChat]);
 
   useEffect(() => {
     for (const message of messages) {
@@ -402,16 +402,16 @@ export function PlaygroundChat({
       if (!meta?.isNewChat || !title) continue;
       if (lastTitleRef.current === title) return;
       lastTitleRef.current = title;
-      upsertChat({ id: chatId, title });
+      upsertChat({ id: chatId, title, user_id: chatUserId });
       return;
     }
-  }, [messages, chatId, upsertChat]);
+  }, [messages, chatId, chatUserId, upsertChat]);
 
   useEffect(() => {
     if (status === 'ready' && messages.length > 0) {
-      upsertChat({ id: chatId });
+      upsertChat({ id: chatId, user_id: chatUserId });
     }
-  }, [status, messages.length, chatId, upsertChat]);
+  }, [status, messages.length, chatId, chatUserId, upsertChat]);
 
   const contextUsage = useMemo(
     () => [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage)?.metadata?.usage,

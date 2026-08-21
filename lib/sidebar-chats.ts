@@ -5,6 +5,7 @@ export type SidebarChat = {
   created_at: string | null;
   visibility?: string | null;
   is_pinned?: boolean | null;
+  user_id?: string | null;
 };
 
 export function normalizeSidebarChats(chats: SidebarChat[]): SidebarChat[] {

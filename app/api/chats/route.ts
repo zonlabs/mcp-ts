@@ -34,15 +34,23 @@ export async function DELETE(req: Request) {
   }
 
   // Delete chat row (cascade will clean up chat_messages)
-  const { error } = await supabase
+  const { data: deletedRows, error } = await supabase
     .from("chats")
     .delete()
     .eq("id", chatId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
 
   if (error) {
     console.error("[api/chats] DELETE error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!deletedRows || deletedRows.length === 0) {
+    return NextResponse.json(
+      { error: "You can only delete chats that you created." },
+      { status: 403 }
+    );
   }
 
   return NextResponse.json({ success: true, id: chatId });
@@ -87,15 +95,23 @@ export async function PATCH(req: Request) {
     updates.visibility = body.visibility;
   }
 
-  const { error } = await supabase
+  const { data: updatedRows, error } = await supabase
     .from("chats")
     .update(updates)
     .eq("id", chatId)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
 
   if (error) {
     console.error("[api/chats] PATCH error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    return NextResponse.json(
+      { error: "You can only rename or modify chats that you created." },
+      { status: 403 }
+    );
   }
 
   return NextResponse.json({ success: true, id: chatId, ...updates });

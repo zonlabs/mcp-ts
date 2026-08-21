@@ -32,7 +32,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useSidebarChats } from "@/lib/hooks/use-sidebar-chats";
 import { SearchDialog } from "@/components/layout/SearchDialog";
 import { ShareConversationDialog } from "@/components/chat/ShareConversationDialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +67,10 @@ interface ChatMenuProps {
 
 function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: ChatMenuProps) {
   const [open, setOpen] = useState(false);
+  const { userSession } = useAuth();
+  const isOwner = Boolean(
+    userSession?.user?.id && (chat.user_id ? chat.user_id === userSession.user.id : true)
+  );
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -97,26 +101,30 @@ function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: Cha
           e.stopPropagation();
         }}
       >
-        <DropdownMenuItem
-          onSelect={() => {
-            setOpen(false);
-            onTogglePin(chat.id, !chat.is_pinned);
-          }}
-          className="gap-2 py-1.5 cursor-pointer"
-        >
-          {chat.is_pinned ? <PinOff className="size-[18px] text-muted-foreground" /> : <Pin className="size-[18px] text-muted-foreground" />}
-          {chat.is_pinned ? "Unpin chat" : "Pin chat"}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            setOpen(false);
-            onRename(chat.id, chat.title || "New Chat");
-          }}
-          className="gap-2 py-1.5 cursor-pointer"
-        >
-          <Pencil className="size-[18px] text-muted-foreground" />
-          Rename
-        </DropdownMenuItem>
+        {isOwner && (
+          <DropdownMenuItem
+            onSelect={() => {
+              setOpen(false);
+              onTogglePin(chat.id, !chat.is_pinned);
+            }}
+            className="gap-2 py-1.5 cursor-pointer"
+          >
+            {chat.is_pinned ? <PinOff className="size-[18px] text-muted-foreground" /> : <Pin className="size-[18px] text-muted-foreground" />}
+            {chat.is_pinned ? "Unpin chat" : "Pin chat"}
+          </DropdownMenuItem>
+        )}
+        {isOwner && (
+          <DropdownMenuItem
+            onSelect={() => {
+              setOpen(false);
+              onRename(chat.id, chat.title || "New Chat");
+            }}
+            className="gap-2 py-1.5 cursor-pointer"
+          >
+            <Pencil className="size-[18px] text-muted-foreground" />
+            Rename
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onSelect={() => {
             setOpen(false);
@@ -127,28 +135,48 @@ function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: Cha
           <ExternalLink className="size-[18px] text-muted-foreground" />
           Open in new tab
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            setOpen(false);
-            onShare(chat);
-          }}
-          className="gap-2 py-1.5 cursor-pointer"
-        >
-          <Share2 className="size-[18px] text-muted-foreground" />
-          Share
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          onSelect={() => {
-            setOpen(false);
-            onDelete(chat.id);
-          }}
-          className="gap-2 py-1.5 cursor-pointer text-destructive focus:text-destructive"
-        >
-          <X className="size-[18px] text-destructive" />
-          Delete
-        </DropdownMenuItem>
+        {isOwner ? (
+          <DropdownMenuItem
+            onSelect={() => {
+              setOpen(false);
+              onShare(chat);
+            }}
+            className="gap-2 py-1.5 cursor-pointer"
+          >
+            <Share2 className="size-[18px] text-muted-foreground" />
+            Share
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onSelect={() => {
+              setOpen(false);
+              const origin = typeof window !== "undefined" ? window.location.origin : "";
+              const url = `${origin}/share/${chat.id}`;
+              navigator.clipboard.writeText(url);
+              toast.success("Link copied to clipboard");
+            }}
+            className="gap-2 py-1.5 cursor-pointer"
+          >
+            <LinkIcon className="size-[18px] text-muted-foreground" />
+            Copy link
+          </DropdownMenuItem>
+        )}
+        {isOwner && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => {
+                setOpen(false);
+                onDelete(chat.id);
+              }}
+              className="gap-2 py-1.5 cursor-pointer text-destructive focus:text-destructive"
+            >
+              <X className="size-[18px] text-destructive" />
+              Delete
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -364,7 +392,7 @@ export function AppShell({
         router.push("/chat");
       }
     },
-    onError: () => toast.error("Failed to delete chat"),
+    onError: (err: any) => toast.error(err?.message || "Failed to delete chat"),
   });
 
   // Pin/unpin mutation
@@ -375,14 +403,15 @@ export function AppShell({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_pinned: pinned }),
       });
-      if (!res.ok) throw new Error("Failed to update");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to update");
       return { id, pinned };
     },
     onSuccess: ({ id, pinned }) => {
       upsertChat({ id, is_pinned: pinned });
       toast.success(pinned ? "Chat pinned" : "Chat unpinned");
     },
-    onError: () => toast.error("Failed to update chat"),
+    onError: (err: any) => toast.error(err?.message || "Failed to update chat"),
   });
 
   // Rename mutation
@@ -393,7 +422,8 @@ export function AppShell({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),
       });
-      if (!res.ok) throw new Error("Failed to rename");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to rename");
       return { id, title };
     },
     onSuccess: ({ id, title }) => {
@@ -401,7 +431,7 @@ export function AppShell({
       toast.success("Chat renamed");
       setEditingChat(null);
     },
-    onError: () => toast.error("Failed to rename chat"),
+    onError: (err: any) => toast.error(err?.message || "Failed to rename chat"),
   });
 
   // Filter and group chats
@@ -783,53 +813,6 @@ export function AppShell({
     <div className="flex h-screen w-full bg-sidebar text-foreground overflow-hidden font-sans select-none antialiased p-1.5 sm:p-2 gap-0 lg:gap-2">
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      {/* Rename Dialog */}
-      {editingChat && (
-        <Dialog open={Boolean(editingChat)} onOpenChange={(open) => !open && setEditingChat(null)}>
-          <DialogContent className="sm:max-w-sm p-4 bg-card border-border rounded-sm">
-            <DialogHeader>
-              <DialogTitle className="text-sm font-medium text-foreground">Rename Chat</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (editingChat.title.trim()) {
-                  renameMutation.mutate({ id: editingChat.id, title: editingChat.title.trim() });
-                }
-              }}
-              className="space-y-3 pt-2"
-            >
-              <input
-                type="text"
-                value={editingChat.title}
-                onChange={(e) => setEditingChat({ ...editingChat, title: e.target.value })}
-                className="w-full h-8 px-2.5 text-xs bg-background border border-border rounded-sm text-foreground focus:outline-none focus:border-primary font-sans"
-                autoFocus
-              />
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingChat(null)}
-                  className="h-7 px-2.5 text-xs rounded-sm"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={renameMutation.isPending || !editingChat.title.trim()}
-                  className="h-7 px-3 text-xs rounded-sm"
-                >
-                  Save
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
-
       {/* ── Desktop Sidebar (hidden on <lg) ── */}
       <aside
         className={cn(
@@ -936,11 +919,14 @@ export function AppShell({
         <DialogContent className="w-[calc(100vw-2rem)] max-w-sm border-border bg-card p-5 text-foreground shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold">Rename Chat</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Enter a new title for this chat.
+            </DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (editingChat && editingChat.title.trim()) {
+              if (editingChat && editingChat.title.trim() && !renameMutation.isPending) {
                 renameMutation.mutate({ id: editingChat.id, title: editingChat.title.trim() });
               }
             }}
@@ -949,10 +935,11 @@ export function AppShell({
             <input
               type="text"
               value={editingChat?.title || ""}
+              disabled={renameMutation.isPending}
               onChange={(e) =>
                 setEditingChat((prev) => (prev ? { ...prev, title: e.target.value } : null))
               }
-              className="w-full h-9 px-3 text-xs bg-background border border-border rounded-sm text-foreground focus:outline-none focus:border-primary font-sans"
+              className="w-full h-9 px-3 text-xs bg-background border border-border rounded-sm text-foreground focus:outline-none focus:border-primary font-sans disabled:opacity-50"
               placeholder="Enter new chat title"
               autoFocus
             />
@@ -961,6 +948,7 @@ export function AppShell({
                 type="button"
                 variant="ghost"
                 size="sm"
+                disabled={renameMutation.isPending}
                 onClick={() => setEditingChat(null)}
                 className="h-8 px-3 text-xs cursor-pointer"
               >
@@ -969,10 +957,10 @@ export function AppShell({
               <Button
                 type="submit"
                 size="sm"
-                disabled={!editingChat?.title?.trim()}
+                disabled={!editingChat?.title?.trim() || renameMutation.isPending}
                 className="h-8 px-3 text-xs cursor-pointer"
               >
-                Save
+                {renameMutation.isPending ? "Saving..." : "Save"}
               </Button>
             </div>
           </form>

@@ -7,6 +7,7 @@ import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider"
 import QueryProvider from "@/components/providers/QueryProvider";
 import { createClient } from "@/lib/supabase/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "react-hot-toast";
 import { geist, inter, geistMono } from "@/lib/fonts";
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default async function RootLayout({
               >
                 <TooltipProvider delayDuration={150}>
                   <WebLanguageProvider />
+                  <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
                   {children}
                 </TooltipProvider>
               </ThemeProvider>

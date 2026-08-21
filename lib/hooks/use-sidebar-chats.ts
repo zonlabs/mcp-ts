@@ -42,6 +42,7 @@ export function useSidebarChats(
           updated_at: chat.updated_at || now,
           is_pinned: chat.is_pinned ?? false,
           visibility: chat.visibility ?? "PRIVATE",
+          user_id: chat.user_id ?? null,
         };
         return { chats: [newEntry, ...list] };
       }

@@ -12,7 +12,7 @@ export async function loadSidebarChats(): Promise<SidebarChat[]> {
 
   const { data, error } = await supabase
     .from("chats")
-    .select("id, title, updated_at, created_at, visibility, is_pinned")
+    .select("id, title, updated_at, created_at, visibility, is_pinned, user_id")
     .eq("user_id", user.id)
     .order("is_pinned", { ascending: false })
     .order("updated_at", { ascending: false });
@@ -23,7 +23,7 @@ export async function loadSidebarChats(): Promise<SidebarChat[]> {
 
   const { data: fallbackData, error: fallbackError } = await supabase
     .from("chats")
-    .select("id, title, updated_at, created_at, visibility")
+    .select("id, title, updated_at, created_at, visibility, user_id")
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
