@@ -602,9 +602,8 @@ export function AppShell({
             <Link
               href="/chat"
               onClick={() => {
+                console.log('[NewChat:click] Router pathname:', pathname, 'Window pathname:', typeof window !== 'undefined' ? window.location.pathname : '');
                 if (isMobile) setMobileDrawerOpen(false);
-                router.push("/chat");
-                router.refresh();
               }}
               className={cn(
                 "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",

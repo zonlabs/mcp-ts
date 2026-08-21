@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
 import { useRef, useEffect, useMemo, useState, useCallback, memo } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
@@ -259,6 +260,7 @@ export function PlaygroundChat({
   isReadOnly = false 
 }: PlaygroundChatProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const chatId = propChatId || (typeof crypto !== "undefined" ? crypto.randomUUID() : `chat-${Date.now()}`);
 
   const [chatInput, setChatInput] = useState("");
@@ -277,6 +279,15 @@ export function PlaygroundChat({
 
   const chatContentWidthClass = "w-full max-w-2xl mx-auto px-4 sm:px-6";
   const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
+
+  useEffect(() => {
+    console.log('[PlaygroundChat:mount]', {
+      chatId,
+      propChatId,
+      initialMessagesCount: safeInitialMessages.length,
+      locationPathname: typeof window !== 'undefined' ? window.location.pathname : '',
+    });
+  }, [chatId, propChatId, safeInitialMessages.length]);
 
   const getCurrentLlmConfig = () => {
     const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
