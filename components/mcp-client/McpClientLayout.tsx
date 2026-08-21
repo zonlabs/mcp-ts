@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ArrowLeft, X } from "lucide-react";
-import { Toaster, toast } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 import { HomeView } from "./HomeView";
 import { AppsView } from "./AppsView";
@@ -207,23 +207,7 @@ export default function McpClientLayout({
   }, [viewParam, selectedServer, activeTabParam]);
 
   return (
-    <>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#383330",
-            color: "#f7f5f0",
-            border: "1px solid #3f3a36",
-            borderRadius: "4px",
-            fontSize: "13px",
-            fontFamily: "var(--font-sans), sans-serif",
-          },
-        }}
-      />
-
-      <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative">
+    <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative">
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
           {currentView === "add" ? (
@@ -360,6 +344,5 @@ export default function McpClientLayout({
           </>
         )}
       </div>
-    </>
   );
 }

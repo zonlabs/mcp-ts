@@ -84,10 +84,6 @@ function normalizeTransport(value?: string | null): "sse" | "streamable-http" | 
   return null;
 }
 
-function showMcpErrorToast(scope: 'connect' | 'disconnect', message: string) {
-  toast.error(message);
-}
-
 export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -180,6 +176,8 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
     setIsConnecting(true);
     setConnectionError(null);
 
+    const serverName = server.title || server.name;
+
     try {
       const mcpActions = useMcpStore.getState().mcpActions;
       if (!mcpActions) {
@@ -194,7 +192,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
 
       await mcpActions.connect({
         serverId: identity,
-        serverName: server.title || server.name,
+        serverName: serverName,
         serverUrl: serverUrl,
         transportType: transport,
         callbackUrl,
@@ -205,9 +203,9 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
       });
 
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Failed to connect";
+      const errorMsg = `Failed to connect ${server.title || server.name || "server"}`;
       setConnectionError(errorMsg);
-      showMcpErrorToast('connect', errorMsg);
+      toast.error(errorMsg);
       throw (error instanceof Error ? error : new Error(errorMsg));
     } finally {
       setIsConnecting(false);
@@ -251,7 +249,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
         }
         await mcpActions.disconnect(directConn.sessionId);
       } catch (error) {
-        showMcpErrorToast('disconnect', error instanceof Error ? error.message : "Failed to disconnect");
+        toast.error("Something went wrong");
       }
       return;
     }
@@ -264,7 +262,7 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
 
       await mcpActions.disconnect(storedConnection.sessionId);
     } catch (error) {
-      showMcpErrorToast('disconnect', error instanceof Error ? error.message : "Failed to disconnect");
+      toast.error("Something went wrong");
     }
   }, []);
 

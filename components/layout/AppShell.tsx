@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useMutation } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -43,7 +44,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import type { SidebarChat } from "@/lib/sidebar-chats";
 

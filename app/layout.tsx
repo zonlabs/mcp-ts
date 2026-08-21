@@ -48,7 +48,32 @@ export default async function RootLayout({
               >
                 <TooltipProvider delayDuration={150}>
                   <WebLanguageProvider />
-                  <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+                  <Toaster
+                    position="top-right"
+                    toastOptions={{
+                      duration: 3500,
+                      style: {
+                        background: "var(--card)",
+                        color: "var(--foreground)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "6px",
+                        fontSize: "13px",
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
+                      },
+                      success: {
+                        iconTheme: {
+                          primary: "var(--foreground)",
+                          secondary: "var(--card)",
+                        },
+                      },
+                      error: {
+                        iconTheme: {
+                          primary: "var(--destructive, #ef4444)",
+                          secondary: "var(--destructive-foreground, #ffffff)",
+                        },
+                      },
+                    }}
+                  />
                   {children}
                 </TooltipProvider>
               </ThemeProvider>

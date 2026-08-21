@@ -191,7 +191,7 @@ export function AppDetailView({
         await onAction(server, "activate");
       }
     } catch (e: any) {
-      toast.error(e?.message || "Failed to update connection");
+      // Error is already formatted and toasted by connection handler
     } finally {
       setIsActionPending(false);
     }
