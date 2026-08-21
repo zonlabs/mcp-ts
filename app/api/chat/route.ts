@@ -57,42 +57,43 @@ function extractUserText(messages: McpAgentUIMessage[]): string {
         .trim();
       if (text) return text;
     }
+    const content = (message as any)?.content;
+    if (typeof content === 'string' && content.trim()) return content.trim();
+    if (Array.isArray(content)) {
+      const text = content
+        .filter((c: any) => c?.type === 'text' && c.text)
+        .map((c: any) => c.text)
+        .join(' ')
+        .trim();
+      if (text) return text;
+    }
     const raw = (message as any)?.text;
     if (typeof raw === 'string' && raw.trim()) return raw.trim();
   }
   return '';
 }
 
-async function handleAutoTitle(
-  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
-  chatId: string | undefined,
-  userId: string,
-  messages: McpAgentUIMessage[],
+const TITLE_SYSTEM_PROMPT = `You are a chat title generator. Output ONLY a concise title (3 to 6 words) summarizing the user's message. Do NOT answer the question. Do NOT use quotes or punctuation at the start/end.`;
+
+async function generateTitleFromUserMessage(
+  userText: string,
   llmConfig?: ChatRequestBody['llmConfig']
 ): Promise<string | null> {
-  if (!chatId) return null;
-  const userText = extractUserText(messages);
-  if (!userText) return null;
-
-  const { data: chat } = await supabase.from('chats').select('title').eq('id', chatId).maybeSingle();
-  if (chat?.title && chat.title !== 'New Chat') return null;
-
-  let title: string | null = null;
   try {
-    const result = await generateText({
+    const { text } = await generateText({
+      system: TITLE_SYSTEM_PROMPT,
       model: getTitleModel(llmConfig),
-      prompt: `Create a concise chat title (3-6 words). Avoid quotes and punctuation.\nMessage: ${userText}`,
-      maxOutputTokens: 24,
+      prompt: `User message: "${userText}"\n\nTitle:`,
     });
-    title = result.text?.trim()?.replace(/^["']|["']$/g, '') || null;
-  } catch {
-    title = userText.length > 50 ? userText.slice(0, 47) + '...' : userText;
+    const cleaned = text
+      .replace(/^[#*"\s]+/, '')
+      .replace(/["]+$/, '')
+      .trim();
+    return cleaned || null;
+  } catch (err) {
+    console.error('[generateTitleFromUserMessage] Failed:', err);
+    return userText.length > 50 ? userText.slice(0, 47) + '...' : userText;
   }
-
-  if (title) {
-    await supabase.from('chats').upsert({ id: chatId, user_id: userId, title, updated_at: new Date().toISOString() });
-  }
-  return title;
 }
 
 export async function POST(req: Request) {
@@ -121,6 +122,8 @@ export async function POST(req: Request) {
   }
 
   // 2. Permission check and pre-stream database sync
+  let titlePromise: Promise<string | null> | null = null;
+
   if (chatId) {
     const denied = await assertChatPermission(supabase, chatId, user.id);
     if (denied) return denied;
@@ -132,12 +135,18 @@ export async function POST(req: Request) {
     } else if (trigger === 'submit-user-message' && message) {
       await saveChat(chatId, [message]);
     }
+
+    // Auto-title generation kick-off (runs in background without blocking TTFT, matching chatbot)
+    const userMessages = chatMessages.filter((m) => m.role === 'user');
+    if (userMessages.length === 1 && trigger === 'submit-user-message') {
+      const userText = extractUserText(userMessages);
+      if (userText) {
+        titlePromise = generateTitleFromUserMessage(userText, llmConfig);
+      }
+    }
   }
 
-  // 3. Auto-title generation for new/untitled chats
-  const newChatTitle = await handleAutoTitle(supabase, chatId, user.id, chatMessages, llmConfig);
-
-  // 4. Stream response via MCP Agent
+  // 3. Stream response via MCP Agent
   const { agent, cleanup } = await createMcpAgent({ userId: user.id, userPreferences });
   req.signal.addEventListener('abort', cleanup, { once: true });
 
@@ -150,11 +159,18 @@ export async function POST(req: Request) {
     options: { userId: user.id, llmConfig, userPreferences },
   });
 
+  let resolvedTitle: string | undefined;
+  if (titlePromise) {
+    titlePromise.then((t) => {
+      if (t) resolvedTitle = t;
+    });
+  }
+
   return result.toUIMessageStreamResponse<McpAgentUIMessage>({
     originalMessages: normalizedMessages,
     generateMessageId: () => generateId(),
     messageMetadata: ({ part }) => {
-      const base = newChatTitle ? { isNewChat: true, chatTitle: newChatTitle } : undefined;
+      const base = resolvedTitle ? { isNewChat: true, chatTitle: resolvedTitle } : undefined;
       return part.type === 'finish-step' ? { ...base, usage: part.usage } : base;
     },
     onFinish: async ({ responseMessage }) => {
@@ -165,8 +181,19 @@ export async function POST(req: Request) {
           await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('external_id', messageId);
         }
         await saveChat(chatId, [responseMessage]);
+
+        if (titlePromise) {
+          try {
+            const title = await titlePromise;
+            if (title) {
+              await supabase.from('chats').upsert({ id: chatId, title, user_id: user.id, updated_at: new Date().toISOString() });
+            }
+          } catch (err) {
+            console.error('[chat:onFinish] Error saving title:', err);
+          }
+        }
       } catch (err) {
-        console.error('[chat:onFinish] Error saving assistant message:', err);
+        console.error('[chat:onFinish] Error saving assistant message / title:', err);
       }
     },
   });

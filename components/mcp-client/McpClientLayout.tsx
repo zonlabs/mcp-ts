@@ -77,34 +77,52 @@ export default function McpClientLayout({
 
     // 1. Check custom user servers
     const fromUser = userServers.find((s) => s.id === serverParam);
-    if (fromUser) return fromUser;
+    if (fromUser) {
+      console.debug("[McpClientLayout] Resolved serverParam from userServers:", { serverParam, server: fromUser });
+      return fromUser;
+    }
 
     // 2. Check loaded catalog servers by their UUID primary key
     const fromCatalog = catalogServers.find((s) => s.id === serverParam);
-    if (fromCatalog) return fromCatalog;
+    if (fromCatalog) {
+      console.debug("[McpClientLayout] Resolved serverParam from catalogServers:", { serverParam, server: fromCatalog });
+      return fromCatalog;
+    }
 
-    // 3 & 4. Check active connections — prefer metadata.catalogServerId match,
+    // 3 & 4. Check active connections — prefer metadata.catalogServerId or serverId match,
     // fall back to sessionId (used for custom/non-catalog servers)
     const conn: StoredConnection | undefined =
-      connections[serverParam] ??
       Object.values(connections).find(
         (c) => c.metadata?.catalogServerId === serverParam
+      ) ??
+      connections[serverParam] ??
+      Object.values(connections).find(
+        (c) => c.serverId === serverParam
       );
 
     if (conn) {
+      const catalogServerId = conn.metadata?.catalogServerId;
+      const targetId = catalogServerId || conn.serverId || serverParam;
+
       // If connection matches a user server or catalog server, prefer that
       const matchedUserServer = userServers.find(
-        (s) => s.id === conn.metadata?.catalogServerId || s.id === conn.serverId
+        (s) => (catalogServerId && s.id === catalogServerId) || s.id === targetId || s.id === conn.serverId
       );
-      if (matchedUserServer) return matchedUserServer;
+      if (matchedUserServer) {
+        console.debug("[McpClientLayout] Resolved connection to userServer:", { serverParam, targetId, matchedUserServer });
+        return { ...matchedUserServer, id: targetId };
+      }
 
       const matchedCatalogServer = catalogServers.find(
-        (s) => s.id === conn.metadata?.catalogServerId || s.id === conn.serverId
+        (s) => (catalogServerId && s.id === catalogServerId) || s.id === targetId || s.id === conn.serverId
       );
-      if (matchedCatalogServer) return matchedCatalogServer;
+      if (matchedCatalogServer) {
+        console.debug("[McpClientLayout] Resolved connection to catalogServer:", { serverParam, targetId, matchedCatalogServer });
+        return { ...matchedCatalogServer, id: targetId };
+      }
 
-      return {
-        id: conn.metadata?.catalogServerId ?? conn.serverId,
+      const resolvedServer: McpServer = {
+        id: targetId,
         name: conn.serverName,
         url: conn.url ?? undefined,
         transport: conn.transport ?? "streamable-http",
@@ -116,9 +134,14 @@ export default function McpClientLayout({
         description: "",
         updated_at: conn.connectedAt ?? new Date().toISOString(),
       };
+      console.debug("[McpClientLayout] Resolved standalone connection server:", { serverParam, resolvedServer });
+      return resolvedServer;
     }
 
     // 5. SSR fallback
+    if (initialSelectedServer) {
+      console.debug("[McpClientLayout] Resolved serverParam from SSR initialSelectedServer:", { serverParam, initialSelectedServer });
+    }
     return initialSelectedServer ?? null;
   }, [serverParam, userServers, catalogServers, connections, initialSelectedServer]);
 
@@ -126,6 +149,7 @@ export default function McpClientLayout({
   const handleSelectApp = useCallback(
     (appOrId: McpServer | string) => {
       const serverId = typeof appOrId === "string" ? appOrId : appOrId.id;
+      console.debug("[McpClientLayout] Navigating to app with serverId:", serverId, { appOrId });
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", "apps");
       params.set("server", serverId);
