@@ -259,21 +259,7 @@ export function PlaygroundChat({
   isReadOnly = false 
 }: PlaygroundChatProps) {
   const { t } = useI18n();
-  const [chatId, setChatId] = useState<string>(() => {
-    if (propChatId) return propChatId;
-    if (typeof crypto !== "undefined" && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
-    return "chat-" + Date.now();
-  });
-
-  useEffect(() => {
-    if (propChatId) {
-      if (propChatId !== chatId) {
-        setChatId(propChatId);
-      }
-    }
-  }, [propChatId]);
+  const [chatId] = useState<string>(() => propChatId || (typeof crypto !== "undefined" ? crypto.randomUUID() : `chat-${Date.now()}`));
 
   const [chatInput, setChatInput] = useState("");
   const [activeMcpApp, setActiveMcpApp] = useState<{

@@ -14,27 +14,25 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
   const { data: chatRow } = await supabase
     .from('chats')
     .select('id, title, user_id')
     .eq('id', chatId)
     .maybeSingle();
 
-  if (!chatRow && !user) {
+  if (!chatRow) {
     notFound();
   }
 
-  const initialMessages = chatRow ? await loadChat(chatId) : [];
+  const initialMessages = await loadChat(chatId);
   const draft = typeof searchParams?.draft === 'string' ? searchParams.draft : undefined;
 
   return (
     <PlaygroundChat
       key={chatId}
       chatId={chatId}
-      initialTitle={chatRow?.title}
-      chatUserId={chatRow?.user_id || user?.id}
+      initialTitle={chatRow.title}
+      chatUserId={chatRow.user_id}
       initialMessages={initialMessages}
       initialDraft={draft}
     />
