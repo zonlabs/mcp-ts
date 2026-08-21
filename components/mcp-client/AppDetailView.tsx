@@ -35,7 +35,9 @@ import {
 import { McpServer, ToolInfo } from "@/types/mcp";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { ServerIcon } from "@/components/common/ServerIcon";
-import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
+import { findConnectionForServer } from "@/lib/mcp/connection-utils";
+import { useMcpContext } from "@/components/providers/McpProvider";
+import { useUserServers } from "@/hooks/useUserServers";
 import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { ToolAccessDialog } from "./ToolAccessDialog";
@@ -82,9 +84,8 @@ export function AppDetailView({
   onDelete,
   onTestTool,
 }: AppDetailViewProps) {
-  const connections = useMcpStore((s) => s.connections);
-  const userServers = useMcpStore((s) => s.userServers);
-  const updateSession = useMcpStore((s) => s.mcpActions?.updateSession);
+  const { connections, updateSession } = useMcpContext();
+  const { userServers, refetch: refetchUserServers } = useUserServers();
   const stored = useMemo(
     () => findConnectionForServer(connections, server),
     [connections, server]
@@ -119,7 +120,7 @@ export function AppDetailView({
     setIsDeleting(true);
     try {
       await onDelete(server.id);
-      void useMcpStore.getState().fetchUserServers();
+      void refetchUserServers();
       toast.success(`${server.name} deleted successfully`);
       setDeleteConfirmOpen(false);
       onBack();
@@ -130,26 +131,18 @@ export function AppDetailView({
     }
   };
 
-  const connStatus = (stored?.connectionStatus ?? server.connectionStatus)?.toUpperCase();
-  const isConnected = connStatus === "READY" || connStatus === "CONNECTED";
+  const connStatus = (stored?.state ?? server.connectionStatus ?? "DISCONNECTED").toUpperCase();
+  const isConnected = connStatus === "READY";
   const isInProgress = Boolean(
     isActionPending ||
-    (connStatus && [
-      "INITIALIZING",
-      "VALIDATING",
-      "CONNECTING",
-      "AUTHENTICATING",
-      "AUTHENTICATED",
-      "DISCOVERING",
-    ].includes(connStatus))
+    ["CONNECTING", "AUTHENTICATING", "DISCOVERING"].includes(connStatus)
   );
-  console.log(`[AppDetailView:${server.name}] connStatus: ${connStatus}, isInProgress: ${isInProgress}, isConnected: ${isConnected}, isActionPending: ${isActionPending}`);
-  const isServerEnabled = optimisticEnabled !== null ? optimisticEnabled : (stored ? stored.enabled !== false : true);
+  const isServerEnabled = optimisticEnabled !== null ? optimisticEnabled : (stored ? (stored as any).enabled !== false : true);
 
-  const allTools: ToolInfo[] = stored?.tools ?? server.tools ?? [];
-  const prompts = stored?.prompts ?? server.prompts ?? [];
-  const resources = stored?.resources ?? server.resources ?? [];
-  const resourceTemplates = stored?.resourceTemplates ?? [];
+  const allTools: ToolInfo[] = (stored?.tools as ToolInfo[]) ?? server.tools ?? [];
+  const prompts = (stored as any)?.prompts ?? server.prompts ?? [];
+  const resources = (stored as any)?.resources ?? server.resources ?? [];
+  const resourceTemplates = (stored as any)?.resourceTemplates ?? [];
 
   // Group tools by category
   const groupedTools = useMemo(() => {
@@ -447,7 +440,7 @@ export function AppDetailView({
           </div>
 
           {/* Bottom Full-Width Metadata Row */}
-          {(server.url || (isOwner && (server.createdAt || (server as any).created_at)) || stored?.connectedAt) && (
+          {(server.url || (isOwner && (server.createdAt || (server as any).created_at)) || (stored?.updatedAt || stored?.createdAt)) && (
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 pt-2 text-[11px] font-mono text-muted-foreground/80">
               {server.url && (
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -478,10 +471,10 @@ export function AppDetailView({
                 </span>
               )}
 
-              {stored?.connectedAt && (
+              {(stored?.updatedAt || stored?.createdAt) && (
                 <span className="shrink-0">
                   {isConnected ? "Connected on" : "Last connected on"}{" "}
-                  {new Date(stored.connectedAt).toLocaleString("en-US", {
+                  {new Date(stored.updatedAt || stored.createdAt!).toLocaleString("en-US", {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
@@ -655,7 +648,7 @@ export function AppDetailView({
                   </h3>
                 </div>
                 <div className="space-y-2">
-                  {prompts.map((p) => (
+                  {prompts.map((p: any) => (
                     <div key={p.name} className="p-2.5 bg-background border border-border rounded-sm space-y-1">
                       <p className="text-xs font-mono font-medium text-foreground">{p.name}</p>
                       {p.description && (
@@ -676,13 +669,13 @@ export function AppDetailView({
                   </h3>
                 </div>
                 <div className="space-y-2">
-                  {resources.map((r) => (
+                  {resources.map((r: any) => (
                     <div key={r.uri} className="p-2.5 bg-background border border-border rounded-sm space-y-1">
                       <p className="text-xs font-mono font-medium text-foreground truncate">{r.name || r.uri}</p>
                       <p className="text-[11px] font-mono text-muted-foreground truncate">{r.uri}</p>
                     </div>
                   ))}
-                  {resourceTemplates.map((rt) => (
+                  {resourceTemplates.map((rt: any) => (
                     <div key={rt.uriTemplate} className="p-2.5 bg-background border border-border rounded-sm space-y-1">
                       <p className="text-xs font-mono font-medium text-foreground truncate">{rt.name || rt.uriTemplate}</p>
                       <p className="text-[11px] font-mono text-muted-foreground truncate">{rt.uriTemplate}</p>

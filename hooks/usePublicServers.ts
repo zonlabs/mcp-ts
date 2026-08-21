@@ -3,7 +3,8 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { McpServer } from "@/types/mcp";
-import { useMcpStore, findConnectionForServer, type McpStore } from "@/lib/stores/mcp-store";
+import { useMcpContext } from "@/components/providers/McpProvider";
+import { findConnectionForServer } from "@/lib/mcp/connection-utils";
 import { useDebounce } from "@/hooks/useDebounce";
 
 export const PUBLIC_SERVERS_PAGE_SIZE = 20;
@@ -27,9 +28,7 @@ export interface PublicServersPage {
  *
  * - Uses TanStack `useInfiniteQuery` for cursor-based pagination
  * - Debounces `search` (350ms) and sends it to GET /api/mcp?search=
- * - Merges live connection state from the Zustand store
- * - Replaces: useMcpServers, useMcpServersPagination, useMcpServersFiltered, and the
- *   manual useState fetch in McpPageClient
+ * - Merges live connection state from McpProvider
  */
 export function usePublicServers({
   search = "",
@@ -38,7 +37,7 @@ export function usePublicServers({
   featured,
 }: UsePublicServersOptions = {}) {
   const debouncedSearch = useDebounce(search, PUBLIC_SERVERS_SEARCH_DEBOUNCE_MS).trim();
-  const connections = useMcpStore((state: McpStore) => state.connections);
+  const { connections } = useMcpContext();
 
   const {
     data,
@@ -87,8 +86,8 @@ export function usePublicServers({
       if (stored) {
         return {
           ...server,
-          connectionStatus: stored.connectionStatus,
-          tools: stored.tools ?? server.tools ?? [],
+          connectionStatus: stored.state === "READY" ? "READY" : stored.state,
+          tools: (stored.tools as any[]) ?? server.tools ?? [],
         };
       }
       return {

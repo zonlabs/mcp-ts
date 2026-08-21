@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { McpServer, ToolInfo } from "@/types/mcp";
-import { useMcpStore } from "@/lib/stores/mcp-store";
+import { useMcpContext } from "@/components/providers/McpProvider";
 import { cn } from "@/lib/utils";
 
 interface ToolsExplorerProps {
@@ -26,7 +26,7 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const connections = useMcpStore((s) => s.connections);
+  const { connections } = useMcpContext();
 
   // If a specific server is provided, use its tools. Otherwise aggregate from all active connections.
   const toolsWithServer = useMemo(() => {
@@ -40,11 +40,11 @@ export default function ToolsExplorer({ server, onOpenToolTester }: ToolsExplore
     }
 
     const aggregated: Array<{ tool: ToolInfo; serverName: string; serverId: string }> = [];
-    for (const conn of Object.values(connections)) {
-      if (conn.connectionStatus === "CONNECTED" || conn.connectionStatus === "READY") {
+    for (const conn of connections) {
+      if (conn.state === "READY") {
         for (const t of conn.tools || []) {
           aggregated.push({
-            tool: t,
+            tool: t as ToolInfo,
             serverName: conn.serverName || "MCP Server",
             serverId: conn.serverId,
           });

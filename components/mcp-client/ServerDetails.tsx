@@ -33,7 +33,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { UserSession } from "@/components/providers/AuthProvider";
-import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
+import { findConnectionForServer } from "@/lib/mcp/connection-utils";
+import { useMcpContext } from "@/components/providers/McpProvider";
 
 interface ServerDetailsProps {
   server: McpServer;
@@ -89,18 +90,19 @@ export function ServerDetails({
   const [resourceContents, setResourceContents] = useState<Record<string, { text?: string; mimeType?: string }>>({});
   const [loadingResource, setLoadingResource] = useState<string | null>(null);
 
-  const connections = useMcpStore((s) => s.connections);
+  const { connections, readResource } = useMcpContext();
   const stored = useMemo(
     () => findConnectionForServer(connections, server),
     [connections, server.id, server.url]
   );
 
   const connectionStatus =
-    stored?.connectionStatus ?? server.connectionStatus ?? "DISCONNECTED";
+    stored?.state ?? server.connectionStatus ?? "DISCONNECTED";
   const isConnected = connectionStatus?.toUpperCase() === "READY";
   const isFailed = ["ERROR", "FAILED"].includes(connectionStatus?.toUpperCase() ?? "");
-  const lastConnectedLabel = stored?.connectedAt
-    ? new Date(stored.connectedAt).toLocaleString("en-US", {
+  const lastConnectedDate = stored?.updatedAt || stored?.createdAt;
+  const lastConnectedLabel = lastConnectedDate
+    ? new Date(lastConnectedDate).toLocaleString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -136,8 +138,6 @@ export function ServerDetails({
     { id: "templates" as const, label: "Templates", count: resourceTemplates?.length ?? 0, icon: Database },
   ].filter((t) => t.count > 0);
 
-  const mcpActions = useMcpStore((s) => s.mcpActions);
-
   const handleReadResource = async (uri: string) => {
     if (loadingResource) return;
     if (expandedResource === uri) {
@@ -146,8 +146,8 @@ export function ServerDetails({
     }
     setLoadingResource(uri);
     try {
-      if (!stored?.sessionId || !mcpActions?.readResource) return;
-      const result = await mcpActions.readResource(stored.sessionId, uri);
+      if (!stored?.sessionId || !readResource) return;
+      const result = await readResource(stored.sessionId, uri);
       const contents = (result as any)?.contents;
       if (contents?.[0]) {
         setResourceContents((prev) => ({
@@ -188,8 +188,8 @@ export function ServerDetails({
     setTemplateMimeType(undefined);
     try {
       const uri = substituteTemplate(uriTemplate, templateParams);
-      if (!stored?.sessionId || !mcpActions?.readResource) return;
-      const result = await mcpActions.readResource(stored.sessionId, uri);
+      if (!stored?.sessionId || !readResource) return;
+      const result = await readResource(stored.sessionId, uri);
       const contents = (result as any)?.contents;
       setTemplateResourceContent(contents?.[0]?.text ?? "(empty)");
       setTemplateMimeType(contents?.[0]?.mimeType);
@@ -340,14 +340,14 @@ export function ServerDetails({
                         {connectionStatus}
                       </Badge>
                     </div>
-                    {stored?.connectedAt && (
+                    {lastConnectedDate && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3 shrink-0" />
                         <span className="font-medium text-foreground">Connected at:</span>
                         <span>{lastConnectedLabel}</span>
                       </div>
                     )}
-                    {isConnected && !stored?.connectedAt && (
+                    {isConnected && !lastConnectedDate && (
                       <p className="text-[10px] text-muted-foreground">Connected — reconnect once to record a "last connected" time.</p>
                     )}
                   </div>
@@ -487,7 +487,7 @@ export function ServerDetails({
                     )}
                     {prompt.arguments && prompt.arguments.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
-                        {prompt.arguments.map((arg) => (
+                        {prompt.arguments.map((arg: any) => (
                           <span
                             key={arg.name}
                             className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-mono text-muted-foreground"

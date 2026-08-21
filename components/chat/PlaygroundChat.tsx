@@ -15,8 +15,9 @@ import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
 import { SimpleTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useMcpStore } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
+import { useMcpContext } from '@/components/providers/McpProvider';
+import { findConnectionForServer } from '@/lib/mcp/connection-utils';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import {
@@ -182,16 +183,10 @@ function MessageThoughtSection({
 }
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
   const { t } = useI18n();
-  const connections = useMcpStore(state => state.connections);
-  const normalizedTargetUrl = normalizeServerUrl(input.serverUrl);
+  const { connections } = useMcpContext();
+  const existingConnection = findConnectionForServer(connections, { id: input.serverId, url: input.serverUrl });
 
-  const existingConnection = Object.values(connections).find((conn) => {
-    if (input.serverId && conn.serverId === input.serverId) return true;
-    if (!normalizedTargetUrl) return false;
-    return normalizeServerUrl(conn.url) === normalizedTargetUrl;
-  });
-
-  const connectionStatus = existingConnection?.connectionStatus;
+  const connectionStatus = existingConnection?.state;
   const isReady = connectionStatus === 'READY';
   const isFailed = connectionStatus === 'FAILED' || connectionStatus === 'DISCONNECTED';
 

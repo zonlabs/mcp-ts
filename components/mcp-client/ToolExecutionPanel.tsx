@@ -28,7 +28,8 @@ import {
 } from "lucide-react";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
-import { useMcpStore, findConnectionForServer } from "@/lib/stores/mcp-store";
+import { findConnectionForServer } from "@/lib/mcp/connection-utils";
+import { useMcpContext } from "@/components/providers/McpProvider";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -121,7 +122,7 @@ export default function ToolExecutionPanel({
   const { theme } = useTheme();
   const tool = tools.find((t) => t.name === selectedToolName);
 
-  const connections = useMcpStore((s) => s.connections);
+  const { connections, callTool, readResource } = useMcpContext();
   const stored = useMemo(
     () => findConnectionForServer(connections, server),
     [connections, server]
@@ -306,15 +307,7 @@ export default function ToolExecutionPanel({
         return;
       }
 
-      const mcpActions = useMcpStore.getState().mcpActions;
-
-      if (!mcpActions) {
-        toast.error("Please sign in first.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const res = await mcpActions.callTool(sessionId, tool.name, toolInput);
+      const res = await callTool(sessionId, tool.name, toolInput);
 
       toast.success("Tool executed successfully");
 
@@ -430,8 +423,6 @@ export default function ToolExecutionPanel({
     toast.success("Run history item deleted");
   };
 
-  const mcpActions = useMcpStore((s) => s.mcpActions);
-
   const handleReadResource = async (uri: string) => {
     if (loadingResource === uri) return;
     if (expandedResource === uri) {
@@ -440,8 +431,8 @@ export default function ToolExecutionPanel({
     }
     setLoadingResource(uri);
     try {
-      if (!sessionId || !mcpActions?.readResource) return;
-      const result = await mcpActions.readResource(sessionId, uri);
+      if (!sessionId || !readResource) return;
+      const result = await readResource(sessionId, uri);
       const contents = (result as any)?.contents;
       if (contents?.[0]) {
         setResourceContents((prev) => ({
@@ -487,8 +478,8 @@ export default function ToolExecutionPanel({
     setTemplateContent(null);
     try {
       const uri = substituteTemplate(uriTemplate, templateParams);
-      if (!sessionId || !mcpActions?.readResource) return;
-      const result = await mcpActions.readResource(sessionId, uri);
+      if (!sessionId || !readResource) return;
+      const result = await readResource(sessionId, uri);
       const contents = (result as any)?.contents;
       setTemplateContent({
         text: contents?.[0]?.text ?? "(empty)",
@@ -506,7 +497,7 @@ export default function ToolExecutionPanel({
     return tools.filter(
       (t) =>
         t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.description.toLowerCase().includes(searchQuery.toLowerCase())
+        t.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [tools, searchQuery]);
 

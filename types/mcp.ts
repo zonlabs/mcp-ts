@@ -1,6 +1,6 @@
 export type ToolInfo = {
   name: string;
-  description: string;
+  description?: string;
   schema?: unknown; // JSON type from Strawberry
   inputSchema?: unknown;
   outputSchema?: unknown;
