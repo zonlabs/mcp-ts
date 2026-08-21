@@ -50,6 +50,8 @@ import {
   hasVisibleReasoningText,
 } from '@/components/chat/chain-of-thought-utils';
 
+export const PENDING_CHAT_MESSAGE_STORAGE_KEY = "mcp-assistant:pending-chat-message:v1";
+
 interface PlaygroundChatProps {
   chatId?: string;
   initialMessages?: McpAgentUIMessage[];
@@ -367,7 +369,7 @@ export function PlaygroundChat({
     if (!propChatId) {
       const newChatId = typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`;
       try {
-        sessionStorage.setItem('pending_chat_message', JSON.stringify(data));
+        sessionStorage.setItem(PENDING_CHAT_MESSAGE_STORAGE_KEY, JSON.stringify(data));
       } catch (err) {
         console.error('[PlaygroundChat] Failed to store pending chat message:', err);
       }
@@ -448,9 +450,9 @@ export function PlaygroundChat({
 
   useEffect(() => {
     if (hasSentInitialDraft.current) return;
-    const stored = sessionStorage.getItem('pending_chat_message');
+    const stored = sessionStorage.getItem(PENDING_CHAT_MESSAGE_STORAGE_KEY);
     if (stored) {
-      sessionStorage.removeItem('pending_chat_message');
+      sessionStorage.removeItem(PENDING_CHAT_MESSAGE_STORAGE_KEY);
       try {
         const parsed = JSON.parse(stored);
         if (parsed?.parts?.length) {
