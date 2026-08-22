@@ -2,6 +2,12 @@
 
 Bridge local and remote MCP servers for any MCP client (Cursor, VS Code, Windsurf, Claude Code, ChatGPT, OpenCode, Antigravity, and more). Explore, search, benchmark, codegen, execute tools directly, and run a local MCP gateway.
 
+> [!TIP]
+> Refer to the [**`mcp-cli` Skill**](../../skills/mcp-cli/SKILL.md) or install via:
+> ```bash
+> npx skills add zonlabs/mcp-ts --skill mcp-cli
+> ```
+
 ## Installation & Quick Aliases
 
 Run directly with `npx` or install globally:

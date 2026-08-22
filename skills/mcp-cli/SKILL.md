@@ -3,7 +3,7 @@ name: mcp-cli
 description: Use when running, automating, or integrating the MCP CLI (`mcpa` / `mcp-ts`). Covers local and remote MCP tool discovery, schema inspection, direct tool execution, running local MCP gateway daemons with WebSocket bridges, authenticating via OAuth, benchmarking tool router strategies, and generating TypeScript wrappers.
 ---
 
-# MCP CLI (`mcpa` / `mcp-ts`) Agent Skill
+# MCP CLI (`mcpa` | `mcp-ts`) Agent Skill
 
 Use this skill when interacting with the **`@mcp-ts/cli`** toolchain (`mcpa` or `mcp-ts`). It provides guidance for discovering, inspecting, executing, bridging, and benchmarking Model Context Protocol (MCP) tools across both local and remote environments.
 

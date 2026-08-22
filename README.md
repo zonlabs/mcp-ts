@@ -101,18 +101,18 @@ npm install -g @mcp-ts/cli
 ### Quick Commands
 
 ```bash
-# Explore and inspect remote MCP servers
-mcpa connect https://api.mcp-assistant.in/mcp
-mcpa search https://api.mcp-assistant.in/mcp "send email"
-mcpa codegen https://api.mcp-assistant.in/mcp --out ./src/mcp-tools.ts
+mcpa serve # Start the cli
 
+# Cli Usage
+mcpa connect exa https://mcp.exa.ai/mcp
+mcpa search "send email"
 # Execute tools directly (one-shot or chained)
 mcpa call exa::web_search_exa query="latest AI news"
+
 
 # Run local MCP gateway daemon
 mcpa init       # Create default mcp.json
 mcpa login      # Authenticate with remote gateway
-mcpa serve      # Run local gateway (http://127.0.0.1:8765/mcp)
 ```
 
 For full details, see the [CLI Package README](packages/cli).
