@@ -13,7 +13,7 @@ import { useUserServers } from "@/hooks/useUserServers";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
@@ -440,11 +440,11 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
           <DialogContent className="w-[calc(100vw-2rem)] max-w-sm border-border bg-card p-5 text-foreground shadow-2xl">
             <DialogHeader>
               <DialogTitle className="text-sm font-semibold">Delete Server</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
+                Are you sure you want to delete <span className="font-semibold text-foreground">{serverToDelete?.name}</span>? This will permanently remove this MCP server from your account.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-1">
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Are you sure you want to delete <span className="font-semibold text-foreground">{serverToDelete?.name}</span>? This will permanently remove this MCP server from your account.
-              </p>
               <div className="flex items-center justify-end gap-2 pt-1">
                 <Button
                   type="button"

@@ -71,9 +71,9 @@ export function DeleteAllChatsDialog({
             {typeof chatCount === "number" && chatCount > 0 ? (
               <span className="font-semibold text-foreground">{chatCount} conversation{chatCount === 1 ? "" : "s"}</span>
             ) : (
-              "all your conversations"
+              "all conversations"
             )}{" "}
-            along with all messages, attachments, and tool history. Any active shared links will also become inaccessible.
+            and revoke shared links.
             <span className="block mt-1 font-semibold text-destructive/90">
               This action cannot be undone.
             </span>

@@ -161,7 +161,7 @@ export default function DataControlsPage() {
             Data Controls
           </h1>
           <p className="text-xs text-muted-foreground">
-            Export your conversation history, manage publicly shared links, and control chat data privacy.
+            Manage your chat data, shared links, and exports.
           </p>
         </div>
 
@@ -174,7 +174,7 @@ export default function DataControlsPage() {
                 Export Data
               </h3>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Download an archive of all your conversations, messages, attachments, and tool history.
+                Download your conversation history.
               </p>
             </div>
 
@@ -183,7 +183,7 @@ export default function DataControlsPage() {
                 <div className="space-y-0.5 min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground">Export conversations</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Exports in standard JSON format containing full chat transcripts and metadata.
+                    Download all conversations as a JSON file.
                   </p>
                 </div>
                 <Button
@@ -223,7 +223,7 @@ export default function DataControlsPage() {
                 Shared Links
               </h3>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Manage conversations you have published as public shared links.
+                Manage your public share links.
               </p>
             </div>
 
@@ -261,9 +261,9 @@ export default function DataControlsPage() {
                   <div className="size-8 mx-auto rounded-sm bg-muted/60 border border-border/60 flex items-center justify-center">
                     <Globe className="size-4 text-muted-foreground" />
                   </div>
-                  <p className="text-xs font-medium text-foreground">No shared conversations</p>
+                  <p className="text-xs font-medium text-foreground">No shared links</p>
                   <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-                    When you share a chat, its public link will appear here so you can copy, inspect, or revoke access at any time.
+                    Chats you share publicly will appear here.
                   </p>
                 </div>
               ) : (
@@ -358,7 +358,7 @@ export default function DataControlsPage() {
                 Danger Zone
               </h3>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Irreversible actions that permanently affect your conversation data.
+                Permanent actions for your data.
               </p>
             </div>
 
@@ -367,7 +367,7 @@ export default function DataControlsPage() {
                 <div className="space-y-0.5 min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground">Delete all conversations</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Permanently delete all your chat history, messages, attachments, and tool records.
+                    Permanently remove all conversations and history.
                   </p>
                 </div>
                 <Button

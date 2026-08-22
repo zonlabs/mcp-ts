@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Check, ChevronDown, Search, Info } from "lucide-react";
 import { getProviderIconUrl } from "@/components/chat/llmProviders";
@@ -67,6 +67,7 @@ export function ModelSelector({ models, selectedModel, onSelect }: ModelSelector
         <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden">
           <DialogHeader className="px-4 pt-4 flex-row items-center gap-2 space-y-0">
             <DialogTitle className="text-sm font-medium text-ink">Select model</DialogTitle>
+            <DialogDescription className="sr-only">Search and select an AI model</DialogDescription>
             <Link
               href="/settings/api-keys"
               className="flex items-center gap-1.5 text-xs text-ink hover:underline"

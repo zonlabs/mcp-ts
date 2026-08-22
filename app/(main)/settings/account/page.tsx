@@ -124,11 +124,6 @@ export default function AccountSettingsPage() {
 
             <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3 shadow-xs">
               <div className="flex items-center justify-between text-xs py-1 border-b border-border/40">
-                <span className="text-muted-foreground">User ID</span>
-                <span className="font-mono text-[11px] text-foreground select-all">{user?.id || "N/A"}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs py-1 border-b border-border/40">
                 <span className="text-muted-foreground">Joined Workspace</span>
                 <span className="text-foreground font-mono text-[11px]">{formatDate(user?.created_at)}</span>
               </div>
