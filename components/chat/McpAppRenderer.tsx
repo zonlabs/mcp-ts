@@ -1,12 +1,10 @@
-'use client';
-
-import { useSyncExternalStore } from 'react';
+import { useMemo } from 'react';
 import {
   McpAppRenderer as SdkMcpAppRenderer,
   DEFAULT_MCP_APP_CSP,
   getMcpAppMetadata,
 } from '@mcp-ts/client/react';
-import { getMcpClient, subscribeToMcpClient } from '@/lib/mcp-client-store';
+import { useMcpContext } from '@/components/providers/McpProvider';
 
 interface ToolCallRendererProps {
   name: string;
@@ -17,10 +15,10 @@ interface ToolCallRendererProps {
 }
 
 export function McpAppRenderer({ name, args, result, status, className }: ToolCallRendererProps) {
-  const mcpClient = useSyncExternalStore(
-    subscribeToMcpClient,
-    getMcpClient,
-    getMcpClient
+  const { connections, sseClient } = useMcpContext();
+  const mcpClient = useMemo(
+    () => ({ connections, sseClient: sseClient as any }),
+    [connections, sseClient]
   );
 
   const normalizedStatus = status === 'complete' || status === 'inProgress' || status === 'executing'

@@ -2,12 +2,12 @@
 
 import { Copy, Check, RefreshCw, Gauge, ArrowUpRight, ArrowDownLeft, Sigma, Pencil, X, AlertTriangle } from "lucide-react";
 import Image from "next/image";
-import { useTheme } from "next-themes";
 import { useEffect, useState, memo } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { cjk } from "@streamdown/cjk";
+import { code } from "@streamdown/code";
+import { math } from "@streamdown/math";
+import { mermaid } from "@streamdown/mermaid";
+import { Streamdown } from "streamdown";
 import { toast } from "react-hot-toast";
 import {
   Tooltip,
@@ -197,35 +197,19 @@ export const UserMessage = memo(function UserMessage({ message, parts, onEdit }:
   );
 });
 
-const MarkdownCodeBlock = memo(function MarkdownCodeBlock({
-  language,
-  value,
-  theme,
-}: {
-  language: string;
-  value: string;
-  theme?: string;
-}) {
-  const codeStyle = theme === 'dark' ? oneDark : oneLight;
-  return (
-    <div className="rounded-md border border-border overflow-hidden my-2">
-      <SyntaxHighlighter
-        style={codeStyle}
-        language={language}
-        PreTag="div"
-        customStyle={{
-          margin: 0,
-          padding: '12px',
-          background: 'transparent',
-          fontSize: '12px',
-          fontFamily: 'var(--font-geist-mono), monospace',
-        }}
-      >
-        {value}
-      </SyntaxHighlighter>
-    </div>
-  );
-});
+const streamdownPlugins = { cjk, code, math, mermaid };
+
+const MessageResponse = memo(
+  ({ text }: { text: string }) => (
+    <Streamdown
+      className="size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+      plugins={streamdownPlugins}
+    >
+      {text}
+    </Streamdown>
+  ),
+  (prevProps, nextProps) => prevProps.text === nextProps.text
+);
 
 export const AssistantMessage = memo(function AssistantMessage({
   text,
@@ -236,13 +220,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   isStreaming = false,
 }: any) {
   const { t } = useI18n();
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleCopy = async () => {
     try {
@@ -260,29 +238,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       {text && (
         <div className="flex flex-col gap-1 w-full">
           <div className="prose prose-sm dark:prose-invert max-w-full leading-relaxed text-body-strong text-xs sm:text-[13px]">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code({ inline, className, children, ...props }: any) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const rawCode = String(children).replace(/\n$/, '');
-
-                  return !inline && match ? (
-                    <MarkdownCodeBlock
-                      language={match[1]}
-                      value={rawCode}
-                      theme={mounted ? resolvedTheme : 'dark'}
-                    />
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {text}
-            </ReactMarkdown>
+            <MessageResponse text={text} />
           </div>
 
           {showActions && !isStreaming && (

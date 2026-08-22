@@ -28,12 +28,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { useMcpStore, findConnectionForServer, type StoredConnection } from "@/lib/stores/mcp-store";
+import { findConnectionForServer } from "@/lib/mcp/connection-utils";
+import type { McpConnection } from "@mcp-ts/client/react";
+import { useMcpContext } from "@/components/providers/McpProvider";
 import type { McpServer, ToolAccessInfo, ToolAccessResult, ToolPolicyMode } from "@/types/mcp";
 
 type ToolAccessDialogProps = {
   server: McpServer;
-  connection?: StoredConnection;
+  connection?: McpConnection;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -52,12 +54,8 @@ export function ToolAccessDialog({
   open,
   onOpenChange,
 }: ToolAccessDialogProps) {
-  const storeConnections = useMcpStore((state) => state.connections);
-  const activeConn = connection || findConnectionForServer(storeConnections, server);
-
-  const getToolAccess = useMcpStore((state) => state.mcpActions?.getToolAccess);
-  const updateToolPolicy = useMcpStore((state) => state.mcpActions?.updateToolPolicy);
-  const updateConnectionToolAccess = useMcpStore((state) => state.updateConnectionToolAccess);
+  const { connections, getToolAccess, updateToolPolicy } = useMcpContext();
+  const activeConn = connection || findConnectionForServer(connections, server);
 
   const initialAccess = useMemo<ToolAccessResult | null>(() => {
     const targetTools = server.tools ?? activeConn?.tools ?? [];
@@ -242,10 +240,11 @@ export function ToolAccessDialog({
         mode,
         toolIds: mode === "all" ? undefined : Array.from(selectedToolIds),
       });
-      setAccess(result);
-      setMode(result.toolPolicy.mode);
-      setSelectedToolIds(new Set(result.toolPolicy.toolIds));
-      updateConnectionToolAccess(sessionId, result);
+      if (result) {
+        setAccess(result as any);
+        setMode((result as any).toolPolicy?.mode || mode);
+        setSelectedToolIds(new Set((result as any).toolPolicy?.toolIds || []));
+      }
       toast.success("Tool access updated");
       onOpenChange(false);
     } catch (saveError) {

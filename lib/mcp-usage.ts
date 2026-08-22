@@ -102,10 +102,11 @@ export function getMcpAppDisplayName(
 
 export function summarizeMcpUsage(
   events: McpToolCallEventRow[],
-  now = new Date()
+  now = new Date(),
+  exactTotalCalls?: number
 ): McpUsageSummary {
-  const toolCallsTotal = events.length;
-  if (toolCallsTotal === 0) {
+  const toolCallsTotal = exactTotalCalls ?? events.length;
+  if (toolCallsTotal === 0 && events.length === 0) {
     return {
       toolCallsTotal: 0,
       mcpAssistantCallsTotal: 0,

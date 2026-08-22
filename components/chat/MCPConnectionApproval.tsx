@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ServerIcon } from '../common/ServerIcon';
-import { useMcpStore } from '@/lib/stores/mcp-store';
+import { useMcpConnection } from '@/hooks/useMcpConnection';
+import { findConnectionForServer } from '@/lib/mcp/connection-utils';
 import { normalizeServerUrl } from '@/lib/url';
 import { useI18n } from '@/lib/web-i18n';
 
@@ -36,32 +37,21 @@ export function MCPConnectionApproval({
   const [showUrl, setShowUrl] = useState(false);
   const [denied, setDenied] = useState(false);
 
-  // Use the global store for actions and live connection state
-  const connectServer = useMcpStore(state => state.connect);
-  const disconnectServer = useMcpStore(state => state.disconnect);
-  const connections = useMcpStore(state => state.connections);
+  // Use useMcpConnection for actions and live connection state
+  const { connect: connectServer, disconnect: disconnectServer, connections } = useMcpConnection();
 
   // Check if we already have a connection for this server
-  const normalizedTargetUrl = normalizeServerUrl(serverUrl);
-  const existingConnection = Object.values(connections).find((conn) => {
-    if (conn.serverId === serverId) return true;
-    if (!normalizedTargetUrl) return false;
-    return normalizeServerUrl(conn.url) === normalizedTargetUrl;
-  });
-  const isConnected = existingConnection?.connectionStatus === 'READY';
-  const isStatusConnecting = !!existingConnection?.connectionStatus && [
-    'INITIALIZING',
-    'VALIDATING',
+  const existingConnection = findConnectionForServer(connections, { id: serverId, url: serverUrl });
+  const isConnected = existingConnection?.state === 'READY';
+  const isStatusConnecting = !!existingConnection?.state && [
     'CONNECTING',
     'AUTHENTICATING',
-    'AUTHENTICATED',
-    'CONNECTED',
     'DISCOVERING',
-  ].includes(existingConnection.connectionStatus);
+  ].includes(existingConnection.state);
   const isTerminalState =
-    existingConnection?.connectionStatus === 'READY' ||
-    existingConnection?.connectionStatus === 'FAILED' ||
-    existingConnection?.connectionStatus === 'DISCONNECTED';
+    existingConnection?.state === 'READY' ||
+    existingConnection?.state === 'FAILED' ||
+    existingConnection?.state === 'DISCONNECTED';
   const isStaleConnecting = isStatusConnecting && !connectRequested;
   const isConnecting = !denied && !isStaleConnecting && (isStatusConnecting || (connectRequested && !isTerminalState));
 
@@ -73,11 +63,11 @@ export function MCPConnectionApproval({
       serverName,
       serverUrl,
       sessionId: existingConnection.sessionId,
-      status: existingConnection.connectionStatus,
+      status: existingConnection.state,
     });
     setHasTriggeredApprove(true);
     onApprove({ sessionId: existingConnection.sessionId });
-  }, [connectRequested, isConnected, hasTriggeredApprove, existingConnection?.sessionId, existingConnection?.connectionStatus, onApprove, serverName, serverUrl]);
+  }, [connectRequested, isConnected, hasTriggeredApprove, existingConnection?.sessionId, existingConnection?.state, onApprove, serverName, serverUrl]);
 
   useEffect(() => {
     const handleOAuthSuccess = (event: Event) => {

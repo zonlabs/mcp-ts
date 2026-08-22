@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, X } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -12,10 +13,13 @@ import { AppDetailView } from "./AppDetailView";
 import { ServerIcon } from "@/components/common/ServerIcon";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { McpServer } from "@/types/mcp";
-import { useMcpStore, type StoredConnection } from "@/lib/stores/mcp-store";
+import { findConnectionForServer } from "@/lib/mcp/connection-utils";
+import type { McpConnection } from "@mcp-ts/client/react";
 import { useMcpConnection } from "@/hooks/useMcpConnection";
+import { useMcpContext } from "@/components/providers/McpProvider";
 import { UserSession } from "@/components/providers/AuthProvider";
 import { usePublicServers } from "@/hooks/usePublicServers";
+import { useUserServers } from "@/hooks/useUserServers";
 import ServerForm from "./ServerForm";
 
 const ToolExecutionPanel = dynamic(() => import("./ToolExecutionPanel"), {
@@ -53,98 +57,135 @@ export default function McpClientLayout({
   const isResizingRef = useRef(false);
 
   const { connect, disconnect } = useMcpConnection();
-  const connections = useMcpStore((s) => s.connections);
-  const userServers = useMcpStore((s) => s.userServers);
+  const { connections } = useMcpContext();
+  const { userServers, refetch: refetchUserServers } = useUserServers();
 
   // Only fetch the default page size — no need to over-fetch for resolution
   const { servers: catalogServers } = usePublicServers();
 
-  const activeTabParam = searchParams.get("tab");
-  const serverParam = searchParams.get("server");
+  const activeTabParam = searchParams.get("tab") || "home";
+  const serverParamFromUrl = searchParams.get("server");
+
+  // Track active tab and selected server locally for 0ms instantaneous navigation without server round-trip
+  const [activeTab, setActiveTab] = useState<string>(activeTabParam);
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(serverParamFromUrl);
+  const [selectedAppObj, setSelectedAppObj] = useState<McpServer | null>(null);
+
+  // Synchronize when browser history back/forward buttons are clicked
+  useEffect(() => {
+    setActiveTab(searchParams.get("tab") || "home");
+    setSelectedServerId(searchParams.get("server"));
+  }, [searchParams]);
+
+  // Fallback single server fetch query if direct URL / deep link is accessed
+  const { data: fetchedServer } = useQuery<McpServer | null>({
+    queryKey: ["mcpServer", selectedServerId],
+    queryFn: async () => {
+      if (!selectedServerId) return null;
+      const res = await fetch(`/api/mcp?id=${encodeURIComponent(selectedServerId)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.server || null;
+    },
+    enabled: Boolean(
+      selectedServerId &&
+      (!selectedAppObj || selectedAppObj.id !== selectedServerId) &&
+      !userServers.some((s) => s.id === selectedServerId) &&
+      !catalogServers.some((s) => s.id === selectedServerId)
+    ),
+    staleTime: 1000 * 60 * 5,
+  });
 
   /**
    * Resolve the selected server for AppDetailView.
-   *
-   * Priority:
-   *  1. Custom user servers (mcp_servers created by user with full headers & config)
-   *  2. Loaded catalog page (mcp_servers) — match by id
-   *  3. Active runtime connections with metadata.catalogServerId — reliable DB-persisted link
-   *  4. Active runtime connections by sessionId (fallback for non-catalog servers)
-   *  5. SSR-provided initialSelectedServer
    */
   const selectedServer = useMemo((): McpServer | null => {
-    if (!serverParam) return null;
+    if (!selectedServerId) return null;
+
+    // 0. Check explicitly selected app object (e.g. from search results in AppsView)
+    if (selectedAppObj && selectedAppObj.id === selectedServerId) {
+      return selectedAppObj;
+    }
 
     // 1. Check custom user servers
-    const fromUser = userServers.find((s) => s.id === serverParam);
+    const fromUser = userServers.find((s) => s.id === selectedServerId);
     if (fromUser) return fromUser;
 
     // 2. Check loaded catalog servers by their UUID primary key
-    const fromCatalog = catalogServers.find((s) => s.id === serverParam);
+    const fromCatalog = catalogServers.find((s) => s.id === selectedServerId);
     if (fromCatalog) return fromCatalog;
 
-    // 3 & 4. Check active connections — prefer metadata.catalogServerId match,
+    // 3 & 4. Check active connections — prefer metadata.catalogServerId or serverId match,
     // fall back to sessionId (used for custom/non-catalog servers)
-    const conn: StoredConnection | undefined =
-      connections[serverParam] ??
-      Object.values(connections).find(
-        (c) => c.metadata?.catalogServerId === serverParam
-      );
+    const conn: McpConnection | undefined =
+      connections.find((c) => c.metadata?.catalogServerId === selectedServerId) ??
+      connections.find((c) => c.sessionId === selectedServerId) ??
+      connections.find((c) => c.serverId === selectedServerId);
 
     if (conn) {
+      const catalogServerId = conn.metadata?.catalogServerId;
+      const targetId = catalogServerId || conn.serverId || selectedServerId;
+
       // If connection matches a user server or catalog server, prefer that
       const matchedUserServer = userServers.find(
-        (s) => s.id === conn.metadata?.catalogServerId || s.id === conn.serverId
+        (s) => (catalogServerId && s.id === catalogServerId) || s.id === targetId || s.id === conn.serverId
       );
-      if (matchedUserServer) return matchedUserServer;
+      if (matchedUserServer) return { ...matchedUserServer, id: targetId };
 
       const matchedCatalogServer = catalogServers.find(
-        (s) => s.id === conn.metadata?.catalogServerId || s.id === conn.serverId
+        (s) => (catalogServerId && s.id === catalogServerId) || s.id === targetId || s.id === conn.serverId
       );
-      if (matchedCatalogServer) return matchedCatalogServer;
+      if (matchedCatalogServer) return { ...matchedCatalogServer, id: targetId };
 
-      return {
-        id: conn.metadata?.catalogServerId ?? conn.serverId,
+      const resolvedServer: McpServer = {
+        id: targetId,
         name: conn.serverName,
-        url: conn.url ?? undefined,
-        transport: conn.transport ?? "streamable-http",
-        tools: conn.tools ?? [],
-        connectionStatus: conn.connectionStatus,
+        url: conn.serverUrl || undefined,
+        transport: conn.transport || "streamable-http",
+        tools: (conn.tools as any[]) ?? [],
+        connectionStatus: conn.state === "READY" ? "READY" : conn.state,
         headers: (conn as any).headers ?? (conn.metadata as any)?.headers,
         isPublic: true,
         requiresOauth2: false,
         description: "",
-        updated_at: conn.connectedAt ?? new Date().toISOString(),
+        updated_at: conn.updatedAt?.toISOString() || conn.createdAt?.toISOString() || new Date().toISOString(),
       };
+      return resolvedServer;
     }
 
-    // 5. SSR fallback
-    return initialSelectedServer ?? null;
-  }, [serverParam, userServers, catalogServers, connections, initialSelectedServer]);
+    // 5. Fallback fetched server from query or SSR initialSelectedServer
+    return fetchedServer || (initialSelectedServer?.id === selectedServerId ? initialSelectedServer : null);
+  }, [selectedServerId, selectedAppObj, userServers, catalogServers, connections, fetchedServer, initialSelectedServer]);
 
-  // Handle navigating to an App detail
+  // Handle navigating to an App detail instantly (0ms)
   const handleSelectApp = useCallback(
     (appOrId: McpServer | string) => {
       const serverId = typeof appOrId === "string" ? appOrId : appOrId.id;
-      const params = new URLSearchParams(searchParams.toString());
+      if (typeof appOrId === "object") {
+        setSelectedAppObj(appOrId);
+      }
+      setSelectedServerId(serverId);
+      const params = new URLSearchParams(window.location.search);
       params.set("tab", "apps");
       params.set("server", serverId);
       params.delete("view");
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      window.history.pushState(null, "", `${pathname}?${params.toString()}`);
     },
-    [router, pathname, searchParams]
+    [pathname]
   );
 
-  // Handle returning back to Apps catalog
+  // Handle returning back to Apps catalog instantly (0ms)
   const handleBackToApps = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    setSelectedAppObj(null);
+    setSelectedServerId(null);
+    setToolTesterOpen(false);
+    setSelectedToolName(null);
+    const params = new URLSearchParams(window.location.search);
     params.delete("server");
     params.delete("view");
     params.set("tab", "apps");
-    setToolTesterOpen(false);
-    setSelectedToolName(null);
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [router, pathname, searchParams]);
+    window.history.pushState(null, "", `${pathname}?${params.toString()}`);
+  }, [pathname]);
 
   // Handle testing a specific tool in the slide-over panel
   const handleTestTool = useCallback((toolName: string) => {
@@ -196,15 +237,26 @@ export default function McpClientLayout({
     [router, pathname, searchParams]
   );
 
+  // Handle navigating from Home to Apps instantly (0ms)
+  const handleNavigateToApps = useCallback(() => {
+    setActiveTab("apps");
+    setSelectedServerId(null);
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", "apps");
+    params.delete("server");
+    params.delete("view");
+    window.history.pushState(null, "", `${pathname}?${params.toString()}`);
+  }, [pathname]);
+
   // Determine active view
   const viewParam = searchParams.get("view");
   const currentView = useMemo(() => {
     if (viewParam === "add") return "add";
     if (viewParam === "edit" && selectedServer) return "edit";
     if (selectedServer) return "detail";
-    if (activeTabParam === "apps") return "apps";
+    if (activeTab === "apps") return "apps";
     return "home";
-  }, [viewParam, selectedServer, activeTabParam]);
+  }, [viewParam, selectedServer, activeTab]);
 
   return (
     <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative">
@@ -256,7 +308,7 @@ export default function McpClientLayout({
                   server={selectedServer}
                   onSubmit={async (data) => {
                     const result = await onServerUpdate({ id: selectedServer.id, ...data });
-                    void useMcpStore.getState().fetchUserServers();
+                    void refetchUserServers();
                     handleSelectApp(selectedServer.id);
                     return result;
                   }}
@@ -285,16 +337,12 @@ export default function McpClientLayout({
             />
           ) : (
             <HomeView
-            userSession={userSession || session}
-            onSelectApp={handleSelectApp}
-            onNavigateToApps={() => {
-              const params = new URLSearchParams(searchParams.toString());
-              params.set("tab", "apps");
-              router.push(`${pathname}?${params.toString()}`, { scroll: false });
-            }}
-            onAction={onServerAction}
-            initialUsageData={initialUsageData}
-          />
+              userSession={userSession || session}
+              onSelectApp={handleSelectApp}
+              onNavigateToApps={handleNavigateToApps}
+              onAction={onServerAction}
+              initialUsageData={initialUsageData}
+            />
           )}
         </div>
 

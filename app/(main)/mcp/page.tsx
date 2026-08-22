@@ -29,9 +29,15 @@ export default async function McpPage({ searchParams }: PageProps) {
 
   const userSession: UserSession = { user };
 
-  // Only SSR the things the client can't trivially fetch itself:
-  // 1. The selected server (needed for deep-link rendering before client hydrates)
-  // 2. Usage data (dashboard metrics)
+  const tab =
+    typeof resolvedSearchParams.tab === "string"
+      ? resolvedSearchParams.tab
+      : undefined;
+  const isUsageView = !tab || tab === "home" || tab === "activity" || tab === "usage";
+
+  // Only SSR the things needed for initial view:
+  // 1. The selected server (for direct URL / deep links)
+  // 2. Usage data (only if user is on activity/usage tab)
   const [matchedServerResult, usageResult] = await Promise.allSettled([
     serverId
       ? supabase
@@ -40,7 +46,7 @@ export default async function McpPage({ searchParams }: PageProps) {
           .eq("id", serverId)
           .maybeSingle()
       : Promise.resolve(null),
-    fetchServerUsageData(supabase, user.id),
+    isUsageView ? fetchServerUsageData(supabase, user.id) : Promise.resolve(null),
   ]);
 
   let serversideSelectedServer: McpServer | null = null;
@@ -124,7 +130,7 @@ async function fetchAllMetricsEvents(supabase: any, userId: string) {
 
 async function fetchServerUsageData(supabase: any, userId: string) {
   try {
-    const [paginatedResult, metricsResult] = await Promise.all([
+    const [paginatedResult, metricsResult, totalCountResult] = await Promise.all([
       supabase
         .from("mcp_tool_call_events")
         .select(SELECT_COLUMNS, { count: "exact" })
@@ -133,6 +139,10 @@ async function fetchServerUsageData(supabase: any, userId: string) {
         .order("completed_at", { ascending: false })
         .range(0, 9),
       fetchAllMetricsEvents(supabase, userId),
+      supabase
+        .from("mcp_tool_call_events")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId),
     ]);
 
     const parentEvents = (paginatedResult.data ?? []) as any[];
@@ -164,10 +174,14 @@ async function fetchServerUsageData(supabase: any, userId: string) {
       children: childrenByRequestId.get(parent.request_id) ?? [],
     }));
 
+    const mcpAssistantCallsTotal = paginatedResult.count ?? 0;
+    const exactTotalCalls = totalCountResult?.count ?? mcpAssistantCallsTotal;
+
     return {
       groups,
       metricsEvents: metricsResult ?? [],
-      totalCount: paginatedResult.count ?? 0,
+      totalCount: exactTotalCalls,
+      mcpAssistantCount: mcpAssistantCallsTotal,
       currentPage: 1,
     };
   } catch (err) {

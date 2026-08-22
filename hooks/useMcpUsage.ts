@@ -14,6 +14,7 @@ export function useMcpUsage(page: number, initialData?: any) {
       return json;
     },
     initialData: page === 1 && initialData ? initialData : undefined,
+    staleTime: 1000 * 60 * 5, // 5 minutes fresh in-memory cache
     placeholderData: (previousData) => previousData,
   });
 

@@ -15,8 +15,9 @@ import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
 import { SimpleTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useMcpStore } from '@/lib/stores/mcp-store';
 import { normalizeServerUrl } from '@/lib/url';
+import { useMcpContext } from '@/components/providers/McpProvider';
+import { findConnectionForServer } from '@/lib/mcp/connection-utils';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import {
@@ -74,7 +75,7 @@ const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderPa
     .map((p: any) => p.text)
     .join(' ');
   return (
-    <div className={cn('group flex flex-col gap-3 w-full', m.role === 'user' ? 'items-end' : 'items-start')}>
+    <div className={cn('group flex flex-col gap-1.5 w-full', m.role === 'user' ? 'items-end' : 'items-start')}>
       {m.role === 'user' ? (
         <UserMessage
           message={{ text }}
@@ -128,7 +129,7 @@ function ThoughtSummaryTrigger({
   }, [isRunning]);
 
   return (
-    <div className="mb-1.5 flex max-w-full items-center gap-2 text-xs">
+    <div className="mb-0.5 flex max-w-full items-center gap-2 text-xs">
       <button
         type="button"
         onClick={onClick}
@@ -182,16 +183,10 @@ function MessageThoughtSection({
 }
 function MCPConnectionApprovedStatus({ input }: { input: any }) {
   const { t } = useI18n();
-  const connections = useMcpStore(state => state.connections);
-  const normalizedTargetUrl = normalizeServerUrl(input.serverUrl);
+  const { connections } = useMcpContext();
+  const existingConnection = findConnectionForServer(connections, { id: input.serverId, url: input.serverUrl });
 
-  const existingConnection = Object.values(connections).find((conn) => {
-    if (input.serverId && conn.serverId === input.serverId) return true;
-    if (!normalizedTargetUrl) return false;
-    return normalizeServerUrl(conn.url) === normalizedTargetUrl;
-  });
-
-  const connectionStatus = existingConnection?.connectionStatus;
+  const connectionStatus = existingConnection?.state;
   const isReady = connectionStatus === 'READY';
   const isFailed = connectionStatus === 'FAILED' || connectionStatus === 'DISCONNECTED';
 
@@ -423,16 +418,17 @@ export function PlaygroundChat({
   }, [initialTitle, propChatId, chatUserId, upsertChat]);
 
   useEffect(() => {
+    if (status === 'streaming') return;
     for (const message of messages) {
       const meta = (message as any)?.metadata;
       const title = meta?.chatTitle;
-      if (!meta?.isNewChat || !title) continue;
+      if (!title) continue;
       if (lastTitleRef.current === title) return;
       lastTitleRef.current = title;
       upsertChat({ id: chatId, title, user_id: chatUserId });
       return;
     }
-  }, [messages, chatId, chatUserId, upsertChat]);
+  }, [messages, status, chatId, chatUserId, upsertChat]);
 
   useEffect(() => {
     if (status === 'ready' && messages.length > 0) {
@@ -998,7 +994,7 @@ export function PlaygroundChat({
               </div>
             ) : (
               <Conversation className="flex-1 min-h-0 w-full">
-                <ConversationContent className={cn(chatContentWidthClass, "py-6 sm:py-8 space-y-6")}>
+                <ConversationContent className={cn(chatContentWidthClass, "py-4 sm:py-6 flex flex-col gap-4 sm:gap-5")}>
                   {messages.map((m, index) => {
                     const isLastMessage = index === messages.length - 1;
                     return (
@@ -1012,9 +1008,9 @@ export function PlaygroundChat({
                     );
                   })}
 
-                  {(status === 'streaming' || status === 'submitted') && (
-                    <div className="flex items-start gap-3 w-full">
-                      <div className="p-1"><LoadingSpinner /></div>
+                  {status === 'submitted' && messages[messages.length - 1]?.role === 'user' && (
+                    <div className="flex items-start gap-2 w-full text-muted-foreground animate-in fade-in duration-200">
+                      <LoadingSpinner />
                     </div>
                   )}
 
@@ -1025,7 +1021,7 @@ export function PlaygroundChat({
                       onRegenerate={handleRegenerate}
                     />
                   )}
-                  <div ref={messagesEndRef} className="h-4" />
+                  <div ref={messagesEndRef} className="h-2" />
                 </ConversationContent>
               </Conversation>
             )}

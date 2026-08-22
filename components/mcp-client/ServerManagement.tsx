@@ -16,7 +16,7 @@ import {
   ShieldCheck,
   RotateCw,
 } from "lucide-react";
-import { useMcpStore } from "@/lib/stores/mcp-store";
+import { useMcpContext } from "@/components/providers/McpProvider";
 import {
   Tooltip,
   TooltipContent,
@@ -122,18 +122,21 @@ export default function ServerManagement({
     }
   };
 
-  const reconnectMcp = useMcpStore((state) => state.mcpActions?.reconnect);
+  const { reconnect } = useMcpContext();
 
   const handleReconnect = async () => {
     setLoading("reconnect");
 
     try {
+      if (!server.url) {
+        throw new Error('Server URL is required to reconnect');
+      }
       const callbackUrl = `${window.location.origin}/auth/callback/success`;
-      await reconnectMcp({
+      await reconnect({
         serverId: server.id,
         serverName: server.name,
-        serverUrl: server.url ?? undefined,
-        transportType: server.transport as 'sse' | 'streamable-http' | undefined,
+        serverUrl: server.url,
+        transport: server.transport ? { type: server.transport as 'sse' | 'streamable-http' } : undefined,
         callbackUrl,
       });
       toast.success(`${server.name} reconnected successfully`);

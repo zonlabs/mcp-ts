@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AuthProvider from "@/components/providers/AuthProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
-import { McpStoreProvider } from "@/components/providers/McpStoreProvider";
+import { McpProvider } from "@/components/providers/McpProvider";
 import { WebLanguageProvider } from "@/components/providers/WebLanguageProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { createClient } from "@/lib/supabase/server";
@@ -39,7 +39,7 @@ export default async function RootLayout({
       <body className="antialiased font-sans">
         <AuthProvider userSession={user ? { user } : null}>
           <QueryProvider>
-            <McpStoreProvider>
+            <McpProvider>
               <ThemeProvider
                 attribute="class"
                 defaultTheme="system"
@@ -48,36 +48,23 @@ export default async function RootLayout({
               >
                 <TooltipProvider delayDuration={150}>
                   <WebLanguageProvider />
+                  {children}
                   <Toaster
-                    position="top-right"
+                    position="bottom-right"
                     toastOptions={{
-                      duration: 3500,
+                      duration: 3000,
                       style: {
-                        background: "var(--card)",
-                        color: "var(--foreground)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "6px",
-                        fontSize: "13px",
-                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
-                      },
-                      success: {
-                        iconTheme: {
-                          primary: "var(--foreground)",
-                          secondary: "var(--card)",
-                        },
-                      },
-                      error: {
-                        iconTheme: {
-                          primary: "var(--destructive, #ef4444)",
-                          secondary: "var(--destructive-foreground, #ffffff)",
-                        },
+                        background: 'hsl(var(--card))',
+                        color: 'hsl(var(--card-foreground))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: 'var(--radius)',
+                        fontSize: '13px',
                       },
                     }}
                   />
-                  {children}
                 </TooltipProvider>
               </ThemeProvider>
-            </McpStoreProvider>
+            </McpProvider>
           </QueryProvider>
         </AuthProvider>
       </body>

@@ -25,15 +25,23 @@ export interface UseMcpToolsReturn {
  * Headers are retrieved server-side in the CopilotKit route
  */
 export function useMcpTools(): UseMcpToolsReturn {
-  const { connections, isLoading, validateConnections } = useMcpConnection();
+  const { connections, isLoading, refresh } = useMcpConnection();
 
   const currentServers = Object.values(connections)
-    .filter(c => c.connectionStatus === 'READY')
-    .map(c => c as unknown as McpServerWithTools);
-  
+    .filter((c) => c.state === 'READY')
+    .map((c) => ({
+      serverName: c.serverName || 'MCP Server',
+      sessionId: c.sessionId,
+      connectionStatus: 'READY',
+      tools: (c.tools as ToolInfo[]) || [],
+      connectedAt: c.updatedAt?.toISOString() || c.createdAt?.toISOString() || new Date().toISOString(),
+      transport: c.transport,
+      url: c.serverUrl,
+    }));
+
   const loadMcpServers = async () => {
     if (typeof window === 'undefined') return;
-    await validateConnections();
+    await refresh();
   };
 
   return {
