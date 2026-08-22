@@ -9,6 +9,7 @@ import {
   MessageSquare,
   KeyRound,
   SlidersHorizontal,
+  Database,
   FileText,
   ArrowRight,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const PAGES = [
   { label: "Apps", href: "/mcp?tab=apps", icon: LayoutGrid, description: "Connect and manage MCP servers" },
   { label: "Playground", href: "/chat", icon: MessageSquare, description: "Chat with AI and run tools" },
   { label: "API Keys", href: "/settings/api-keys", icon: KeyRound, description: "Manage your API credentials" },
+  { label: "Data Controls", href: "/settings/data-controls", icon: Database, description: "Export data, manage shared links, and chat privacy" },
   { label: "Settings", href: "/settings/preferences", icon: SlidersHorizontal, description: "Preferences and configuration" },
   { label: "Documentation", href: "https://docs.mcp-assistant.in/", icon: FileText, description: "Guides and API references", external: true },
 ];

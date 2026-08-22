@@ -23,6 +23,7 @@ import {
   User,
   Link as LinkIcon,
   Github,
+  Download,
 } from "lucide-react";
 import Image from "next/image";
 import { useMutation } from "@tanstack/react-query";
@@ -161,6 +162,16 @@ function ChatContextMenu({ chat, onDelete, onTogglePin, onRename, onShare }: Cha
             Copy link
           </DropdownMenuItem>
         )}
+        <DropdownMenuItem
+          onSelect={() => {
+            setOpen(false);
+            window.location.href = `/api/chats/export?id=${chat.id}`;
+          }}
+          className="gap-2 py-1.5 cursor-pointer"
+        >
+          <Download className="size-[18px] text-muted-foreground" />
+          Export JSON
+        </DropdownMenuItem>
         {isOwner && (
           <>
             <DropdownMenuSeparator />
@@ -355,6 +366,7 @@ export function AppShell({
     if (pathname.startsWith("/settings/api-keys")) return "Settings > API Keys";
     if (pathname.startsWith("/settings/access")) return "Settings > Access";
     if (pathname.startsWith("/settings/preferences")) return "Settings > Preferences";
+    if (pathname.startsWith("/settings/data-controls")) return "Settings > Data Controls";
     if (pathname.startsWith("/settings/account")) return "Settings > Account";
     if (pathname.startsWith("/settings/usage")) return "Settings > Usage";
     if (pathname.startsWith("/faq")) return "FAQ";

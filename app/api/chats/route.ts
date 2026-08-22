@@ -12,15 +12,16 @@ export async function GET() {
 }
 
 /**
- * DELETE /api/chats?id=<chatId>
- * Deletes a chat belonging to the authenticated user.
+ * DELETE /api/chats?id=<chatId> or /api/chats?all=true
+ * Deletes a chat or all chats belonging to the authenticated user.
  */
 export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
   const chatId = searchParams.get("id");
+  const deleteAll = searchParams.get("all") === "true";
 
-  if (!chatId) {
-    return NextResponse.json({ error: "Missing chat id" }, { status: 400 });
+  if (!chatId && !deleteAll) {
+    return NextResponse.json({ error: "Missing chat id or all=true parameter" }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -33,7 +34,27 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Delete chat row (cascade will clean up chat_messages)
+  if (deleteAll) {
+    // Delete all chats belonging to user
+    const { data: deletedRows, error } = await supabase
+      .from("chats")
+      .delete()
+      .eq("user_id", user.id)
+      .select("id");
+
+    if (error) {
+      console.error("[api/chats] Bulk DELETE error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      deletedCount: deletedRows?.length || 0,
+      message: "All conversations deleted successfully",
+    });
+  }
+
+  // Delete single chat row (cascade will clean up chat_messages)
   const { data: deletedRows, error } = await supabase
     .from("chats")
     .delete()
@@ -57,18 +78,19 @@ export async function DELETE(req: Request) {
 }
 
 /**
- * PATCH /api/chats?id=<chatId>
- * Updates chat properties (is_pinned, title, visibility).
+ * PATCH /api/chats?id=<chatId> or /api/chats?revokeAll=true
+ * Updates chat properties (is_pinned, title, visibility) or revokes all public shared links.
  */
 export async function PATCH(req: Request) {
   const { searchParams } = new URL(req.url);
+  const revokeAll = searchParams.get("revokeAll") === "true";
   let chatId = searchParams.get("id");
   const body = await req.json().catch(() => ({}));
 
   chatId = chatId || body.id;
 
-  if (!chatId) {
-    return NextResponse.json({ error: "Missing chat id" }, { status: 400 });
+  if (!chatId && !revokeAll) {
+    return NextResponse.json({ error: "Missing chat id or revokeAll parameter" }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -79,6 +101,26 @@ export async function PATCH(req: Request) {
 
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (revokeAll) {
+    const { data: updatedRows, error } = await supabase
+      .from("chats")
+      .update({ visibility: "PRIVATE", updated_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .eq("visibility", "PUBLIC")
+      .select("id");
+
+    if (error) {
+      console.error("[api/chats] Bulk revoke error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      revokedCount: updatedRows?.length || 0,
+      message: "All shared links revoked",
+    });
   }
 
   const updates: Record<string, any> = {

@@ -7,6 +7,7 @@ import {
   KeyRound,
   ShieldOff,
   SlidersHorizontal,
+  Database,
   FileText,
   LogOut,
 } from "lucide-react";
@@ -120,6 +121,16 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
           >
             <SlidersHorizontal className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} />
             <span>Preferences</span>
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild className="cursor-pointer gap-2.5 rounded-xs px-2.5 py-1.5 text-xs text-foreground hover:bg-card">
+          <Link
+            href="/settings/data-controls"
+            className={cn(pathname.startsWith("/settings/data-controls") && "bg-card font-medium text-foreground")}
+          >
+            <Database className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+            <span>Data Controls</span>
           </Link>
         </DropdownMenuItem>
 
