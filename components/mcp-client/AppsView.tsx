@@ -259,11 +259,17 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {displayedApps.map((app) => {
               const stored = findConnectionForServer(connections, app);
-              const connStatus = (stored?.state || app.connectionStatus || "DISCONNECTED").toUpperCase();
-              const isConnected = connStatus === "READY";
+              const rawStatus = (
+                stored?.state ||
+                (stored as any)?.connectionStatus ||
+                app.connectionStatus ||
+                "DISCONNECTED"
+              ).toUpperCase();
+              const isConnected = rawStatus === "READY" || rawStatus === "CONNECTED";
+              const connStatus = isConnected ? "READY" : rawStatus;
               const isInProgress = Boolean(
                 connectingId === app.id ||
-                ["CONNECTING", "AUTHENTICATING", "DISCOVERING"].includes(connStatus)
+                ["CONNECTING", "AUTHENTICATING", "DISCOVERING", "INITIALIZING", "VALIDATING", "AUTHENTICATED"].includes(connStatus)
               );
 
               const isOwner = Boolean(

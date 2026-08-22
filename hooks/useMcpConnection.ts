@@ -82,7 +82,8 @@ export function useMcpConnection({ serverId }: UseMcpConnectionProps = {}) {
 
   const isServerConnected = useCallback(
     (serverOrId: string | ConnectableServer): boolean => {
-      return getConnection(serverOrId)?.state === 'READY';
+      const state = (getConnection(serverOrId)?.state || '').toUpperCase();
+      return state === 'READY' || state === 'CONNECTED';
     },
     [getConnection]
   );

@@ -99,18 +99,33 @@ const SELECT_COLUMNS = [
   "created_at",
 ].join(",");
 
-async function fetchAllMetricsEvents(supabase: any, userId: string) {
-  const { data, error } = await supabase
-    .from("mcp_tool_call_events")
-    .select(
-      "id,started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type"
-    )
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(2000);
+const METRICS_PAGE_SIZE = 1000;
 
-  if (error) return [];
-  return data ?? [];
+async function fetchAllMetricsEvents(supabase: any, userId: string) {
+  const allEvents: any[] = [];
+  let page = 0;
+
+  while (true) {
+    const from = page * METRICS_PAGE_SIZE;
+    const to = from + METRICS_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("mcp_tool_call_events")
+      .select(
+        "id,started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type"
+      )
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allEvents.push(...data);
+    if (data.length < METRICS_PAGE_SIZE) break;
+    page++;
+  }
+
+  return allEvents;
 }
 
 async function fetchServerUsageData(supabase: any, userId: string) {

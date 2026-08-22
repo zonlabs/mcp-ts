@@ -52,6 +52,7 @@ export type McpServerNode = {
   createdAt: string;
   owner: string;
   isPublic: boolean;
+  isFeatured: boolean;
   tools: [];
 };
 
@@ -118,6 +119,7 @@ export function mapServerRow(row: McpServerRow): McpServerNode {
     createdAt: row.created_at,
     owner: row.user_id,
     isPublic: row.is_public,
+    isFeatured: row.is_featured ?? false,
     tools: [],
   };
 }

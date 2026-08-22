@@ -56,6 +56,7 @@ export type McpServer = {
   clientId?: string | null;
   clientSecret?: string | null;
   isPublic?: boolean;
+  isFeatured?: boolean;
   connectionStatus?: string | null;
   tools: ToolInfo[];
   prompts?: Array<{

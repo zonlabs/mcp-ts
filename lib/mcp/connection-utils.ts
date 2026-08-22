@@ -32,9 +32,9 @@ export function findConnectionForServer<
 
   return list.find((c) => {
     if (!c) return false;
-    if (serverId && c.metadata?.catalogServerId === serverId) return true;
-    if (serverId && c.serverId === serverId) return true;
-    if (serverId && c.sessionId === serverId) return true;
+    if (serverId && (c.metadata?.catalogServerId === serverId || c.serverId === serverId || c.sessionId === serverId)) {
+      return true;
+    }
     if (normalizedUrl && c.serverUrl && normalizeServerUrl(c.serverUrl) === normalizedUrl) {
       return true;
     }

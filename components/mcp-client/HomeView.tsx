@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Copy, Check, Hammer, Star, ArrowRight } from "lucide-react";
 import { McpServer } from "@/types/mcp";
 import { UserSession } from "@/components/providers/AuthProvider";
@@ -85,18 +85,16 @@ export function HomeView({
     };
   }, []);
 
-  // Use public servers directly from TanStack Query cache (shared with AppsView)
-  const { servers: publicServers } = usePublicServers({ pageSize: 20 });
+  // Query featured/popular public servers using isFeatured / featured=true
+  const { servers: popularServers } = usePublicServers({
+    pageSize: 20,
+    featured: true,
+  });
 
   const userDisplayName =
     userSession?.user?.user_metadata?.full_name ||
     userSession?.user?.email ||
     "Developer";
-
-  // Show top popular public servers directly
-  const popularServers = useMemo(() => {
-    return publicServers.slice(0, 20);
-  }, [publicServers]);
 
   const totalToolCalls = usageData?.totalCount ?? 0;
   const metricsEvents = usageData?.metricsEvents ?? [];

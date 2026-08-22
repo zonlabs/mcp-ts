@@ -131,11 +131,17 @@ export function AppDetailView({
     }
   };
 
-  const connStatus = (stored?.state ?? server.connectionStatus ?? "DISCONNECTED").toUpperCase();
-  const isConnected = connStatus === "READY";
+  const rawStatus = (
+    stored?.state ??
+    (stored as any)?.connectionStatus ??
+    server.connectionStatus ??
+    "DISCONNECTED"
+  ).toUpperCase();
+  const isConnected = rawStatus === "READY" || rawStatus === "CONNECTED";
+  const connStatus = isConnected ? "READY" : rawStatus;
   const isInProgress = Boolean(
     isActionPending ||
-    ["CONNECTING", "AUTHENTICATING", "DISCOVERING"].includes(connStatus)
+    ["CONNECTING", "AUTHENTICATING", "DISCOVERING", "INITIALIZING", "VALIDATING", "AUTHENTICATED"].includes(connStatus)
   );
   const isServerEnabled = optimisticEnabled !== null ? optimisticEnabled : (stored ? (stored as any).enabled !== false : true);
 
