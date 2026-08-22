@@ -8,7 +8,26 @@ npm install @mcp-ts/client @modelcontextprotocol/client @modelcontextprotocol/co
 
 ---
 
-## Architecture & Core Concepts
+## 🏗️ Architecture & Core Concepts
+
+```mermaid
+graph LR
+    subgraph Direct["Direct SDK Flow (TypeScript)"]
+        UI["Browser UI"]
+        Hook["useMcp Hook"]
+        API["Next.js /api/mcp"]
+        Mgr["McpManager"]
+        Store[("Redis / SQLite / File / Memory")]
+        MCP["MCP Servers"]
+
+        UI <--> Hook
+        Hook -- "HTTP RPC" --> API
+        API --> Mgr
+        Mgr -- "SSE events" --> Hook
+        Mgr <--> Store
+        Mgr <--> MCP
+    end
+```
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -34,7 +53,7 @@ npm install @mcp-ts/client @modelcontextprotocol/client @modelcontextprotocol/co
 
 | Class / Module | Purpose | Primary Use Case |
 | :--- | :--- | :--- |
-| **`Mcp`** | App & Storage Root | Zero-config instance or app-wide database configuration |
+| **`mcp` / `Mcp`** | App & Storage Root | Zero-config instance or app-wide database configuration |
 | **`McpUser`** | User Context | Adding/listing MCP servers and running tools per user |
 | **`McpClient`** | Single Connection | Direct connection to a single remote MCP server |
 | **`McpManager`** | Connection Pool | High-throughput batch connection management |
@@ -43,9 +62,74 @@ npm install @mcp-ts/client @modelcontextprotocol/client @modelcontextprotocol/co
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. User-Scoped Multi-Server Management
+### 1. Server-Side (Next.js App Router)
+
+Expose a full MCP endpoint with authentication in your Next.js application:
+
+```typescript
+// app/api/mcp/route.ts
+import { createNextMcpHandler } from '@mcp-ts/client';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+export const { GET, POST } = createNextMcpHandler({
+  authenticate: async (req) => {
+    // Return user auth context / user ID
+    return { userId: 'user-123' };
+  }
+});
+```
+
+---
+
+### 2. Client-Side (React Hook)
+
+Connect and manage MCP servers directly from your React UI:
+
+```tsx
+'use client';
+
+import { useMcp } from '@mcp-ts/client/react';
+
+export function McpControlPanel() {
+  const { connections, connect } = useMcp({
+    url: '/api/mcp',
+    userId: 'user-123',
+  });
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <button
+        onClick={() =>
+          connect({
+            serverId: 'my-server',
+            serverName: 'My MCP Server',
+            serverUrl: 'https://mcp.example.com',
+            callbackUrl: `${window.location.origin}/callback`,
+          })
+        }
+      >
+        Connect Server
+      </button>
+
+      {connections.map((conn) => (
+        <div key={conn.sessionId} className="p-4 border rounded">
+          <h3>{conn.serverName}</h3>
+          <p>State: {conn.state}</p>
+          <p>Tools: {conn.tools.length}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### 3. Programmatic User-Scoped Management
 
 ```typescript
 import { mcp } from '@mcp-ts/client';
@@ -74,28 +158,138 @@ const response = await user.callTool('tavily_search', { query: 'Model Context Pr
 
 ---
 
-### 2. Vercel AI SDK Integration
+## 🔌 Framework Adapters
 
-Seamlessly pass all user MCP servers to `generateText` or `streamText`:
+Integrating with agent frameworks is simple using built-in adapters.
+
+### Vercel AI SDK
+
+Pass all user MCP servers seamlessly to `generateText` or `streamText`:
+
+```typescript
+// app/api/chat/route.ts
+import { mcp } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+export async function POST(req: Request) {
+  const { messages, userId } = await req.json();
+  const user = mcp.user(userId);
+
+  const tools = await AIAdapter.getTools(user);
+
+  const result = streamText({
+    model: openai('gpt-4o'),
+    messages,
+    tools,
+  });
+
+  return result.toDataStreamResponse();
+}
+```
+
+### AG-UI Adapter
+
+```typescript
+import { McpManager } from '@mcp-ts/client';
+import { AguiAdapter } from '@mcp-ts/client/adapters/agui-adapter';
+
+const client = new McpManager('user_123');
+await client.connect();
+
+const adapter = new AguiAdapter(client);
+const tools = await adapter.getTools();
+```
+
+### Mastra Adapter
+
+```typescript
+import { McpManager } from '@mcp-ts/client';
+import { MastraAdapter } from '@mcp-ts/client/adapters/mastra-adapter';
+
+const client = new McpManager('user_123');
+await client.connect();
+
+const tools = await MastraAdapter.getTools(client);
+```
+
+### LangChain Adapter
 
 ```typescript
 import { mcp } from '@mcp-ts/client';
-import { AIAdapter } from '@mcp-ts/client/adapters/ai';
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
+import { LangChainAdapter } from '@mcp-ts/client/adapters/langchain';
 
 const user = mcp.user('user_123');
-
-const { text } = await generateText({
-  model: openai('gpt-4o'),
-  prompt: 'What are the top news headlines today?',
-  tools: await AIAdapter.getTools(user),
-});
+const tools = await LangChainAdapter.getTools(user);
 ```
 
 ---
 
-### 3. Dynamic Tool Routing (`ToolRouter`)
+## 🧩 AG-UI Middleware
+
+Execute MCP tools server-side when using remote agent frameworks (LangGraph, AutoGen, CrewAI, etc.):
+
+```typescript
+import { HttpAgent } from '@ag-ui/client';
+import { McpManager } from '@mcp-ts/client';
+import { AguiAdapter } from '@mcp-ts/client/adapters/agui-adapter';
+import { createMcpMiddleware } from '@mcp-ts/client/adapters/agui-middleware';
+
+// 1. Connect to MCP servers
+const client = new McpManager('user_123');
+await client.connect();
+
+// 2. Extract tools
+const adapter = new AguiAdapter(client);
+const mcpTools = await adapter.getTools();
+
+// 3. Attach middleware to remote agent
+const agent = new HttpAgent({ url: 'http://localhost:8000/agent' });
+agent.use(
+  createMcpMiddleware({
+    toolPrefix: 'server-',
+    tools: mcpTools,
+  })
+);
+```
+
+The middleware intercepts tool calls from remote agents, executes MCP tools server-side, and returns results back to the agent.
+
+---
+
+## 🛠️ MCP Apps Extension (SEP-1865)
+
+Render interactive UIs for your tools using `McpAppRenderer`:
+
+```tsx
+import { useRenderToolCall } from '@copilotkit/react-core';
+import { McpAppRenderer } from '@mcp-ts/client/react';
+import { useMcpContext } from './mcp';
+
+export function ToolRenderer() {
+  const { mcpClient } = useMcpContext();
+
+  useRenderToolCall({
+    name: '*',
+    render: ({ name, args, result, status }) => (
+      <McpAppRenderer
+        client={mcpClient}
+        name={name}
+        input={args}
+        result={result}
+        status={status}
+      />
+    ),
+  });
+
+  return null;
+}
+```
+
+---
+
+## 🧠 Dynamic Tool Routing (`ToolRouter`)
 
 For users with dozens or hundreds of tools, `ToolRouter` dynamically injects discovery meta-tools (`mcp_search_tools`, `mcp_execute_tool`) into the LLM context, reducing token usage by up to 95%:
 
@@ -114,87 +308,98 @@ const tools = await AIAdapter.getTools(user, {
 
 ---
 
-### 4. Direct Single Server Connection (`McpClient`)
+## ⚙️ Storage Backends & Environment Setup
 
-For low-level single-server connections without user storage:
+The library supports multiple durable storage backends out of the box. You can explicitly select one via `MCP_TS_STORAGE_TYPE` or specify it programmatically.
 
-```typescript
-import { McpClient } from '@mcp-ts/client';
+**Supported Types:** `redis`, `sqlite`, `neon`, `supabase`, `file`, `memory`.
 
-const client = new McpClient({
-  userId: 'user_123',
-  sessionId: 'sess_custom_1',
-  serverId: 'tavily',
-  serverUrl: 'https://mcp.tavily.com/mcp',
-  callbackUrl: 'http://localhost:3000/oauth/callback',
-});
-
-await client.connect();
-const { tools } = await client.listTools();
-const result = await client.callTool('tavily_search', { query: 'MCP SDK' });
-```
-
----
-
-### 5. Durable Storage Backends
-
-Persist user credentials and sessions across server restarts:
+### Programmatic Configuration
 
 ```typescript
-import { Mcp } from '@mcp-ts/client';
-import { RedisStorageBackend, sessions } from '@mcp-ts/client';
+import { Mcp, sessions } from '@mcp-ts/client';
 
-// Custom Redis storage
+// Redis storage
 const mcp = new Mcp({
   storage: sessions.use('redis', {
     redisUrl: process.env.REDIS_URL,
   }),
 });
 
-// Or Supabase / Neon / SQLite
 const user = mcp.user('user_123');
 ```
 
-Supported storage backends:
-- **`sqlite`** (Default for local Node.js environments)
-- **`redis`** (Redis & Upstash)
-- **`neon`** (Neon Serverless Postgres)
-- **`supabase`** (Supabase Postgres)
-- **`memory`** (In-memory transient store)
+### Environment Variable Setup
+
+1. **Redis** (Recommended for production):
+   ```bash
+   MCP_TS_STORAGE_TYPE=redis
+   REDIS_URL=redis://localhost:6379
+   ```
+
+2. **SQLite** (Fast & Persistent):
+   ```bash
+   MCP_TS_STORAGE_TYPE=sqlite
+   MCP_TS_STORAGE_SQLITE_PATH=./sessions.db
+   ```
+
+3. **Neon** (Serverless Postgres):
+   ```bash
+   MCP_TS_STORAGE_TYPE=neon
+   NEON_DATABASE_URL=postgresql://user:password@host.neon.tech/dbname?sslmode=verify-full&channel_binding=require
+   ```
+
+4. **File System** (Great for local dev):
+   ```bash
+   MCP_TS_STORAGE_TYPE=file
+   MCP_TS_STORAGE_FILE=./sessions.json
+   ```
+
+5. **In-Memory** (Default for testing):
+   ```bash
+   MCP_TS_STORAGE_TYPE=memory
+   ```
 
 ---
 
-## SDK Entry Points
+## 📦 Peer Dependencies & Package Exports
+
+> [!NOTE]
+> Adapters and external storage backends are loaded via **optional peer dependencies** and must be installed independently. This ensures your application only includes the integrations you explicitly choose, keeping bundle sizes small.
+
+### Entry Points
 
 | Entry Point | Description |
 | :--- | :--- |
 | **`@mcp-ts/client`** | Root exports: `mcp`, `Mcp`, `McpUser`, `McpClient`, `McpManager`, `ToolRouter` |
-| **`@mcp-ts/client`** | Server-side handlers (`createNextMcpHandler`), storage engines, and middleware |
 | **`@mcp-ts/client/adapters/ai`** | Vercel AI SDK integration (`AIAdapter.getTools`) |
 | **`@mcp-ts/client/adapters/langchain`** | LangChain / LangGraph tool binding (`LangChainAdapter.getTools`) |
 | **`@mcp-ts/client/adapters/mastra`** | Mastra agent framework adapter (`MastraAdapter.getTools`) |
 | **`@mcp-ts/client/adapters/agui-adapter`** | AG-UI Client adapter |
 | **`@mcp-ts/client/adapters/agui-middleware`** | AG-UI chat & streaming middleware |
 | **`@mcp-ts/client/sse`** | Browser JSON-RPC client primitives |
-| **`@mcp-ts/client/react`** | React hooks (`useMcp`, `useMcpApps`, `useMcpOAuthPopup`) |
+| **`@mcp-ts/client/react`** | React hooks (`useMcp`, `useMcpApps`, `useMcpOAuthPopup`, `McpAppRenderer`) |
 | **`@mcp-ts/client/vue`** | Vue composables (`useMcp`) |
 | **`@mcp-ts/client/shared`** | Shared types, interfaces (`BaseClient`, `ToolClient`), and event emitters |
 
 ---
 
-## Next.js SSE Route Handler
+## 📚 Documentation Links
 
-Expose a full MCP bridge endpoint for your frontend in 5 lines:
-
-```typescript
-// app/api/mcp/sse/route.ts
-import { createNextMcpHandler } from '@mcp-ts/client';
-
-export const { GET, POST } = createNextMcpHandler();
-```
+- **[Getting Started Guide](https://docs.mcp-assistant.in/get-started)**
+- **[Installation Guide](https://docs.mcp-assistant.in/install)**
+- **[AI SDK Integration](https://docs.mcp-assistant.in/ai-adapters/ai-sdk)**
+- **[Mastra Integration](https://docs.mcp-assistant.in/ai-adapters/mastra)**
+- **[LangChain Integration](https://docs.mcp-assistant.in/ai-adapters/langchain)**
+- **[Storage Backends Overview](https://docs.mcp-assistant.in/storage-backends/overview)**
+- **[Redis Storage Guide](https://docs.mcp-assistant.in/storage-backends/redis)**
+- **[Next.js Integration](https://docs.mcp-assistant.in/nextjs)**
+- **[React Hook Guide](https://docs.mcp-assistant.in/react)**
+- **[API Reference](https://docs.mcp-assistant.in/reference/server)**
 
 ---
 
-## License
+## 🤝 Contributing & License
 
-MIT © [ZonLabs](https://github.com/zonlabs)
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+- License: MIT © [ZonLabs](https://github.com/zonlabs)
