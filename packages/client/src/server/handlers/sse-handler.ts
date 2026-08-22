@@ -596,6 +596,7 @@ export class SSEConnectionManager {
         hasSession:   true,
         cachedCredentials: { tokens: session.tokens ?? undefined },
         sessionStore: this.observedStore,
+        metadata:     session.metadata,
         ...metadata,
       });
 
@@ -863,6 +864,7 @@ export class SSEConnectionManager {
       serverOptions: session.serverOptions ?? undefined,
       discoverResult: session.serverOptions?.discoverResult ?? undefined,
       sessionStore:  this.observedStore,
+      metadata:      session.metadata,
       ...metadata,
       client: mergeMcpSdkClientOptions(session.serverOptions?.client, metadata?.client),
     });
