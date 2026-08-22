@@ -131,12 +131,7 @@ export function AppDetailView({
     }
   };
 
-  const rawStatus = (
-    stored?.state ??
-    (stored as any)?.connectionStatus ??
-    server.connectionStatus ??
-    "DISCONNECTED"
-  ).toUpperCase();
+  const rawStatus = (stored?.state ?? "DISCONNECTED").toUpperCase();
   const isConnected = rawStatus === "READY" || rawStatus === "CONNECTED";
   const connStatus = isConnected ? "READY" : rawStatus;
   const isInProgress = Boolean(
@@ -167,7 +162,8 @@ export function AppDetailView({
   const isToolAllowed = (tool: ToolInfo) => {
     const policy = stored?.toolPolicy;
     if (!policy || policy.mode === "all") return true;
-    const toolId = (tool as any).toolId || (server.id ? `${server.id}::${tool.name}` : tool.name);
+    const serverId = stored?.serverId || "";
+    const toolId = (serverId && !tool.name.includes("::")) ? `${serverId}::${tool.name}` : ((tool as any).toolId || tool.name);
     if (policy.mode === "allowlist") {
       return policy.toolIds.includes(toolId) || policy.toolIds.includes(tool.name);
     }

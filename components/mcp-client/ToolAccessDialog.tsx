@@ -60,19 +60,20 @@ export function ToolAccessDialog({
   const initialAccess = useMemo<ToolAccessResult | null>(() => {
     const targetTools = server.tools ?? activeConn?.tools ?? [];
     const targetPolicy = activeConn?.toolPolicy ?? { mode: "all", toolIds: [] };
+    const serverId = activeConn?.serverId || "";
 
     return {
       toolPolicy: targetPolicy,
       tools: targetTools.map((t) => {
-        const toolId = (t as any).toolId || (server.id ? `${server.id}::${t.name}` : t.name);
+        const canonicalId = (serverId && !t.name.includes("::")) ? `${serverId}::${t.name}` : ((t as any).toolId || t.name);
         return {
           ...t,
-          toolId,
+          toolId: canonicalId,
           allowed: targetPolicy.mode === "all"
             ? true
             : targetPolicy.mode === "allowlist"
-              ? targetPolicy.toolIds.includes(toolId) || targetPolicy.toolIds.includes(t.name)
-              : !targetPolicy.toolIds.includes(toolId) && !targetPolicy.toolIds.includes(t.name),
+              ? targetPolicy.toolIds.includes(canonicalId) || targetPolicy.toolIds.includes(t.name)
+              : !targetPolicy.toolIds.includes(canonicalId) && !targetPolicy.toolIds.includes(t.name),
         };
       }),
       toolCount: targetTools.length,
@@ -359,7 +360,7 @@ export function ToolAccessDialog({
                   <div className="divide-y divide-border">
                     {filteredTools.map((tool) => {
                       const isAllMode = mode === "all";
-                      const checked = isAllMode ? true : selectedToolIds.has(tool.toolId);
+                      const checked = isAllMode ? true : (selectedToolIds.has(tool.toolId) || selectedToolIds.has(tool.name));
                       const badge = classifyTool(tool);
                       const uiMeta = (tool as any)._meta?.ui as { resourceUri?: string; visibility?: string[] } | undefined;
                       const isApp = uiMeta?.resourceUri?.startsWith("ui://");

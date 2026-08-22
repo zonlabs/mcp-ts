@@ -122,14 +122,24 @@ function McpProviderInner({
     const conn = connectionMap[sessionId];
     const rawTools = (conn as any)?.allTools || conn?.tools || [];
     const policy = conn?.toolPolicy || { mode: 'all' as const, toolIds: [] };
+    const serverId = conn?.serverId || '';
 
     return {
       toolPolicy: policy,
-      tools: rawTools.map((t: any) => ({
-        ...t,
-        toolId: t.id || t.name,
-        allowed: true,
-      })),
+      tools: rawTools.map((t: any) => {
+        const canonicalId = (serverId && !t.name.includes('::')) ? `${serverId}::${t.name}` : (t.id || t.name);
+        const isAllowed = policy.mode === 'all'
+          ? true
+          : policy.mode === 'allowlist'
+            ? policy.toolIds.includes(canonicalId) || policy.toolIds.includes(t.name)
+            : !policy.toolIds.includes(canonicalId) && !policy.toolIds.includes(t.name);
+
+        return {
+          ...t,
+          toolId: canonicalId,
+          allowed: isAllowed,
+        };
+      }),
       toolCount: rawTools.length,
       allowedToolCount: rawTools.length,
     };
@@ -140,10 +150,23 @@ function McpProviderInner({
     policy: { mode: ToolPolicy['mode']; toolIds?: string[] }
   ) => {
     if (typeof mcp.updateToolPolicy === 'function') {
-      return mcp.updateToolPolicy(sessionId, policy);
+      const conn = connectionMap[sessionId];
+      const serverId = conn?.serverId || '';
+
+      const canonicalToolIds = policy.toolIds?.map((id) => {
+        if (serverId && !id.includes('::')) {
+          return `${serverId}::${id}`;
+        }
+        return id;
+      });
+
+      return mcp.updateToolPolicy(sessionId, {
+        mode: policy.mode,
+        toolIds: canonicalToolIds,
+      });
     }
     return null;
-  }, [mcp]);
+  }, [mcp, connectionMap]);
 
   const callTool = useCallback(async (
     sessionId: string,

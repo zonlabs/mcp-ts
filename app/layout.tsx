@@ -54,11 +54,26 @@ export default async function RootLayout({
                     toastOptions={{
                       duration: 3000,
                       style: {
-                        background: 'hsl(var(--card))',
-                        color: 'hsl(var(--card-foreground))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: 'var(--radius)',
-                        fontSize: '13px',
+                        background: 'var(--card)',
+                        color: 'var(--card-foreground)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontFamily: 'var(--font-sans)',
+                        boxShadow: '0 4px 16px -2px rgba(0, 0, 0, 0.25)',
+                        padding: '8px 12px',
+                      },
+                      success: {
+                        iconTheme: {
+                          primary: '#10b981',
+                          secondary: 'var(--card)',
+                        },
+                      },
+                      error: {
+                        iconTheme: {
+                          primary: '#ef4444',
+                          secondary: 'var(--card)',
+                        },
                       },
                     }}
                   />

@@ -41,7 +41,7 @@ export function useUserServers() {
       }
       return {
         ...server,
-        connectionStatus: server.connectionStatus || "DISCONNECTED",
+        connectionStatus: "DISCONNECTED",
       };
     });
   }, [query.data, connections]);

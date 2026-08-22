@@ -92,7 +92,7 @@ export function usePublicServers({
       }
       return {
         ...server,
-        connectionStatus: server.connectionStatus || "DISCONNECTED",
+        connectionStatus: "DISCONNECTED",
         tools: server.tools ?? [],
       };
     });

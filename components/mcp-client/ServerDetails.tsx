@@ -96,8 +96,7 @@ export function ServerDetails({
     [connections, server.id, server.url]
   );
 
-  const connectionStatus =
-    stored?.state ?? server.connectionStatus ?? "DISCONNECTED";
+  const connectionStatus = stored?.state ?? "DISCONNECTED";
   const isConnected = connectionStatus?.toUpperCase() === "READY";
   const isFailed = ["ERROR", "FAILED"].includes(connectionStatus?.toUpperCase() ?? "");
   const lastConnectedDate = stored?.updatedAt || stored?.createdAt;

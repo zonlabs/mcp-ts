@@ -259,12 +259,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {displayedApps.map((app) => {
               const stored = findConnectionForServer(connections, app);
-              const rawStatus = (
-                stored?.state ||
-                (stored as any)?.connectionStatus ||
-                app.connectionStatus ||
-                "DISCONNECTED"
-              ).toUpperCase();
+              const rawStatus = (stored?.state || "DISCONNECTED").toUpperCase();
               const isConnected = rawStatus === "READY" || rawStatus === "CONNECTED";
               const connStatus = isConnected ? "READY" : rawStatus;
               const isInProgress = Boolean(
