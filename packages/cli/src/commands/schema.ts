@@ -1,7 +1,8 @@
 import type { Writable } from "node:stream";
 import { connectRemote } from "../client.js";
 import { createRouter, parseToolRef, searchTools } from "../core.js";
-import { pingGateway, withMcpGateway } from "../gateway/context.js";
+import { withMcpGateway } from "../gateway/context.js";
+import { AmbiguousToolReferenceError, createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
 import { writeLine } from "../ux.js";
 
 function parseSchemaResult(raw: unknown, originalName: string): unknown {
@@ -48,7 +49,7 @@ async function fetchSchemaThroughClient(
   // 2. Discover via router search
   const router = await createRouter(client);
   const matches = await searchTools(router, targetToolName, 10);
-  const match = matches.find(
+  const exactMatches = matches.filter(
     (m) =>
       (!targetServerId ||
         m.serverId.toLowerCase() === targetServerId.toLowerCase() ||
@@ -57,6 +58,10 @@ async function fetchSchemaThroughClient(
         m.name.toLowerCase() === targetToolName.toLowerCase() ||
         m.toolId.toLowerCase().endsWith(`::${targetToolName.toLowerCase()}`)),
   );
+  if (!targetServerId && exactMatches.length > 1) {
+    throw new AmbiguousToolReferenceError(targetToolName);
+  }
+  const match = exactMatches[0];
 
   if (match) {
     try {
@@ -116,10 +121,10 @@ export async function cmdLocalSchema(
   output: Pick<Writable, "write">,
 ): Promise<void> {
   // 1. If local daemon is running, query it directly
-  const runningGateway = await pingGateway();
-  if (runningGateway) {
+  const runningGateway = await resolveGateway();
+  if (runningGateway.endpoint) {
     try {
-      const client = await connectRemote(runningGateway);
+      const client = await connectRemote(runningGateway.endpoint);
       try {
         const results = await fetchAllSchemasThroughClient(client, names);
         writeLine(output, JSON.stringify(names.length === 1 ? results[0] : results, null, 2));
@@ -127,23 +132,31 @@ export async function cmdLocalSchema(
       } finally {
         await client.close();
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof AmbiguousToolReferenceError) throw error;
       // Fallback
     }
   }
 
   // 2. If remote gateway session is available, query it
-  const remote = process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
+  const remoteUrl = process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
   try {
-    const client = await connectRemote(remote);
+    const client = await createAuthenticatedRemoteClient(remoteUrl, {
+      warn: (message) => writeLine(output, message),
+    });
+    if (!client) throw new Error("Remote authentication unavailable");
     try {
       const results = await fetchAllSchemasThroughClient(client, names);
+      if (results.every((result) => result && typeof result === "object" && "error" in result)) {
+        throw new Error("Requested tools were not found on the remote gateway");
+      }
       writeLine(output, JSON.stringify(names.length === 1 ? results[0] : results, null, 2));
       return;
     } finally {
       await client.close();
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof AmbiguousToolReferenceError) throw error;
     // Fallback
   }
 

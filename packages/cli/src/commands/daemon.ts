@@ -32,7 +32,7 @@ export async function cmdDaemon(
           token: options.token,
           url: options.url,
         });
-        writeLine(output, pc.green(`✔ MCP Gateway daemon started in background.`));
+        writeLine(output, pc.green(result.reused ? `✔ MCP Gateway is already available.` : `✔ MCP Gateway daemon started in background.`));
         writeLine(output, `  ${pc.bold("PID:")}    ${result.pid}`);
         writeLine(output, `  ${pc.bold("Port:")}    ${result.port}`);
         writeLine(output, `  ${pc.bold("Gateway:")} http://127.0.0.1:${result.port}/mcp`);
@@ -50,8 +50,8 @@ export async function cmdDaemon(
       const result = await stopDaemon();
       if (result.stopped) {
         writeLine(output, pc.green(`✔ MCP Gateway daemon (PID ${result.pid}) stopped.`));
-      } else if (result.pid) {
-        writeLine(output, pc.yellow(`• Daemon process (PID ${result.pid}) was not active. Stale PID cleared.`));
+      } else if (result.reason) {
+        writeLine(output, pc.yellow(`• ${result.reason}`));
       } else {
         writeLine(output, pc.dim("• No background daemon was running."));
       }
@@ -61,9 +61,9 @@ export async function cmdDaemon(
     case "status": {
       printBanner();
       const status = await getDaemonStatus(options.port);
-      if (status.running) {
-        writeLine(output, pc.bold(pc.green(`● Daemon is running`)));
-        writeLine(output, `  ${pc.bold("PID:")}        ${status.pid}`);
+      if (status.state === "running" || status.state === "external") {
+        writeLine(output, pc.bold(pc.green(status.state === "external" ? `● Gateway is running (externally managed)` : `● Daemon is running`)));
+        writeLine(output, `  ${pc.bold("PID:")}        ${status.pid ?? status.portOwnerPid}`);
         writeLine(output, `  ${pc.bold("Port:")}       ${status.port}`);
         writeLine(output, `  ${pc.bold("Uptime:")}     ${status.uptimeSeconds ?? 0}s`);
         writeLine(
@@ -72,6 +72,15 @@ export async function cmdDaemon(
             status.gatewayResponsive ? pc.green("Healthy (200 OK)") : pc.yellow("Starting / Unresponsive")
           }`,
         );
+        writeLine(output, `  ${pc.bold("Log file:")}   ${status.logPath}`);
+      } else if (status.state === "occupied") {
+        writeLine(output, pc.bold(pc.yellow(`● Port ${status.port} is occupied by PID ${status.portOwnerPid}`)));
+        writeLine(output, pc.dim("  The process is not a healthy MCP gateway and will not be stopped or adopted."));
+        writeLine(output, `  ${pc.dim("Choose another port with: ")}${pc.cyan("mcpa daemon start --port <port>")}`);
+      } else if (status.state === "starting" || status.state === "unhealthy") {
+        writeLine(output, pc.bold(pc.yellow(`● Managed daemon is ${status.state}`)));
+        writeLine(output, `  ${pc.bold("PID:")}        ${status.pid}`);
+        writeLine(output, `  ${pc.bold("Port:")}       ${status.port}`);
         writeLine(output, `  ${pc.bold("Log file:")}   ${status.logPath}`);
       } else {
         writeLine(output, pc.bold(pc.dim("○ Daemon is stopped")));

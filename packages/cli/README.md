@@ -28,6 +28,8 @@ Both **`mcpa`** (fast 4-letter alias) and **`mcp-ts`** work identically.
 
 Run one-shot tool calls or discover local tools directly without starting a daemon:
 
+On CLI 0.2.2 and newer, these commands reuse a healthy local gateway when one exists. Otherwise they start only local configured servers and query authenticated remote tools over HTTP; they do not open or replace the account's long-running WebSocket bridge. For repeated work, reusing an existing healthy gateway avoids repeated server startup.
+
 ```bash
 # List all configured local MCP servers and tools
 mcpa list
@@ -90,6 +92,8 @@ mcpa daemon logs                           # view recent daemon logs
 mcpa daemon stop                           # stop running background daemon
 ```
 
+`mcpa daemon status` distinguishes managed daemons from healthy foreground (`external`) gateways, foreign port owners (`occupied`), startup, and unhealthy states. Starting a daemon reuses a healthy foreground gateway. Stopping a daemon never terminates an external or unknown port owner; choose another port with `--port` when a foreign process owns the requested port.
+
 ### 🔄 Automatic Hot-Reloading (#191)
 The gateway actively watches `mcp.json`. Whenever servers are connected, removed, enabled, or disabled (`mcpa connect`, `mcpa enable/disable`, or direct edits), the gateway dynamically updates routes and search indexes with **zero downtime**.
 
@@ -128,3 +132,10 @@ mcpa codegen https://api.example.com/mcp --out ./src/mcp-tools.ts
 ```
 
 The interactive `connect` command supports `search`, `schema`, and `call` commands. `search` uses the SDK's BM25-backed `ToolRouter`; `bench` compares the estimated context cost of its `all`, `search`, and `groups` exposure strategies. `codegen` produces dependency-free TypeScript wrappers from the server's JSON schemas.
+
+## Troubleshooting
+
+- **Remote tools disappear after `mcpa list` or `mcpa search`:** versions before 0.2.2 could replace the single active account bridge from a one-shot command. Upgrade the CLI, stop only the unintended gateway you own, and restart the intended `mcpa serve` once.
+- **Remote servers are missing:** run `mcpa login` and retry. Starting another daemon does not repair an expired or absent session.
+- **Port 8765 is occupied:** inspect `mcpa daemon status`. Reuse a healthy external gateway or select `--port <available-port>`; unknown owners are never killed or adopted automatically.
+- **A detailed list is partial:** successful servers are still returned with explicit timeout/error diagnostics. Missing tool names are not fabricated.

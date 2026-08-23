@@ -1,4 +1,5 @@
 import pc from "picocolors";
+import type { CatalogSnapshot } from "@mcp-ts/bridge-protocol";
 import { McpGatewayRegistry } from "../gateway/registry.js";
 import { LocalHttpMcp } from "../gateway/local-http-mcp.js";
 import { RemoteBridgeClient } from "../gateway/bridge-client.js";
@@ -116,6 +117,30 @@ function renderServerList(
   }
 }
 
+export function describeRemoteCatalogChanges(
+  previous: CatalogSnapshot,
+  current: CatalogSnapshot,
+): string[] {
+  const previousById = new Map(previous.servers.map((server) => [server.serverId, server]));
+  const currentById = new Map(current.servers.map((server) => [server.serverId, server]));
+  const messages: string[] = [];
+
+  for (const server of current.servers) {
+    if (previousById.has(server.serverId)) continue;
+    messages.push(
+      `Remote server connected: ${server.serverName} (${server.tools.length} tool${server.tools.length === 1 ? "" : "s"})`,
+    );
+  }
+  for (const server of previous.servers) {
+    if (currentById.has(server.serverId)) continue;
+    messages.push(
+      `Remote server disconnected: ${server.serverName} (${server.tools.length} tool${server.tools.length === 1 ? "" : "s"} removed)`,
+    );
+  }
+
+  return messages;
+}
+
 export async function cmdServe(args: ServeArgs): Promise<void> {
   if (args.detached) {
     try {
@@ -209,6 +234,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   watcher.start();
 
   const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
+  let previousRemoteCatalog: CatalogSnapshot = { servers: [] };
   if (!loadAuthSession(remote)) {
     if (process.env.MCPA_DAEMON === "1" || !process.stdin.isTTY) {
       warn("No saved remote session found. Running gateway in local-only mode.");
@@ -237,12 +263,13 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
         }
       },
       onRemoteCatalogChanged: (catalog) => {
-        if (args.verbose) {
-          serverLog(
-            "bridge",
-            `Remote catalog updated: ${catalog.servers.length} server(s)`,
-          );
+        for (const message of describeRemoteCatalogChanges(previousRemoteCatalog, catalog)) {
+          serverLog("bridge", message, args.verbose);
         }
+        previousRemoteCatalog = catalog;
+      },
+      onReplaced: () => {
+        warn("This gateway's remote bridge was replaced by another long-running gateway. Remote tools were removed; stop the other gateway and restart this one to restore them.");
       },
     });
   }

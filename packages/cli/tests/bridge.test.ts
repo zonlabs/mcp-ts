@@ -87,7 +87,8 @@ function setup(overrides: Partial<RemoteBridgeClientOptions> = {}) {
 
 describe("RemoteBridgeClient", () => {
   it("authenticates with a header and initializes with only the local catalog", async () => {
-    const { bridge, manager, socket } = setup();
+    const onRemoteCatalogChanged = vi.fn();
+    const { bridge, manager, socket } = setup({ onRemoteCatalogChanged });
     await bridge.start();
     socket.open();
 
@@ -109,6 +110,7 @@ describe("RemoteBridgeClient", () => {
       }),
     );
     await vi.waitFor(() => expect(manager.replaceRemoteCatalog).toHaveBeenCalledWith(remoteCatalog, expect.any(Function)));
+    expect(onRemoteCatalogChanged).toHaveBeenCalledWith(remoteCatalog);
   });
 
   it("routes tool calls in both directions", async () => {
@@ -191,6 +193,17 @@ describe("RemoteBridgeClient", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("visibly reports genuine bridge replacement", async () => {
+    const onReplaced = vi.fn();
+    const state = setup({ onReplaced });
+    await state.bridge.start();
+    state.socket.open();
+
+    state.socket.emit("close", BRIDGE_CLOSE_CODES.replaced, Buffer.from("replaced"));
+
+    expect(onReplaced).toHaveBeenCalledOnce();
   });
 
   it("times out pending calls and sends best-effort cancellation", async () => {

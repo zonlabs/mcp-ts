@@ -74,6 +74,20 @@ describe("McpGatewayRegistry", () => {
     expect(close).toHaveBeenCalledOnce();
   });
 
+  it("reports local server startup errors by server ID", async () => {
+    const registry = new McpGatewayRegistry(
+      { docs: { url: "https://docs.example/mcp" } },
+      undefined,
+      { connectHttp: async () => { throw new Error("connection refused"); } } as never,
+    );
+
+    await registry.start();
+
+    expect(registry.getLocalServerStartupErrors()).toEqual(
+      new Map([["docs", "connection refused"]]),
+    );
+  });
+
   it("increments version counter on catalog mutations", async () => {
     const registry = new McpGatewayRegistry({});
     const initialVersion = registry.getVersion();

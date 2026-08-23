@@ -12,6 +12,8 @@ export interface DaemonInfo {
 }
 
 export interface DaemonStatus {
+  state: "stopped" | "starting" | "running" | "external" | "occupied" | "unhealthy";
+  managed: boolean;
   running: boolean;
   pid?: number;
   startedAt?: number;
@@ -20,6 +22,67 @@ export interface DaemonStatus {
   pidPath: string;
   logPath: string;
   gatewayResponsive: boolean;
+  portOwnerPid?: number;
+}
+
+export interface DaemonStatusInput {
+  requestedPort: number;
+  pidRecord: DaemonInfo | null;
+  pidAlive: boolean;
+  portOwnerPid: number | null;
+  gatewayResponsive: boolean;
+  now: number;
+}
+
+export function classifyDaemonStatus(input: DaemonStatusInput): Omit<DaemonStatus, "pidPath" | "logPath"> {
+  const port = input.pidRecord?.port ?? input.requestedPort;
+  const pidMatchesOwner = Boolean(
+    input.pidRecord && input.pidAlive && input.portOwnerPid === input.pidRecord.pid,
+  );
+  const base = {
+    port,
+    gatewayResponsive: input.gatewayResponsive,
+    ...(input.portOwnerPid ? { portOwnerPid: input.portOwnerPid } : {}),
+  };
+  if (pidMatchesOwner && input.gatewayResponsive) {
+    return {
+      ...base,
+      state: "running",
+      managed: true,
+      running: true,
+      pid: input.pidRecord!.pid,
+      startedAt: input.pidRecord!.startedAt,
+      uptimeSeconds: Math.max(0, Math.floor((input.now - input.pidRecord!.startedAt) / 1000)),
+    };
+  }
+  if (pidMatchesOwner && input.now - input.pidRecord!.startedAt < 15_000) {
+    return { ...base, state: "starting", managed: true, running: false, pid: input.pidRecord!.pid, startedAt: input.pidRecord!.startedAt };
+  }
+  if (input.gatewayResponsive) {
+    return { ...base, state: "external", managed: false, running: true };
+  }
+  if (input.portOwnerPid) {
+    return { ...base, state: "occupied", managed: false, running: false };
+  }
+  if (input.pidRecord && input.pidAlive) {
+    return { ...base, state: "unhealthy", managed: false, running: false, pid: input.pidRecord.pid, startedAt: input.pidRecord.startedAt };
+  }
+  return { ...base, state: "stopped", managed: false, running: false };
+}
+
+export function validateManagedStop(
+  record: DaemonInfo | null,
+  pidAlive: boolean,
+  portOwnerPid: number | null,
+): { allowed: boolean; reason?: string } {
+  if (!record || !pidAlive) return { allowed: false };
+  if (portOwnerPid !== record.pid) {
+    return {
+      allowed: false,
+      reason: `Refused to stop PID ${record.pid}: port ${record.port} is owned by ${portOwnerPid ?? "no process"}.`,
+    };
+  }
+  return { allowed: true };
 }
 
 export function getDaemonDir(): string {
@@ -141,12 +204,26 @@ export async function spawnDaemon(options: {
   verbose?: boolean;
   token?: string;
   url?: string;
-} = {}): Promise<{ pid: number; port: number; logPath: string }> {
+} = {}): Promise<{ pid: number; port: number; logPath: string; reused?: boolean; managed?: boolean }> {
   const port = options.port ?? 8765;
-  const current = readDaemonPid();
-
-  if (current && isProcessAlive(current.pid)) {
-    throw new Error(`Daemon is already running with PID ${current.pid} on port ${current.port}`);
+  const status = await getDaemonStatus(port);
+  if (status.state === "running" || status.state === "external") {
+    return {
+      pid: status.pid ?? status.portOwnerPid!,
+      port: status.port ?? port,
+      logPath: status.logPath,
+      reused: true,
+      managed: status.managed,
+    };
+  }
+  if (status.state === "occupied") {
+    throw new Error(`Port ${port} is occupied by PID ${status.portOwnerPid}. Use --port <available-port>; this process will not be stopped or adopted.`);
+  }
+  if (status.state === "starting") {
+    throw new Error(`Daemon PID ${status.pid} is still starting on port ${status.port}.`);
+  }
+  if (status.state === "unhealthy") {
+    throw new Error(`Managed PID record ${status.pid} is alive but unhealthy. Inspect ${status.logPath}; it will not be replaced automatically.`);
   }
 
   // Clear stale PID if previous process died
@@ -184,8 +261,31 @@ export async function spawnDaemon(options: {
     port,
   };
   writeDaemonPid(info);
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (!isProcessAlive(pid)) break;
+    const [endpoint, owner] = await Promise.all([
+      pingGateway("127.0.0.1", port, "/mcp", 300),
+      Promise.resolve(findProcessOnPort(port)),
+    ]);
+    if (endpoint && owner === pid) {
+      return { pid, port, logPath: getDaemonLogPath(), managed: true };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
 
-  return { pid, port, logPath: getDaemonLogPath() };
+  if (isProcessAlive(pid)) {
+    try { process.kill(pid, "SIGTERM"); } catch { /* spawned process already exited */ }
+    const terminateDeadline = Date.now() + 1_000;
+    while (isProcessAlive(pid) && Date.now() < terminateDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (isProcessAlive(pid)) {
+      try { process.kill(pid, "SIGKILL"); } catch { /* spawned process already exited */ }
+    }
+  }
+  clearDaemonPid();
+  throw new Error(`Daemon failed to become healthy within 15 seconds. See ${getDaemonLogPath()}`);
 }
 
 /**
@@ -227,22 +327,25 @@ export function findProcessOnPort(port: number): number | null {
 /**
  * Stops the background daemon process if active.
  */
-export async function stopDaemon(port = 8765): Promise<{ stopped: boolean; pid?: number }> {
-  let pid: number | undefined;
+export async function stopDaemon(port = 8765): Promise<{ stopped: boolean; pid?: number; reason?: string }> {
   const current = readDaemonPid();
-  if (current && isProcessAlive(current.pid)) {
-    pid = current.pid;
-  } else {
-    const portPid = findProcessOnPort(port);
-    if (portPid && isProcessAlive(portPid)) {
-      pid = portPid;
-    }
-  }
-
-  if (!pid) {
+  const alive = Boolean(current && isProcessAlive(current.pid));
+  if (!current || !alive) {
     if (current) clearDaemonPid();
     return { stopped: false };
   }
+  const effectivePort = current.port || port;
+  const portOwnerPid = findProcessOnPort(effectivePort);
+  const validation = validateManagedStop(current, alive, portOwnerPid);
+  if (!validation.allowed) {
+    clearDaemonPid();
+    return {
+      stopped: false,
+      pid: current.pid,
+      reason: validation.reason,
+    };
+  }
+  const pid = current.pid;
 
   try {
     process.kill(pid, "SIGTERM");
@@ -282,30 +385,24 @@ export async function getDaemonStatus(port = 8765): Promise<DaemonStatus> {
   const logPath = getDaemonLogPath();
   const current = readDaemonPid();
 
-  if (!current || !isProcessAlive(current.pid)) {
-    if (current && !isProcessAlive(current.pid)) {
-      clearDaemonPid();
-    }
-    return {
-      running: false,
-      pidPath,
-      logPath,
-      gatewayResponsive: false,
-    };
-  }
-
-  const effectivePort = current.port || port;
-  const endpoint = await pingGateway("127.0.0.1", effectivePort);
-
+  const pidAlive = Boolean(current && isProcessAlive(current.pid));
+  if (current && !pidAlive) clearDaemonPid();
+  const effectivePort = current?.port || port;
+  const [endpoint, portOwnerPid] = await Promise.all([
+    pingGateway("127.0.0.1", effectivePort, "/mcp", 1_000),
+    Promise.resolve(findProcessOnPort(effectivePort)),
+  ]);
   return {
-    running: true,
-    pid: current.pid,
-    startedAt: current.startedAt,
-    port: effectivePort,
-    uptimeSeconds: Math.floor((Date.now() - current.startedAt) / 1000),
+    ...classifyDaemonStatus({
+      requestedPort: port,
+      pidRecord: current,
+      pidAlive,
+      portOwnerPid,
+      gatewayResponsive: endpoint !== null,
+      now: Date.now(),
+    }),
     pidPath,
     logPath,
-    gatewayResponsive: endpoint !== null,
   };
 }
 

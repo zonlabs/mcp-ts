@@ -96,21 +96,38 @@ export async function withMcpGateway<T>(
   const gateway = new McpGatewayRegistry(configs, undefined, { verbose: false });
   let bridge: RemoteBridgeClient | null = null;
 
-  await gateway.start();
-  try {
-    const remote = options?.remoteUrl ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
-    if (options?.enableBridge !== false && loadAuthSession(remote)) {
+  const remote = options?.remoteUrl ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
+  if (options?.enableBridge !== false && loadAuthSession(remote)) {
+    try {
+      bridge = new RemoteBridgeClient(gateway, {
+        remoteUrl: remote,
+        getAccessToken: async () => (await ensureFreshAuthSession(remote)).accessToken,
+      });
+    } catch {
+      // Remote bridge connection is best effort for one-shot commands
+    }
+  }
+
+  await Promise.allSettled([
+    gateway.start().then(async () => {
       try {
-        bridge = new RemoteBridgeClient(gateway, {
-          remoteUrl: remote,
-          getAccessToken: async () => (await ensureFreshAuthSession(remote)).accessToken,
-        });
+        await bridge?.publishLocalCatalog();
+      } catch {
+        // Best effort
+      }
+    }),
+    (async () => {
+      if (!bridge) return;
+      try {
         await bridge.start();
         await bridge.waitForReady(options?.bridgeTimeout ?? 2_000);
       } catch {
         // Remote bridge connection is best effort for one-shot commands
       }
-    }
+    })(),
+  ]);
+
+  try {
     return await action(gateway);
   } finally {
     await Promise.allSettled([

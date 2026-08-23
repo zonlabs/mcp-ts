@@ -54,6 +54,7 @@ export interface RemoteBridgeClientOptions {
   reconnectMaxDelayMs?: number;
   requestTimeoutMs?: number;
   onRemoteCatalogChanged?: (catalog: CatalogSnapshot) => void;
+  onReplaced?: () => void;
 }
 
 interface PendingRequest {
@@ -156,6 +157,7 @@ export class RemoteBridgeClient {
     await this.registry.replaceRemoteCatalog(initialized.remoteCatalog, (params) =>
       this.callRemoteTool(params),
     );
+    this.options.onRemoteCatalogChanged?.(initialized.remoteCatalog);
     this.readyResolver?.();
   }
 
@@ -275,6 +277,7 @@ export class RemoteBridgeClient {
       code === BRIDGE_CLOSE_CODES.incompatibleProtocol ||
       code === BRIDGE_CLOSE_CODES.loggedOut
     ) {
+      if (code === BRIDGE_CLOSE_CODES.replaced) this.options.onReplaced?.();
       this.closed = true;
       return;
     }

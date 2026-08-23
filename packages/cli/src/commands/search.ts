@@ -3,10 +3,10 @@ import pc from "picocolors";
 import { connectRemote } from "../client.js";
 import { createRouter, searchTools } from "../core.js";
 import {
-  pingGateway,
   withMcpGateway,
   type GatewayContextOptions,
 } from "../gateway/context.js";
+import { createAuthenticatedRemoteClient, mergeSearchResults, resolveGateway, withTimeout } from "../gateway/command-resolution.js";
 import { writeLine } from "../ux.js";
 
 export interface SearchCommandOptions extends GatewayContextOptions {
@@ -57,22 +57,22 @@ export async function cmdSearch(
   }
 
   // Option 2: Check if a local gateway daemon (`mcpa serve`) is currently running
-  const runningGateway = await pingGateway();
-  if (runningGateway) {
+  const runningGateway = await resolveGateway();
+  if (runningGateway.endpoint) {
     try {
-      const client = await connectRemote(runningGateway);
+      const client = await connectRemote(runningGateway.endpoint);
       try {
         const router = await createRouter(client);
         const results = await searchTools(router, query, limit);
-        if (results.length > 0) {
+        if (results.length === 0) {
+          writeLine(output, "No matching tools found.");
+        } else {
           results.forEach((result, index) => {
             writeLine(output, formatSearchItem(index, result));
-            if (result.description) {
-              writeLine(output, `   ${pc.dim(result.description)}`);
-            }
+            if (result.description) writeLine(output, `   ${pc.dim(result.description)}`);
           });
-          return;
         }
+        return;
       } finally {
         await client.close();
       }
@@ -81,23 +81,32 @@ export async function cmdSearch(
     }
   }
 
-  // Option 3: Direct local + remote bridge resolution
-  await withMcpGateway(options, async (gateway) => {
-    const matches = await gateway.searchTools(query, limit);
-    if (matches.length === 0) {
-      writeLine(output, "No matching tools found.");
-      return;
-    }
-    matches.forEach((result, index) => {
-      const tool = gateway.getTool(result.name);
-      const paramCount = tool?.inputSchema?.properties
-        ? Object.keys(tool.inputSchema.properties).length
-        : 0;
-      writeLine(output, formatSearchItem(index, result, `${paramCount} params`));
-      if (result.description) {
-        writeLine(output, `   ${pc.dim(result.description)}`);
+  // Option 3: Query local configuration and authenticated remote HTTP concurrently.
+  const [localResult, remoteResult] = await Promise.allSettled([
+    withTimeout(withMcpGateway({ ...options, enableBridge: false }, (gateway) => gateway.searchTools(query, limit)), 10_000, "Local discovery"),
+    withTimeout((async () => {
+      const client = await createAuthenticatedRemoteClient(
+        options?.remoteUrl,
+        { warn: (message) => writeLine(output, pc.yellow(message)) },
+      );
+      if (!client) return [];
+      try {
+        return await searchTools(await createRouter(client), query, limit);
+      } finally {
+        await client.close();
       }
-    });
+    })(), 10_000, "Remote discovery"),
+  ]);
+  const local = localResult.status === "fulfilled" ? localResult.value : [];
+  const remote = remoteResult.status === "fulfilled" ? remoteResult.value : [];
+  const matches = mergeSearchResults(query, limit, local, remote);
+  if (matches.length === 0) {
+    writeLine(output, "No matching tools found.");
+    return;
+  }
+  matches.forEach((result, index) => {
+    writeLine(output, formatSearchItem(index, { ...result, name: result.name ?? result.toolName }));
+    if (result.description) writeLine(output, `   ${pc.dim(result.description)}`);
   });
 }
 

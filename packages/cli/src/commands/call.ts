@@ -1,5 +1,6 @@
 import type { Writable } from "node:stream";
-import { pingGateway, withMcpGateway } from "../gateway/context.js";
+import { withMcpGateway } from "../gateway/context.js";
+import { AmbiguousToolReferenceError, createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
 import { connectRemote } from "../client.js";
 import { createRouter, parseToolRef, searchTools } from "../core.js";
 import { writeLine } from "../ux.js";
@@ -58,8 +59,7 @@ async function invokeThroughClient(
 
   const router = await createRouter(client);
   const matches = await searchTools(router, targetToolName, DEFAULT_TOOL_SEARCH_LIMIT);
-  const match =
-    matches.find(
+  const exactMatches = matches.filter(
       (m) =>
         (!targetServerId ||
           m.serverId.toLowerCase() === targetServerId.toLowerCase() ||
@@ -67,7 +67,12 @@ async function invokeThroughClient(
         (m.toolName.toLowerCase() === targetToolName.toLowerCase() ||
           m.name.toLowerCase() === targetToolName.toLowerCase() ||
           m.toolId.toLowerCase().endsWith(`::${targetToolName.toLowerCase()}`)),
-    ) ?? matches[0];
+    );
+
+  if (!targetServerId && exactMatches.length > 1) {
+    throw new AmbiguousToolReferenceError(targetToolName);
+  }
+  const match = exactMatches[0] ?? (targetServerId ? undefined : matches[0]);
 
   if (!match) {
     throw new Error(`Tool "${targetToolName}" not found on connected servers.`);
@@ -90,10 +95,10 @@ export async function cmdCall(
   const { serverId: targetServerId, toolName: targetToolName } = parseToolRef(toolName);
 
   // 1. If local daemon is running, call it directly
-  const runningGateway = await pingGateway();
-  if (runningGateway) {
+  const runningGateway = await resolveGateway();
+  if (runningGateway.endpoint) {
     try {
-      const client = await connectRemote(runningGateway);
+      const client = await connectRemote(runningGateway.endpoint);
       try {
         const result = await invokeThroughClient(client, targetToolName, targetServerId, args);
         writeLine(output, JSON.stringify(result, null, 2));
@@ -102,14 +107,18 @@ export async function cmdCall(
         await client.close();
       }
     } catch (err) {
+      if (err instanceof AmbiguousToolReferenceError) throw err;
       if (targetServerId) throw err;
     }
   }
 
   // 2. If remote session exists, call remote gateway directly via HTTP
-  const remote = process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
+  const remoteUrl = process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
   try {
-    const client = await connectRemote(remote);
+    const client = await createAuthenticatedRemoteClient(remoteUrl, {
+      warn: (message) => writeLine(output, message),
+    });
+    if (!client) throw new Error("Remote authentication unavailable");
     try {
       const result = await invokeThroughClient(client, targetToolName, targetServerId, args);
       writeLine(output, JSON.stringify(result, null, 2));
@@ -117,7 +126,8 @@ export async function cmdCall(
     } finally {
       await client.close();
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof AmbiguousToolReferenceError) throw error;
     // Fallback to local gateway
   }
 

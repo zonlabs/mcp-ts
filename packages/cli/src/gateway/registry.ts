@@ -88,10 +88,13 @@ export class LocalMcpConnection {
         transport.stderr?.on("data", (chunk: unknown) => serverLog(this.name, String(chunk), this.verbose));
       }
       const client = new Client({ name: "@mcp-ts/cli", version: CLI_VERSION }, {});
-      await client.connect(transport);
       this.transport = transport;
       this.client = client;
+      await client.connect(transport);
       await this.loadTools();
+    } catch (error) {
+      await this.close().catch(() => undefined);
+      throw error;
     } finally {
       this.startupDurationMs = Math.round(performance.now() - startTime);
     }
@@ -133,6 +136,17 @@ export class LocalMcpConnection {
     return this.close();
   }
 
+  async abortStartup(): Promise<void> {
+    const transport = this.transport as unknown as { _dispose?: () => Promise<void> } | null;
+    if (transport?._dispose) {
+      this.client = null;
+      this.transport = null;
+      await transport._dispose();
+      return;
+    }
+    await this.close();
+  }
+
   async close(): Promise<void> {
     try {
       await this.client?.close();
@@ -167,6 +181,7 @@ export class McpGatewayRegistry {
   private indexedTools: IndexedTool[] = [];
   private readonly traffic: Traffic;
   private version = 0;
+  private readonly localServerStartupErrors = new Map<string, string>();
 
   constructor(
     private readonly configs: Record<string, McpServerConfig>,
@@ -183,7 +198,7 @@ export class McpGatewayRegistry {
     return this.version;
   }
 
-  async start(): Promise<void> {
+  async start(timeoutMs = 10_000): Promise<void> {
     await Promise.allSettled(
       Object.entries(this.configs).map(async ([name, config]) => {
         if (config.disabled) {
@@ -197,11 +212,28 @@ export class McpGatewayRegistry {
           this.options.verbose ?? false,
           this.options.connectHttp ?? connectHttpMcpServer,
         );
+        this.localConnections.set(id, connection);
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-          await connection.start();
-          this.localConnections.set(id, connection);
+          await Promise.race([
+            connection.start(),
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(() => reject(new Error(`startup timed out after ${timeoutMs}ms`)), timeoutMs);
+            }),
+          ]);
+          this.localServerStartupErrors.delete(id);
         } catch (error) {
-          uxError(`Failed to start MCP server "${name}": ${(error as Error).message}`);
+          this.localConnections.delete(id);
+          const message = (error as Error).message;
+          if (message.includes("timed out")) {
+            await connection.abortStartup().catch(() => undefined);
+          } else {
+            await connection.close().catch(() => undefined);
+          }
+          this.localServerStartupErrors.set(id, message);
+          uxError(`Failed to start MCP server "${name}": ${message}`);
+        } finally {
+          if (timer) clearTimeout(timer);
         }
       }),
     );
@@ -223,6 +255,10 @@ export class McpGatewayRegistry {
       timings.set(id, conn.startupDurationMs);
     }
     return timings;
+  }
+
+  getLocalServerStartupErrors(): Map<string, string> {
+    return new Map(this.localServerStartupErrors);
   }
 
   getRemoteCatalog(): CatalogSnapshot {

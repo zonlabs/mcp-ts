@@ -1,11 +1,13 @@
 import { describe, expect, test, afterEach } from "vitest";
 import {
+  classifyDaemonStatus,
   clearDaemonPid,
   getDaemonPidPath,
   getDaemonStatus,
   readDaemonLogs,
   readDaemonPid,
   writeDaemonPid,
+  validateManagedStop,
 } from "../src/gateway/daemon.js";
 import { cmdDaemon } from "../src/commands/daemon.js";
 
@@ -31,6 +33,52 @@ describe("MCP Gateway daemon subsystem", () => {
     expect(status.running).toBe(false);
     expect(status.pidPath).toBe(getDaemonPidPath());
     expect(status.gatewayResponsive).toBe(false);
+    expect(status.state).toBe("stopped");
+    expect(status.managed).toBe(false);
+  });
+
+  test("classifies healthy foreground gateways as external", () => {
+    expect(classifyDaemonStatus({
+      requestedPort: 8765,
+      pidRecord: null,
+      pidAlive: false,
+      portOwnerPid: 4321,
+      gatewayResponsive: true,
+      now: 20_000,
+    })).toMatchObject({ state: "external", running: true, managed: false, portOwnerPid: 4321 });
+  });
+
+  test("classifies foreign port owners as occupied", () => {
+    expect(classifyDaemonStatus({
+      requestedPort: 8765,
+      pidRecord: null,
+      pidAlive: false,
+      portOwnerPid: 4321,
+      gatewayResponsive: false,
+      now: 20_000,
+    })).toMatchObject({ state: "occupied", running: false, managed: false, portOwnerPid: 4321 });
+  });
+
+  test("does not treat a reused PID record as managed", () => {
+    expect(classifyDaemonStatus({
+      requestedPort: 8765,
+      pidRecord: { pid: 1234, port: 8765, startedAt: 1 },
+      pidAlive: true,
+      portOwnerPid: 9999,
+      gatewayResponsive: true,
+      now: 20_000,
+    })).toMatchObject({ state: "external", managed: false, portOwnerPid: 9999 });
+  });
+
+  test("refuses to stop a PID-managed record when another PID owns its port", () => {
+    expect(validateManagedStop(
+      { pid: 1234, port: 8765, startedAt: 1 },
+      true,
+      9999,
+    )).toEqual({
+      allowed: false,
+      reason: "Refused to stop PID 1234: port 8765 is owned by 9999.",
+    });
   });
 
   test("cmdDaemon status prints status output cleanly", async () => {
