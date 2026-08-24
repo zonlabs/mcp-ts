@@ -432,6 +432,30 @@ describe("MCP Gateway daemon subsystem", () => {
     expect(second.pid).toBe(childPid);
   });
 
+  test("reuses a healthy managed daemon without spawning a warm replacement", async () => {
+    const childPid = 24688;
+    writeGatewayProcess({ pid: childPid, port: 9319, startedAt: 1, mode: "daemon" });
+    const originalKill = process.kill.bind(process);
+    vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      if (pid === childPid && signal === 0) return true;
+      return originalKill(pid, signal as NodeJS.Signals | number | undefined);
+    }) as typeof process.kill);
+    mockedPingGateway.mockResolvedValue("http://127.0.0.1:9319/mcp");
+    mockedExecSync.mockReturnValue(process.platform === "win32"
+      ? `TCP    127.0.0.1:9319    0.0.0.0:0    LISTENING    ${childPid}`
+      : String(childPid));
+
+    await expect(spawnDaemon({ port: 9319 })).resolves.toEqual({
+      pid: childPid,
+      port: 9319,
+      logPath: expect.any(String),
+      reused: true,
+      managed: true,
+    });
+
+    expect(mockedSpawn).not.toHaveBeenCalled();
+  });
+
   test("a foreground claim that wins the spawn race is preserved", async () => {
     const foregroundPid = 24684;
     const childPid = 24685;
