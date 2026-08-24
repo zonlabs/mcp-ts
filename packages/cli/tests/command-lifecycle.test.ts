@@ -6,13 +6,16 @@ import {
 
 function deferred<T>(): {
   promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
   reject: (reason: unknown) => void;
 } {
+  let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((_resolve, rejectPromise) => {
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
     reject = rejectPromise;
   });
-  return { promise, reject };
+  return { promise, resolve, reject };
 }
 
 afterEach(() => {
@@ -32,7 +35,7 @@ describe("gateway command lifecycle", () => {
       ? { state: "running" as const, port: 8765, managed: true }
       : { state: "stopped" as const, port: 8765, managed: false });
     const clients: Array<{ close: ReturnType<typeof vi.fn> }> = [];
-    const connect = vi.fn(async () => {
+    const connect = vi.fn(async (endpoint: string) => {
       const client = { close: vi.fn(async () => undefined) };
       clients.push(client);
       return client;
@@ -62,12 +65,20 @@ describe("gateway command lifecycle", () => {
 
     expect(startDaemon).toHaveBeenCalledTimes(1);
     expect(connect).toHaveBeenCalledTimes(5);
+    expect(connect.mock.calls.map(([endpoint]) => endpoint)).toEqual([
+      "http://127.0.0.1:8765/mcp",
+      "http://127.0.0.1:8765/mcp",
+      "http://127.0.0.1:8765/mcp",
+      "http://127.0.0.1:8765/mcp",
+      "http://127.0.0.1:8765/mcp",
+    ]);
     expect(clients.every((client) => client.close.mock.calls.length === 1)).toBe(true);
   });
 
   test("waits for a rejected command action before closing its client", async () => {
     vi.useFakeTimers();
     const request = deferred<never>();
+    const actionEntered = deferred<void>();
     const failure = new Error("gateway request rejected");
     const close = vi.fn(async () => undefined);
     const unhandledRejections: unknown[] = [];
@@ -79,11 +90,14 @@ describe("gateway command lifecycle", () => {
     try {
       const command = withGatewayClient(
         { endpoint: "http://127.0.0.1:8765/mcp" },
-        () => request.promise,
+        () => {
+          actionEntered.resolve();
+          return request.promise;
+        },
         { connect: vi.fn(async () => ({ close })) as never },
       );
 
-      await Promise.resolve();
+      await actionEntered.promise;
       expect(close).not.toHaveBeenCalled();
 
       request.reject(failure);
