@@ -23,6 +23,7 @@ const GATEWAY_POLL_INTERVAL_MS = 150;
 const PROCESS_CLAIM_TIMEOUT_MS = 1_000;
 const PROCESS_CLAIM_POLL_INTERVAL_MS = 10;
 const FORCE_EXIT_WAIT_MS = 250;
+const GATEWAY_LOCK_SENTINEL_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$/i;
 
 export interface GatewayProcessInfo {
   pid: number;
@@ -267,6 +268,7 @@ function readGatewayLock(lockPath: string): GatewayStartLock | null {
     const entries = readdirSync(lockPath, { withFileTypes: true });
     if (entries.length !== 1 || !entries[0].isFile()) return null;
     const sentinelName = entries[0].name;
+    if (!GATEWAY_LOCK_SENTINEL_PATTERN.test(sentinelName)) return null;
     const parsed: unknown = JSON.parse(readFileSync(join(lockPath, sentinelName), "utf8"));
     return isGatewayStartLock(parsed) ? { ...parsed, sentinelName } : null;
   } catch {
@@ -359,13 +361,15 @@ function clearInvalidStaleLock(lockPath: string, now: number): boolean {
         throw error;
       }
     }
-    if (entries.some((entry) => !entry.isFile())) return false;
-    for (const entry of entries) {
+    if (entries.length > 1) return false;
+    if (entries.length === 1) {
+      const [entry] = entries;
+      if (!entry.isFile() || !GATEWAY_LOCK_SENTINEL_PATTERN.test(entry.name)) return false;
       try {
         unlinkSync(join(lockPath, entry.name));
       } catch (error: unknown) {
         const code = (error as NodeJS.ErrnoException).code;
-        if (code === "ENOENT" || code === "ENOTDIR") continue;
+        if (code === "ENOENT" || code === "ENOTDIR") return false;
         throw error;
       }
     }

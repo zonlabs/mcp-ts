@@ -60,9 +60,14 @@ const mockedSpawn = vi.mocked(spawn);
 const originalConfigDir = process.env.MCPA_CONFIG_DIR;
 let configDir: string;
 
+function leaseGeneration(label: string): string {
+  const suffix = [...label].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
+  return `00000000-0000-4000-8000-${String(suffix).padStart(12, "0")}`;
+}
+
 function publishTestLease(lockPath: string, pid: number, createdAt: number, generation: string): string {
   const temporaryPath = `${lockPath}.${generation}.tmp`;
-  const sentinelName = `${generation}.json`;
+  const sentinelName = `${leaseGeneration(generation)}.json`;
   rmSync(temporaryPath, { recursive: true, force: true });
   mkdirSync(temporaryPath);
   writeFileSync(join(temporaryPath, sentinelName), JSON.stringify({ pid, createdAt }), "utf8");
@@ -160,7 +165,7 @@ describe("MCP Gateway daemon subsystem", () => {
   test("stale lease cleanup cannot unlink a newly published lease generation", () => {
     const lockPath = join(configDir, "gateway-process.lock");
     const oldSentinel = publishTestLease(lockPath, 1111, 1, "old-generation");
-    const replacementSentinel = join(lockPath, "new-generation.json");
+    const replacementSentinel = join(lockPath, `${leaseGeneration("new-generation")}.json`);
     const originalKill = process.kill.bind(process);
     vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
       if (pid === 1111) {
@@ -185,7 +190,30 @@ describe("MCP Gateway daemon subsystem", () => {
       mode: "daemon",
     })).toThrow(/timed out/i);
     expect(existsSync(replacementSentinel)).toBe(true);
-    expect(readdirSync(lockPath)).toEqual(["new-generation.json"]);
+    expect(readdirSync(lockPath)).toEqual([`${leaseGeneration("new-generation")}.json`]);
+    expect(readGatewayProcess()).toBeNull();
+  });
+
+  test("invalid stale lease recovery never broad-deletes multiple entries", () => {
+    const lockPath = join(configDir, "gateway-process.lock");
+    mkdirSync(lockPath);
+    writeFileSync(join(lockPath, "unexpected-a"), "invalid", "utf8");
+    writeFileSync(join(lockPath, "unexpected-b"), "invalid", "utf8");
+    utimesSync(lockPath, new Date(1_000), new Date(1_000));
+    let now = 20_000;
+    vi.spyOn(Date, "now").mockImplementation(() => {
+      const current = now;
+      now += 100;
+      return current;
+    });
+
+    expect(() => writeGatewayProcess({
+      pid: 3333,
+      port: 9333,
+      startedAt: 3,
+      mode: "daemon",
+    })).toThrow(/timed out/i);
+    expect(readdirSync(lockPath).sort()).toEqual(["unexpected-a", "unexpected-b"]);
     expect(readGatewayProcess()).toBeNull();
   });
 
