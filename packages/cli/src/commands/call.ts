@@ -46,7 +46,6 @@ function parseJsonArgs(raw: string): Record<string, unknown> {
 export async function cmdCall(
   toolName: string,
   rawArgs: string | undefined,
-  _dir: string | undefined,
   output: Pick<Writable, "write">,
 ): Promise<void> {
   const args = rawArgs ? parseJsonArgs(rawArgs) : {};

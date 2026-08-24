@@ -11,17 +11,23 @@ describe("cmdCall single-gateway routing", () => {
 
   it("does not retry a failed mutating call", async () => {
     const callTool = vi.fn().mockRejectedValue(new Error("downstream rejected"));
-    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action({ callTool } as never),
+    let actionExecutions = 0;
+    const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => {
+        actionExecutions += 1;
+        return action({ callTool } as never);
+      },
     );
 
     await expect(
-      cmdCall("github::create_issue", "{}", undefined, { write: () => true }),
+      cmdCall("github::create_issue", "{}", { write: () => true }),
     ).rejects.toThrow("downstream rejected");
     expect(callTool).toHaveBeenCalledWith("call_mcp_tool", {
       toolId: "github::create_issue",
       args: {},
     });
+    expect(withClient).toHaveBeenCalledOnce();
+    expect(actionExecutions).toBe(1);
     expect(callTool).toHaveBeenCalledTimes(1);
   });
 
@@ -35,17 +41,23 @@ describe("cmdCall single-gateway routing", () => {
         description: "Create an issue",
       }] }))
       .mockResolvedValueOnce({ content: [{ type: "text", text: "created" }] });
-    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action({ callTool } as never),
+    let actionExecutions = 0;
+    const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => {
+        actionExecutions += 1;
+        return action({ callTool } as never);
+      },
     );
 
-    await cmdCall("create_issue", '{"title":"Bug"}', undefined, { write: () => true });
+    await cmdCall("create_issue", '{"title":"Bug"}', { write: () => true });
 
     expect(callTool).toHaveBeenNthCalledWith(1, "search_mcp_tools", { query: "create_issue" });
     expect(callTool).toHaveBeenNthCalledWith(2, "call_mcp_tool", {
       toolId: "github::create_issue",
       args: { title: "Bug" },
     });
+    expect(withClient).toHaveBeenCalledOnce();
+    expect(actionExecutions).toBe(1);
     expect(callTool).toHaveBeenCalledTimes(2);
   });
 
@@ -53,7 +65,7 @@ describe("cmdCall single-gateway routing", () => {
     const withClient = vi.spyOn(commandClient, "withGatewayClient");
 
     await expect(
-      cmdCall("github::create_issue", "{invalid", undefined, { write: () => true }),
+      cmdCall("github::create_issue", "{invalid", { write: () => true }),
     ).rejects.toThrow("Invalid JSON argument payload");
     expect(withClient).not.toHaveBeenCalled();
   });

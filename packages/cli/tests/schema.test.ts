@@ -11,12 +11,16 @@ describe("cmdLocalSchema single-gateway routing", () => {
 
   it("fetches a canonical schema in one batch request", async () => {
     const callTool = vi.fn(async () => textResult({ tools: [{ toolId: "github::create_issue" }] }));
-    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action({ callTool } as never),
+    let actionExecutions = 0;
+    const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => {
+        actionExecutions += 1;
+        return action({ callTool } as never);
+      },
     );
     let rendered = "";
 
-    await cmdLocalSchema(["github::create_issue"], undefined, {
+    await cmdLocalSchema(["github::create_issue"], {
       write: (text) => {
         rendered += text;
         return true;
@@ -27,6 +31,8 @@ describe("cmdLocalSchema single-gateway routing", () => {
     expect(callTool).toHaveBeenCalledWith("get_mcp_tool_schemas", {
       toolIds: ["github::create_issue"],
     });
+    expect(withClient).toHaveBeenCalledOnce();
+    expect(actionExecutions).toBe(1);
     expect(callTool).toHaveBeenCalledTimes(1);
   });
 
@@ -46,16 +52,22 @@ describe("cmdLocalSchema single-gateway routing", () => {
         { toolId: "gitlab::create_issue" },
       ] });
     });
-    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action({ callTool } as never),
+    let actionExecutions = 0;
+    const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => {
+        actionExecutions += 1;
+        return action({ callTool } as never);
+      },
     );
 
-    await cmdLocalSchema(["github::list_issues", "create_issue"], undefined, { write: () => true });
+    await cmdLocalSchema(["github::list_issues", "create_issue"], { write: () => true });
 
     expect(callTool).toHaveBeenNthCalledWith(1, "search_mcp_tools", { query: "create_issue" });
     expect(callTool).toHaveBeenNthCalledWith(2, "get_mcp_tool_schemas", {
       toolIds: ["github::list_issues", "gitlab::create_issue"],
     });
+    expect(withClient).toHaveBeenCalledOnce();
+    expect(actionExecutions).toBe(1);
     expect(callTool).toHaveBeenCalledTimes(2);
   });
 
@@ -64,13 +76,19 @@ describe("cmdLocalSchema single-gateway routing", () => {
       { toolId: "github::create_issue", serverId: "github", serverName: "GitHub", toolName: "create_issue" },
       { toolId: "gitlab::create_issue", serverId: "gitlab", serverName: "GitLab", toolName: "create_issue" },
     ] }));
-    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action({ callTool } as never),
+    let actionExecutions = 0;
+    const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => {
+        actionExecutions += 1;
+        return action({ callTool } as never);
+      },
     );
 
     await expect(
-      cmdLocalSchema(["create_issue"], undefined, { write: () => true }),
+      cmdLocalSchema(["create_issue"], { write: () => true }),
     ).rejects.toThrow("canonical server::tool ID");
+    expect(withClient).toHaveBeenCalledOnce();
+    expect(actionExecutions).toBe(1);
     expect(callTool).toHaveBeenCalledTimes(1);
   });
 });

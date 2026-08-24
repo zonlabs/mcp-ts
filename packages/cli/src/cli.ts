@@ -123,7 +123,7 @@ export async function runCli(
       const toolName = values[0];
       if (!toolName) throw new Error("call requires a tool name (e.g. mcpa call <tool> [jsonArgs])");
       const rawArgs = values.slice(1).join(" ") || undefined;
-      await cmdCall(toolName, rawArgs, dir, streams.output);
+      await cmdCall(toolName, rawArgs, streams.output);
       return 0;
     }
 
@@ -138,7 +138,7 @@ export async function runCli(
     if (command === "schema") {
       const values = positional(commandArgs);
       if (values.length === 0) throw new Error("schema requires one or more tool names (e.g. mcpa schema <tool1> [tool2...])");
-      await cmdLocalSchema(values, dir, streams.output);
+      await cmdLocalSchema(values, streams.output);
       return 0;
     }
 

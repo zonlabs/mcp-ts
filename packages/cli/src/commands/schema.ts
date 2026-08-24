@@ -5,7 +5,6 @@ import { writeLine } from "../ux.js";
 
 export async function cmdLocalSchema(
   names: string[],
-  _dir: string | undefined,
   output: Pick<Writable, "write">,
 ): Promise<void> {
   await withGatewayClient(
