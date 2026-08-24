@@ -1,7 +1,7 @@
 import type { Writable } from "node:stream";
 import { withMcpGateway } from "../gateway/context.js";
 import { AmbiguousToolReferenceError, createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
-import { connectRemote } from "../client.js";
+import { connectMcpEndpoint } from "../client.js";
 import { createRouter, parseToolRef, searchTools } from "../core.js";
 import { writeLine } from "../ux.js";
 
@@ -48,7 +48,7 @@ function parseJsonArgs(raw: string): Record<string, unknown> {
 import { META_TOOL_NAMES_SET, DEFAULT_TOOL_SEARCH_LIMIT } from "../constants.js";
 
 async function invokeThroughClient(
-  client: Awaited<ReturnType<typeof connectRemote>>,
+  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
   targetToolName: string,
   targetServerId: string | undefined,
   args: Record<string, unknown>,
@@ -98,7 +98,7 @@ export async function cmdCall(
   const runningGateway = await resolveGateway();
   if (runningGateway.endpoint) {
     try {
-      const client = await connectRemote(runningGateway.endpoint);
+      const client = await connectMcpEndpoint(runningGateway.endpoint);
       try {
         const result = await invokeThroughClient(client, targetToolName, targetServerId, args);
         writeLine(output, JSON.stringify(result, null, 2));

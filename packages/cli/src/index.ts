@@ -1,4 +1,4 @@
-export { connectRemote, RemoteToolClient } from "./client.js";
+export { connectMcpEndpoint, McpEndpointClient } from "./client.js";
 export {
   benchmarkStrategies,
   createRouter,

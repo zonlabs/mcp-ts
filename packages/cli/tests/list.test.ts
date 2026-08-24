@@ -233,7 +233,7 @@ describe("cmdList", () => {
     };
 
     const clientModule = await import("../src/client.js");
-    vi.spyOn(clientModule, "connectRemote").mockResolvedValue(mockClient as never);
+    vi.spyOn(clientModule, "connectMcpEndpoint").mockResolvedValue(mockClient as never);
 
     let output = "";
     const mockOutput = {

@@ -14,7 +14,7 @@ describe("cmdSearch bridge-safe routing", () => {
       state: "external",
       managed: false,
     });
-    vi.spyOn(clientModule, "connectRemote").mockResolvedValue({
+    vi.spyOn(clientModule, "connectMcpEndpoint").mockResolvedValue({
       listTools: async () => ({ tools: [] }),
       close: vi.fn(),
     } as never);

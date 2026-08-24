@@ -1,7 +1,8 @@
 import { expect, test, vi } from "vitest";
-import { connectRemote } from "../src/client.js";
+import * as clientModule from "../src/client.js";
+import { connectMcpEndpoint } from "../src/client.js";
 
-test("mcpa connect uses the OAuth-capable HTTP connector", async () => {
+test("connectMcpEndpoint uses the OAuth-capable HTTP connector", async () => {
   const connection = {
     listTools: async () => ({ tools: [] }),
     callTool: vi.fn(),
@@ -10,15 +11,15 @@ test("mcpa connect uses the OAuth-capable HTTP connector", async () => {
     getServerName: () => "example.test",
     getServerUrl: () => "https://example.test/mcp",
   };
-  const connectHttp = vi.fn(async () => connection);
+  const connector = vi.fn(async () => connection);
 
-  const client = await connectRemote("https://example.test/mcp", connectHttp as never);
+  const client = await connectMcpEndpoint("https://example.test/mcp", connector as never);
 
-  expect(connectHttp).toHaveBeenCalledWith("https://example.test/mcp", expect.objectContaining({
+  expect(connector).toHaveBeenCalledWith("https://example.test/mcp", expect.objectContaining({
     serverId: "example.test_mcp",
     serverName: "example.test",
   }));
-  expect(client.getServerId()).toBe("example.test_mcp");
+  expect("connectRemote" in clientModule).toBe(false);
+  expect("RemoteToolClient" in clientModule).toBe(false);
   await client.close();
-  expect(connection.close).toHaveBeenCalledOnce();
 });

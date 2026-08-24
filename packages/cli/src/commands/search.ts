@@ -1,6 +1,6 @@
 import type { Writable } from "node:stream";
 import pc from "picocolors";
-import { connectRemote } from "../client.js";
+import { connectMcpEndpoint } from "../client.js";
 import { createRouter, searchTools } from "../core.js";
 import {
   withMcpGateway,
@@ -36,7 +36,7 @@ export async function cmdSearch(
 ): Promise<void> {
   // Option 1: Explicit remote or custom endpoint
   if (options?.endpoint) {
-    const client = await connectRemote(options.endpoint);
+    const client = await connectMcpEndpoint(options.endpoint);
     try {
       const router = await createRouter(client);
       const results = await searchTools(router, query, limit);
@@ -60,7 +60,7 @@ export async function cmdSearch(
   const runningGateway = await resolveGateway();
   if (runningGateway.endpoint) {
     try {
-      const client = await connectRemote(runningGateway.endpoint);
+    const client = await connectMcpEndpoint(runningGateway.endpoint);
       try {
         const router = await createRouter(client);
         const results = await searchTools(router, query, limit);

@@ -6,7 +6,7 @@
 
 import type { Writable } from "node:stream";
 import pc from "picocolors";
-import { connectRemote } from "../client.js";
+import { connectMcpEndpoint } from "../client.js";
 import { LocalMcpConnection } from "../gateway/registry.js";
 import { addOrUpdateServerConfig } from "../gateway/config.js";
 import type { HttpServerConfig, StdioServerConfig } from "../gateway/types.js";
@@ -56,7 +56,7 @@ export async function cmdConnect(
   try {
     if (url) {
       // 1. Connect and test remote HTTP MCP server
-      const client = await connectRemote(url, {
+      const client = await connectMcpEndpoint(url, {
         headers: Object.keys(headers).length > 0 ? headers : undefined,
         onProgress: (stage) => {
           if (stage === "browser_opened") {

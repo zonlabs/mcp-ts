@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { connectRemote } from "../client.js";
+import { connectMcpEndpoint } from "../client.js";
 import { generateWrappers } from "../core.js";
 import { success } from "../ux.js";
 
 export async function cmdCodegen(endpoint: string, outPath: string): Promise<void> {
-  const client = await connectRemote(endpoint);
+  const client = await connectMcpEndpoint(endpoint);
   try {
     const { tools } = await client.listTools();
     const target = resolve(outPath);

@@ -1,5 +1,5 @@
 import { BM25SearchStrategy, type IndexedTool, type ToolSearchResult } from "@mcp-ts/tool-router";
-import { connectRemote, type RemoteToolClient } from "../client.js";
+import { connectMcpEndpoint, type McpEndpointClient } from "../client.js";
 import { DEFAULT_LOCAL_MCP_PORT, DEFAULT_REMOTE_GATEWAY_URL } from "../constants.js";
 import { ensureFreshAuthSession, loadAuthSession, type AuthSession } from "./auth-store.js";
 import { findProcessOnPort, isProcessAlive, readDaemonPid, type DaemonInfo } from "./daemon.js";
@@ -84,17 +84,17 @@ export async function resolveGateway(
 interface AuthenticatedRemoteClientDependencies {
   loadSession?: (remoteUrl: string) => AuthSession | null;
   refreshSession?: (remoteUrl: string) => Promise<AuthSession>;
-  connect?: typeof connectRemote;
+  connect?: typeof connectMcpEndpoint;
   warn?: (message: string) => void;
 }
 
 export async function createAuthenticatedRemoteClient(
   remoteUrl = process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL,
   dependencies: AuthenticatedRemoteClientDependencies = {},
-): Promise<RemoteToolClient | null> {
+): Promise<McpEndpointClient | null> {
   const loadSession = dependencies.loadSession ?? loadAuthSession;
   const refreshSession = dependencies.refreshSession ?? ensureFreshAuthSession;
-  const connectClient = dependencies.connect ?? connectRemote;
+  const connectClient = dependencies.connect ?? connectMcpEndpoint;
   if (!loadSession(remoteUrl)) {
     dependencies.warn?.("Remote tools are unavailable because you are not signed in. Run mcpa login.");
     return null;

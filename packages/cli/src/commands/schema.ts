@@ -1,5 +1,5 @@
 import type { Writable } from "node:stream";
-import { connectRemote } from "../client.js";
+import { connectMcpEndpoint } from "../client.js";
 import { createRouter, parseToolRef, searchTools } from "../core.js";
 import { withMcpGateway } from "../gateway/context.js";
 import { AmbiguousToolReferenceError, createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
@@ -28,7 +28,7 @@ function parseSchemaResult(raw: unknown, originalName: string): unknown {
 }
 
 async function fetchSchemaThroughClient(
-  client: Awaited<ReturnType<typeof connectRemote>>,
+  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
   name: string,
 ): Promise<unknown> {
   const { serverId: targetServerId, toolName: targetToolName } = parseToolRef(name);
@@ -89,7 +89,7 @@ async function fetchSchemaThroughClient(
 }
 
 async function fetchAllSchemasThroughClient(
-  client: Awaited<ReturnType<typeof connectRemote>>,
+  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
   names: string[],
 ): Promise<unknown[]> {
   // If multiple canonical names, try batch get_mcp_tool_schemas directly
@@ -124,7 +124,7 @@ export async function cmdLocalSchema(
   const runningGateway = await resolveGateway();
   if (runningGateway.endpoint) {
     try {
-      const client = await connectRemote(runningGateway.endpoint);
+      const client = await connectMcpEndpoint(runningGateway.endpoint);
       try {
         const results = await fetchAllSchemasThroughClient(client, names);
         writeLine(output, JSON.stringify(names.length === 1 ? results[0] : results, null, 2));

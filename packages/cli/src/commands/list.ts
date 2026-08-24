@@ -2,7 +2,7 @@ import type { Writable } from "node:stream";
 import pc from "picocolors";
 import { getServerConfig, withMcpGateway } from "../gateway/context.js";
 import { createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
-import { connectRemote } from "../client.js";
+import { connectMcpEndpoint } from "../client.js";
 import { writeLine } from "../ux.js";
 import type { McpServerConfig } from "../gateway/types.js";
 
@@ -250,7 +250,7 @@ async function withDeadline<T>(promise: Promise<T>, deadlineAt: number): Promise
 }
 
 export async function fetchCatalogThroughClient(
-  client: Awaited<ReturnType<typeof connectRemote>>,
+  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
   allConfigs: Record<string, McpServerConfig>,
   options: { showTools?: boolean; serverName?: string; deadlineAt?: number },
 ): Promise<{ localServers: ServerEntry[]; remoteServers: ServerEntry[] }> {
@@ -366,7 +366,7 @@ export async function cmdList(
   const runningGateway = await resolveGateway();
   if (runningGateway.endpoint) {
     try {
-      const client = await connectRemote(runningGateway.endpoint);
+      const client = await connectMcpEndpoint(runningGateway.endpoint);
       try {
         const { localServers, remoteServers } = await fetchCatalogThroughClient(
           client,
