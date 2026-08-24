@@ -101,8 +101,7 @@ export async function searchTools(
   query: string,
   limit = 10,
 ): Promise<SearchResult[]> {
-  const metaSearchTool =
-    resolveTool(router, "search_mcp_tools") ?? resolveTool(router, "search_tools");
+  const metaSearchTool = resolveTool(router, "search_mcp_tools");
   if (metaSearchTool) {
     const rawResult = await router.callTool({
       toolId: metaSearchTool.toolId,

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { ToolClient } from "@mcp-ts/tool-router";
 import type { Tool } from "@modelcontextprotocol/client";
 import { benchmarkStrategies, createRouter, generateWrappers, resolveTool, searchTools } from "../src/core.js";
@@ -186,6 +186,28 @@ test("propagates a selected gateway meta-search failure without router fallback"
 
   const router = await createRouter(metaClient);
   await assert.rejects(searchTools(router, "issue", 5), /catalog offline/);
+});
+
+test("uses the router index when only legacy search_tools is exposed", async () => {
+  const routerSearch = vi.fn(async () => []);
+  const callTool = vi.fn(async () => {
+    throw new Error("legacy search_tools must not be called");
+  });
+  const router = {
+    getToolSchemas: vi.fn(({ toolIds }: { toolIds: string[] }) =>
+      toolIds[0] === "remote::search_tools"
+        ? [{ toolId: "remote::search_tools", toolName: "search_tools" }]
+        : [],
+    ),
+    callTool,
+    searchTools: routerSearch,
+  } as never;
+
+  await searchTools(router, "legacy", 5);
+
+  expect(routerSearch).toHaveBeenCalledWith({ query: "legacy", limit: 5 });
+  expect(routerSearch).toHaveBeenCalledTimes(1);
+  expect(callTool).not.toHaveBeenCalled();
 });
 
 test("propagates invalid JSON from a selected gateway meta-search", async () => {
