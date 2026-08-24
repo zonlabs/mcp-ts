@@ -172,6 +172,67 @@ test("correctly parses search_mcp_tools payload with camelCase toolName and serv
   assert.equal(results[0].toolId, "3a0zk9sliokm::add_reply_to_pull_request_comment");
 });
 
+test("propagates a selected gateway meta-search failure without router fallback", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => {
+      throw new Error("catalog offline");
+    },
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /catalog offline/);
+});
+
+test("propagates invalid JSON from a selected gateway meta-search", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => ({ content: [{ type: "text", text: "not json" }] }),
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /valid JSON/);
+});
+
+test("propagates an error envelope from a selected gateway meta-search", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => ({
+      isError: true,
+      content: [{ type: "text", text: "catalog offline" }],
+    }),
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /catalog offline/);
+});
+
+test("rejects missing text from a selected gateway meta-search", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => ({ content: [] }),
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /text content/);
+});
+
 test("parseToolRef handles double-colon, single-colon and plain names", async () => {
   const { parseToolRef } = await import("../src/core.js");
   assert.deepEqual(parseToolRef("3a0zk9sliokm::add_reply_to_pull_request_comment"), {
