@@ -29,6 +29,16 @@ function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function throwIfGatewayError(result: unknown, metaToolName: string): void {
+  if (!isRecord(result) || result.isError !== true) return;
+  const content = Array.isArray(result.content) ? result.content : [];
+  const text = content.find(
+    (entry): entry is { type: "text"; text: string } =>
+      isRecord(entry) && entry.type === "text" && typeof entry.text === "string",
+  )?.text;
+  throw new Error(`${metaToolName} failed: ${text || "gateway returned an error"}`);
+}
+
 function parseGatewayJsonResult(result: unknown, metaToolName: string): unknown {
   if (!isRecord(result)) {
     throw new Error(`${metaToolName} returned no text content.`);
@@ -40,9 +50,7 @@ function parseGatewayJsonResult(result: unknown, metaToolName: string): unknown 
       isRecord(entry) && entry.type === "text" && typeof entry.text === "string",
   )?.text;
 
-  if (result.isError === true) {
-    throw new Error(`${metaToolName} failed: ${text || "gateway returned an error"}`);
-  }
+  throwIfGatewayError(result, metaToolName);
   if (!text) {
     throw new Error(`${metaToolName} returned no text content.`);
   }
@@ -174,5 +182,7 @@ export async function callGatewayTool(
   args: Record<string, unknown>,
 ): Promise<unknown> {
   requireCanonicalToolId(toolId);
-  return client.callTool(MCP_META_TOOL_NAMES.callTool, { toolId, args });
+  const result = await client.callTool(MCP_META_TOOL_NAMES.callTool, { toolId, args });
+  throwIfGatewayError(result, MCP_META_TOOL_NAMES.callTool);
+  return result;
 }

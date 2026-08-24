@@ -7,17 +7,42 @@ import type { McpGatewayRegistry } from "./registry.js";
 import type { Traffic } from "../traffic.js";
 import { CLI_VERSION } from "../ux.js";
 
-import { MCP_META_TOOL_NAMES } from "../constants.js";
+import { MCP_META_TOOL_NAMES, META_TOOL_NAMES_SET } from "../constants.js";
 
 export { MCP_META_TOOL_NAMES };
 
 export type LocalMcpDiscoveryMode = "all" | "search";
+
+export type InitialCatalogOutcome =
+  | { state: "ready" }
+  | { state: "local-only" }
+  | { state: "error"; error: Error };
+
+export class InitialCatalogBarrier {
+  private resolver: ((outcome: InitialCatalogOutcome) => void) | null = null;
+  private readonly outcome = new Promise<InitialCatalogOutcome>((resolve) => {
+    this.resolver = resolve;
+  });
+
+  wait(): Promise<InitialCatalogOutcome> {
+    return this.outcome;
+  }
+
+  settle(outcome: InitialCatalogOutcome): boolean {
+    const resolve = this.resolver;
+    if (!resolve) return false;
+    this.resolver = null;
+    resolve(outcome);
+    return true;
+  }
+}
 
 export interface LocalHttpMcpOptions {
   host: string;
   port: number;
   path: string;
   mode?: LocalMcpDiscoveryMode;
+  initialCatalog?: InitialCatalogBarrier;
 }
 
 export function isSearchDiscoveryMode(mode?: LocalMcpDiscoveryMode): boolean {
@@ -128,8 +153,15 @@ export class LocalHttpMcp {
     return this.routerPromise;
   }
 
+  private async getReadyRouter(): Promise<ToolRouter> {
+    const outcome = this.options.initialCatalog
+      ? await this.options.initialCatalog.wait()
+      : { state: "local-only" as const };
+    if (outcome.state === "error") throw outcome.error;
+    return this.getOrBuildRouter();
+  }
+
   private async createMcpServer(): Promise<McpServer> {
-    const router = await this.getOrBuildRouter();
     const mcp = new McpServer(
       { name: "mcp-assistant-gateway", version: CLI_VERSION },
       { capabilities: { tools: {} } },
@@ -137,7 +169,9 @@ export class LocalHttpMcp {
     const progressive = isSearchDiscoveryMode(this.options.mode);
 
     if (!progressive) {
-      const tools = this.registry.aggregatedTools();
+      const tools = this.registry.aggregatedTools().filter(
+        (tool) => !META_TOOL_NAMES_SET.has(tool.toolName),
+      );
       for (const tool of tools) {
         mcp.registerTool(
           tool.name,
@@ -146,6 +180,7 @@ export class LocalHttpMcp {
             inputSchema: fromJsonSchema(tool.inputSchema as never),
           },
           async (raw: unknown) => {
+            const router = await this.getReadyRouter();
             const args = (raw ?? {}) as Record<string, unknown>;
             return (await router.callTool({
               toolId: tool.toolId,
@@ -154,7 +189,6 @@ export class LocalHttpMcp {
           },
         );
       }
-      return mcp;
     }
 
     mcp.registerTool(
@@ -173,6 +207,7 @@ export class LocalHttpMcp {
         } as never),
       },
       async (raw) => {
+        const router = await this.getReadyRouter();
         const args = raw as Record<string, unknown>;
         const detail = args.detail === "brief" || args.detail === "detailed" || args.detail === "full"
           ? args.detail
@@ -207,6 +242,7 @@ export class LocalHttpMcp {
         } as never),
       },
       async (raw) => {
+        const router = await this.getReadyRouter();
         const query = String((raw as Record<string, unknown>)?.query ?? "").toLowerCase();
         const servers = router.listServers(query).map((server: { serverId: string; serverName: string; toolCount: number }) => ({
           server_id: server.serverId,
@@ -230,6 +266,7 @@ export class LocalHttpMcp {
         } as never),
       },
       async (raw) => {
+        const router = await this.getReadyRouter();
         const args = raw as { toolIds?: string[] };
         const tools = router.getToolSchemas({
           toolIds: args.toolIds ?? [],
@@ -254,6 +291,7 @@ export class LocalHttpMcp {
         } as never),
       },
       async (raw) => {
+        const router = await this.getReadyRouter();
         const args = raw as Record<string, unknown>;
         const toolId = String(
           args.toolId ??
