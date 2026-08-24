@@ -1,39 +1,52 @@
 ---
 name: mcp-cli
-description: Use when running, automating, or integrating the MCP CLI (`mcpa` | `mcp-ts`). Covers local and remote MCP discovery, schema inspection, tool calls, authentication, and safe gateway or daemon operation.
+description: Use when running, automating, integrating, or troubleshooting the MCP CLI (`mcpa` | `mcp-ts`), including local or remote discovery, authentication, schema inspection, tool calls, and gateway lifecycle errors.
 ---
 
 # MCP CLI (`mcpa` | `mcp-ts`)
 
-Use this skill for every task that invokes or troubleshoots `mcpa` or `mcp-ts`.
+## Overview
+
+Use this skill for every task that invokes `mcpa` or `mcp-ts`. CLI 0.3.0 has one gateway: `serve` runs it in the foreground with live logs, while `daemon start` runs the same gateway in the background.
+
+Normal `list`, `search`, `schema`, and `call` commands always use that gateway. They reuse a healthy managed or foreground gateway and auto-start the managed daemon when the gateway is stopped.
 
 ## Mandatory preflight
 
 Complete these checks before MCP work:
 
 1. Resolve the executable and print its version.
-   - PowerShell: `Get-Command mcpa,mcp-ts -ErrorAction SilentlyContinue` then `mcpa --version`.
+   - PowerShell: `Get-Command mcpa,mcp-ts -ErrorAction SilentlyContinue`, then `mcpa --version`.
    - POSIX: `command -v mcpa || command -v mcp-ts`, then `mcpa --version`.
-   - Do not assume that skill access means the CLI is installed.
-   - Pin that resolved executable or explicit local `node .../dist/bin/mcp-ts.js` invocation and reuse it for every command in the session. Never start a local build and later fall back to an unverified global `mcpa`/`mcp-ts`.
-2. If neither executable exists, stop. Ask for approval to either install `npm install -g @mcp-ts/cli` or use `npx @mcp-ts/cli`. Do not install or download silently.
-3. Require CLI version 0.2.2 or newer before relying on bridge-safe `list`, `search`, `schema`, or `call`. With an older version, explain that one-shot commands may replace an active remote bridge and recommend upgrading before continuing.
-4. Run `mcpa daemon status`. Treat its states literally:
-   - `running`: reuse the managed daemon.
-   - `external`: reuse the healthy foreground gateway; do not adopt, restart, or stop it.
-   - `starting`: wait briefly and check again.
-   - `occupied`: report the owner PID and choose `--port`; never kill or adopt it.
-   - `unhealthy`: inspect `mcpa daemon logs`; do not blindly restart.
-   - `stopped`: one-shot commands still work. Start a daemon only when persistent/repeated access is useful.
-5. Run `mcpa list` and verify the expected local and remote servers. If remote servers are missing, check authentication with `mcpa login` or the saved-session error first. Do not start another gateway merely to repair authentication.
-6. Never kill, adopt, or restart an unknown port owner. `mcpa daemon stop` is only for a PID-managed daemon whose PID owns its recorded port.
+   - Pin that resolved executable or an explicit local `node .../dist/bin/mcp-ts.js` entrypoint for the whole session.
+2. If neither executable exists, stop and request approval to install `@mcp-ts/cli` or download it with `npx`. Never install or download silently.
+3. Require CLI version 0.3.0 or newer. If it is older, stop and request an upgrade; do not use pre-0.3.0 flags or behavior as a compatibility path.
+4. Run `mcpa daemon status` and follow the state table below.
+5. Run `mcpa list --tools` with the same pinned CLI. Verify the expected local and remote catalog before choosing a tool.
+6. If a remote server is missing because the session is absent or expired, run `mcpa login`, then repeat `mcpa list --tools`. Authentication failures are not gateway failures; do not restart the gateway to repair auth.
 
-## Choosing an execution path
+| Gateway state | Required response |
+|---|---|
+| `running` | Reuse the managed gateway. |
+| `external` | Reuse the healthy foreground gateway. Do not adopt, restart, or stop it. |
+| `stopped` | Let the next normal command auto-start the managed daemon. |
+| `starting` | Wait briefly, then check status again. |
+| `occupied` | Stop and report the port owner diagnostic. Never kill, adopt, or restart an unknown owner. |
+| `unhealthy` | Stop and inspect the reported log/health diagnostic. Never replace it automatically. |
 
-- One-off work: use `mcpa list`, `mcpa search`, `mcpa schema`, and `mcpa call`. Version 0.2.2+ uses authenticated remote HTTP and does not take WebSocket bridge ownership; no daemon is required.
-- Repeated work: prefer an already healthy gateway. Start `mcpa daemon start [--port <port>]` only if none exists.
-- Long-running bridge: use `mcpa serve` or the daemon. MCP Assistant intentionally permits one bridge owner per account. If a foreground bridge says it was replaced, locate the other long-running gateway; do not create a reconnect loop.
-- Ambiguous tool names: use canonical `serverId::toolName` IDs for schema and call operations.
+## Gateway execution contract
+
+```text
+mcpa serve          # foreground gateway with live logs
+mcpa daemon start   # the same gateway in the background
+mcpa list           # reuse either gateway, or auto-start the managed daemon
+```
+
+- `list`, `search`, `schema`, and `call` do not create a direct remote HTTP path or a one-shot bridge.
+- A command failure never switches transports. Diagnose the gateway, catalog, or authentication error that was reported.
+- Do not invent or use `--no-daemon`, alternate transport, legacy bridge, or direct authenticated HTTP fallbacks.
+- `mcpa daemon stop` stops only the recorded managed daemon. It cannot stop a foreground (`external`) gateway or an unknown port owner.
+- Use canonical `serverId::toolName` IDs for schema and call operations.
 
 ## Core commands
 
@@ -47,49 +60,49 @@ mcpa serve [--port 8765]
 mcpa daemon <start|stop|status|logs> [--port PORT]
 ```
 
-For complex arguments, invoke the executable without a shell and pass `JSON.stringify(payload)` as one argument. This avoids PowerShell, cmd, and Bash quoting damage.
+For complex arguments, invoke the pinned executable without a shell and pass `JSON.stringify(payload)` as one argument. This avoids PowerShell, cmd, and Bash quoting damage.
 
 ## Batch multiple tool calls
 
-For two or more calls, prefer a Node.js script over repeated shell commands. Pin the same CLI entrypoint verified during preflight, pass every argument separately with `execFile`, and use `JSON.stringify` for each payload.
+For multiple calls, use a Node.js script with `execFile`. In batch input, separate the server and tool with `|`, for example `github|list_issues`. Convert that value to the canonical CLI ID `github::list_issues` before invoking `mcpa`; `|` is only the script input separator and is never sent as the tool ID.
 
-- Run independent read-only calls concurrently with `Promise.allSettled` so one failure does not hide successful results.
-- Run dependent calls sequentially. Treat mutating calls as sequential unless their independence is proven.
-- For larger batches, limit concurrency to four child processes.
-- Obtain authorization for every mutating or destructive call. Never automatically retry a non-idempotent call.
-
-Example—save as `mcpa-batch.mjs` and run it from the repository root:
+Run independent read-only calls concurrently. Run dependent calls sequentially, and treat mutating calls as sequential unless their independence and authorization are established. Never automatically retry non-idempotent calls.
 
 ```js
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { resolve } from "node:path";
 
 const execFileAsync = promisify(execFile);
-const cliEntrypoint = resolve("packages/cli/dist/bin/mcp-ts.js");
+const cliEntrypoint = process.env.MCPA_CLI_JS;
+if (!cliEntrypoint) throw new Error("Set MCPA_CLI_JS to the preflight-verified CLI entrypoint");
+
 const calls = [
-  { label: "root package", toolId: "filesystem::read_file", args: { path: "package.json" } },
-  { label: "CLI package", toolId: "filesystem::read_file", args: { path: "packages/cli/package.json" } },
+  { target: "filesystem|read_file", args: { path: "package.json" } },
+  { target: "github|list_issues", args: { repo: "zonlabs/mcp-ts", state: "open" } },
 ];
 
-async function callTool({ label, toolId, args }) {
+function canonicalToolId(target) {
+  const parts = target.split("|");
+  if (parts.length !== 2 || parts.some((part) => !part || part.includes("::"))) {
+    throw new Error(`Expected server|tool, received: ${target}`);
+  }
+  return `${parts[0]}::${parts[1]}`;
+}
+
+async function callTool({ target, args }) {
+  const toolId = canonicalToolId(target);
   const { stdout } = await execFileAsync(
     process.execPath,
     [cliEntrypoint, "call", toolId, JSON.stringify(args)],
     { windowsHide: true, maxBuffer: 10 * 1024 * 1024 },
   );
-  return { label, result: JSON.parse(stdout) };
+  return { toolId, result: JSON.parse(stdout) };
 }
 
 const results = await Promise.allSettled(calls.map(callTool));
-for (const [index, result] of results.entries()) {
-  if (result.status === "fulfilled") console.log(result.value);
-  else console.error(calls[index].label, result.reason);
-}
+for (const result of results) console.log(result);
 if (results.some((result) => result.status === "rejected")) process.exitCode = 1;
 ```
-
-For dependent operations, replace `Promise.allSettled(...)` with a `for...of` loop that awaits `callTool` before constructing or executing the next call.
 
 ## Configuration
 
@@ -106,11 +119,10 @@ The CLI searches upward for `.mcpassistant/mcp.json` or `mcp.json`. `MCP_CONFIG_
 }
 ```
 
-## Troubleshooting
+## Common mistakes
 
-- Remote tools disappear after `mcpa list` or `mcpa search`: check `mcpa --version`. Versions before 0.2.2 can open a second WebSocket bridge and replace `mcpa serve`. Upgrade, stop the unintended long-running gateway if you own it, then restart the intended bridge once.
-- Local `serve` reports replacement after a later command: compare the executable paths and versions used for both commands. Mixing a local 0.2.2+ gateway with a global pre-0.2.2 `mcpa` has the same bridge-replacement effect.
-- `Not signed in` or expired session: run `mcpa login`; do not restart the daemon as an authentication fix.
-- Port conflict: run `mcpa daemon status`. Reuse an `external` healthy gateway or choose another port. Never terminate an `occupied` foreign owner.
-- Partial or timed-out list: keep the successful server results and inspect each reported server diagnostic. Do not invent missing tool names.
-- Name collision: repeat the operation with `serverId::toolName`.
+- **Missing remote tools:** authenticate with `mcpa login`, then repeat the catalog check. Do not start another gateway.
+- **Occupied or unhealthy gateway:** stop and diagnose the reported owner or log. Do not switch transports, kill a process, or create another gateway as an automatic fallback.
+- **Partial list:** keep successful server results and inspect each reported diagnostic. Never invent missing tool names.
+- **Name collision:** repeat the operation with `serverId::toolName`.
+- **Mixed CLI binaries:** repeat preflight and use the same verified 0.3.0+ entrypoint for every command.

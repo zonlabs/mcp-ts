@@ -101,26 +101,23 @@ npm install -g @mcp-ts/cli
 ### Quick Commands
 
 ```bash
-mcpa serve # Start the cli
+mcpa serve          # Foreground gateway with live logs
+mcpa daemon start   # The same gateway in the background
+mcpa list           # Reuse either gateway, or auto-start the managed daemon
 
-# Cli Usage
+# Configure and use the gateway catalog
 mcpa connect exa https://mcp.exa.ai/mcp
 mcpa search "send email"
-# Execute tools directly (one-shot or chained)
 mcpa call exa::web_search_exa query="latest AI news"
-
-
-# Run local MCP gateway daemon
-mcpa init       # Create default mcp.json
-mcpa login      # Authenticate with remote gateway
+mcpa login           # Authenticate remote catalog access
 ```
 
-For full details, see the [CLI Package README](packages/cli).
+Normal `list`, `search`, `schema`, and `call` commands always use the single gateway. They reuse a healthy foreground or background gateway and start the managed daemon when stopped; they never switch to a direct remote HTTP or one-shot bridge path. For full lifecycle and diagnostic details, see the [CLI Package README](packages/cli).
 
 ### Agent Skills
 
-- [`mcp-assistant`](skills/mcp-assistant/SKILL.md) dynamically discovers connected MCP servers and tools, inspects only the schemas needed for a task, and routes tool calls or sandboxed multi-tool workflows without loading every tool into the agent context.
-- [`mcp-cli`](skills/mcp-cli/SKILL.md) safely automates `mcpa` | `mcp-ts`, including CLI preflight and version checks, local and remote discovery, authentication, gateway and daemon safety, schema inspection, troubleshooting, and a Node.js example for batching multiple tool calls.
+- Use [`mcp-cli`](skills/mcp-cli/SKILL.md) when a task invokes, automates, installs, or troubleshoots `mcpa` / `mcp-ts`. It covers the 0.3.0+ preflight, one-gateway lifecycle, authentication, catalog discovery, schema inspection, tool calls, and safe Node batching.
+- Use [`mcp-assistant`](skills/mcp-assistant/SKILL.md) when a task needs dynamic MCP server/tool discovery, selective schema inspection, routing across connected services, or sandboxed multi-tool workflows without loading every tool into context.
 
 ---
 

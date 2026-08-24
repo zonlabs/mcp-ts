@@ -1,103 +1,84 @@
 # @mcp-ts/cli (`mcpa` | `mcp-ts`)
 
-Bridge local and remote MCP servers for any MCP client (Cursor, VS Code, Windsurf, Claude Code, ChatGPT, OpenCode, Antigravity, and more). Explore, search, benchmark, codegen, execute tools directly, and run a local MCP gateway.
+Bridge local and remote MCP servers for any MCP client (Cursor, VS Code, Windsurf, Claude Code, ChatGPT, OpenCode, Antigravity, and more). Explore, search, benchmark, generate wrappers, call tools, and run a local MCP gateway.
 
 > [!TIP]
-> Refer to the [**`mcp-cli` Skill**](../../skills/mcp-cli/SKILL.md) or install via:
+> Refer to the [**`mcp-cli` skill**](../../skills/mcp-cli/SKILL.md) or install it with:
 > ```bash
 > npx skills add zonlabs/mcp-ts --skill mcp-cli
 > ```
 
-## Installation & Quick Aliases
-
-Run directly with `npx` or install globally:
+## Installation
 
 ```bash
-# Global install (provides both `mcpa` and `mcp-ts` commands)
+# Global install (provides both commands)
 npm install -g @mcp-ts/cli
 
-# Or run via npx
+# Or run without a global install
 npx @mcp-ts/cli [command]
 ```
 
-Both **`mcpa`** (fast 4-letter alias) and **`mcp-ts`** work identically.
+`mcpa` and `mcp-ts` are equivalent aliases. This release documents CLI 0.3.0.
 
----
+## One gateway, two lifecycles
 
-## ⚡ Direct Tool Execution & Local Discovery (For Terminal Agents)
+The CLI has one gateway implementation. Choose foreground or background operation only by the lifecycle you need:
 
-Run one-shot tool calls or discover local tools directly without starting a daemon:
+```text
+mcpa serve          # foreground gateway with live logs
+mcpa daemon start   # the same gateway in the background
+mcpa list           # reuse either gateway, or start the managed daemon
+```
 
-On CLI 0.2.2 and newer, these commands reuse a healthy local gateway when one exists. Otherwise they start only local configured servers and query authenticated remote tools over HTTP; they do not open or replace the account's long-running WebSocket bridge. For repeated work, reusing an existing healthy gateway avoids repeated server startup.
+Normal `list`, `search`, `schema`, and `call` commands connect to this gateway. They reuse a healthy managed daemon or foreground gateway; when status is `stopped`, they auto-start the managed daemon. They never create a direct remote HTTP command path or a one-shot bridge, and a failure never switches transports.
+
+`mcpa daemon status` reports the lifecycle state:
+
+| State | Command behavior |
+|---|---|
+| `running` | Reuse the managed daemon. |
+| `external` | Reuse the healthy foreground gateway without adopting it. |
+| `stopped` | A normal command starts the managed daemon automatically. |
+| `starting` | Wait for startup and check again. |
+| `occupied` | Report a hard port-owner diagnostic; do not kill or adopt the owner. |
+| `unhealthy` | Report a hard health/log diagnostic; do not replace the process automatically. |
+
+`mcpa daemon stop` stops only a recorded managed daemon. It cannot stop a foreground gateway or an unknown process that owns the port.
+
+## Discover and call tools
 
 ```bash
-# List all configured local MCP servers and tools
+# Inspect the catalog
 mcpa list
+mcpa list --tools
 
-# Search tools in local mcp.json using in-memory BM25 index
-mcpa search "create pull request"
+# Search the gateway's catalog
+mcpa search "create pull request" --limit 10
 
-# Inspect tool JSON schemas (single or multiple)
-mcpa schema filesystem:read_file filesystem:write_file
-
-# Directly execute a tool call (JSON or key=value shorthand)
-mcpa call filesystem:read_file '{"path":"package.json"}'
+# Inspect and call with canonical serverId::toolName IDs
+mcpa schema filesystem::read_file github::list_issues
+mcpa call filesystem::read_file '{"path":"package.json"}'
 mcpa call exa::web_search_exa query="latest AI news"
 mcpa call github::list_issues repo="zonlabs/mcp-ts",state="open"
 ```
 
-### 🤖 Agent Script Automation & Multi-Tool Chaining
+For automation, pass arguments without a shell and serialize complex payloads with `JSON.stringify`. The [`mcp-cli` skill](../../skills/mcp-cli/SKILL.md#batch-multiple-tool-calls) contains a safe Node `execFile` batch example. Its batch input uses `server|tool`, while the canonical tool ID passed to the CLI uses `server::tool`.
 
-Agents and automation scripts can execute `mcpa` programmatically to chain tools across services, execute batch tasks in parallel, or safely pass large multiline Markdown payloads without shell quote escaping issues:
-
-```javascript
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-const execFileAsync = promisify(execFile);
-
-async function mcpaCall(tool, args = {}) {
-  const { stdout } = await execFileAsync("mcpa", ["call", tool, JSON.stringify(args)]);
-  return JSON.parse(stdout);
-}
-
-// 1. Chaining tools (Web Search -> Synthesize -> Create GitHub Issue / PR)
-const results = await mcpaCall("exa::web_search_exa", { query: "MCP spec updates 2026" });
-await mcpaCall("github::create_issue", {
-  owner: "zonlabs",
-  repo: "mcp-ts",
-  title: "MCP Spec Review",
-  body: `## Research Findings\n- Discovered ${results.length} relevant updates.`,
-});
-
-// 2. Parallel execution across multiple connected services
-const [issues, docs] = await Promise.all([
-  mcpaCall("github::list_issues", { repo: "zonlabs/mcp-ts", state: "open" }),
-  mcpaCall("notion::query_database", { database_id: "projects-db" }),
-]);
-```
-
----
-
-## 🔌 Run a Local MCP Gateway (For Code IDEs & Remote Bridges)
-
-Expose your local MCP servers to Code IDEs (Cursor, VS Code, Windsurf) through a clean HTTP endpoint (`http://127.0.0.1:8765/mcp`) with **Progressive Tool Discovery** to prevent prompt context bloat:
+## Gateway operations
 
 ```bash
-mcpa init                                  # write a default mcp.json
-mcpa serve                                 # run interactive local gateway with live traffic logs
-mcpa serve -d                              # run as a detached background daemon
-mcpa daemon start                          # start background daemon (survives closed terminals)
-mcpa daemon status                         # inspect daemon PID, uptime, port, and health
-mcpa daemon logs                           # view recent daemon logs
-mcpa daemon stop                           # stop running background daemon
+mcpa init                    # write a default mcp.json
+mcpa serve                   # foreground gateway with live logs
+mcpa daemon start            # background managed gateway
+mcpa daemon status           # state, PID/owner, port, and health
+mcpa daemon logs             # managed gateway logs
+mcpa daemon stop             # stop only the managed daemon
 ```
 
-`mcpa daemon status` distinguishes managed daemons from healthy foreground (`external`) gateways, foreign port owners (`occupied`), startup, and unhealthy states. Starting a daemon reuses a healthy foreground gateway. Stopping a daemon never terminates an external or unknown port owner; choose another port with `--port` when a foreign process owns the requested port.
+The gateway watches `mcp.json`. Connecting, removing, enabling, disabling, or editing configured servers updates routes and search indexes without replacing the gateway.
 
-### 🔄 Automatic Hot-Reloading (#191)
-The gateway actively watches `mcp.json`. Whenever servers are connected, removed, enabled, or disabled (`mcpa connect`, `mcpa enable/disable`, or direct edits), the gateway dynamically updates routes and search indexes with **zero downtime**.
+Point local MCP clients at the gateway:
 
-In `.cursor/mcp.json` or VS Code MCP settings:
 ```json
 {
   "mcpServers": {
@@ -108,34 +89,34 @@ In `.cursor/mcp.json` or VS Code MCP settings:
 }
 ```
 
----
+## Authentication and remote servers
 
-## 🌐 Remote Bridge Connection
-
-Sign in to the remote gateway and bridge local servers through the account's single active gateway session. Point remote MCP clients at `https://api.mcp-assistant.in/mcp`; local coding agents can continue using the local HTTP endpoint.
+Sign in before expecting authenticated remote tools in the gateway catalog:
 
 ```bash
-mcpa login --remote https://api.mcp-assistant.in  # browser OAuth + PKCE
-mcpa serve                                        # local HTTP gateway + remote bridge
-mcpa logout                                       # revoke this CLI session
+mcpa login --remote https://api.mcp-assistant.in
+mcpa list --tools
+mcpa search "send email"
+mcpa logout
 ```
 
----
+Missing or expired authentication is a catalog/auth problem, not a gateway lifecycle problem. Authenticate and retry the normal command; do not restart the gateway or fall back to direct authenticated HTTP.
 
-## 🔎 Explore a Remote Server
+Add a remote MCP server to the gateway configuration, then use the same normal commands:
 
 ```bash
-mcpa connect https://api.example.com/mcp
-mcpa search https://api.example.com/mcp "send email"
-mcpa bench https://api.example.com/mcp
-mcpa codegen https://api.example.com/mcp --out ./src/mcp-tools.ts
+mcpa connect exa https://mcp.exa.ai/mcp
+mcpa list exa --tools
+mcpa search "web search"
 ```
 
-The interactive `connect` command supports `search`, `schema`, and `call` commands. `search` uses the SDK's BM25-backed `ToolRouter`; `bench` compares the estimated context cost of its `all`, `search`, and `groups` exposure strategies. `codegen` produces dependency-free TypeScript wrappers from the server's JSON schemas.
+The interactive `connect` command supports discovery and configuration. `search` uses the SDK's BM25-backed `ToolRouter`; successful results remain available alongside explicit per-server timeout or connection diagnostics.
 
 ## Troubleshooting
 
-- **Remote tools disappear after `mcpa list` or `mcpa search`:** versions before 0.2.2 could replace the single active account bridge from a one-shot command. Upgrade the CLI, stop only the unintended gateway you own, and restart the intended `mcpa serve` once.
-- **Remote servers are missing:** run `mcpa login` and retry. Starting another daemon does not repair an expired or absent session.
-- **Port 8765 is occupied:** inspect `mcpa daemon status`. Reuse a healthy external gateway or select `--port <available-port>`; unknown owners are never killed or adopted automatically.
-- **A detailed list is partial:** successful servers are still returned with explicit timeout/error diagnostics. Missing tool names are not fabricated.
+- **CLI is missing or older than 0.3.0:** install or upgrade with user approval, then repeat the version and status preflight. Do not use earlier behavior as a fallback.
+- **Remote servers are missing:** run `mcpa login`, then repeat `mcpa list --tools`. Restarting the gateway does not repair authentication.
+- **Status is `occupied`:** inspect the reported port owner. The CLI will not kill or adopt it, and normal commands will not switch transports.
+- **Status is `unhealthy`:** inspect the reported log and health data. The CLI will not replace it automatically.
+- **A detailed list is partial:** keep successful server results and inspect each explicit diagnostic. Missing tool names are never fabricated.
+- **A tool name is ambiguous:** use the canonical `serverId::toolName` ID shown by list or search.
