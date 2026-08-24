@@ -1,13 +1,14 @@
 import { execFileSync, execSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
-  closeSync,
   createWriteStream,
   existsSync,
   mkdirSync,
   linkSync,
-  openSync,
   readFileSync,
+  readdirSync,
+  renameSync,
+  rmdirSync,
   statSync,
   unlinkSync,
   writeFileSync,
@@ -33,7 +34,10 @@ export interface GatewayProcessInfo {
 interface GatewayStartLock {
   pid: number;
   createdAt: number;
+  sentinelName: string;
 }
+
+type GatewayLockFile = Omit<GatewayStartLock, "sentinelName">;
 
 export interface DaemonStatus {
   state: "stopped" | "starting" | "running" | "external" | "occupied" | "unhealthy";
@@ -249,7 +253,7 @@ export function clearGatewayProcess(expectedPid: number): boolean {
   });
 }
 
-function isGatewayStartLock(value: unknown): value is GatewayStartLock {
+function isGatewayStartLock(value: unknown): value is GatewayLockFile {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
   return Number.isInteger(record.pid)
@@ -259,10 +263,12 @@ function isGatewayStartLock(value: unknown): value is GatewayStartLock {
 }
 
 function readGatewayLock(lockPath: string): GatewayStartLock | null {
-  if (!existsSync(lockPath)) return null;
   try {
-    const parsed: unknown = JSON.parse(readFileSync(lockPath, "utf8"));
-    return isGatewayStartLock(parsed) ? parsed : null;
+    const entries = readdirSync(lockPath, { withFileTypes: true });
+    if (entries.length !== 1 || !entries[0].isFile()) return null;
+    const sentinelName = entries[0].name;
+    const parsed: unknown = JSON.parse(readFileSync(join(lockPath, sentinelName), "utf8"));
+    return isGatewayStartLock(parsed) ? { ...parsed, sentinelName } : null;
   } catch {
     return null;
   }
@@ -270,38 +276,51 @@ function readGatewayLock(lockPath: string): GatewayStartLock | null {
 
 function createGatewayLock(lockPath: string): GatewayStartLock {
   ensureDaemonDir();
-  const lock = { pid: process.pid, createdAt: Date.now() };
-  const fd = openSync(lockPath, "wx");
-  let failure: unknown;
+  const lockFile = { pid: process.pid, createdAt: Date.now() };
+  const generation = randomUUID();
+  const sentinelName = `${generation}.json`;
+  const temporaryPath = `${lockPath}.${process.pid}.${generation}.tmp`;
+  const sentinelPath = join(temporaryPath, sentinelName);
+  mkdirSync(temporaryPath);
   try {
-    writeFileSync(fd, JSON.stringify(lock), "utf8");
-  } catch (error: unknown) {
-    failure = error;
-  }
-  try {
-    closeSync(fd);
-  } catch (error: unknown) {
-    failure ??= error;
-  }
-  if (failure) {
+    writeFileSync(sentinelPath, JSON.stringify(lockFile), { encoding: "utf8", flag: "wx" });
     try {
-      unlinkSync(lockPath);
-    } catch {
-      // A stale invalid lock is reclaimed by age on a later claim.
+      renameSync(temporaryPath, lockPath);
+    } catch (error: unknown) {
+      if (!existsSync(lockPath)) throw error;
+      const occupied = new Error(`Gateway lock already exists at ${lockPath}.`) as NodeJS.ErrnoException;
+      occupied.code = "EEXIST";
+      throw occupied;
     }
-    throw failure;
+  } finally {
+    try {
+      unlinkSync(sentinelPath);
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    try {
+      rmdirSync(temporaryPath);
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
   }
-  return lock;
+  return { ...lockFile, sentinelName };
 }
 
 function clearGatewayLock(lockPath: string, expected: GatewayStartLock): boolean {
-  const current = readGatewayLock(lockPath);
-  if (!current || current.pid !== expected.pid || current.createdAt !== expected.createdAt) return false;
   try {
-    unlinkSync(lockPath);
+    unlinkSync(join(lockPath, expected.sentinelName));
+  } catch (error: unknown) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return false;
+    throw error;
+  }
+  try {
+    rmdirSync(lockPath);
     return true;
   } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTEMPTY" || code === "EEXIST") return false;
     throw error;
   }
 }
@@ -311,7 +330,8 @@ function ownsGatewayLock(lockPath: string, expected: GatewayStartLock): boolean 
   return Boolean(
     current
     && current.pid === expected.pid
-    && current.createdAt === expected.createdAt,
+    && current.createdAt === expected.createdAt
+    && current.sentinelName === expected.sentinelName,
   );
 }
 
@@ -319,6 +339,7 @@ function clearInvalidStaleLock(lockPath: string, now: number): boolean {
   try {
     const before = statSync(lockPath);
     if (now - before.mtimeMs <= GATEWAY_STARTUP_TIMEOUT_MS) return false;
+    const entries = before.isDirectory() ? readdirSync(lockPath, { withFileTypes: true }) : [];
     const after = statSync(lockPath);
     if (
       before.dev !== after.dev
@@ -328,18 +349,46 @@ function clearInvalidStaleLock(lockPath: string, now: number): boolean {
     ) {
       return false;
     }
-    unlinkSync(lockPath);
-    return true;
+    if (!before.isDirectory()) {
+      try {
+        unlinkSync(lockPath);
+        return true;
+      } catch (error: unknown) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "EISDIR" || code === "EPERM") return false;
+        throw error;
+      }
+    }
+    if (entries.some((entry) => !entry.isFile())) return false;
+    for (const entry of entries) {
+      try {
+        unlinkSync(join(lockPath, entry.name));
+      } catch (error: unknown) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") continue;
+        throw error;
+      }
+    }
+    try {
+      rmdirSync(lockPath);
+      return true;
+    } catch (error: unknown) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTEMPTY" || code === "EEXIST") return false;
+      throw error;
+    }
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
     throw error;
   }
 }
 
-function reclaimGatewayLock(lockPath: string, now: number): boolean {
+function reclaimGatewayLock(lockPath: string, now: number, reclaimLiveExpired = true): boolean {
   const existing = readGatewayLock(lockPath);
   if (existing) {
-    if (isProcessAlive(existing.pid) && now - existing.createdAt <= GATEWAY_STARTUP_TIMEOUT_MS) return false;
+    if (isProcessAlive(existing.pid)) {
+      if (!reclaimLiveExpired || now - existing.createdAt <= GATEWAY_STARTUP_TIMEOUT_MS) return false;
+    }
     return clearGatewayLock(lockPath, existing);
   }
   return clearInvalidStaleLock(lockPath, now);
@@ -358,7 +407,7 @@ function withGatewayProcessLock<T>(action: () => T): T {
       lock = createGatewayLock(lockPath);
     } catch (error: unknown) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      if (reclaimGatewayLock(lockPath, Date.now())) continue;
+      if (reclaimGatewayLock(lockPath, Date.now(), false)) continue;
       synchronousSleep(PROCESS_CLAIM_POLL_INTERVAL_MS);
     }
   }

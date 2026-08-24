@@ -1,5 +1,15 @@
 import { execFileSync, execSync, spawn } from "node:child_process";
-import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vitest";
@@ -18,6 +28,21 @@ import {
 } from "../src/gateway/daemon.js";
 import { cmdDaemon } from "../src/commands/daemon.js";
 
+const filesystemInterleaving = vi.hoisted(() => ({
+  beforeUnlink: undefined as undefined | ((path: string) => void),
+}));
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    unlinkSync(path: Parameters<typeof actual.unlinkSync>[0]) {
+      filesystemInterleaving.beforeUnlink?.(String(path));
+      return actual.unlinkSync(path);
+    },
+  };
+});
+
 vi.mock("node:child_process", () => ({
   execFileSync: vi.fn(),
   execSync: vi.fn(),
@@ -35,6 +60,21 @@ const mockedSpawn = vi.mocked(spawn);
 const originalConfigDir = process.env.MCPA_CONFIG_DIR;
 let configDir: string;
 
+function publishTestLease(lockPath: string, pid: number, createdAt: number, generation: string): string {
+  const temporaryPath = `${lockPath}.${generation}.tmp`;
+  const sentinelName = `${generation}.json`;
+  rmSync(temporaryPath, { recursive: true, force: true });
+  mkdirSync(temporaryPath);
+  writeFileSync(join(temporaryPath, sentinelName), JSON.stringify({ pid, createdAt }), "utf8");
+  renameSync(temporaryPath, lockPath);
+  return join(lockPath, sentinelName);
+}
+
+function replaceTestLease(lockPath: string, pid: number, createdAt: number, generation: string): string {
+  rmSync(lockPath, { recursive: true, force: true });
+  return publishTestLease(lockPath, pid, createdAt, generation);
+}
+
 function clearOwnedRecord(): void {
   const current = readGatewayProcess();
   if (current) clearGatewayProcess(current.pid);
@@ -47,9 +87,10 @@ describe("MCP Gateway daemon subsystem", () => {
   });
 
   afterEach(() => {
+    filesystemInterleaving.beforeUnlink = undefined;
+    rmSync(join(configDir, "gateway-start.lock"), { recursive: true, force: true });
+    rmSync(join(configDir, "gateway-process.lock"), { recursive: true, force: true });
     clearOwnedRecord();
-    rmSync(join(configDir, "gateway-start.lock"), { force: true });
-    rmSync(join(configDir, "gateway-process.lock"), { force: true });
     mockedExecFileSync.mockReset();
     mockedExecSync.mockReset();
     mockedPingGateway.mockReset();
@@ -114,6 +155,104 @@ describe("MCP Gateway daemon subsystem", () => {
     })).toThrow(/owned by live PID 2222/i);
 
     expect(readGatewayProcess()).toMatchObject({ pid: 2222, port: 9122, mode: "foreground" });
+  });
+
+  test("stale lease cleanup cannot unlink a newly published lease generation", () => {
+    const lockPath = join(configDir, "gateway-process.lock");
+    const oldSentinel = publishTestLease(lockPath, 1111, 1, "old-generation");
+    const replacementSentinel = join(lockPath, "new-generation.json");
+    const originalKill = process.kill.bind(process);
+    vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      if (pid === 1111) {
+        const error = new Error("stale") as NodeJS.ErrnoException;
+        error.code = "ESRCH";
+        throw error;
+      }
+      if (pid === 2222 && signal === 0) return true;
+      return originalKill(pid, signal as NodeJS.Signals | number | undefined);
+    }) as typeof process.kill);
+
+    filesystemInterleaving.beforeUnlink = (path) => {
+      if (path !== oldSentinel) return;
+      filesystemInterleaving.beforeUnlink = undefined;
+      replaceTestLease(lockPath, 2222, Date.now(), "new-generation");
+    };
+
+    expect(() => writeGatewayProcess({
+      pid: 3333,
+      port: 9333,
+      startedAt: 3,
+      mode: "daemon",
+    })).toThrow(/timed out/i);
+    expect(existsSync(replacementSentinel)).toBe(true);
+    expect(readdirSync(lockPath)).toEqual(["new-generation.json"]);
+    expect(readGatewayProcess()).toBeNull();
+  });
+
+  test("stale record reclaim cannot remove a successor published under a replacement lease", () => {
+    const processPath = getGatewayProcessPath();
+    const lockPath = join(configDir, "gateway-process.lock");
+    writeFileSync(processPath, JSON.stringify({ pid: 1111, port: 9111, startedAt: 1, mode: "daemon" }), "utf8");
+    const oldSentinel = publishTestLease(lockPath, 1111, 1, "stale-owner");
+    const successor = { pid: 2222, port: 9222, startedAt: 2, mode: "foreground" } as const;
+    const originalKill = process.kill.bind(process);
+    vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      if (pid === 1111) {
+        const error = new Error("stale") as NodeJS.ErrnoException;
+        error.code = "ESRCH";
+        throw error;
+      }
+      if (pid === 2222 && signal === 0) return true;
+      return originalKill(pid, signal as NodeJS.Signals | number | undefined);
+    }) as typeof process.kill);
+
+    filesystemInterleaving.beforeUnlink = (path) => {
+      if (path !== oldSentinel) return;
+      filesystemInterleaving.beforeUnlink = undefined;
+      replaceTestLease(lockPath, successor.pid, Date.now(), "successor-owner");
+      rmSync(processPath, { force: true });
+      writeFileSync(processPath, JSON.stringify(successor), "utf8");
+    };
+
+    expect(() => writeGatewayProcess({
+      pid: 3333,
+      port: 9333,
+      startedAt: 3,
+      mode: "daemon",
+    })).toThrow(/timed out/i);
+    expect(readGatewayProcess()).toEqual(successor);
+  });
+
+  test("a live process mutex cannot be age-reclaimed between clear and publish", () => {
+    const processPath = getGatewayProcessPath();
+    const successor = { pid: 2222, port: 9222, startedAt: 2, mode: "foreground" } as const;
+    writeGatewayProcess({ pid: 1111, port: 9111, startedAt: 1, mode: "daemon" });
+    let now = 1_000;
+    vi.spyOn(Date, "now").mockImplementation(() => {
+      const current = now;
+      if (now >= 20_000) now += 100;
+      return current;
+    });
+    let concurrentError: unknown;
+    filesystemInterleaving.beforeUnlink = (path) => {
+      if (path !== processPath) return;
+      filesystemInterleaving.beforeUnlink = undefined;
+      now = 20_000;
+      try {
+        writeGatewayProcess(successor);
+      } catch (error: unknown) {
+        concurrentError = error;
+      }
+    };
+
+    expect(clearGatewayProcess(1111)).toBe(true);
+    expect(concurrentError).toEqual(expect.objectContaining({
+      message: expect.stringMatching(/timed out/i),
+    }));
+    expect(readGatewayProcess()).toBeNull();
+
+    writeGatewayProcess(successor);
+    expect(readGatewayProcess()).toEqual(successor);
   });
 
   test("refuses to overwrite a live foreign gateway process record", () => {
@@ -311,10 +450,11 @@ describe("MCP Gateway daemon subsystem", () => {
     mockedPingGateway.mockImplementation(async () => {
       probes += 1;
       if (probes === 2) {
-        writeFileSync(
+        replaceTestLease(
           join(configDir, "gateway-start.lock"),
-          JSON.stringify({ pid: 9999, createdAt: Date.now() }),
-          "utf8",
+          9999,
+          Date.now(),
+          "replacement-before-spawn",
         );
       }
       return null;
@@ -350,10 +490,11 @@ describe("MCP Gateway daemon subsystem", () => {
     }) as unknown as typeof execFileSync);
     mockedSpawn.mockImplementation((() => {
       spawned = true;
-      writeFileSync(
+      replaceTestLease(
         join(configDir, "gateway-start.lock"),
-        JSON.stringify({ pid: 9999, createdAt: Date.now() }),
-        "utf8",
+        9999,
+        Date.now(),
+        "replacement-during-spawn",
       );
       return { pid: childPid, unref: vi.fn() };
     }) as unknown as typeof spawn);
@@ -375,10 +516,11 @@ describe("MCP Gateway daemon subsystem", () => {
   test("a live startup-lock owner receives the full 15-second readiness deadline", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(1_000_000));
-    writeFileSync(
+    publishTestLease(
       join(configDir, "gateway-start.lock"),
-      JSON.stringify({ pid: process.pid, createdAt: Date.now() }),
-      "utf8",
+      process.pid,
+      Date.now(),
+      "live-startup-owner",
     );
     mockedPingGateway.mockResolvedValue(null);
     let portChecks = 0;
