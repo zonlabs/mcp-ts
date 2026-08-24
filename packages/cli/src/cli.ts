@@ -23,7 +23,7 @@ Usage:
   mcpa serve [--host h] [--port p] [--mode <all|search>] [--detached] [--verbose]
                                                 Run the local MCP gateway
   mcpa daemon <start|stop|status|logs>          Manage persistent background daemon
-  mcpa call <tool> [jsonArgs]                   Directly execute a local MCP tool
+  mcpa call <tool> [jsonArgs]                   Execute an MCP tool through the gateway
   mcpa search [url] <query> [--limit <count>]   Search local or remote tool catalog
   mcpa schema <tool...>                         Inspect tool JSON schemas
   mcpa list [server] [--tools]                  List configured MCP servers (or tools)
@@ -192,7 +192,7 @@ export async function runCli(
         searchQuery = values.join(" ");
       }
 
-      await cmdSearch(searchQuery, searchLimit, { dir, endpoint }, streams.output);
+      await cmdSearch(searchQuery, searchLimit, endpoint ? { endpoint } : undefined, streams.output);
       return 0;
     }
 

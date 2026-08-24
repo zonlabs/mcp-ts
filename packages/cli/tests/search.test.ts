@@ -2,26 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cmdSearch } from "../src/commands/search.js";
 import * as commandClient from "../src/gateway/command-client.js";
 
-function fakeSearchClient(results: unknown[]) {
-  return {
-    listTools: async () => ({
-      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
-    }),
-    callTool: vi.fn(async () => ({
-      content: [{ type: "text", text: JSON.stringify(results) }],
-    })),
-    getServerId: () => "gateway",
-    getServerName: () => "gateway",
-  };
+function textResult(value: unknown) {
+  return { content: [{ type: "text", text: JSON.stringify(value) }] };
 }
 
 describe("cmdSearch single-gateway routing", () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it("treats an empty gateway search as authoritative", async () => {
-    const client = fakeSearchClient([]);
+  it("returns an empty gateway search without another path", async () => {
+    const callTool = vi.fn(async () => textResult({ tools: [] }));
     const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action(client as never),
+      async (_options, action) => action({ callTool } as never),
     );
     let output = "";
 
@@ -34,18 +25,23 @@ describe("cmdSearch single-gateway routing", () => {
 
     expect(output).toContain("No matching tools found.");
     expect(withClient).toHaveBeenCalledOnce();
-    expect(client.callTool).toHaveBeenCalledOnce();
+    expect(callTool).toHaveBeenCalledWith("search_mcp_tools", {
+      query: "definitely-missing",
+      limit: 5,
+    });
+    expect(callTool).toHaveBeenCalledOnce();
   });
 
   it("uses an explicit endpoint as the only gateway-client path", async () => {
-    const client = fakeSearchClient([]);
+    const callTool = vi.fn(async () => textResult({ tools: [] }));
     const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action(client as never),
+      async (_options, action) => action({ callTool } as never),
     );
 
     await cmdSearch("github", 5, { endpoint: "https://example.test/custom" }, { write: () => true });
 
     expect(withClient).toHaveBeenCalledOnce();
     expect(withClient.mock.calls[0][0]).toMatchObject({ endpoint: "https://example.test/custom" });
+    expect(callTool).toHaveBeenCalledOnce();
   });
 });

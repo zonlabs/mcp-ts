@@ -110,6 +110,7 @@ test("renders banner, tree formatters and reports version", async () => {
   });
   assert.equal(helpCode, 0);
   assert.ok(helpOutput.includes("mcpa call"));
+  assert.ok(helpOutput.includes("Execute an MCP tool through the gateway"));
   assert.ok(helpOutput.includes("mcpa search"));
   assert.ok(helpOutput.includes("mcpa schema"));
   assert.ok(helpOutput.includes("mcpa list"));
