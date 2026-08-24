@@ -117,6 +117,10 @@ mcpa login      # Authenticate with remote gateway
 
 For full details, see the [CLI Package README](packages/cli).
 
+### Agent Skill
+
+The repository includes an [`mcp-cli` agent skill](skills/mcp-cli/SKILL.md) for safely automating `mcpa` | `mcp-ts`. It covers CLI preflight and version checks, local and remote discovery, authentication, gateway and daemon safety, schema inspection, tool execution, troubleshooting, and a Node.js example for batching multiple tool calls.
+
 ---
 
 ## 📚 Documentation & Contributing
