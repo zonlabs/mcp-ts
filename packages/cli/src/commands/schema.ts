@@ -1,8 +1,7 @@
 import type { Writable } from "node:stream";
-import { connectMcpEndpoint } from "../client.js";
+import type { McpEndpointClient } from "../client.js";
 import { createRouter, parseToolRef, searchTools } from "../core.js";
-import { withMcpGateway } from "../gateway/context.js";
-import { AmbiguousToolReferenceError, createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
+import { withGatewayClient } from "../gateway/command-client.js";
 import { writeLine } from "../ux.js";
 
 function parseSchemaResult(raw: unknown, originalName: string): unknown {
@@ -28,7 +27,7 @@ function parseSchemaResult(raw: unknown, originalName: string): unknown {
 }
 
 async function fetchSchemaThroughClient(
-  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
+  client: McpEndpointClient,
   name: string,
 ): Promise<unknown> {
   const { serverId: targetServerId, toolName: targetToolName } = parseToolRef(name);
@@ -59,7 +58,7 @@ async function fetchSchemaThroughClient(
         m.toolId.toLowerCase().endsWith(`::${targetToolName.toLowerCase()}`)),
   );
   if (!targetServerId && exactMatches.length > 1) {
-    throw new AmbiguousToolReferenceError(targetToolName);
+    throw new Error(`Tool name "${targetToolName}" is ambiguous. Use a canonical server::tool ID.`);
   }
   const match = exactMatches[0];
 
@@ -89,7 +88,7 @@ async function fetchSchemaThroughClient(
 }
 
 async function fetchAllSchemasThroughClient(
-  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
+  client: McpEndpointClient,
   names: string[],
 ): Promise<unknown[]> {
   // If multiple canonical names, try batch get_mcp_tool_schemas directly
@@ -120,52 +119,11 @@ export async function cmdLocalSchema(
   dir: string | undefined,
   output: Pick<Writable, "write">,
 ): Promise<void> {
-  // 1. If local daemon is running, query it directly
-  const runningGateway = await resolveGateway();
-  if (runningGateway.endpoint) {
-    try {
-      const client = await connectMcpEndpoint(runningGateway.endpoint);
-      try {
-        const results = await fetchAllSchemasThroughClient(client, names);
-        writeLine(output, JSON.stringify(names.length === 1 ? results[0] : results, null, 2));
-        return;
-      } finally {
-        await client.close();
-      }
-    } catch (error) {
-      if (error instanceof AmbiguousToolReferenceError) throw error;
-      // Fallback
-    }
-  }
-
-  // 2. If remote gateway session is available, query it
-  const remoteUrl = process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
-  try {
-    const client = await createAuthenticatedRemoteClient(remoteUrl, {
-      warn: (message) => writeLine(output, message),
-    });
-    if (!client) throw new Error("Remote authentication unavailable");
-    try {
+  await withGatewayClient(
+    { onWarning: (message) => writeLine(output, message) },
+    async (client) => {
       const results = await fetchAllSchemasThroughClient(client, names);
-      if (results.every((result) => result && typeof result === "object" && "error" in result)) {
-        throw new Error("Requested tools were not found on the remote gateway");
-      }
       writeLine(output, JSON.stringify(names.length === 1 ? results[0] : results, null, 2));
-      return;
-    } finally {
-      await client.close();
-    }
-  } catch (error) {
-    if (error instanceof AmbiguousToolReferenceError) throw error;
-    // Fallback
-  }
-
-  // 3. Fallback to local configuration
-  await withMcpGateway({ cwd: dir, enableBridge: false }, async (gateway) => {
-    const results = names.map((name) => {
-      const tool = gateway.getTool(name);
-      return tool ?? { name, error: "Tool not found" };
-    });
-    writeLine(output, JSON.stringify(names.length === 1 ? results[0] : results, null, 2));
-  });
+    },
+  );
 }

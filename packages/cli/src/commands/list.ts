@@ -1,15 +1,14 @@
 import type { Writable } from "node:stream";
 import pc from "picocolors";
-import { getServerConfig, withMcpGateway } from "../gateway/context.js";
-import { createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
-import { connectMcpEndpoint } from "../client.js";
+import type { McpEndpointClient } from "../client.js";
+import { withGatewayClient } from "../gateway/command-client.js";
+import { getServerConfig } from "../gateway/context.js";
 import { writeLine } from "../ux.js";
 import type { McpServerConfig } from "../gateway/types.js";
 
 export interface ListOptions {
   showTools?: boolean;
   serverName?: string;
-  enableBridge?: boolean;
 }
 
 export interface ToolEntry {
@@ -233,63 +232,39 @@ function parseTextPayload(raw: unknown): any {
   return JSON.parse(content[0].text);
 }
 
-async function withDeadline<T>(promise: Promise<T>, deadlineAt: number): Promise<T> {
-  const remaining = deadlineAt - Date.now();
-  if (remaining <= 0) throw new Error("Discovery timed out after 10 seconds");
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("Discovery timed out after 10 seconds")), remaining);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
 export async function fetchCatalogThroughClient(
-  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
+  client: McpEndpointClient,
   allConfigs: Record<string, McpServerConfig>,
-  options: { showTools?: boolean; serverName?: string; deadlineAt?: number },
+  options: { showTools?: boolean; serverName?: string },
 ): Promise<{ localServers: ServerEntry[]; remoteServers: ServerEntry[] }> {
-  const deadlineAt = options.deadlineAt ?? Date.now() + 10_000;
   let serverList: Array<{ serverId: string; serverName: string; toolCount: number }> = [];
-  try {
-    const raw = await withDeadline(client.callTool("list_mcp_servers", { query: options.serverName ?? "" }), deadlineAt);
-    if (raw && typeof raw === "object") {
-      const res = raw as { content?: Array<{ type?: string; text?: string }> };
-      if (Array.isArray(res.content) && res.content[0]?.text) {
-        const parsed = JSON.parse(res.content[0].text);
-        if (Array.isArray(parsed.servers)) {
-          serverList = parsed.servers.map((s: any) => ({
-            serverId: String(s.server_id ?? s.serverId ?? s.serverName ?? ""),
-            serverName: String(s.server_name ?? s.serverName ?? s.serverId ?? ""),
-            toolCount: Number(s.tool_count ?? s.toolCount ?? 0),
-          }));
-        }
+  const raw = await client.callTool("list_mcp_servers", { query: options.serverName ?? "" });
+  if (raw && typeof raw === "object") {
+    const res = raw as { content?: Array<{ type?: string; text?: string }> };
+    if (Array.isArray(res.content) && res.content[0]?.text) {
+      const parsed = JSON.parse(res.content[0].text);
+      if (Array.isArray(parsed.servers)) {
+        serverList = parsed.servers.map((s: any) => ({
+          serverId: String(s.server_id ?? s.serverId ?? s.serverName ?? ""),
+          serverName: String(s.server_name ?? s.serverName ?? s.serverId ?? ""),
+          toolCount: Number(s.tool_count ?? s.toolCount ?? 0),
+        }));
       }
     }
-  } catch {
-    // If list_mcp_servers tool is unavailable, discover via tools
   }
 
   const toolMap = new Map<string, ToolEntry[]>();
   const states = new Map<string, Pick<ServerEntry, "discoveryState" | "message">>();
-  if (options.showTools || options.serverName || serverList.length === 0) {
-    const targets = serverList.length > 0
-      ? serverList
-      : [{ serverId: options.serverName ?? "", serverName: options.serverName ?? "", toolCount: 1000 }];
-    await Promise.all(targets.map(async (server) => {
+  if (options.showTools || options.serverName) {
+    await Promise.all(serverList.map(async (server) => {
       const key = server.serverName || server.serverId || "default";
       try {
-        const parsed = parseTextPayload(await withDeadline(client.callTool("search_mcp_tools", {
+        const parsed = parseTextPayload(await client.callTool("search_mcp_tools", {
           query: "",
           server_id: server.serverId || undefined,
           server_name: server.serverName || undefined,
           limit: Math.max(server.toolCount, 1),
-        }), deadlineAt));
+        }));
         const items = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.tools) ? parsed.tools : [];
         const tools = items
           .filter((item: any) => {
@@ -310,22 +285,11 @@ export async function fetchCatalogThroughClient(
       } catch (error) {
         const message = (error as Error).message;
         states.set(key, {
-          discoveryState: message.includes("timed out") ? "timeout" : "error",
+          discoveryState: "error",
           message,
         });
       }
     }));
-
-    // If serverList was empty, populate from toolMap
-    if (serverList.length === 0 && toolMap.size > 0) {
-      for (const [sName, tools] of toolMap.entries()) {
-        serverList.push({
-          serverId: sName,
-          serverName: sName,
-          toolCount: tools.length,
-        });
-      }
-    }
   }
 
   const localServers: ServerEntry[] = [];
@@ -362,79 +326,25 @@ export async function cmdList(
   const allConfigs = getServerConfig(dir);
   const disabledServers = Object.entries(allConfigs).filter(([_, cfg]) => cfg.disabled);
 
-  // 1. If a local gateway daemon (`mcpa serve` / daemon) is currently running, query it directly
-  const runningGateway = await resolveGateway();
-  if (runningGateway.endpoint) {
-    try {
-      const client = await connectMcpEndpoint(runningGateway.endpoint);
-      try {
-        const { localServers, remoteServers } = await fetchCatalogThroughClient(
-          client,
-          allConfigs,
-          { showTools, serverName },
-        );
-        renderListOutput(
-          localServers,
-          remoteServers,
-          disabledServers,
-          allConfigs,
-          options,
-          output,
-        );
-        return;
-      } finally {
-        await client.close();
-      }
-    } catch {
-      // Fall through to standalone gateway instantiation
-    }
-  }
-
-  // 2. Query local configuration and authenticated remote HTTP concurrently.
-  const [localResult, remoteResult] = await Promise.allSettled([
-    withDeadline(withMcpGateway({ cwd: dir, dir, enableBridge: false }, async (gateway) => {
-      const local = gateway.getLocalCatalog().servers as ServerEntry[];
-      const startupErrors = gateway.getLocalServerStartupErrors();
-      const known = new Set(local.flatMap((server) => [server.serverId, server.serverName]));
-      for (const [name, config] of Object.entries(allConfigs)) {
-        if (config.disabled || known.has(name)) continue;
-        local.push({
-          serverId: name,
-          serverName: name,
-          tools: [],
-          source: "local",
-          advertisedToolCount: 0,
-          discoveryState: startupErrors.get(name)?.includes("timed out") ? "timeout" : "error",
-          message: startupErrors.get(name) ?? "server did not initialize",
-        });
-      }
-      return { local, remote: gateway.getRemoteCatalog().servers };
-    }), Date.now() + 10_000),
-    (async () => {
-      const deadlineAt = Date.now() + 10_000;
-      const client = await withDeadline(createAuthenticatedRemoteClient(undefined, {
-        warn: (message) => writeLine(output, pc.yellow(message)),
-      }), deadlineAt);
-      if (!client) return [];
-      try {
-        return (await fetchCatalogThroughClient(client, {}, { showTools, serverName, deadlineAt })).remoteServers;
-      } catch (error) {
-        writeLine(output, pc.yellow(`Remote discovery failed: ${(error as Error).message}`));
-        return [];
-      } finally {
-        await client.close();
-      }
-    })(),
-  ]);
-  renderListOutput(
-    localResult.status === "fulfilled" ? localResult.value.local : [],
-    [
-      ...(localResult.status === "fulfilled" ? localResult.value.remote : []),
-      ...(remoteResult.status === "fulfilled" ? remoteResult.value : []),
-    ],
-    disabledServers,
-    allConfigs,
-    options,
-    output,
+  await withGatewayClient(
+    {
+      onProgress: (message) => writeLine(output, pc.dim(message)),
+      onWarning: (message) => writeLine(output, pc.yellow(message)),
+    },
+    async (client) => {
+      const { localServers, remoteServers } = await fetchCatalogThroughClient(
+        client,
+        allConfigs,
+        { showTools, serverName },
+      );
+      renderListOutput(
+        localServers,
+        remoteServers,
+        disabledServers,
+        allConfigs,
+        options,
+        output,
+      );
+    },
   );
 }

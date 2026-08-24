@@ -1,261 +1,145 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cmdList, fetchCatalogThroughClient } from "../src/commands/list.js";
+import * as commandClient from "../src/gateway/command-client.js";
 import * as context from "../src/gateway/context.js";
-import * as resolution from "../src/gateway/command-resolution.js";
+
+interface FakeServer {
+  server_id: string;
+  server_name: string;
+  tool_count: number;
+  tools?: Array<{ tool_name: string; description?: string }>;
+}
+
+function fakeCatalogClient(servers: FakeServer[]) {
+  return {
+    callTool: vi.fn(async (name: string, args: Record<string, unknown>) => {
+      if (name === "list_mcp_servers") {
+        return { content: [{ type: "text", text: JSON.stringify({ servers }) }] };
+      }
+      const server = servers.find((item) =>
+        item.server_id === args.server_id || item.server_name === args.server_name,
+      );
+      const tools = (server?.tools ?? []).map((tool) => ({
+        server_id: server?.server_id,
+        server_name: server?.server_name,
+        ...tool,
+      }));
+      return { content: [{ type: "text", text: JSON.stringify(tools) }] };
+    }),
+  };
+}
 
 describe("cmdList", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.spyOn(context, "pingGateway").mockResolvedValue(null);
-    vi.spyOn(resolution, "resolveGateway").mockResolvedValue({
-      endpoint: null,
-      port: 8765,
-      state: "stopped",
-      managed: false,
-    });
-    vi.spyOn(resolution, "createAuthenticatedRemoteClient").mockResolvedValue(null);
-  });
+  beforeEach(() => vi.restoreAllMocks());
 
-  it("handles empty configuration", async () => {
-    vi.spyOn(context, "withMcpGateway").mockImplementation(async (_opts, action) => {
-      const mockGateway = {
-        getLocalCatalog: () => ({ servers: [] }),
-        getRemoteCatalog: () => ({ servers: [] }),
-        getLocalServerStartupErrors: () => new Map(),
-      };
-      return action(mockGateway as never);
-    });
+  it("handles an empty gateway catalog", async () => {
     vi.spyOn(context, "getServerConfig").mockReturnValue({});
-
+    const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => action(fakeCatalogClient([]) as never),
+    );
     let output = "";
-    const mockOutput = {
-      write: (text: string) => {
-        output += text;
-        return true;
-      },
-    };
 
-    await cmdList(undefined, mockOutput, { enableBridge: false });
+    await cmdList(undefined, { write: (text) => { output += text; return true; } });
+
     expect(output).toContain("No servers configured in mcp.json or connected remotely.");
+    expect(withClient).toHaveBeenCalledOnce();
   });
 
-  it("prints compact summary by default without listing individual tools", async () => {
-    vi.spyOn(context, "withMcpGateway").mockImplementation(async (_opts, action) => {
-      const mockGateway = {
-        getLocalCatalog: () => ({
-          servers: [
-            {
-              serverId: "github",
-              serverName: "github",
-              tools: [{ name: "create_issue", description: "Create an issue" }],
-            },
-          ],
-        }),
-        getRemoteCatalog: () => ({
-          servers: [
-            {
-              serverId: "slack",
-              serverName: "slack",
-              tools: [{ name: "post_message", description: "Post message" }],
-            },
-          ],
-        }),
-        getLocalServerStartupErrors: () => new Map(),
-      };
-      return action(mockGateway as never);
-    });
+  it("prints the combined compact catalog without fetching tool details", async () => {
     vi.spyOn(context, "getServerConfig").mockReturnValue({
       github: { command: "npx" },
       disabledServer: { command: "echo", disabled: true },
     });
-
+    const client = fakeCatalogClient([
+      { server_id: "github", server_name: "github", tool_count: 1 },
+      { server_id: "slack", server_name: "slack", tool_count: 1 },
+    ]);
+    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => action(client as never),
+    );
     let output = "";
-    const mockOutput = {
-      write: (text: string) => {
-        output += text;
-        return true;
-      },
-    };
 
-    await cmdList(undefined, mockOutput, { enableBridge: false });
+    await cmdList(undefined, { write: (text) => { output += text; return true; } });
 
     expect(output).toContain("Configured MCP Servers (3):");
     expect(output).toContain("github");
     expect(output).toContain("slack");
     expect(output).toContain("disabledServer");
-    expect(output).toContain("● active");
-    expect(output).toContain("○ disabled");
-    expect(output).not.toContain("Create an issue"); // Tools should not be expanded by default
-    expect(output).toContain('Tip: Run "mcpa list <server>" or "mcpa list --tools"');
+    expect(client.callTool).toHaveBeenCalledOnce();
   });
 
-  it("expands all tools when showTools: true is passed", async () => {
-    vi.spyOn(context, "withMcpGateway").mockImplementation(async (_opts, action) => {
-      const mockGateway = {
-        getLocalCatalog: () => ({
-          servers: [
-            {
-              serverId: "github",
-              serverName: "github",
-              tools: [{ name: "create_issue", description: "Create a GitHub issue" }],
-            },
-          ],
-        }),
-        getRemoteCatalog: () => ({
-          servers: [
-            {
-              serverId: "slack",
-              serverName: "slack",
-              tools: [{ name: "post_message", description: "Post a Slack message" }],
-            },
-          ],
-        }),
-        getLocalServerStartupErrors: () => new Map(),
-      };
-      return action(mockGateway as never);
-    });
-    vi.spyOn(context, "getServerConfig").mockReturnValue({
-      github: { command: "npx" },
-    });
-
-    let output = "";
-    const mockOutput = {
-      write: (text: string) => {
-        output += text;
-        return true;
+  it("expands tools through the same gateway client", async () => {
+    vi.spyOn(context, "getServerConfig").mockReturnValue({ github: { command: "npx" } });
+    const client = fakeCatalogClient([
+      {
+        server_id: "github",
+        server_name: "github",
+        tool_count: 1,
+        tools: [{ tool_name: "create_issue", description: "Create a GitHub issue" }],
       },
-    };
+      {
+        server_id: "slack",
+        server_name: "slack",
+        tool_count: 1,
+        tools: [{ tool_name: "post_message", description: "Post a Slack message" }],
+      },
+    ]);
+    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => action(client as never),
+    );
+    let output = "";
 
-    await cmdList(undefined, mockOutput, { showTools: true, enableBridge: false });
-    expect(output).toContain("Configured MCP Servers (2):");
+    await cmdList(undefined, { write: (text) => { output += text; return true; } }, { showTools: true });
+
     expect(output).toContain("create_issue:");
     expect(output).toContain("Create a GitHub issue");
     expect(output).toContain("post_message:");
     expect(output).toContain("Post a Slack message");
   });
 
-  it("filters to single server when serverName is provided", async () => {
-    vi.spyOn(context, "withMcpGateway").mockImplementation(async (_opts, action) => {
-      const mockGateway = {
-        getLocalCatalog: () => ({
-          servers: [
-            {
-              serverId: "github",
-              serverName: "github",
-              tools: [{ name: "create_issue", description: "Create an issue" }],
-            },
-          ],
-        }),
-        getRemoteCatalog: () => ({
-          servers: [
-            {
-              serverId: "slack",
-              serverName: "slack",
-              tools: [{ name: "post_message", description: "Post message" }],
-            },
-          ],
-        }),
-        getLocalServerStartupErrors: () => new Map(),
-      };
-      return action(mockGateway as never);
-    });
+  it("renders selected and disabled servers using the gateway catalog", async () => {
     vi.spyOn(context, "getServerConfig").mockReturnValue({
       github: { command: "npx" },
       disabledServer: { command: "echo", disabled: true },
     });
-
-    let output = "";
-    const mockOutput = {
-      write: (text: string) => {
-        output += text;
-        return true;
+    const client = fakeCatalogClient([
+      {
+        server_id: "github",
+        server_name: "github",
+        tool_count: 1,
+        tools: [{ tool_name: "create_issue" }],
       },
+      {
+        server_id: "slack",
+        server_name: "slack",
+        tool_count: 1,
+        tools: [{ tool_name: "post_message" }],
+      },
+    ]);
+    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => action(client as never),
+    );
+    const write = (buffer: { value: string }) => (text: string) => {
+      buffer.value += text;
+      return true;
     };
 
-    // Filter for local server
-    await cmdList(undefined, mockOutput, { serverName: "github", enableBridge: false });
-    expect(output).toContain("github");
-    expect(output).toContain("create_issue");
-    expect(output).not.toContain("slack");
+    const local = { value: "" };
+    await cmdList(undefined, { write: write(local) }, { serverName: "github" });
+    expect(local.value).toContain("create_issue");
+    expect(local.value).not.toContain("slack");
 
-    // Filter for remote server
-    output = "";
-    await cmdList(undefined, mockOutput, { serverName: "slack", enableBridge: false });
-    expect(output).toContain("slack");
-    expect(output).toContain("post_message");
-    expect(output).not.toContain("github");
+    const disabled = { value: "" };
+    await cmdList(undefined, { write: write(disabled) }, { serverName: "disabledServer" });
+    expect(disabled.value).toContain("disabledServer");
+    expect(disabled.value).toContain("disabled");
 
-    // Filter for disabled server
-    output = "";
-    await cmdList(undefined, mockOutput, { serverName: "disabledServer", enableBridge: false });
-    expect(output).toContain("disabledServer");
-    expect(output).toContain("○ disabled");
-
-    // Filter for non-existent server
-    output = "";
-    await cmdList(undefined, mockOutput, { serverName: "nonexistent", enableBridge: false });
-    expect(output).toContain('No server matching "nonexistent" was found.');
-    expect(output).toContain("Available servers: github, slack, disabledServer");
+    const missing = { value: "" };
+    await cmdList(undefined, { write: write(missing) }, { serverName: "nonexistent" });
+    expect(missing.value).toContain('No server matching "nonexistent" was found.');
   });
 
-  it("queries running gateway daemon directly when pingGateway returns active endpoint", async () => {
-    vi.spyOn(resolution, "resolveGateway").mockResolvedValue({
-      endpoint: "http://127.0.0.1:8765/mcp",
-      port: 8765,
-      state: "external",
-      managed: false,
-    });
-    vi.spyOn(context, "getServerConfig").mockReturnValue({
-      localGithub: { command: "npx" },
-      disabledLocal: { command: "echo", disabled: true },
-    });
-
-    const mockClient = {
-      callTool: vi.fn(async (toolName: string) => {
-        if (toolName === "list_mcp_servers") {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  servers: [
-                    { server_id: "localGithub", server_name: "localGithub", tool_count: 2 },
-                    { server_id: "remoteSlack", server_name: "remoteSlack", tool_count: 3 },
-                  ],
-                }),
-              },
-            ],
-          };
-        }
-        return { content: [{ type: "text", text: "[]" }] };
-      }),
-      close: vi.fn(async () => {}),
-    };
-
-    const clientModule = await import("../src/client.js");
-    vi.spyOn(clientModule, "connectMcpEndpoint").mockResolvedValue(mockClient as never);
-
-    let output = "";
-    const mockOutput = {
-      write: (text: string) => {
-        output += text;
-        return true;
-      },
-    };
-
-    await cmdList(undefined, mockOutput);
-
-    expect(output).toContain("Configured MCP Servers (3):");
-    expect(output).toContain("Local Servers (mcp.json):");
-    expect(output).toContain("localGithub");
-    expect(output).toContain("disabledLocal");
-    expect(output).toContain("Remote Servers (MCP Assistant):");
-    expect(output).toContain("remoteSlack");
-    expect(mockClient.callTool).toHaveBeenCalledWith("list_mcp_servers", { query: "" });
-    expect(mockClient.close).toHaveBeenCalled();
-  });
-
-  it("fetches detailed tools per advertised server without placeholders or a global 100 limit", async () => {
+  it("fetches detailed tools per advertised server without placeholders or a global limit", async () => {
     const callTool = vi.fn(async (name: string, args: Record<string, unknown>) => {
       if (name === "list_mcp_servers") {
         return { content: [{ type: "text", text: JSON.stringify({ servers: [

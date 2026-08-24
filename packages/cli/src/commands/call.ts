@@ -1,8 +1,7 @@
 import type { Writable } from "node:stream";
-import { withMcpGateway } from "../gateway/context.js";
-import { AmbiguousToolReferenceError, createAuthenticatedRemoteClient, resolveGateway } from "../gateway/command-resolution.js";
-import { connectMcpEndpoint } from "../client.js";
+import type { McpEndpointClient } from "../client.js";
 import { createRouter, parseToolRef, searchTools } from "../core.js";
+import { withGatewayClient } from "../gateway/command-client.js";
 import { writeLine } from "../ux.js";
 
 function parseJsonArgs(raw: string): Record<string, unknown> {
@@ -48,7 +47,7 @@ function parseJsonArgs(raw: string): Record<string, unknown> {
 import { META_TOOL_NAMES_SET, DEFAULT_TOOL_SEARCH_LIMIT } from "../constants.js";
 
 async function invokeThroughClient(
-  client: Awaited<ReturnType<typeof connectMcpEndpoint>>,
+  client: McpEndpointClient,
   targetToolName: string,
   targetServerId: string | undefined,
   args: Record<string, unknown>,
@@ -70,7 +69,7 @@ async function invokeThroughClient(
     );
 
   if (!targetServerId && exactMatches.length > 1) {
-    throw new AmbiguousToolReferenceError(targetToolName);
+    throw new Error(`Tool name "${targetToolName}" is ambiguous. Use a canonical server::tool ID.`);
   }
   const match = exactMatches[0] ?? (targetServerId ? undefined : matches[0]);
 
@@ -94,46 +93,11 @@ export async function cmdCall(
   const args = rawArgs ? parseJsonArgs(rawArgs) : {};
   const { serverId: targetServerId, toolName: targetToolName } = parseToolRef(toolName);
 
-  // 1. If local daemon is running, call it directly
-  const runningGateway = await resolveGateway();
-  if (runningGateway.endpoint) {
-    try {
-      const client = await connectMcpEndpoint(runningGateway.endpoint);
-      try {
-        const result = await invokeThroughClient(client, targetToolName, targetServerId, args);
-        writeLine(output, JSON.stringify(result, null, 2));
-        return;
-      } finally {
-        await client.close();
-      }
-    } catch (err) {
-      if (err instanceof AmbiguousToolReferenceError) throw err;
-      if (targetServerId) throw err;
-    }
-  }
-
-  // 2. If remote session exists, call remote gateway directly via HTTP
-  const remoteUrl = process.env.REMOTE_GATEWAY_URL ?? "https://api.mcp-assistant.in";
-  try {
-    const client = await createAuthenticatedRemoteClient(remoteUrl, {
-      warn: (message) => writeLine(output, message),
-    });
-    if (!client) throw new Error("Remote authentication unavailable");
-    try {
+  await withGatewayClient(
+    { onWarning: (message) => writeLine(output, message) },
+    async (client) => {
       const result = await invokeThroughClient(client, targetToolName, targetServerId, args);
       writeLine(output, JSON.stringify(result, null, 2));
-      return;
-    } finally {
-      await client.close();
-    }
-  } catch (error) {
-    if (error instanceof AmbiguousToolReferenceError) throw error;
-    // Fallback to local gateway
-  }
-
-  // 3. Fallback to local-only configuration
-  await withMcpGateway({ cwd: dir, enableBridge: false }, async (gateway) => {
-    const result = await gateway.callTool(toolName, args);
-    writeLine(output, JSON.stringify(result, null, 2));
-  });
+    },
+  );
 }
