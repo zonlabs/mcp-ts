@@ -1,9 +1,9 @@
 ---
 name: mcp-cli
-description: Use when running, automating, or integrating the MCP CLI (`mcpa` / `mcp-ts`). Covers local and remote MCP discovery, schema inspection, tool calls, authentication, and safe gateway or daemon operation.
+description: Use when running, automating, or integrating the MCP CLI (`mcpa` | `mcp-ts`). Covers local and remote MCP discovery, schema inspection, tool calls, authentication, and safe gateway or daemon operation.
 ---
 
-# MCP CLI (`mcpa` / `mcp-ts`)
+# MCP CLI (`mcpa` | `mcp-ts`)
 
 Use this skill for every task that invokes or troubleshoots `mcpa` or `mcp-ts`.
 
@@ -48,6 +48,48 @@ mcpa daemon <start|stop|status|logs> [--port PORT]
 ```
 
 For complex arguments, invoke the executable without a shell and pass `JSON.stringify(payload)` as one argument. This avoids PowerShell, cmd, and Bash quoting damage.
+
+## Batch multiple tool calls
+
+For two or more calls, prefer a Node.js script over repeated shell commands. Pin the same CLI entrypoint verified during preflight, pass every argument separately with `execFile`, and use `JSON.stringify` for each payload.
+
+- Run independent read-only calls concurrently with `Promise.allSettled` so one failure does not hide successful results.
+- Run dependent calls sequentially. Treat mutating calls as sequential unless their independence is proven.
+- For larger batches, limit concurrency to four child processes.
+- Obtain authorization for every mutating or destructive call. Never automatically retry a non-idempotent call.
+
+Example—save as `mcpa-batch.mjs` and run it from the repository root:
+
+```js
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { resolve } from "node:path";
+
+const execFileAsync = promisify(execFile);
+const cliEntrypoint = resolve("packages/cli/dist/bin/mcp-ts.js");
+const calls = [
+  { label: "root package", toolId: "filesystem::read_file", args: { path: "package.json" } },
+  { label: "CLI package", toolId: "filesystem::read_file", args: { path: "packages/cli/package.json" } },
+];
+
+async function callTool({ label, toolId, args }) {
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [cliEntrypoint, "call", toolId, JSON.stringify(args)],
+    { windowsHide: true, maxBuffer: 10 * 1024 * 1024 },
+  );
+  return { label, result: JSON.parse(stdout) };
+}
+
+const results = await Promise.allSettled(calls.map(callTool));
+for (const [index, result] of results.entries()) {
+  if (result.status === "fulfilled") console.log(result.value);
+  else console.error(calls[index].label, result.reason);
+}
+if (results.some((result) => result.status === "rejected")) process.exitCode = 1;
+```
+
+For dependent operations, replace `Promise.allSettled(...)` with a `for...of` loop that awaits `callTool` before constructing or executing the next call.
 
 ## Configuration
 
