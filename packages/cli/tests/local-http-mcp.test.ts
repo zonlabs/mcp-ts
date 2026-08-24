@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { connectMcpEndpoint } from "../src/client.js";
 import {
   LocalHttpMcp,
   MCP_META_TOOL_NAMES,
@@ -6,6 +7,7 @@ import {
 } from "../src/gateway/local-http-mcp.js";
 import { pingGateway } from "../src/gateway/context.js";
 import { McpGatewayRegistry } from "../src/gateway/registry.js";
+import { searchGatewayTools } from "../src/gateway/meta-tools.js";
 import { Traffic } from "../src/traffic.js";
 
 describe("LocalHttpMcp", () => {
@@ -112,6 +114,47 @@ describe("LocalHttpMcp", () => {
 
     await server.close();
     await registry.close();
+  });
+
+  it("returns the canonical search envelope and filters by exact serverId", async () => {
+    const registry = new McpGatewayRegistry({});
+    await registry.start();
+    await registry.replaceRemoteCatalog({
+      servers: [
+        {
+          serverId: "alpha",
+          serverName: "Shared",
+          tools: [{ name: "alpha_tool", description: "Alpha", inputSchema: { type: "object" } }],
+        },
+        {
+          serverId: "beta",
+          serverName: "Shared",
+          tools: [{ name: "beta_tool", description: "Beta", inputSchema: { type: "object" } }],
+        },
+      ],
+    }, vi.fn());
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp" },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      await expect(searchGatewayTools(client, {
+        query: "",
+        serverId: "alpha",
+        limit: 10,
+        detail: "detailed",
+      })).resolves.toMatchObject([
+        { serverId: "alpha", toolName: "alpha_tool", description: "Alpha" },
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
   });
 });
 

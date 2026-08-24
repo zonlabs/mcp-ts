@@ -3,6 +3,7 @@ import pc from "picocolors";
 import type { McpEndpointClient } from "../client.js";
 import { withGatewayClient } from "../gateway/command-client.js";
 import { getServerConfig } from "../gateway/context.js";
+import { fetchGatewayServers, searchGatewayTools } from "../gateway/meta-tools.js";
 import { writeLine } from "../ux.js";
 import type { McpServerConfig } from "../gateway/types.js";
 
@@ -33,6 +34,12 @@ function displayedToolCount(server: ServerEntry): number {
 function discoveryDiagnostic(server: ServerEntry): string {
   if (!server.discoveryState || server.discoveryState === "complete") return "";
   return ` ${pc.yellow(`[${server.discoveryState}${server.message ? `: ${server.message}` : ""}]`)}`;
+}
+
+function emptyToolDetailMessage(server: ServerEntry): string {
+  return server.discoveryState && server.discoveryState !== "complete"
+    ? "  (Tool details unavailable)"
+    : "  (No tools registered for this server)";
 }
 
 function getTransportType(cfg?: McpServerConfig): string {
@@ -103,7 +110,7 @@ export function renderListOutput(
           writeLine(output, `  ${pc.cyan("-")} ${pc.bold(tool.name)}: ${pc.dim(tool.description || "No description")}`);
         }
       } else {
-        writeLine(output, pc.dim("  (No tools registered for this server)"));
+        writeLine(output, pc.dim(emptyToolDetailMessage(matchedLocal)));
       }
     } else if (matchedRemote) {
       writeLine(output, `${pc.magenta("•")} ${pc.bold(matchedRemote.serverName)} ${pc.dim(`(Remote - MCP Assistant)`)}`);
@@ -116,7 +123,7 @@ export function renderListOutput(
           writeLine(output, `  ${pc.magenta("-")} ${pc.bold(tool.name)}: ${pc.dim(tool.description || "No description")}`);
         }
       } else {
-        writeLine(output, pc.dim("  (No tools registered for this server)"));
+        writeLine(output, pc.dim(emptyToolDetailMessage(matchedRemote)));
       }
     } else if (matchedDisabled) {
       const [name, cfg] = matchedDisabled;
@@ -225,66 +232,37 @@ export function renderListOutput(
   writeLine(output, pc.dim(`Tip: Run "mcpa list <server>" or "mcpa list --tools" for detailed tool definitions.`));
 }
 
-function parseTextPayload(raw: unknown): any {
-  if (!raw || typeof raw !== "object") return null;
-  const content = (raw as { content?: Array<{ text?: string }> }).content;
-  if (!Array.isArray(content) || !content[0]?.text) return null;
-  return JSON.parse(content[0].text);
-}
-
-export async function fetchCatalogThroughClient(
+export async function fetchGatewayCatalog(
   client: McpEndpointClient,
   allConfigs: Record<string, McpServerConfig>,
   options: { showTools?: boolean; serverName?: string },
 ): Promise<{ localServers: ServerEntry[]; remoteServers: ServerEntry[] }> {
-  let serverList: Array<{ serverId: string; serverName: string; toolCount: number }> = [];
-  const raw = await client.callTool("list_mcp_servers", { query: options.serverName ?? "" });
-  if (raw && typeof raw === "object") {
-    const res = raw as { content?: Array<{ type?: string; text?: string }> };
-    if (Array.isArray(res.content) && res.content[0]?.text) {
-      const parsed = JSON.parse(res.content[0].text);
-      if (Array.isArray(parsed.servers)) {
-        serverList = parsed.servers.map((s: any) => ({
-          serverId: String(s.server_id ?? s.serverId ?? s.serverName ?? ""),
-          serverName: String(s.server_name ?? s.serverName ?? s.serverId ?? ""),
-          toolCount: Number(s.tool_count ?? s.toolCount ?? 0),
-        }));
-      }
-    }
-  }
+  const serverList = await fetchGatewayServers(client, options.serverName ?? "");
 
   const toolMap = new Map<string, ToolEntry[]>();
   const states = new Map<string, Pick<ServerEntry, "discoveryState" | "message">>();
   if (options.showTools || options.serverName) {
     await Promise.all(serverList.map(async (server) => {
-      const key = server.serverName || server.serverId || "default";
       try {
-        const parsed = parseTextPayload(await client.callTool("search_mcp_tools", {
+        const results = await searchGatewayTools(client, {
           query: "",
-          server_id: server.serverId || undefined,
-          server_name: server.serverName || undefined,
+          serverId: server.serverId,
           limit: Math.max(server.toolCount, 1),
-        }));
-        const items = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.tools) ? parsed.tools : [];
-        const tools = items
-          .filter((item: any) => {
-            if (!server.serverId && !server.serverName) return true;
-            const itemId = String(item.server_id ?? item.serverId ?? "");
-            const itemName = String(item.server_name ?? item.serverName ?? "");
-            return itemId === server.serverId || itemName === server.serverName;
-          })
-          .map((item: any) => ({
-            name: String(item.tool_name ?? item.toolName ?? item.name ?? ""),
-            description: item.description ? String(item.description) : undefined,
-          }))
-          .filter((tool: ToolEntry) => tool.name);
-        toolMap.set(key, tools);
-        states.set(key, tools.length === server.toolCount
+          detail: "detailed",
+        });
+        const tools = results
+          .filter((tool) => tool.serverId === server.serverId)
+          .map((tool) => ({
+            name: tool.toolName,
+            description: tool.description || undefined,
+          }));
+        toolMap.set(server.serverId, tools);
+        states.set(server.serverId, tools.length === server.toolCount
           ? { discoveryState: "complete" }
           : { discoveryState: "incomplete", message: `received ${tools.length} of ${server.toolCount} advertised tools` });
       } catch (error) {
         const message = (error as Error).message;
-        states.set(key, {
+        states.set(server.serverId, {
           discoveryState: "error",
           message,
         });
@@ -296,15 +274,16 @@ export async function fetchCatalogThroughClient(
   const remoteServers: ServerEntry[] = [];
 
   for (const s of serverList) {
-    const sTools = toolMap.get(s.serverName) ?? toolMap.get(s.serverId) ?? [];
-    const isLocal = Boolean(allConfigs[s.serverName] || allConfigs[s.serverId]);
+    const sTools = toolMap.get(s.serverId) ?? [];
+    const config = allConfigs[s.serverName] ?? allConfigs[s.serverId];
+    const isLocal = Boolean(config && !config.disabled);
     const entry: ServerEntry = {
       serverId: s.serverId,
       serverName: s.serverName,
       tools: sTools,
       source: isLocal ? "local" : "remote",
       advertisedToolCount: s.toolCount,
-      ...(states.get(s.serverName) ?? states.get(s.serverId) ?? {}),
+      ...(states.get(s.serverId) ?? {}),
     };
 
     if (isLocal) {
@@ -332,7 +311,7 @@ export async function cmdList(
       onWarning: (message) => writeLine(output, pc.yellow(message)),
     },
     async (client) => {
-      const { localServers, remoteServers } = await fetchCatalogThroughClient(
+      const { localServers, remoteServers } = await fetchGatewayCatalog(
         client,
         allConfigs,
         { showTools, serverName },

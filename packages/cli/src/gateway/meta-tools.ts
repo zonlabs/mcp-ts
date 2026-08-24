@@ -18,6 +18,7 @@ export interface GatewayToolSummary {
 
 export interface GatewayToolSearchRequest {
   query: string;
+  serverId?: string;
   limit?: number;
   detail?: "brief" | "detailed" | "full";
 }
@@ -115,6 +116,7 @@ export async function searchGatewayTools(
   request: GatewayToolSearchRequest,
 ): Promise<GatewayToolSummary[]> {
   const args: Record<string, unknown> = { query: request.query };
+  if (request.serverId !== undefined) args.serverId = request.serverId;
   if (request.limit !== undefined) args.limit = request.limit;
   if (request.detail !== undefined) args.detail = request.detail;
 

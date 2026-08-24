@@ -1,5 +1,6 @@
+import { setImmediate } from "node:timers/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cmdList, fetchCatalogThroughClient } from "../src/commands/list.js";
+import { cmdList, fetchGatewayCatalog } from "../src/commands/list.js";
 import * as commandClient from "../src/gateway/command-client.js";
 import * as context from "../src/gateway/context.js";
 
@@ -7,159 +8,338 @@ interface FakeServer {
   server_id: string;
   server_name: string;
   tool_count: number;
-  tools?: Array<{ tool_name: string; description?: string }>;
+  tools?: Array<{ tool_id: string; tool_name: string; description?: string }>;
 }
 
-function fakeCatalogClient(servers: FakeServer[]) {
+function fakeGatewayClient(servers: FakeServer[]) {
   return {
     callTool: vi.fn(async (name: string, args: Record<string, unknown>) => {
       if (name === "list_mcp_servers") {
         return { content: [{ type: "text", text: JSON.stringify({ servers }) }] };
       }
+      if (name !== "search_mcp_tools") throw new Error(`Unexpected tool: ${name}`);
       const server = servers.find((item) =>
-        item.server_id === args.server_id || item.server_name === args.server_name,
+        item.server_id === args.serverId,
       );
       const tools = (server?.tools ?? []).map((tool) => ({
         server_id: server?.server_id,
         server_name: server?.server_name,
         ...tool,
       }));
-      return { content: [{ type: "text", text: JSON.stringify(tools) }] };
+      return { content: [{ type: "text", text: JSON.stringify({ tools }) }] };
     }),
+    close: vi.fn(async () => undefined),
   };
 }
+
+function captureOutput() {
+  let rendered = "";
+  return {
+    output: { write: (text: string) => { rendered += text; return true; } },
+    text: () => rendered,
+  };
+}
+
+describe("fetchGatewayCatalog", () => {
+  it("uses one authoritative server request and advertised counts for compact output", async () => {
+    const client = fakeGatewayClient([
+      { server_id: "filesystem", server_name: "filesystem", tool_count: 14 },
+      { server_id: "github", server_name: "Github - Personal", tool_count: 44 },
+    ]);
+
+    const catalog = await fetchGatewayCatalog(
+      client as never,
+      { filesystem: { command: "npx" }, "Github - Personal": { url: "https://example.test/mcp" } },
+      {},
+    );
+
+    expect(client.callTool).toHaveBeenCalledOnce();
+    expect(client.callTool).toHaveBeenCalledWith("list_mcp_servers", { query: "" });
+    expect(catalog.localServers).toMatchObject([
+      { serverId: "filesystem", advertisedToolCount: 14, tools: [] },
+      { serverId: "github", advertisedToolCount: 44, tools: [] },
+    ]);
+    expect(catalog.remoteServers).toEqual([]);
+  });
+
+  it("fetches each advertised server's details once and concurrently", async () => {
+    const releases = new Map<string, () => void>();
+    const searches: string[] = [];
+    const client = {
+      callTool: vi.fn(async (name: string, args: Record<string, unknown>) => {
+        if (name === "list_mcp_servers") {
+          return { content: [{ type: "text", text: JSON.stringify({ servers: [
+            { server_id: "alpha", server_name: "Alpha", tool_count: 1 },
+            { server_id: "beta", server_name: "Beta", tool_count: 1 },
+          ] }) }] };
+        }
+        const serverId = String(args.serverId);
+        searches.push(serverId);
+        await new Promise<void>((resolve) => releases.set(serverId, resolve));
+        return { content: [{ type: "text", text: JSON.stringify({ tools: [{
+          tool_id: `${serverId}::real_tool`,
+          server_id: serverId,
+          server_name: serverId === "alpha" ? "Alpha" : "Beta",
+          tool_name: "real_tool",
+          description: `${serverId} tool`,
+        }] }) }] };
+      }),
+    };
+
+    const pending = fetchGatewayCatalog(client as never, {}, { showTools: true });
+    await vi.waitFor(() => expect(searches).toEqual(["alpha", "beta"]));
+    releases.get("alpha")?.();
+    releases.get("beta")?.();
+    const catalog = await pending;
+
+    expect(client.callTool).toHaveBeenCalledTimes(3);
+    expect(client.callTool).toHaveBeenCalledWith("search_mcp_tools", {
+      query: "",
+      serverId: "alpha",
+      limit: 1,
+      detail: "detailed",
+    });
+    expect(client.callTool).toHaveBeenCalledWith("search_mcp_tools", {
+      query: "",
+      serverId: "beta",
+      limit: 1,
+      detail: "detailed",
+    });
+    expect(catalog.remoteServers.flatMap((server) => server.tools)).toEqual([
+      { name: "real_tool", description: "alpha tool" },
+      { name: "real_tool", description: "beta tool" },
+    ]);
+  });
+
+  it("preserves successful servers and reports rejected detail requests without placeholders", async () => {
+    const client = fakeGatewayClient([]);
+    client.callTool.mockImplementation(async (name, args) => {
+      if (name === "list_mcp_servers") {
+        return { content: [{ type: "text", text: JSON.stringify({ servers: [
+          { server_id: "alpha", server_name: "Alpha", tool_count: 2 },
+          { server_id: "beta", server_name: "Beta", tool_count: 3 },
+        ] }) }] };
+      }
+      if (args.serverId === "beta") throw new Error("Beta unavailable");
+      return { content: [{ type: "text", text: JSON.stringify({ tools: [{
+        tool_id: "alpha::one",
+        server_id: "alpha",
+        server_name: "Alpha",
+        tool_name: "one",
+        description: "First",
+      }] }) }] };
+    });
+
+    const catalog = await fetchGatewayCatalog(client as never, {}, { showTools: true });
+
+    expect(catalog.remoteServers).toMatchObject([
+      {
+        serverId: "alpha",
+        tools: [{ name: "one", description: "First" }],
+        discoveryState: "incomplete",
+        message: "received 1 of 2 advertised tools",
+      },
+      {
+        serverId: "beta",
+        tools: [],
+        discoveryState: "error",
+        message: "Beta unavailable",
+      },
+    ]);
+    expect(catalog.remoteServers.flatMap((server) => server.tools).some((tool) => /^tool_\d+$/.test(tool.name))).toBe(false);
+  });
+
+  it("uses the selected server only as the authoritative catalog query", async () => {
+    const client = fakeGatewayClient([
+      {
+        server_id: "github",
+        server_name: "GitHub",
+        tool_count: 1,
+        tools: [{ tool_id: "github::create_issue", tool_name: "create_issue" }],
+      },
+    ]);
+
+    await fetchGatewayCatalog(client as never, {}, { serverName: "GitHub" });
+
+    expect(client.callTool).toHaveBeenNthCalledWith(1, "list_mcp_servers", { query: "GitHub" });
+    expect(client.callTool).toHaveBeenNthCalledWith(2, "search_mcp_tools", {
+      query: "",
+      serverId: "github",
+      limit: 1,
+      detail: "detailed",
+    });
+    expect(client.callTool).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not classify a disabled configured server as active local", async () => {
+    const client = fakeGatewayClient([
+      { server_id: "docs", server_name: "Documentation", tool_count: 2 },
+    ]);
+
+    const catalog = await fetchGatewayCatalog(
+      client as never,
+      { docs: { command: "npx", disabled: true } },
+      {},
+    );
+
+    expect(catalog.localServers).toEqual([]);
+    expect(catalog.remoteServers).toMatchObject([
+      { serverId: "docs", serverName: "Documentation" },
+    ]);
+  });
+});
 
 describe("cmdList", () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it("handles an empty gateway catalog", async () => {
-    vi.spyOn(context, "getServerConfig").mockReturnValue({});
+  it("starts or reuses one gateway and renders its combined catalog", async () => {
+    vi.spyOn(context, "getServerConfig").mockReturnValue({ filesystem: { command: "npx" } });
+    const client = fakeGatewayClient([
+      { server_id: "filesystem", server_name: "filesystem", tool_count: 14 },
+      { server_id: "github", server_name: "Github - Personal", tool_count: 44 },
+    ]);
     const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action(fakeCatalogClient([]) as never),
+      async (_options, action) => action(client as never),
     );
-    let output = "";
+    const capture = captureOutput();
 
-    await cmdList(undefined, { write: (text) => { output += text; return true; } });
+    await cmdList(undefined, capture.output, {});
 
-    expect(output).toContain("No servers configured in mcp.json or connected remotely.");
     expect(withClient).toHaveBeenCalledOnce();
-  });
-
-  it("prints the combined compact catalog without fetching tool details", async () => {
-    vi.spyOn(context, "getServerConfig").mockReturnValue({
-      github: { command: "npx" },
-      disabledServer: { command: "echo", disabled: true },
-    });
-    const client = fakeCatalogClient([
-      { server_id: "github", server_name: "github", tool_count: 1 },
-      { server_id: "slack", server_name: "slack", tool_count: 1 },
-    ]);
-    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action(client as never),
-    );
-    let output = "";
-
-    await cmdList(undefined, { write: (text) => { output += text; return true; } });
-
-    expect(output).toContain("Configured MCP Servers (3):");
-    expect(output).toContain("github");
-    expect(output).toContain("slack");
-    expect(output).toContain("disabledServer");
     expect(client.callTool).toHaveBeenCalledOnce();
+    expect(capture.text()).toContain("filesystem");
+    expect(capture.text()).toContain("14 tool(s)");
+    expect(capture.text()).toContain("Github - Personal");
+    expect(capture.text()).toContain("44 tool(s)");
   });
 
-  it("expands tools through the same gateway client", async () => {
-    vi.spyOn(context, "getServerConfig").mockReturnValue({ github: { command: "npx" } });
-    const client = fakeCatalogClient([
-      {
-        server_id: "github",
-        server_name: "github",
-        tool_count: 1,
-        tools: [{ tool_name: "create_issue", description: "Create a GitHub issue" }],
-      },
-      {
-        server_id: "slack",
-        server_name: "slack",
-        tool_count: 1,
-        tools: [{ tool_name: "post_message", description: "Post a Slack message" }],
-      },
-    ]);
-    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
-      async (_options, action) => action(client as never),
-    );
-    let output = "";
-
-    await cmdList(undefined, { write: (text) => { output += text; return true; } }, { showTools: true });
-
-    expect(output).toContain("create_issue:");
-    expect(output).toContain("Create a GitHub issue");
-    expect(output).toContain("post_message:");
-    expect(output).toContain("Post a Slack message");
-  });
-
-  it("renders selected and disabled servers using the gateway catalog", async () => {
+  it("treats an empty gateway catalog as authoritative while retaining disabled render-only entries", async () => {
     vi.spyOn(context, "getServerConfig").mockReturnValue({
-      github: { command: "npx" },
       disabledServer: { command: "echo", disabled: true },
     });
-    const client = fakeCatalogClient([
-      {
-        server_id: "github",
-        server_name: "github",
-        tool_count: 1,
-        tools: [{ tool_name: "create_issue" }],
-      },
-      {
-        server_id: "slack",
-        server_name: "slack",
-        tool_count: 1,
-        tools: [{ tool_name: "post_message" }],
-      },
-    ]);
+    const client = fakeGatewayClient([]);
     vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
       async (_options, action) => action(client as never),
     );
-    const write = (buffer: { value: string }) => (text: string) => {
-      buffer.value += text;
-      return true;
-    };
+    const capture = captureOutput();
 
-    const local = { value: "" };
-    await cmdList(undefined, { write: write(local) }, { serverName: "github" });
-    expect(local.value).toContain("create_issue");
-    expect(local.value).not.toContain("slack");
+    await cmdList(undefined, capture.output);
 
-    const disabled = { value: "" };
-    await cmdList(undefined, { write: write(disabled) }, { serverName: "disabledServer" });
-    expect(disabled.value).toContain("disabledServer");
-    expect(disabled.value).toContain("disabled");
-
-    const missing = { value: "" };
-    await cmdList(undefined, { write: write(missing) }, { serverName: "nonexistent" });
-    expect(missing.value).toContain('No server matching "nonexistent" was found.');
+    expect(client.callTool).toHaveBeenCalledOnce();
+    expect(capture.text()).toContain("disabledServer");
+    expect(capture.text()).toContain("disabled");
+    expect(capture.text()).toContain("0 tool(s)");
   });
 
-  it("fetches detailed tools per advertised server without placeholders or a global limit", async () => {
-    const callTool = vi.fn(async (name: string, args: Record<string, unknown>) => {
+  it("renders detailed successes and per-server errors", async () => {
+    vi.spyOn(context, "getServerConfig").mockReturnValue({});
+    const client = fakeGatewayClient([]);
+    client.callTool.mockImplementation(async (name, args) => {
       if (name === "list_mcp_servers") {
         return { content: [{ type: "text", text: JSON.stringify({ servers: [
-          { server_id: "alpha", server_name: "Alpha", tool_count: 120 },
-          { server_id: "beta", server_name: "Beta", tool_count: 2 },
+          { server_id: "github", server_name: "GitHub", tool_count: 1 },
+          { server_id: "slack", server_name: "Slack", tool_count: 1 },
         ] }) }] };
       }
-      const count = args.server_id === "alpha" ? 120 : 2;
-      return { content: [{ type: "text", text: JSON.stringify(Array.from({ length: count }, (_, index) => ({
-        server_id: args.server_id,
-        server_name: args.server_name,
-        tool_name: `${String(args.server_id)}_tool_${index + 1}`,
-      }))) }] };
+      if (args.serverId === "slack") throw new Error("detail offline");
+      return { content: [{ type: "text", text: JSON.stringify({ tools: [{
+        tool_id: "github::create_issue",
+        server_id: "github",
+        server_name: "GitHub",
+        tool_name: "create_issue",
+        description: "Create an issue",
+      }] }) }] };
     });
+    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => action(client as never),
+    );
+    const capture = captureOutput();
 
-    const catalog = await fetchCatalogThroughClient({ callTool } as never, {}, { showTools: true });
+    await cmdList(undefined, capture.output, { showTools: true });
 
-    expect(callTool).toHaveBeenCalledWith("search_mcp_tools", expect.objectContaining({ server_id: "alpha", limit: 120 }));
-    expect(callTool).toHaveBeenCalledWith("search_mcp_tools", expect.objectContaining({ server_id: "beta", limit: 2 }));
-    expect(catalog.remoteServers[0].tools).toHaveLength(120);
-    expect(catalog.remoteServers.flatMap((server) => server.tools).some((tool) => /^tool_\d+$/.test(tool.name))).toBe(false);
+    expect(capture.text()).toContain("create_issue: Create an issue");
+    expect(capture.text()).toContain("Slack - 1 tool(s) [error: detail offline]");
+    expect(capture.text()).not.toContain("tool_1");
+  });
+
+  it("preserves selected active, disabled, and missing-server rendering", async () => {
+    vi.spyOn(context, "getServerConfig").mockReturnValue({
+      github: { command: "npx" },
+      disabledServer: { command: "echo", disabled: true },
+    });
+    const activeClient = fakeGatewayClient([
+      {
+        server_id: "github",
+        server_name: "GitHub",
+        tool_count: 1,
+        tools: [{ tool_id: "github::create_issue", tool_name: "create_issue" }],
+      },
+    ]);
+    const emptyClient = fakeGatewayClient([]);
+    const failedClient = fakeGatewayClient([
+      { server_id: "slack", server_name: "Slack", tool_count: 1 },
+    ]);
+    failedClient.callTool.mockImplementation(async (name) => {
+      if (name === "list_mcp_servers") {
+        return { content: [{ type: "text", text: JSON.stringify({ servers: [
+          { server_id: "slack", server_name: "Slack", tool_count: 1 },
+        ] }) }] };
+      }
+      throw new Error("detail unavailable");
+    });
+    vi.spyOn(commandClient, "withGatewayClient")
+      .mockImplementationOnce(async (_options, action) => action(activeClient as never))
+      .mockImplementationOnce(async (_options, action) => action(failedClient as never))
+      .mockImplementation(async (_options, action) => action(emptyClient as never));
+
+    const selected = captureOutput();
+    await cmdList(undefined, selected.output, { serverName: "github" });
+    expect(selected.text()).toContain("GitHub");
+    expect(selected.text()).toContain("create_issue");
+
+    const failed = captureOutput();
+    await cmdList(undefined, failed.output, { serverName: "slack" });
+    expect(failed.text()).toContain("[error: detail unavailable]");
+    expect(failed.text()).toContain("Tool details unavailable");
+    expect(failed.text()).not.toContain("No tools registered");
+
+    const disabled = captureOutput();
+    await cmdList(undefined, disabled.output, { serverName: "disabledServer" });
+    expect(disabled.text()).toContain("disabledServer");
+    expect(disabled.text()).toContain("disabled");
+
+    const missing = captureOutput();
+    await cmdList(undefined, missing.output, { serverName: "nonexistent" });
+    expect(missing.text()).toContain('No server matching "nonexistent" was found.');
+  });
+
+  it("propagates catalog failure, closes the client, and schedules no fallback rejection", async () => {
+    vi.spyOn(context, "getServerConfig").mockReturnValue({ filesystem: { command: "npx" } });
+    const client = {
+      callTool: vi.fn(async () => { throw new Error("catalog offline"); }),
+      close: vi.fn(async () => undefined),
+    };
+    const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (_options, action) => {
+        try {
+          return await action(client as never);
+        } finally {
+          await client.close();
+        }
+      },
+    );
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+
+    try {
+      await expect(cmdList(undefined, captureOutput().output, {})).rejects.toThrow("catalog offline");
+      await setImmediate();
+      expect(withClient).toHaveBeenCalledOnce();
+      expect(client.callTool).toHaveBeenCalledOnce();
+      expect(client.close).toHaveBeenCalledOnce();
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
   });
 });

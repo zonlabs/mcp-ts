@@ -82,7 +82,12 @@ describe("gateway meta tools", () => {
       },
     ] });
 
-    await expect(searchGatewayTools(client as never, { query: "issue", limit: 5 })).resolves.toEqual([
+    await expect(searchGatewayTools(client as never, {
+      query: "",
+      serverId: "github",
+      limit: 5,
+      detail: "detailed",
+    })).resolves.toEqual([
       {
         toolId: "github::create_issue",
         serverId: "github",
@@ -91,7 +96,12 @@ describe("gateway meta tools", () => {
         description: "Create an issue",
       },
     ]);
-    expect(client.callTool).toHaveBeenCalledWith("search_mcp_tools", { query: "issue", limit: 5 });
+    expect(client.callTool).toHaveBeenCalledWith("search_mcp_tools", {
+      query: "",
+      serverId: "github",
+      limit: 5,
+      detail: "detailed",
+    });
     expect(client.callTool).toHaveBeenCalledTimes(1);
   });
 

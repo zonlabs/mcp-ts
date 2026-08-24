@@ -165,21 +165,26 @@ export class LocalHttpMcp {
           type: "object",
           properties: {
             query: { type: "string" },
-            server_name: { type: "string" },
+            serverId: { type: "string" },
             limit: { type: "number" },
+            detail: { type: "string", enum: ["brief", "detailed", "full"] },
           },
           required: ["query"],
         } as never),
       },
       async (raw) => {
         const args = raw as Record<string, unknown>;
+        const detail = args.detail === "brief" || args.detail === "detailed" || args.detail === "full"
+          ? args.detail
+          : undefined;
         const matches = await router.searchTools({
           query: String(args.query ?? ""),
+          serverId: args.serverId ? String(args.serverId) : undefined,
           limit: Number(args.limit ?? 10),
-          serverName: args.server_name ? String(args.server_name) : undefined,
+          detail,
         });
-        return textResult(
-          matches.map((match: ToolSearchResult) => {
+        return textResult({
+          tools: matches.map((match: ToolSearchResult) => {
             return {
               tool_id: match.toolId,
               server_id: match.serverId,
@@ -188,7 +193,7 @@ export class LocalHttpMcp {
               description: match.description,
             };
           }),
-        );
+        });
       },
     );
 
