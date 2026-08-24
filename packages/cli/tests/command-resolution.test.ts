@@ -12,7 +12,7 @@ describe("one-shot command resolution", () => {
     );
 
     const result = await resolveGateway({
-      readPid: () => ({ pid: 42, port: 9123, startedAt: 1 }),
+      readPid: () => ({ pid: 42, port: 9123, startedAt: 1, mode: "daemon" }),
       isAlive: () => true,
       findPortOwner: () => 42,
       probe,

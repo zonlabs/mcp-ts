@@ -1,14 +1,37 @@
-import { execSync, spawn } from "node:child_process";
-import { createWriteStream, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, execSync, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import {
+  closeSync,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { authConfigDir } from "./auth-store.js";
 import { pingGateway } from "./context.js";
 
-export interface DaemonInfo {
+const GATEWAY_STARTUP_TIMEOUT_MS = 15_000;
+const GATEWAY_POLL_INTERVAL_MS = 150;
+const PROCESS_CLAIM_TIMEOUT_MS = 1_000;
+const PROCESS_CLAIM_POLL_INTERVAL_MS = 10;
+
+export interface GatewayProcessInfo {
   pid: number;
   startedAt: number;
   port: number;
+  mode: "foreground" | "daemon";
+}
+
+interface GatewayStartLock {
+  pid: number;
+  createdAt: number;
 }
 
 export interface DaemonStatus {
@@ -27,55 +50,94 @@ export interface DaemonStatus {
 
 export interface DaemonStatusInput {
   requestedPort: number;
-  pidRecord: DaemonInfo | null;
-  pidAlive: boolean;
+  processRecord: GatewayProcessInfo | null;
+  processAlive: boolean;
   portOwnerPid: number | null;
   gatewayResponsive: boolean;
   now: number;
 }
 
 export function classifyDaemonStatus(input: DaemonStatusInput): Omit<DaemonStatus, "pidPath" | "logPath"> {
-  const port = input.pidRecord?.port ?? input.requestedPort;
+  const port = input.processRecord?.port ?? input.requestedPort;
   const pidMatchesOwner = Boolean(
-    input.pidRecord && input.pidAlive && input.portOwnerPid === input.pidRecord.pid,
+    input.processRecord && input.processAlive && input.portOwnerPid === input.processRecord.pid,
   );
+  const managed = Boolean(input.processRecord?.mode === "daemon" && pidMatchesOwner);
   const base = {
     port,
     gatewayResponsive: input.gatewayResponsive,
     ...(input.portOwnerPid ? { portOwnerPid: input.portOwnerPid } : {}),
   };
+
   if (pidMatchesOwner && input.gatewayResponsive) {
+    if (input.processRecord!.mode === "foreground") {
+      return {
+        ...base,
+        state: "external",
+        managed: false,
+        running: true,
+        pid: input.processRecord!.pid,
+        startedAt: input.processRecord!.startedAt,
+        uptimeSeconds: Math.max(0, Math.floor((input.now - input.processRecord!.startedAt) / 1000)),
+      };
+    }
     return {
       ...base,
       state: "running",
-      managed: true,
+      managed,
       running: true,
-      pid: input.pidRecord!.pid,
-      startedAt: input.pidRecord!.startedAt,
-      uptimeSeconds: Math.max(0, Math.floor((input.now - input.pidRecord!.startedAt) / 1000)),
+      pid: input.processRecord!.pid,
+      startedAt: input.processRecord!.startedAt,
+      uptimeSeconds: Math.max(0, Math.floor((input.now - input.processRecord!.startedAt) / 1000)),
     };
   }
-  if (pidMatchesOwner && input.now - input.pidRecord!.startedAt < 15_000) {
-    return { ...base, state: "starting", managed: true, running: false, pid: input.pidRecord!.pid, startedAt: input.pidRecord!.startedAt };
+
+  if (
+    input.processRecord?.mode === "daemon"
+    && input.processAlive
+    && input.now - input.processRecord.startedAt < GATEWAY_STARTUP_TIMEOUT_MS
+  ) {
+    return {
+      ...base,
+      state: "starting",
+      managed,
+      running: false,
+      pid: input.processRecord.pid,
+      startedAt: input.processRecord.startedAt,
+    };
   }
+
   if (input.gatewayResponsive) {
     return { ...base, state: "external", managed: false, running: true };
   }
   if (input.portOwnerPid) {
     return { ...base, state: "occupied", managed: false, running: false };
   }
-  if (input.pidRecord && input.pidAlive) {
-    return { ...base, state: "unhealthy", managed: false, running: false, pid: input.pidRecord.pid, startedAt: input.pidRecord.startedAt };
+  if (input.processRecord && input.processAlive) {
+    return {
+      ...base,
+      state: "unhealthy",
+      managed: false,
+      running: false,
+      pid: input.processRecord.pid,
+      startedAt: input.processRecord.startedAt,
+    };
   }
   return { ...base, state: "stopped", managed: false, running: false };
 }
 
 export function validateManagedStop(
-  record: DaemonInfo | null,
-  pidAlive: boolean,
+  record: GatewayProcessInfo | null,
+  processAlive: boolean,
   portOwnerPid: number | null,
 ): { allowed: boolean; reason?: string } {
-  if (!record || !pidAlive) return { allowed: false };
+  if (record?.mode === "foreground") {
+    return {
+      allowed: false,
+      reason: `Refused to stop PID ${record.pid}: the gateway process record is foreground-owned.`,
+    };
+  }
+  if (!record || !processAlive) return { allowed: false };
   if (portOwnerPid !== record.pid) {
     return {
       allowed: false,
@@ -89,12 +151,212 @@ export function getDaemonDir(): string {
   return authConfigDir();
 }
 
-export function getDaemonPidPath(): string {
-  return join(getDaemonDir(), "daemon.pid");
+export function getGatewayProcessPath(): string {
+  return join(getDaemonDir(), "gateway-process.json");
+}
+
+function getGatewayStartLockPath(): string {
+  return join(getDaemonDir(), "gateway-start.lock");
+}
+
+function getGatewayProcessLockPath(): string {
+  return join(getDaemonDir(), "gateway-process.lock");
 }
 
 export function getDaemonLogPath(): string {
   return join(getDaemonDir(), "daemon.log");
+}
+
+function ensureDaemonDir(): void {
+  const dir = getDaemonDir();
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+}
+
+function isGatewayProcessInfo(value: unknown): value is GatewayProcessInfo {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return Number.isInteger(record.pid)
+    && (record.pid as number) > 0
+    && typeof record.startedAt === "number"
+    && Number.isFinite(record.startedAt)
+    && Number.isInteger(record.port)
+    && (record.port as number) > 0
+    && (record.port as number) <= 65_535
+    && (record.mode === "foreground" || record.mode === "daemon");
+}
+
+export function readGatewayProcess(): GatewayProcessInfo | null {
+  const processPath = getGatewayProcessPath();
+  if (!existsSync(processPath)) return null;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(processPath, "utf8"));
+    return isGatewayProcessInfo(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeGatewayProcess(info: GatewayProcessInfo): void {
+  withGatewayProcessLock(() => {
+    const processPath = getGatewayProcessPath();
+    const processFileExists = existsSync(processPath);
+    const current = readGatewayProcess();
+    if (processFileExists && !current) {
+      throw new Error(`Refused to replace an invalid gateway process record at ${processPath}.`);
+    }
+    if (current && current.pid !== info.pid && isProcessAlive(current.pid)) {
+      throw new Error(
+        `Gateway process record is owned by live PID ${current.pid} on port ${current.port}; it will not be overwritten.`,
+      );
+    }
+
+    const temporaryPath = `${processPath}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      writeFileSync(temporaryPath, JSON.stringify(info, null, 2), "utf8");
+      renameSync(temporaryPath, processPath);
+    } finally {
+      if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+    }
+  });
+}
+
+export function clearGatewayProcess(expectedPid: number): boolean {
+  return withGatewayProcessLock(() => {
+    const current = readGatewayProcess();
+    if (!current || current.pid !== expectedPid) return false;
+    try {
+      unlinkSync(getGatewayProcessPath());
+      return true;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw error;
+    }
+  });
+}
+
+function isGatewayStartLock(value: unknown): value is GatewayStartLock {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return Number.isInteger(record.pid)
+    && (record.pid as number) > 0
+    && typeof record.createdAt === "number"
+    && Number.isFinite(record.createdAt);
+}
+
+function readGatewayLock(lockPath: string): GatewayStartLock | null {
+  if (!existsSync(lockPath)) return null;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(lockPath, "utf8"));
+    return isGatewayStartLock(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function createGatewayLock(lockPath: string): GatewayStartLock {
+  ensureDaemonDir();
+  const lock = { pid: process.pid, createdAt: Date.now() };
+  const fd = openSync(lockPath, "wx");
+  let failure: unknown;
+  try {
+    writeFileSync(fd, JSON.stringify(lock), "utf8");
+  } catch (error: unknown) {
+    failure = error;
+  }
+  try {
+    closeSync(fd);
+  } catch (error: unknown) {
+    failure ??= error;
+  }
+  if (failure) {
+    try {
+      unlinkSync(lockPath);
+    } catch {
+      // A stale invalid lock is reclaimed by age on a later claim.
+    }
+    throw failure;
+  }
+  return lock;
+}
+
+function clearGatewayLock(lockPath: string, expected: GatewayStartLock): boolean {
+  const current = readGatewayLock(lockPath);
+  if (!current || current.pid !== expected.pid || current.createdAt !== expected.createdAt) return false;
+  try {
+    unlinkSync(lockPath);
+    return true;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+function ownsGatewayLock(lockPath: string, expected: GatewayStartLock): boolean {
+  const current = readGatewayLock(lockPath);
+  return Boolean(
+    current
+    && current.pid === expected.pid
+    && current.createdAt === expected.createdAt,
+  );
+}
+
+function clearInvalidStaleLock(lockPath: string, now: number): boolean {
+  try {
+    const before = statSync(lockPath);
+    if (now - before.mtimeMs <= GATEWAY_STARTUP_TIMEOUT_MS) return false;
+    const after = statSync(lockPath);
+    if (
+      before.dev !== after.dev
+      || before.ino !== after.ino
+      || before.size !== after.size
+      || before.mtimeMs !== after.mtimeMs
+    ) {
+      return false;
+    }
+    unlinkSync(lockPath);
+    return true;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+function reclaimGatewayLock(lockPath: string, now: number): boolean {
+  const existing = readGatewayLock(lockPath);
+  if (existing) {
+    if (isProcessAlive(existing.pid) && now - existing.createdAt <= GATEWAY_STARTUP_TIMEOUT_MS) return false;
+    return clearGatewayLock(lockPath, existing);
+  }
+  return clearInvalidStaleLock(lockPath, now);
+}
+
+function synchronousSleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function withGatewayProcessLock<T>(action: () => T): T {
+  const lockPath = getGatewayProcessLockPath();
+  const deadline = Date.now() + PROCESS_CLAIM_TIMEOUT_MS;
+  let lock: GatewayStartLock | null = null;
+  while (!lock && Date.now() < deadline) {
+    try {
+      lock = createGatewayLock(lockPath);
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (reclaimGatewayLock(lockPath, Date.now())) continue;
+      synchronousSleep(PROCESS_CLAIM_POLL_INTERVAL_MS);
+    }
+  }
+  if (!lock) throw new Error("Timed out while claiming the gateway process record.");
+  try {
+    return action();
+  } finally {
+    clearGatewayLock(lockPath, lock);
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -102,10 +364,7 @@ export function getDaemonLogPath(): string {
  */
 export function setupDaemonLogging(): void {
   if (process.env.MCPA_DAEMON !== "1") return;
-  const dir = getDaemonDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  ensureDaemonDir();
   const logStream = createWriteStream(getDaemonLogPath(), { flags: "a" });
   const writeOut = (chunk: unknown, encoding?: unknown, callback?: unknown) => {
     return logStream.write(chunk as any, encoding as any, callback as any);
@@ -118,65 +377,16 @@ export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code;
-    return code === "EPERM";
-  }
-}
-
-export function readDaemonPid(): DaemonInfo | null {
-  const pidPath = getDaemonPidPath();
-  if (!existsSync(pidPath)) {
-    return null;
-  }
-
-  try {
-    const raw = readFileSync(pidPath, "utf8").trim();
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (typeof parsed.pid === "number") {
-      return parsed as DaemonInfo;
-    }
-  } catch {
-    // If invalid JSON, try reading single integer PID
-    try {
-      const raw = readFileSync(pidPath, "utf8").trim();
-      const num = parseInt(raw, 10);
-      if (!isNaN(num)) {
-        return { pid: num, startedAt: Date.now(), port: 8765 };
-      }
-    } catch {
-      // Ignore
-    }
-  }
-  return null;
-}
-
-export function writeDaemonPid(info: DaemonInfo): void {
-  const dir = getDaemonDir();
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  const pidPath = getDaemonPidPath();
-  writeFileSync(pidPath, JSON.stringify(info, null, 2), "utf8");
-}
-
-export function clearDaemonPid(): void {
-  const pidPath = getDaemonPidPath();
-  if (existsSync(pidPath)) {
-    try {
-      unlinkSync(pidPath);
-    } catch {
-      // Ignore removal error
-    }
+  } catch (error: unknown) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }
 
 export function getCliBinPath(): string {
   if (
-    process.argv[1] &&
-    existsSync(process.argv[1]) &&
-    (process.argv[1].endsWith("mcp-ts.js") || process.argv[1].endsWith("mcpa.js"))
+    process.argv[1]
+    && existsSync(process.argv[1])
+    && (process.argv[1].endsWith("mcp-ts.js") || process.argv[1].endsWith("mcpa.js"))
   ) {
     return resolve(process.argv[1]);
   }
@@ -190,10 +400,76 @@ export function getCliBinPath(): string {
     resolve(process.cwd(), "dist/bin/mcp-ts.js"),
     resolve(process.cwd(), "packages/cli/dist/bin/mcp-ts.js"),
   ];
-  for (const p of candidates) {
-    if (existsSync(p) && p.endsWith("mcp-ts.js")) return resolve(p);
+  for (const path of candidates) {
+    if (existsSync(path) && path.endsWith("mcp-ts.js")) return resolve(path);
   }
   return resolve(candidates[0]);
+}
+
+function daemonResultFromStatus(
+  status: DaemonStatus,
+  fallbackPort: number,
+): { pid: number; port: number; logPath: string; reused: true; managed: boolean } {
+  const pid = status.pid ?? status.portOwnerPid;
+  if (!pid) {
+    throw new Error(`Gateway on port ${status.port ?? fallbackPort} is healthy, but its owning PID could not be determined.`);
+  }
+  return {
+    pid,
+    port: status.port ?? fallbackPort,
+    logPath: status.logPath,
+    reused: true,
+    managed: status.managed,
+  };
+}
+
+function throwIfStartBlocked(status: DaemonStatus): void {
+  if (status.state === "occupied") {
+    throw new Error(
+      `Port ${status.port} is occupied by PID ${status.portOwnerPid}. Use --port <available-port>; this process will not be stopped or adopted.`,
+    );
+  }
+  if (status.state === "unhealthy") {
+    throw new Error(
+      `Gateway process record ${status.pid} is alive but unhealthy. Inspect ${status.logPath}; it will not be replaced automatically.`,
+    );
+  }
+}
+
+async function terminateProcess(pid: number, waitMs: number): Promise<boolean> {
+  if (process.platform === "win32") {
+    try {
+      execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+    } catch {
+      // Liveness is checked below; taskkill can fail if the process exited first.
+    }
+  } else {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      try {
+        process.kill(pid, "SIGINT");
+      } catch {
+        return !isProcessAlive(pid);
+      }
+    }
+  }
+
+  const deadline = Date.now() + waitMs;
+  while (isProcessAlive(pid) && Date.now() < deadline) {
+    await sleep(50);
+  }
+  if (process.platform !== "win32" && isProcessAlive(pid)) {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // Process exited after the final liveness check.
+    }
+  }
+  return !isProcessAlive(pid);
 }
 
 /**
@@ -206,86 +482,112 @@ export async function spawnDaemon(options: {
   url?: string;
 } = {}): Promise<{ pid: number; port: number; logPath: string; reused?: boolean; managed?: boolean }> {
   const port = options.port ?? 8765;
-  const status = await getDaemonStatus(port);
+  const deadline = Date.now() + GATEWAY_STARTUP_TIMEOUT_MS;
+  let status = await getDaemonStatus(port);
   if (status.state === "running" || status.state === "external") {
-    return {
-      pid: status.pid ?? status.portOwnerPid!,
-      port: status.port ?? port,
-      logPath: status.logPath,
-      reused: true,
-      managed: status.managed,
-    };
+    return daemonResultFromStatus(status, port);
   }
-  if (status.state === "occupied") {
-    throw new Error(`Port ${port} is occupied by PID ${status.portOwnerPid}. Use --port <available-port>; this process will not be stopped or adopted.`);
-  }
-  if (status.state === "starting") {
-    throw new Error(`Daemon PID ${status.pid} is still starting on port ${status.port}.`);
-  }
-  if (status.state === "unhealthy") {
-    throw new Error(`Managed PID record ${status.pid} is alive but unhealthy. Inspect ${status.logPath}; it will not be replaced automatically.`);
-  }
+  throwIfStartBlocked(status);
 
-  // Clear stale PID if previous process died
-  clearDaemonPid();
-
-  // Determine CLI entrypoint
-  const binPath = getCliBinPath();
-
-  const args = ["serve"];
-  if (options.port) args.push("--port", String(options.port));
-  if (options.verbose) args.push("--verbose");
-  if (options.url) args.push("--remote", options.url);
-
-  const child = spawn(process.execPath, [binPath, ...args], {
-    detached: true,
-    stdio: "ignore",
-    windowsHide: true,
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      MCPA_DAEMON: "1",
-    },
-  });
-
-  const pid = child.pid;
-  if (!pid) {
-    throw new Error("Failed to spawn background daemon process.");
-  }
-
-  child.unref();
-
-  const info: DaemonInfo = {
-    pid,
-    startedAt: Date.now(),
-    port,
-  };
-  writeDaemonPid(info);
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    if (!isProcessAlive(pid)) break;
-    const [endpoint, owner] = await Promise.all([
-      pingGateway("127.0.0.1", port, "/mcp", 300),
-      Promise.resolve(findProcessOnPort(port)),
-    ]);
-    if (endpoint && owner === pid) {
-      return { pid, port, logPath: getDaemonLogPath(), managed: true };
+  let ownedLock: GatewayStartLock | null = null;
+  const startupLockPath = getGatewayStartLockPath();
+  while (!ownedLock && Date.now() < deadline) {
+    try {
+      ownedLock = createGatewayLock(startupLockPath);
+      break;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }
-    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    if (reclaimGatewayLock(startupLockPath, Date.now())) continue;
+
+    status = await getDaemonStatus(port);
+    if (status.state === "running" || status.state === "external") {
+      return daemonResultFromStatus(status, port);
+    }
+    await sleep(GATEWAY_POLL_INTERVAL_MS);
   }
 
-  if (isProcessAlive(pid)) {
-    try { process.kill(pid, "SIGTERM"); } catch { /* spawned process already exited */ }
-    const terminateDeadline = Date.now() + 1_000;
-    while (isProcessAlive(pid) && Date.now() < terminateDeadline) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    if (isProcessAlive(pid)) {
-      try { process.kill(pid, "SIGKILL"); } catch { /* spawned process already exited */ }
-    }
+  if (!ownedLock) {
+    throw new Error("Gateway failed to become healthy within 15 seconds while another startup was in progress.");
   }
-  clearDaemonPid();
-  throw new Error(`Daemon failed to become healthy within 15 seconds. See ${getDaemonLogPath()}`);
+
+  let spawnedPid: number | null = null;
+  try {
+    status = await getDaemonStatus(port);
+    if (status.state === "running" || status.state === "external") {
+      return daemonResultFromStatus(status, port);
+    }
+    throwIfStartBlocked(status);
+
+    while (status.state === "starting" && Date.now() < deadline) {
+      await sleep(GATEWAY_POLL_INTERVAL_MS);
+      status = await getDaemonStatus(port);
+      if (status.state === "running" || status.state === "external") {
+        return daemonResultFromStatus(status, port);
+      }
+      throwIfStartBlocked(status);
+    }
+    if (status.state === "starting") {
+      throw new Error(`Gateway failed to become healthy within 15 seconds. See ${status.logPath}`);
+    }
+    if (!ownsGatewayLock(startupLockPath, ownedLock)) {
+      throw new Error("Lost gateway startup lock ownership before spawning the daemon.");
+    }
+
+    const binPath = getCliBinPath();
+    const args = ["serve"];
+    if (options.port) args.push("--port", String(options.port));
+    if (options.verbose) args.push("--verbose");
+    if (options.url) args.push("--remote", options.url);
+
+    const child = spawn(process.execPath, [binPath, ...args], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        MCPA_DAEMON: "1",
+      },
+    });
+
+    if (!child.pid) throw new Error("Failed to spawn background daemon process.");
+    spawnedPid = child.pid;
+    child.unref();
+    if (!ownsGatewayLock(startupLockPath, ownedLock)) {
+      await terminateProcess(spawnedPid, 1_000);
+      if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid);
+      throw new Error("Lost gateway startup lock ownership while spawning the daemon.");
+    }
+    try {
+      writeGatewayProcess({
+        pid: spawnedPid,
+        startedAt: Date.now(),
+        port,
+        mode: "daemon",
+      });
+    } catch (cause) {
+      await terminateProcess(spawnedPid, 1_000);
+      if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid);
+      throw cause;
+    }
+
+    while (Date.now() < deadline) {
+      status = await getDaemonStatus(port);
+      if (status.state === "running" && status.pid === spawnedPid && status.managed) {
+        return { pid: spawnedPid, port, logPath: getDaemonLogPath(), managed: true };
+      }
+      if (!isProcessAlive(spawnedPid)) break;
+      await sleep(GATEWAY_POLL_INTERVAL_MS);
+    }
+
+    await terminateProcess(spawnedPid, 1_000);
+    if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid);
+    throw new Error(`Daemon failed to become healthy within 15 seconds. See ${getDaemonLogPath()}`);
+  } finally {
+    clearGatewayLock(startupLockPath, ownedLock);
+  }
 }
 
 /**
@@ -294,17 +596,14 @@ export async function spawnDaemon(options: {
 export function findProcessOnPort(port: number): number | null {
   try {
     if (process.platform === "win32") {
-      const output = execSync(`netstat -ano -p tcp`, {
+      const output = execSync("netstat -ano -p tcp", {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       });
-      const lines = output.split(/\r?\n/);
-      for (const line of lines) {
+      for (const line of output.split(/\r?\n/)) {
         const parts = line.trim().split(/\s+/);
-        // Format: TCP  127.0.0.1:8765  0.0.0.0:0  LISTENING  16324
         if (parts.length >= 5 && parts[0] === "TCP" && parts[3] === "LISTENING") {
-          const localAddr = parts[1];
-          if (localAddr.endsWith(`:${port}`)) {
+          if (parts[1].endsWith(`:${port}`)) {
             const pid = parseInt(parts[4], 10);
             if (!isNaN(pid) && pid > 0) return pid;
           }
@@ -319,75 +618,58 @@ export function findProcessOnPort(port: number): number | null {
       if (!isNaN(pid) && pid > 0) return pid;
     }
   } catch {
-    // Port not in use or command unavailable
+    // Port not in use or command unavailable.
   }
   return null;
 }
 
 /**
- * Stops the background daemon process if active.
+ * Stops the background daemon process if active and if it owns its recorded port.
  */
 export async function stopDaemon(port = 8765): Promise<{ stopped: boolean; pid?: number; reason?: string }> {
-  const current = readDaemonPid();
+  const current = readGatewayProcess();
   const alive = Boolean(current && isProcessAlive(current.pid));
   if (!current || !alive) {
-    if (current) clearDaemonPid();
+    if (current) clearGatewayProcess(current.pid);
     return { stopped: false };
   }
-  const effectivePort = current.port || port;
-  const portOwnerPid = findProcessOnPort(effectivePort);
-  const validation = validateManagedStop(current, alive, portOwnerPid);
+
+  const effectivePort = current.port ?? port;
+  const validation = validateManagedStop(current, alive, findProcessOnPort(effectivePort));
   if (!validation.allowed) {
-    clearDaemonPid();
     return {
       stopped: false,
       pid: current.pid,
       reason: validation.reason,
     };
   }
-  const pid = current.pid;
 
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch {
-    try {
-      process.kill(pid, "SIGINT");
-    } catch {
-      // Process already terminated
-    }
+  const stopped = await terminateProcess(current.pid, 2_000);
+  if (!stopped) {
+    return {
+      stopped: false,
+      pid: current.pid,
+      reason: `Daemon PID ${current.pid} is still running; its process record was preserved.`,
+    };
   }
-
-  // Poll for exit up to 2 seconds
-  const start = Date.now();
-  while (Date.now() - start < 2000) {
-    if (!isProcessAlive(pid)) break;
-    await new Promise((r) => setTimeout(r, 100));
-  }
-
-  // Force kill if still lingering
-  if (isProcessAlive(pid)) {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Ignore
-    }
-  }
-
-  clearDaemonPid();
-  return { stopped: true, pid };
+  clearGatewayProcess(current.pid);
+  return { stopped: true, pid: current.pid };
 }
 
 /**
- * Checks the running status of the background daemon.
+ * Checks the running status of the foreground or background gateway.
  */
 export async function getDaemonStatus(port = 8765): Promise<DaemonStatus> {
-  const pidPath = getDaemonPidPath();
+  const pidPath = getGatewayProcessPath();
   const logPath = getDaemonLogPath();
-  const current = readDaemonPid();
-
-  const pidAlive = Boolean(current && isProcessAlive(current.pid));
-  if (current && !pidAlive) clearDaemonPid();
-  const effectivePort = current?.port || port;
+  let current = readGatewayProcess();
+  let processAlive = Boolean(current && isProcessAlive(current.pid));
+  if (current && !processAlive) {
+    clearGatewayProcess(current.pid);
+    current = readGatewayProcess();
+    processAlive = Boolean(current && isProcessAlive(current.pid));
+  }
+  const effectivePort = current?.port ?? port;
   const [endpoint, portOwnerPid] = await Promise.all([
     pingGateway("127.0.0.1", effectivePort, "/mcp", 1_000),
     Promise.resolve(findProcessOnPort(effectivePort)),
@@ -395,8 +677,8 @@ export async function getDaemonStatus(port = 8765): Promise<DaemonStatus> {
   return {
     ...classifyDaemonStatus({
       requestedPort: port,
-      pidRecord: current,
-      pidAlive,
+      processRecord: current,
+      processAlive,
       portOwnerPid,
       gatewayResponsive: endpoint !== null,
       now: Date.now(),
@@ -411,19 +693,12 @@ export async function getDaemonStatus(port = 8765): Promise<DaemonStatus> {
  */
 export function readDaemonLogs(maxLines = 50): string {
   const logPath = getDaemonLogPath();
-  if (!existsSync(logPath)) {
-    return "(No daemon logs found yet)";
-  }
-
+  if (!existsSync(logPath)) return "(No daemon logs found yet)";
   try {
-    const text = readFileSync(logPath, "utf8");
-    const rawLines = text.split(/\r?\n/);
-    while (rawLines.length > 0 && rawLines[rawLines.length - 1].trim() === "") {
-      rawLines.pop();
-    }
-    const sliced = rawLines.slice(-maxLines);
-    return sliced.join("\n") || "(Log file is empty)";
-  } catch (err) {
-    return `Error reading log file: ${(err as Error).message}`;
+    const lines = readFileSync(logPath, "utf8").split(/\r?\n/);
+    while (lines.length > 0 && lines[lines.length - 1].trim() === "") lines.pop();
+    return lines.slice(-maxLines).join("\n") || "(Log file is empty)";
+  } catch (error) {
+    return `Error reading log file: ${(error as Error).message}`;
   }
 }

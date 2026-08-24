@@ -30,7 +30,7 @@ import {
 } from "../ux.js";
 
 import { McpConfigWatcher } from "../gateway/watcher.js";
-import { spawnDaemon } from "../gateway/daemon.js";
+import { clearGatewayProcess, spawnDaemon, writeGatewayProcess } from "../gateway/daemon.js";
 
 export interface ServeArgs {
   host?: string;
@@ -194,6 +194,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
         localHttpMcp?.close(),
         registry?.close(),
       ]);
+      clearGatewayProcess(process.pid);
     },
   });
   const handleSigint = () => void shutdown("SIGINT");
@@ -279,6 +280,12 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   const localTask = (async () => {
     await localRegistry.start();
     const url = await localHttpMcp.start();
+    writeGatewayProcess({
+      pid: process.pid,
+      port,
+      startedAt: Date.now(),
+      mode: process.env.MCPA_DAEMON === "1" ? "daemon" : "foreground",
+    });
     // Keep remote gateway informed of full local catalog once loaded
     try {
       await bridge?.publishLocalCatalog();
@@ -307,7 +314,13 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     localUrl = await localTask;
   } catch (cause) {
     error(`Could not start local endpoint on ${host}:${port}${path}: ${(cause as Error).message}`);
-    await localRegistry.close();
+    watcher?.stop();
+    await Promise.allSettled([
+      bridge?.stop(),
+      localHttpMcp?.close(),
+      localRegistry.close(),
+    ]);
+    clearGatewayProcess(process.pid);
     throw cause;
   }
   const localDuration = ((performance.now() - localStartTime) / 1000).toFixed(2);

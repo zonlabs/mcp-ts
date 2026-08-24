@@ -2,7 +2,12 @@ import { BM25SearchStrategy, type IndexedTool, type ToolSearchResult } from "@mc
 import { connectMcpEndpoint, type McpEndpointClient } from "../client.js";
 import { DEFAULT_LOCAL_MCP_PORT, DEFAULT_REMOTE_GATEWAY_URL } from "../constants.js";
 import { ensureFreshAuthSession, loadAuthSession, type AuthSession } from "./auth-store.js";
-import { findProcessOnPort, isProcessAlive, readDaemonPid, type DaemonInfo } from "./daemon.js";
+import {
+  findProcessOnPort,
+  isProcessAlive,
+  readGatewayProcess,
+  type GatewayProcessInfo,
+} from "./daemon.js";
 import { pingGateway } from "./context.js";
 
 export type GatewayManagementState = "stopped" | "starting" | "running" | "external" | "occupied" | "unhealthy";
@@ -37,7 +42,7 @@ export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, lab
 }
 
 interface GatewayResolverDependencies {
-  readPid?: () => DaemonInfo | null;
+  readPid?: () => GatewayProcessInfo | null;
   isAlive?: (pid: number) => boolean;
   findPortOwner?: (port: number) => number | null;
   probe?: typeof pingGateway;
@@ -46,7 +51,7 @@ interface GatewayResolverDependencies {
 export async function resolveGateway(
   dependencies: GatewayResolverDependencies = {},
 ): Promise<GatewayResolution> {
-  const readPid = dependencies.readPid ?? readDaemonPid;
+  const readPid = dependencies.readPid ?? readGatewayProcess;
   const isAlive = dependencies.isAlive ?? isProcessAlive;
   const findPortOwner = dependencies.findPortOwner ?? findProcessOnPort;
   const probe = dependencies.probe ?? pingGateway;
@@ -62,7 +67,7 @@ export async function resolveGateway(
       const possibleManaged = Boolean(record && record.port === port && isAlive(record.pid));
       if (!possibleManaged) return { endpoint, port, state: "external", managed: false };
       const portOwnerPid = findPortOwner(port) ?? undefined;
-      const managed = portOwnerPid === record!.pid;
+      const managed = record!.mode === "daemon" && portOwnerPid === record!.pid;
       return { endpoint, port, state: managed ? "running" : "external", managed, portOwnerPid };
     }
     const portOwnerPid = findPortOwner(port) ?? undefined;

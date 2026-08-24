@@ -43,7 +43,11 @@ export {
   readDaemonLogs,
   isProcessAlive,
   getCliBinPath,
-  type DaemonInfo,
+  readGatewayProcess,
+  writeGatewayProcess,
+  clearGatewayProcess,
+  getGatewayProcessPath,
+  type GatewayProcessInfo,
   type DaemonStatus,
 } from "./gateway/daemon.js";
 export * from "./constants.js";

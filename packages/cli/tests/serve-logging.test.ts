@@ -1,6 +1,110 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogSnapshot } from "@mcp-ts/bridge-protocol";
-import { describeRemoteCatalogChanges } from "../src/commands/serve.js";
+import { cmdServe, describeRemoteCatalogChanges } from "../src/commands/serve.js";
+
+const serveMocks = vi.hoisted(() => ({
+  clearGatewayProcess: vi.fn(),
+  localClose: vi.fn(async () => undefined),
+  localStart: vi.fn(async () => "http://127.0.0.1:9123/mcp"),
+  registryClose: vi.fn(async () => undefined),
+  registryStart: vi.fn(async () => undefined),
+  writeGatewayProcess: vi.fn(),
+}));
+
+vi.mock("../src/gateway/daemon.js", () => ({
+  clearGatewayProcess: serveMocks.clearGatewayProcess,
+  spawnDaemon: vi.fn(),
+  writeGatewayProcess: serveMocks.writeGatewayProcess,
+}));
+
+vi.mock("../src/gateway/registry.js", () => ({
+  McpGatewayRegistry: class {
+    start = serveMocks.registryStart;
+    close = serveMocks.registryClose;
+    reload = vi.fn(async () => undefined);
+    publishLocalCatalog = vi.fn(async () => undefined);
+    getLocalCatalog = () => ({ servers: [] });
+    getRemoteCatalog = () => ({ servers: [] });
+    getLocalServerTimings = () => new Map();
+    aggregatedTools = () => [];
+  },
+}));
+
+vi.mock("../src/gateway/local-http-mcp.js", () => ({
+  LocalHttpMcp: class {
+    start = serveMocks.localStart;
+    close = serveMocks.localClose;
+  },
+}));
+
+vi.mock("../src/gateway/config.js", () => ({
+  loadMcpJson: vi.fn(() => {
+    throw new Error("no local config");
+  }),
+}));
+
+vi.mock("../src/gateway/auth-store.js", () => ({
+  InvalidAuthSessionError: class extends Error {},
+  ensureFreshAuthSession: vi.fn(),
+  extractUserInfo: vi.fn(() => undefined),
+  loadAuthSession: vi.fn(() => null),
+}));
+
+vi.mock("../src/gateway/oauth.js", () => ({ loginToRemote: vi.fn() }));
+
+vi.mock("../src/gateway/watcher.js", () => ({
+  McpConfigWatcher: class {
+    start = vi.fn();
+    stop = vi.fn();
+  },
+}));
+
+vi.mock("../src/ux.js", () => {
+  const noop = vi.fn();
+  return {
+    clearTicker: noop,
+    dim: (value: string) => value,
+    error: noop,
+    info: noop,
+    intro: noop,
+    outro: noop,
+    printBanner: noop,
+    serverLog: noop,
+    spinner: () => ({ start: noop, stop: noop }),
+    success: noop,
+    ticker: noop,
+    treeNote: noop,
+    treeSummary: noop,
+    warn: noop,
+  };
+});
+
+const originalDaemonMode = process.env.MCPA_DAEMON;
+let originalExitListeners: Function[];
+let originalSigintListeners: Function[];
+let originalSigtermListeners: Function[];
+
+beforeEach(() => {
+  originalExitListeners = process.listeners("exit");
+  originalSigintListeners = process.listeners("SIGINT");
+  originalSigtermListeners = process.listeners("SIGTERM");
+});
+
+afterEach(() => {
+  for (const listener of process.listeners("exit")) {
+    if (!originalExitListeners.includes(listener)) process.removeListener("exit", listener);
+  }
+  for (const listener of process.listeners("SIGINT")) {
+    if (!originalSigintListeners.includes(listener)) process.removeListener("SIGINT", listener);
+  }
+  for (const listener of process.listeners("SIGTERM")) {
+    if (!originalSigtermListeners.includes(listener)) process.removeListener("SIGTERM", listener);
+  }
+  if (originalDaemonMode === undefined) delete process.env.MCPA_DAEMON;
+  else process.env.MCPA_DAEMON = originalDaemonMode;
+  vi.restoreAllMocks();
+  vi.clearAllMocks();
+});
 
 function catalog(
   servers: Array<{ serverId: string; serverName: string; toolCount: number }>,
@@ -40,5 +144,52 @@ describe("verbose remote catalog logging", () => {
     ]);
 
     expect(describeRemoteCatalogChanges(snapshot, snapshot)).toEqual([]);
+  });
+});
+
+describe("gateway process ownership from serve", () => {
+  it.each([
+    { daemonEnv: undefined, mode: "foreground" as const },
+    { daemonEnv: "1", mode: "daemon" as const },
+  ])("registers and clears a $mode process record", async ({ daemonEnv, mode }) => {
+    if (daemonEnv === undefined) delete process.env.MCPA_DAEMON;
+    else process.env.MCPA_DAEMON = daemonEnv;
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => {
+      expect(serveMocks.localStart).toHaveBeenCalledOnce();
+    });
+    expect(serveMocks.writeGatewayProcess).toHaveBeenCalledWith({
+      pid: process.pid,
+      port: 9123,
+      startedAt: expect.any(Number),
+      mode,
+    });
+
+    process.emit("SIGTERM", "SIGTERM");
+    await serving;
+
+    expect(serveMocks.localClose).toHaveBeenCalledOnce();
+    expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(process.pid);
+    expect(serveMocks.localClose.mock.invocationCallOrder[0]).toBeLessThan(
+      serveMocks.clearGatewayProcess.mock.invocationCallOrder[0],
+    );
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("closes initialized resources when the process-record claim is refused", async () => {
+    serveMocks.writeGatewayProcess.mockImplementationOnce(() => {
+      throw new Error("Gateway process record is owned by live PID 4321.");
+    });
+
+    await expect(cmdServe({ port: 9123 })).rejects.toThrow("owned by live PID 4321");
+
+    expect(serveMocks.localClose).toHaveBeenCalledOnce();
+    expect(serveMocks.registryClose).toHaveBeenCalledOnce();
+    expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(process.pid);
+    expect(serveMocks.localClose.mock.invocationCallOrder[0]).toBeLessThan(
+      serveMocks.clearGatewayProcess.mock.invocationCallOrder[0],
+    );
   });
 });
