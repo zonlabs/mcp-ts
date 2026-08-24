@@ -6,6 +6,9 @@ export interface GatewayServerSummary {
   serverId: string;
   serverName: string;
   toolCount: number;
+  source: "local" | "remote";
+  discoveryState: "complete" | "timeout" | "error";
+  error?: string;
 }
 
 export interface GatewayToolSummary {
@@ -91,6 +94,19 @@ function requireNumber(item: unknown, properties: string[], metaToolName: string
   return value;
 }
 
+function requireEnum<T extends string>(
+  item: unknown,
+  properties: string[],
+  allowed: readonly T[],
+  metaToolName: string,
+): T {
+  const value = requireString(item, properties, metaToolName);
+  if (!allowed.includes(value as T)) {
+    throw new Error(`${metaToolName} returned invalid JSON data.`);
+  }
+  return value as T;
+}
+
 function isCanonicalToolId(toolId: string): boolean {
   const { serverId, toolName } = parseToolRef(toolId);
   return toolId.includes("::") && Boolean(serverId?.trim() && toolName.trim());
@@ -112,11 +128,28 @@ export async function fetchGatewayServers(
     "servers",
     MCP_META_TOOL_NAMES.listServers,
   );
-  return servers.map((server) => ({
-    serverId: requireString(server, ["serverId", "server_id"], MCP_META_TOOL_NAMES.listServers),
-    serverName: requireString(server, ["serverName", "server_name"], MCP_META_TOOL_NAMES.listServers),
-    toolCount: requireNumber(server, ["toolCount", "tool_count"], MCP_META_TOOL_NAMES.listServers),
-  }));
+  return servers.map((server) => {
+    const discoveryState = requireEnum(
+      server,
+      ["discoveryState", "discovery_state"],
+      ["complete", "timeout", "error"] as const,
+      MCP_META_TOOL_NAMES.listServers,
+    );
+    const error = isRecord(server) && typeof server.error === "string" ? server.error : undefined;
+    return {
+      serverId: requireString(server, ["serverId", "server_id"], MCP_META_TOOL_NAMES.listServers),
+      serverName: requireString(server, ["serverName", "server_name"], MCP_META_TOOL_NAMES.listServers),
+      source: requireEnum(
+        server,
+        ["source"],
+        ["local", "remote"] as const,
+        MCP_META_TOOL_NAMES.listServers,
+      ),
+      toolCount: requireNumber(server, ["toolCount", "tool_count"], MCP_META_TOOL_NAMES.listServers),
+      discoveryState,
+      ...(error ? { error } : {}),
+    };
+  });
 }
 
 export async function searchGatewayTools(

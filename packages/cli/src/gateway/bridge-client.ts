@@ -54,6 +54,7 @@ export interface RemoteBridgeClientOptions {
   reconnectMaxDelayMs?: number;
   requestTimeoutMs?: number;
   onRemoteCatalogChanged?: (catalog: CatalogSnapshot) => void;
+  onTerminalClose?: (code: number) => void;
   onReplaced?: () => void;
 }
 
@@ -82,6 +83,10 @@ export class RemoteBridgeClient {
   ) {
     this.reconnectDelay = options.reconnectInitialDelayMs ?? 1_000;
     this.resetReadyPromise();
+  }
+
+  isReady(): boolean {
+    return !this.closed && this.ready;
   }
 
   private resetReadyPromise(): void {
@@ -301,6 +306,7 @@ export class RemoteBridgeClient {
         serverLog("bridge", `failed to clear remote catalog: ${(error as Error).message}`),
       );
     if (terminal) {
+      this.options.onTerminalClose?.(code);
       if (code === BRIDGE_CLOSE_CODES.replaced) this.options.onReplaced?.();
       return;
     }

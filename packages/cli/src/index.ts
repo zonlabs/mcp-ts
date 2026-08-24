@@ -30,9 +30,8 @@ export {
 } from "./gateway/config.js";
 export {
   pingGateway,
-  withMcpGateway,
+  getGatewayHealth,
   getServerConfig,
-  type GatewayContextOptions,
 } from "./gateway/context.js";
 export type { AggregatedTool } from "./gateway/registry.js";
 export { McpConfigWatcher, type McpConfigWatcherOptions } from "./gateway/watcher.js";

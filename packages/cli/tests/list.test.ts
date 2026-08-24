@@ -9,13 +9,22 @@ interface FakeServer {
   server_name: string;
   tool_count: number;
   tools?: Array<{ tool_id: string; tool_name: string; description?: string }>;
+  source?: "local" | "remote";
+  discovery_state?: "complete" | "timeout" | "error";
+  error?: string;
 }
 
 function fakeGatewayClient(servers: FakeServer[]) {
   return {
     callTool: vi.fn(async (name: string, args: Record<string, unknown>) => {
       if (name === "list_mcp_servers") {
-        return { content: [{ type: "text", text: JSON.stringify({ servers }) }] };
+        return { content: [{ type: "text", text: JSON.stringify({
+          servers: servers.map((server) => ({
+            source: server.source ?? "remote",
+            discovery_state: server.discovery_state ?? "complete",
+            ...server,
+          })),
+        }) }] };
       }
       if (name !== "search_mcp_tools") throw new Error(`Unexpected tool: ${name}`);
       const server = servers.find((item) =>
@@ -36,15 +45,15 @@ function captureOutput() {
   let rendered = "";
   return {
     output: { write: (text: string) => { rendered += text; return true; } },
-    text: () => rendered,
+    text: () => rendered.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, ""),
   };
 }
 
 describe("fetchGatewayCatalog", () => {
   it("uses one authoritative server request and advertised counts for compact output", async () => {
     const client = fakeGatewayClient([
-      { server_id: "filesystem", server_name: "filesystem", tool_count: 14 },
-      { server_id: "github", server_name: "Github - Personal", tool_count: 44 },
+      { server_id: "filesystem", server_name: "filesystem", tool_count: 14, source: "local" },
+      { server_id: "github", server_name: "Github - Personal", tool_count: 44, source: "local" },
     ]);
 
     const catalog = await fetchGatewayCatalog(
@@ -62,6 +71,36 @@ describe("fetchGatewayCatalog", () => {
     expect(catalog.remoteServers).toEqual([]);
   });
 
+  it("retains and renders an enabled configured server that failed startup", async () => {
+    const client = fakeGatewayClient([{
+      server_id: "broken",
+      server_name: "broken",
+      source: "local",
+      tool_count: 0,
+      discovery_state: "error",
+      error: "connection refused",
+    }]);
+    const configs = { broken: { command: "missing-command" } };
+
+    const catalog = await fetchGatewayCatalog(client as never, configs, {});
+    expect(catalog).toMatchObject({
+      localServers: [{
+        serverId: "broken",
+        source: "local",
+        advertisedToolCount: 0,
+        discoveryState: "error",
+        message: "connection refused",
+      }],
+      remoteServers: [],
+    });
+
+    const capture = captureOutput();
+    renderListOutput(catalog.localServers, [], [], configs, {}, capture.output);
+    expect(capture.text()).toContain("broken");
+    expect(capture.text()).toContain("failed");
+    expect(capture.text()).toContain("0 tool(s) [error: connection refused]");
+  });
+
   it("fetches each advertised server's details once and concurrently", async () => {
     const releases = new Map<string, () => void>();
     const searches: string[] = [];
@@ -69,8 +108,8 @@ describe("fetchGatewayCatalog", () => {
       callTool: vi.fn(async (name: string, args: Record<string, unknown>) => {
         if (name === "list_mcp_servers") {
           return { content: [{ type: "text", text: JSON.stringify({ servers: [
-            { server_id: "alpha", server_name: "Alpha", tool_count: 1 },
-            { server_id: "beta", server_name: "Beta", tool_count: 1 },
+            { server_id: "alpha", server_name: "Alpha", tool_count: 1, source: "remote", discovery_state: "complete" },
+            { server_id: "beta", server_name: "Beta", tool_count: 1, source: "remote", discovery_state: "complete" },
           ] }) }] };
         }
         const serverId = String(args.serverId);
@@ -116,8 +155,8 @@ describe("fetchGatewayCatalog", () => {
     client.callTool.mockImplementation(async (name, args) => {
       if (name === "list_mcp_servers") {
         return { content: [{ type: "text", text: JSON.stringify({ servers: [
-          { server_id: "alpha", server_name: "Alpha", tool_count: 2 },
-          { server_id: "beta", server_name: "Beta", tool_count: 3 },
+          { server_id: "alpha", server_name: "Alpha", tool_count: 2, source: "remote", discovery_state: "complete" },
+          { server_id: "beta", server_name: "Beta", tool_count: 3, source: "remote", discovery_state: "complete" },
         ] }) }] };
       }
       if (args.serverId === "beta") throw new Error("Beta unavailable");
@@ -155,6 +194,7 @@ describe("fetchGatewayCatalog", () => {
         server_id: "github",
         server_name: "GitHub",
         tool_count: 1,
+        source: "local",
         tools: [{ tool_id: "github::create_issue", tool_name: "create_issue" }],
       },
     ]);
@@ -215,7 +255,7 @@ describe("fetchGatewayCatalog", () => {
     },
   ])("classifies and renders with $label", async ({ configs, expectedTransport }) => {
     const client = fakeGatewayClient([
-      { server_id: "docs-id", server_name: "Docs Display", tool_count: 2 },
+      { server_id: "docs-id", server_name: "Docs Display", tool_count: 2, source: "local" },
     ]);
     const catalog = await fetchGatewayCatalog(client as never, configs, {});
 
@@ -243,7 +283,7 @@ describe("cmdList", () => {
   it("starts or reuses one gateway and renders its combined catalog", async () => {
     vi.spyOn(context, "getServerConfig").mockReturnValue({ filesystem: { command: "npx" } });
     const client = fakeGatewayClient([
-      { server_id: "filesystem", server_name: "filesystem", tool_count: 14 },
+      { server_id: "filesystem", server_name: "filesystem", tool_count: 14, source: "local" },
       { server_id: "github", server_name: "Github - Personal", tool_count: 44 },
     ]);
     const withClient = vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
@@ -285,8 +325,8 @@ describe("cmdList", () => {
     client.callTool.mockImplementation(async (name, args) => {
       if (name === "list_mcp_servers") {
         return { content: [{ type: "text", text: JSON.stringify({ servers: [
-          { server_id: "github", server_name: "GitHub", tool_count: 1 },
-          { server_id: "slack", server_name: "Slack", tool_count: 1 },
+          { server_id: "github", server_name: "GitHub", tool_count: 1, source: "remote", discovery_state: "complete" },
+          { server_id: "slack", server_name: "Slack", tool_count: 1, source: "remote", discovery_state: "complete" },
         ] }) }] };
       }
       if (args.serverId === "slack") throw new Error("detail offline");
@@ -320,6 +360,7 @@ describe("cmdList", () => {
         server_id: "github",
         server_name: "GitHub",
         tool_count: 1,
+        source: "local",
         tools: [{ tool_id: "github::create_issue", tool_name: "create_issue" }],
       },
     ]);
@@ -330,7 +371,7 @@ describe("cmdList", () => {
     failedClient.callTool.mockImplementation(async (name) => {
       if (name === "list_mcp_servers") {
         return { content: [{ type: "text", text: JSON.stringify({ servers: [
-          { server_id: "slack", server_name: "Slack", tool_count: 1 },
+          { server_id: "slack", server_name: "Slack", tool_count: 1, source: "remote", discovery_state: "complete" },
         ] }) }] };
       }
       throw new Error("detail unavailable");

@@ -23,6 +23,7 @@ const serveMocks = vi.hoisted(() => ({
   treeSummary: vi.fn(),
   warn: vi.fn(),
   writeGatewayProcess: vi.fn(),
+  bridgeOptions: [] as any[],
 }));
 
 vi.mock("../src/gateway/daemon.js", () => ({
@@ -49,21 +50,38 @@ vi.mock("../src/gateway/local-http-mcp.js", async (importOriginal) => {
   return {
     ...actual,
     LocalHttpMcp: class {
+      private readonly options: LocalHttpMcpOptions;
       constructor(_registry: unknown, options: LocalHttpMcpOptions) {
+        this.options = options;
         serveMocks.localOptions.push(options);
       }
       start = serveMocks.localStart;
       close = serveMocks.localClose;
+      getHealth = () => ({
+        status: "ok" as const,
+        pid: this.options.identity!.pid,
+        port: Number(new URL("http://127.0.0.1:9123/mcp").port),
+        mode: this.options.identity!.mode,
+        generation: this.options.identity!.generation,
+      });
     },
   };
 });
 
 vi.mock("../src/gateway/bridge-client.js", () => ({
   RemoteBridgeClient: class {
+    private ready = true;
+    constructor(_registry: unknown, options: { onTerminalClose?: (code: number) => void; onReplaced?: () => void }) {
+      serveMocks.bridgeOptions.push(options);
+    }
     publishLocalCatalog = serveMocks.bridgePublish;
     start = serveMocks.bridgeStart;
-    stop = serveMocks.bridgeStop;
+    stop = vi.fn(async () => {
+      this.ready = false;
+      await serveMocks.bridgeStop();
+    });
     waitForReady = serveMocks.bridgeWaitForReady;
+    isReady = () => this.ready;
   },
 }));
 
@@ -117,6 +135,7 @@ let originalSigtermListeners: Function[];
 beforeEach(() => {
   serveMocks.localOptions.length = 0;
   serveMocks.remoteServers.length = 0;
+  serveMocks.bridgeOptions.length = 0;
   serveMocks.loadAuthSession.mockReturnValue(null);
   serveMocks.bridgeStart.mockResolvedValue(undefined);
   serveMocks.bridgeStop.mockResolvedValue(undefined);
@@ -207,7 +226,7 @@ describe("gateway process ownership from serve", () => {
     else process.env.MCPA_DAEMON = daemonEnv;
     const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
 
-    const serving = cmdServe({ port: 9123 });
+    const serving = cmdServe({ port: 9122 });
     await vi.waitFor(() => {
       expect(serveMocks.localStart).toHaveBeenCalledOnce();
     });
@@ -216,13 +235,17 @@ describe("gateway process ownership from serve", () => {
       port: 9123,
       startedAt: expect.any(Number),
       mode,
+      generation: expect.stringMatching(/^[0-9a-f-]{36}$/i),
     });
 
     process.emit("SIGTERM", "SIGTERM");
     await serving;
 
     expect(serveMocks.localClose).toHaveBeenCalledOnce();
-    expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(process.pid);
+    expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(
+      process.pid,
+      expect.stringMatching(/^[0-9a-f-]{36}$/i),
+    );
     expect(serveMocks.localClose.mock.invocationCallOrder[0]).toBeLessThan(
       serveMocks.clearGatewayProcess.mock.invocationCallOrder[0],
     );
@@ -258,7 +281,10 @@ describe("gateway process ownership from serve", () => {
 
     expect(serveMocks.localClose).toHaveBeenCalledOnce();
     expect(serveMocks.registryClose).toHaveBeenCalledOnce();
-    expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(process.pid);
+    expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(
+      process.pid,
+      expect.stringMatching(/^[0-9a-f-]{36}$/i),
+    );
     expect(serveMocks.localClose.mock.invocationCallOrder[0]).toBeLessThan(
       serveMocks.clearGatewayProcess.mock.invocationCallOrder[0],
     );
@@ -287,7 +313,10 @@ describe("gateway process ownership from serve", () => {
       expect(unhandled).toEqual([]);
       expect(serveMocks.localClose).toHaveBeenCalledOnce();
       expect(serveMocks.registryClose).toHaveBeenCalledOnce();
-      expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(process.pid);
+      expect(serveMocks.clearGatewayProcess).toHaveBeenCalledWith(
+        process.pid,
+        expect.stringMatching(/^[0-9a-f-]{36}$/i),
+      );
       expect(serveMocks.bridgeStart).not.toHaveBeenCalled();
     } finally {
       process.off("unhandledRejection", onUnhandled);
@@ -308,7 +337,7 @@ describe("gateway process ownership from serve", () => {
     await expect(cmdServe({ port: 9123 })).rejects.toThrow("owned by live PID 4321");
 
     expect(serveMocks.bridgeStart).not.toHaveBeenCalled();
-    expect(serveMocks.bridgeStop).toHaveBeenCalledOnce();
+    expect(serveMocks.bridgeStop).not.toHaveBeenCalled();
     expect(serveMocks.localClose).toHaveBeenCalledOnce();
   });
 });
@@ -322,6 +351,32 @@ describe("initial catalog readiness from serve", () => {
 
     const barrier = serveMocks.localOptions[0].initialCatalog as InitialCatalogBarrier;
     await expect(barrier.wait()).resolves.toEqual({ state: "local-only" });
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("activates one bridge after a session is saved without restarting the gateway", async () => {
+    process.env.MCPA_DAEMON = "1";
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.localStart).toHaveBeenCalledOnce());
+
+    const options = serveMocks.localOptions[0] as LocalHttpMcpOptions & {
+      activateRemote?: () => Promise<{ ready: boolean }>;
+    };
+    await expect(options.initialCatalog!.wait()).resolves.toEqual({ state: "local-only" });
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token",
+      refreshToken: "refresh",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    expect(serveMocks.bridgeStart).toHaveBeenCalledOnce();
+    expect(serveMocks.localStart).toHaveBeenCalledOnce();
+    expect(serveMocks.writeGatewayProcess).toHaveBeenCalledOnce();
 
     await stopServing(serving);
     expect(exit).toHaveBeenCalledWith(0);
@@ -405,5 +460,120 @@ describe("initial catalog readiness from serve", () => {
     } finally {
       process.off("unhandledRejection", onUnhandled);
     }
+  });
+
+  it("reconnects with a new bridge when the saved session changes while an old bridge is ready", async () => {
+    process.env.MCPA_DAEMON = "1";
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.localStart).toHaveBeenCalledOnce());
+
+    const options = serveMocks.localOptions[0] as LocalHttpMcpOptions & {
+      activateRemote?: () => Promise<{ ready: boolean }>;
+    };
+
+    // 1. Initial activation with session A
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token-a",
+      refreshToken: "refresh-a",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    expect(serveMocks.bridgeStart).toHaveBeenCalledTimes(1);
+
+    // 2. Repeated activation of the same session is idempotent
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    expect(serveMocks.bridgeStart).toHaveBeenCalledTimes(1);
+
+    // 3. Saved session changes to session B -> reconnects exactly once
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token-b",
+      refreshToken: "refresh-b",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    expect(serveMocks.bridgeStop).toHaveBeenCalledTimes(1);
+    expect(serveMocks.bridgeStart).toHaveBeenCalledTimes(2);
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("invalidates readiness on terminal close and reconnects on subsequent login activation", async () => {
+    process.env.MCPA_DAEMON = "1";
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.localStart).toHaveBeenCalledOnce());
+
+    const options = serveMocks.localOptions[0] as LocalHttpMcpOptions & {
+      activateRemote?: () => Promise<{ ready: boolean }>;
+    };
+
+    // 1. Initial activation with session 1
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token-1",
+      refreshToken: "refresh-1",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    expect(serveMocks.bridgeStart).toHaveBeenCalledTimes(1);
+
+    // 2. Terminal close event (e.g. loggedOut code 4003) invalidates readiness
+    const bridgeOpt = serveMocks.bridgeOptions[0];
+    bridgeOpt.onTerminalClose?.(4003);
+
+    // 3. User logs in with new credentials
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token-new",
+      refreshToken: "refresh-new",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+
+    // 4. Subsequent activation reconnects with new bridge
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    expect(serveMocks.bridgeStart).toHaveBeenCalledTimes(2);
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("recovers catalog readiness upon subsequent activation after initial bridge startup failure", async () => {
+    process.env.MCPA_DAEMON = "1";
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token-initial",
+      refreshToken: "refresh-initial",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+    // Initial remote startup fails
+    serveMocks.bridgeWaitForReady.mockResolvedValueOnce(false);
+
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.localStart).toHaveBeenCalledOnce());
+
+    const options = serveMocks.localOptions[0] as LocalHttpMcpOptions & {
+      activateRemote?: () => Promise<{ ready: boolean }>;
+    };
+    const barrier = options.initialCatalog as InitialCatalogBarrier;
+
+    // Initial barrier has error
+    await expect(barrier.wait()).resolves.toMatchObject({
+      state: "error",
+      error: expect.any(Error),
+    });
+
+    // Subsequent activation succeeds
+    serveMocks.bridgeWaitForReady.mockResolvedValueOnce(true);
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token-recovered",
+      refreshToken: "refresh-recovered",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+
+    await expect(options.activateRemote?.()).resolves.toEqual({ ready: true });
+    await expect(barrier.wait()).resolves.toEqual({ state: "ready" });
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
   });
 });

@@ -116,6 +116,12 @@ test("renders banner, tree formatters and reports version", async () => {
   assert.ok(helpOutput.includes("mcpa list"));
   assert.ok(helpOutput.includes("--mode"));
   assert.ok(!helpOutput.includes("all|search|auto"));
+  assert.ok(!helpOutput.includes("--detached"));
+});
+
+test("does not export the obsolete bridge-owning one-shot context", async () => {
+  const publicApi = await import("../src/index.js");
+  assert.equal("withMcpGateway" in publicApi, false);
 });
 
 test("accepts only deterministic discovery modes", () => {

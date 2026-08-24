@@ -1,22 +1,9 @@
-import { McpGatewayRegistry } from "./registry.js";
 import { loadMcpJson } from "./config.js";
-import { RemoteBridgeClient } from "./bridge-client.js";
-import {
-  ensureFreshAuthSession,
-  loadAuthSession,
-} from "./auth-store.js";
 import type { McpServerConfig } from "./types.js";
 import { DEFAULT_LOCAL_MCP_PORT, DEFAULT_REMOTE_GATEWAY_URL } from "../constants.js";
+import { isGatewayHealth, type GatewayHealth } from "./gateway-health.js";
 
 export { DEFAULT_LOCAL_MCP_PORT, DEFAULT_REMOTE_GATEWAY_URL };
-
-export interface GatewayContextOptions {
-  cwd?: string;
-  dir?: string;
-  remoteUrl?: string;
-  enableBridge?: boolean;
-  bridgeTimeout?: number;
-}
 
 /**
  * Loads configured MCP server definitions from local mcp.json.
@@ -84,55 +71,24 @@ export async function pingGateway(
   return null;
 }
 
-/**
- * Scoped lifecycle manager: starts registry + bridge, runs the action,
- * and guarantees clean asynchronous teardown of all subprocesses and sockets.
- */
-export async function withMcpGateway<T>(
-  options: GatewayContextOptions | undefined,
-  action: (gateway: McpGatewayRegistry) => Promise<T>,
-): Promise<T> {
-  const configs = getServerConfig(options?.dir ?? options?.cwd);
-  const gateway = new McpGatewayRegistry(configs, undefined, { verbose: false });
-  let bridge: RemoteBridgeClient | null = null;
-
-  const remote = options?.remoteUrl ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
-  if (options?.enableBridge !== false && loadAuthSession(remote)) {
-    try {
-      bridge = new RemoteBridgeClient(gateway, {
-        remoteUrl: remote,
-        getAccessToken: async () => (await ensureFreshAuthSession(remote)).accessToken,
-      });
-    } catch {
-      // Remote bridge connection is best effort for one-shot commands
-    }
-  }
-
-  await Promise.allSettled([
-    gateway.start().then(async () => {
-      try {
-        await bridge?.publishLocalCatalog();
-      } catch {
-        // Best effort
-      }
-    }),
-    (async () => {
-      if (!bridge) return;
-      try {
-        await bridge.start();
-        await bridge.waitForReady(options?.bridgeTimeout ?? 2_000);
-      } catch {
-        // Remote bridge connection is best effort for one-shot commands
-      }
-    })(),
-  ]);
-
+/** Returns the identity asserted by a healthy local gateway. */
+export async function getGatewayHealth(
+  host = "127.0.0.1",
+  port = DEFAULT_LOCAL_MCP_PORT,
+  timeoutMs = 120,
+): Promise<GatewayHealth | null> {
   try {
-    return await action(gateway);
-  } finally {
-    await Promise.allSettled([
-      bridge?.stop(),
-      gateway.close(),
-    ]);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(`http://${host}:${port}/healthz`, {
+      headers: { accept: "application/json" },
+      signal: controller.signal,
+    }).catch(() => null);
+    clearTimeout(timer);
+    if (!response?.ok) return null;
+    const payload: unknown = await response.json().catch(() => null);
+    return isGatewayHealth(payload) ? payload : null;
+  } catch {
+    return null;
   }
 }

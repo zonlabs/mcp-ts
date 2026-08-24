@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -13,18 +14,20 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vitest";
-import { pingGateway } from "../src/gateway/context.js";
+import { getGatewayHealth } from "../src/gateway/context.js";
 import {
   classifyDaemonStatus,
-  clearGatewayProcess,
+  clearGatewayProcess as clearGatewayProcessRecord,
   getDaemonStatus,
   getGatewayProcessPath,
   readDaemonLogs,
   readGatewayProcess,
+  reclaimInvalidGatewayProcess,
   spawnDaemon,
   stopDaemon,
   validateManagedStop,
-  writeGatewayProcess,
+  writeGatewayProcess as writeGatewayProcessRecord,
+  type GatewayProcessInfo,
 } from "../src/gateway/daemon.js";
 import { cmdDaemon } from "../src/commands/daemon.js";
 
@@ -50,15 +53,38 @@ vi.mock("node:child_process", () => ({
 }));
 
 vi.mock("../src/gateway/context.js", () => ({
-  pingGateway: vi.fn(),
+  getGatewayHealth: vi.fn(),
 }));
 
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedExecSync = vi.mocked(execSync);
-const mockedPingGateway = vi.mocked(pingGateway);
+const mockedGatewayHealth = vi.mocked(getGatewayHealth);
 const mockedSpawn = vi.mocked(spawn);
 const originalConfigDir = process.env.MCPA_CONFIG_DIR;
 let configDir: string;
+const PROCESS_GENERATION = "11111111-1111-4111-8111-111111111111";
+
+function writeGatewayProcess(info: Omit<GatewayProcessInfo, "generation"> & { generation?: string }): void {
+  writeGatewayProcessRecord({ generation: PROCESS_GENERATION, ...info });
+}
+
+function clearGatewayProcess(pid: number, generation?: string): boolean {
+  return clearGatewayProcessRecord(
+    pid,
+    generation ?? readGatewayProcess()?.generation ?? PROCESS_GENERATION,
+  );
+}
+
+function healthFromRecord() {
+  const record = readGatewayProcess();
+  return record ? {
+    status: "ok" as const,
+    pid: record.pid,
+    port: record.port,
+    mode: record.mode,
+    generation: record.generation,
+  } : null;
+}
 
 function leaseGeneration(label: string): string {
   const suffix = [...label].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0);
@@ -96,9 +122,10 @@ describe("MCP Gateway daemon subsystem", () => {
     rmSync(join(configDir, "gateway-start.lock"), { recursive: true, force: true });
     rmSync(join(configDir, "gateway-process.lock"), { recursive: true, force: true });
     clearOwnedRecord();
+    rmSync(getGatewayProcessPath(), { force: true });
     mockedExecFileSync.mockReset();
     mockedExecSync.mockReset();
-    mockedPingGateway.mockReset();
+    mockedGatewayHealth.mockReset();
     mockedSpawn.mockReset();
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -135,7 +162,81 @@ describe("MCP Gateway daemon subsystem", () => {
       port: 8765,
       startedAt: 1,
       mode: "daemon",
+      generation: PROCESS_GENERATION,
     });
+  });
+
+  test("refuses a same-PID process claim from another generation", () => {
+    writeGatewayProcess({ pid: 1234, port: 8765, startedAt: 1, mode: "daemon" });
+    vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      if (pid === 1234 && signal === 0) return true;
+      throw new Error(`Unexpected process probe for PID ${pid}.`);
+    }) as typeof process.kill);
+
+    expect(() => writeGatewayProcessRecord({
+      pid: 1234,
+      port: 9123,
+      startedAt: 2,
+      mode: "foreground",
+      generation: "22222222-2222-4222-8222-222222222222",
+    })).toThrow(/live PID 1234/i);
+
+    expect(readGatewayProcess()).toEqual({
+      pid: 1234,
+      port: 8765,
+      startedAt: 1,
+      mode: "daemon",
+      generation: PROCESS_GENERATION,
+    });
+  });
+
+  test("reclaims a legacy process record only after proving its PID and port are unused", async () => {
+    const processPath = getGatewayProcessPath();
+    writeFileSync(processPath, JSON.stringify({
+      pid: 1234,
+      port: 9123,
+      startedAt: 1,
+      mode: "daemon",
+    }), "utf8");
+    vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      expect(pid).toBe(1234);
+      expect(signal).toBe(0);
+      const error = new Error("not running") as NodeJS.ErrnoException;
+      error.code = "ESRCH";
+      throw error;
+    }) as typeof process.kill);
+    mockedGatewayHealth.mockResolvedValue(null);
+    mockedExecSync.mockReturnValue("");
+
+    await expect(reclaimInvalidGatewayProcess()).resolves.toBe(true);
+    expect(existsSync(processPath)).toBe(false);
+  });
+
+  test("preserves an invalid process record when its PID is still live", async () => {
+    const processPath = getGatewayProcessPath();
+    const invalidRecord = JSON.stringify({
+      pid: 1234,
+      port: 9123,
+      startedAt: 1,
+      mode: "daemon",
+    });
+    writeFileSync(processPath, invalidRecord, "utf8");
+    vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      if (pid === 1234 && signal === 0) return true;
+      throw new Error(`Unexpected process probe for PID ${pid}.`);
+    }) as typeof process.kill);
+
+    await expect(reclaimInvalidGatewayProcess()).rejects.toThrow(/live PID 1234/i);
+    expect(readFileSync(processPath, "utf8")).toBe(invalidRecord);
+    expect(mockedGatewayHealth).not.toHaveBeenCalled();
+  });
+
+  test("preserves a malformed process record whose ownership cannot be established", async () => {
+    const processPath = getGatewayProcessPath();
+    writeFileSync(processPath, "not-json", "utf8");
+
+    await expect(reclaimInvalidGatewayProcess()).rejects.toThrow(/ownership cannot be established/i);
+    expect(readFileSync(processPath, "utf8")).toBe("not-json");
   });
 
   test("publishes one authoritative winner with an atomic no-replace claim", () => {
@@ -220,9 +321,9 @@ describe("MCP Gateway daemon subsystem", () => {
   test("stale record reclaim cannot remove a successor published under a replacement lease", () => {
     const processPath = getGatewayProcessPath();
     const lockPath = join(configDir, "gateway-process.lock");
-    writeFileSync(processPath, JSON.stringify({ pid: 1111, port: 9111, startedAt: 1, mode: "daemon" }), "utf8");
+    writeFileSync(processPath, JSON.stringify({ pid: 1111, port: 9111, startedAt: 1, mode: "daemon", generation: PROCESS_GENERATION }), "utf8");
     const oldSentinel = publishTestLease(lockPath, 1111, 1, "stale-owner");
-    const successor = { pid: 2222, port: 9222, startedAt: 2, mode: "foreground" } as const;
+    const successor = { pid: 2222, port: 9222, startedAt: 2, mode: "foreground", generation: PROCESS_GENERATION } as const;
     const originalKill = process.kill.bind(process);
     vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
       if (pid === 1111) {
@@ -253,7 +354,7 @@ describe("MCP Gateway daemon subsystem", () => {
 
   test("a live process mutex cannot be age-reclaimed between clear and publish", () => {
     const processPath = getGatewayProcessPath();
-    const successor = { pid: 2222, port: 9222, startedAt: 2, mode: "foreground" } as const;
+    const successor = { pid: 2222, port: 9222, startedAt: 2, mode: "foreground", generation: PROCESS_GENERATION } as const;
     writeGatewayProcess({ pid: 1111, port: 9111, startedAt: 1, mode: "daemon" });
     let now = 1_000;
     vi.spyOn(Date, "now").mockImplementation(() => {
@@ -310,7 +411,7 @@ describe("MCP Gateway daemon subsystem", () => {
   });
 
   test("getDaemonStatus reports running=false when no gateway is active", async () => {
-    mockedPingGateway.mockResolvedValue(null);
+    mockedGatewayHealth.mockResolvedValue(null);
     mockedExecSync.mockReturnValue("");
 
     const status = await getDaemonStatus(54321);
@@ -328,12 +429,12 @@ describe("MCP Gateway daemon subsystem", () => {
       error.code = "ESRCH";
       throw error;
     }) as typeof process.kill);
-    mockedPingGateway.mockResolvedValue(null);
+    mockedGatewayHealth.mockResolvedValue(null);
     mockedExecSync.mockReturnValue("");
 
     const status = await getDaemonStatus(8765);
 
-    expect(mockedPingGateway).toHaveBeenCalledWith("127.0.0.1", 8765, "/mcp", 1_000);
+    expect(mockedGatewayHealth).toHaveBeenCalledWith("127.0.0.1", 8765, 1_000);
     expect(status.port).toBe(8765);
     expect(readGatewayProcess()).toBeNull();
   });
@@ -344,7 +445,13 @@ describe("MCP Gateway daemon subsystem", () => {
       processRecord: null,
       processAlive: false,
       portOwnerPid: 4321,
-      gatewayResponsive: true,
+      gatewayHealth: {
+        status: "ok",
+        pid: 4321,
+        port: 8765,
+        mode: "foreground",
+        generation: PROCESS_GENERATION,
+      },
       now: 20_000,
     })).toMatchObject({ state: "external", running: true, managed: false, portOwnerPid: 4321 });
   });
@@ -352,10 +459,16 @@ describe("MCP Gateway daemon subsystem", () => {
   test("classifies a healthy foreground record as external on its custom port", () => {
     expect(classifyDaemonStatus({
       requestedPort: 8765,
-      processRecord: { pid: 4321, port: 9123, startedAt: 1, mode: "foreground" },
+      processRecord: { pid: 4321, port: 9123, startedAt: 1, mode: "foreground", generation: PROCESS_GENERATION },
       processAlive: true,
       portOwnerPid: 4321,
-      gatewayResponsive: true,
+      gatewayHealth: {
+        status: "ok",
+        pid: 4321,
+        port: 9123,
+        mode: "foreground",
+        generation: PROCESS_GENERATION,
+      },
       now: 20_000,
     })).toMatchObject({ state: "external", managed: false, port: 9123 });
   });
@@ -366,7 +479,7 @@ describe("MCP Gateway daemon subsystem", () => {
       processRecord: null,
       processAlive: false,
       portOwnerPid: 4321,
-      gatewayResponsive: false,
+      gatewayHealth: null,
       now: 20_000,
     })).toMatchObject({ state: "occupied", running: false, managed: false, portOwnerPid: 4321 });
   });
@@ -374,27 +487,65 @@ describe("MCP Gateway daemon subsystem", () => {
   test("does not treat a reused PID record as managed", () => {
     expect(classifyDaemonStatus({
       requestedPort: 8765,
-      processRecord: { pid: 1234, port: 8765, startedAt: 1, mode: "daemon" },
+      processRecord: { pid: 1234, port: 8765, startedAt: 1, mode: "daemon", generation: PROCESS_GENERATION },
       processAlive: true,
       portOwnerPid: 9999,
-      gatewayResponsive: true,
+      gatewayHealth: {
+        status: "ok",
+        pid: 9999,
+        port: 8765,
+        mode: "foreground",
+        generation: "22222222-2222-4222-8222-222222222222",
+      },
       now: 20_000,
     })).toMatchObject({ state: "external", managed: false, portOwnerPid: 9999 });
   });
 
+  test("does not manage or stop a same-PID gateway from another generation", () => {
+    const record = {
+      pid: 1234,
+      port: 8765,
+      startedAt: 1,
+      mode: "daemon",
+      generation: "11111111-1111-4111-8111-111111111111",
+    } as const;
+    const foregroundHealth = {
+      status: "ok",
+      pid: 1234,
+      port: 8765,
+      mode: "foreground",
+      generation: "22222222-2222-4222-8222-222222222222",
+    } as const;
+
+    expect(classifyDaemonStatus({
+      requestedPort: 8765,
+      processRecord: record,
+      processAlive: true,
+      portOwnerPid: 1234,
+      gatewayHealth: foregroundHealth,
+      now: 20_000,
+    } as never)).toMatchObject({ state: "external", managed: false });
+    expect(validateManagedStop(record as never, true, 1234, foregroundHealth as never)).toEqual({
+      allowed: false,
+      reason: expect.stringContaining("generation"),
+    });
+  });
+
   test("refuses daemon stop for a foreground gateway record", () => {
     expect(validateManagedStop(
-      { pid: 4321, port: 9123, startedAt: 1, mode: "foreground" },
+      { pid: 4321, port: 9123, startedAt: 1, mode: "foreground", generation: PROCESS_GENERATION },
       true,
       4321,
+      { status: "ok", pid: 4321, port: 9123, mode: "foreground", generation: PROCESS_GENERATION },
     )).toEqual({ allowed: false, reason: expect.stringContaining("foreground") });
   });
 
   test("refuses to stop a daemon record when another PID owns its port", () => {
     expect(validateManagedStop(
-      { pid: 1234, port: 8765, startedAt: 1, mode: "daemon" },
+      { pid: 1234, port: 8765, startedAt: 1, mode: "daemon", generation: PROCESS_GENERATION },
       true,
       9999,
+      { status: "ok", pid: 1234, port: 8765, mode: "daemon", generation: PROCESS_GENERATION },
     )).toEqual({
       allowed: false,
       reason: "Refused to stop PID 1234: port 8765 is owned by 9999.",
@@ -413,7 +564,7 @@ describe("MCP Gateway daemon subsystem", () => {
       spawned = true;
       return { pid: childPid, unref: vi.fn() };
     }) as unknown as typeof spawn);
-    mockedPingGateway.mockImplementation(async () => spawned ? "http://127.0.0.1:9311/mcp" : null);
+    mockedGatewayHealth.mockImplementation(async () => spawned ? healthFromRecord() : null);
     mockedExecSync.mockImplementation((() => {
       if (!spawned) return "";
       return process.platform === "win32"
@@ -440,7 +591,7 @@ describe("MCP Gateway daemon subsystem", () => {
       if (pid === childPid && signal === 0) return true;
       return originalKill(pid, signal as NodeJS.Signals | number | undefined);
     }) as typeof process.kill);
-    mockedPingGateway.mockResolvedValue("http://127.0.0.1:9319/mcp");
+    mockedGatewayHealth.mockImplementation(async () => healthFromRecord());
     mockedExecSync.mockReturnValue(process.platform === "win32"
       ? `TCP    127.0.0.1:9319    0.0.0.0:0    LISTENING    ${childPid}`
       : String(childPid));
@@ -479,7 +630,7 @@ describe("MCP Gateway daemon subsystem", () => {
       childAlive = false;
       return Buffer.from("");
     }) as unknown as typeof execFileSync);
-    mockedPingGateway.mockResolvedValue(null);
+    mockedGatewayHealth.mockResolvedValue(null);
     mockedExecSync.mockReturnValue("");
     mockedSpawn.mockImplementation((() => {
       writeGatewayProcess({
@@ -499,7 +650,7 @@ describe("MCP Gateway daemon subsystem", () => {
 
   test("does not spawn after losing its startup-lock token", async () => {
     let probes = 0;
-    mockedPingGateway.mockImplementation(async () => {
+    mockedGatewayHealth.mockImplementation(async () => {
       probes += 1;
       if (probes === 2) {
         replaceTestLease(
@@ -550,7 +701,7 @@ describe("MCP Gateway daemon subsystem", () => {
       );
       return { pid: childPid, unref: vi.fn() };
     }) as unknown as typeof spawn);
-    mockedPingGateway.mockImplementation(async () => spawned ? "http://127.0.0.1:9317/mcp" : null);
+    mockedGatewayHealth.mockImplementation(async () => spawned ? healthFromRecord() : null);
     mockedExecSync.mockImplementation((() => {
       if (!spawned) return "";
       return process.platform === "win32"
@@ -574,7 +725,7 @@ describe("MCP Gateway daemon subsystem", () => {
       Date.now(),
       "live-startup-owner",
     );
-    mockedPingGateway.mockResolvedValue(null);
+    mockedGatewayHealth.mockResolvedValue(null);
     let portChecks = 0;
     mockedExecSync.mockImplementation((() => {
       portChecks += 1;
@@ -619,7 +770,7 @@ describe("MCP Gateway daemon subsystem", () => {
       spawned = true;
       return { pid: childPid, unref: vi.fn() };
     }) as unknown as typeof spawn);
-    mockedPingGateway.mockImplementation(async () => spawned ? "http://127.0.0.1:9313/mcp" : null);
+    mockedGatewayHealth.mockImplementation(async () => spawned ? healthFromRecord() : null);
     mockedExecSync.mockImplementation((() => {
       if (!spawned) return "";
       return process.platform === "win32"
@@ -659,7 +810,7 @@ describe("MCP Gateway daemon subsystem", () => {
       return Buffer.from("");
     }) as unknown as typeof execFileSync);
     mockedSpawn.mockReturnValue({ pid: childPid, unref: vi.fn() } as never);
-    mockedPingGateway.mockResolvedValue(null);
+    mockedGatewayHealth.mockResolvedValue(null);
     mockedExecSync.mockReturnValue("");
 
     const starting = spawnDaemon({ port: 9314 });
@@ -693,6 +844,7 @@ describe("MCP Gateway daemon subsystem", () => {
     mockedExecSync.mockReturnValue(process.platform === "win32"
       ? `TCP    127.0.0.1:9315    0.0.0.0:0    LISTENING    ${childPid}`
       : String(childPid));
+    mockedGatewayHealth.mockImplementation(async () => healthFromRecord());
 
     const stopping = stopDaemon();
     await vi.advanceTimersByTimeAsync(2_250);
@@ -726,6 +878,7 @@ describe("MCP Gateway daemon subsystem", () => {
       return true;
     }) as typeof process.kill);
     mockedExecSync.mockReturnValue(String(childPid));
+    mockedGatewayHealth.mockImplementation(async () => healthFromRecord());
 
     const stopping = stopDaemon();
     await vi.advanceTimersByTimeAsync(2_250);
@@ -737,7 +890,7 @@ describe("MCP Gateway daemon subsystem", () => {
   });
 
   test("cmdDaemon status prints status output cleanly", async () => {
-    mockedPingGateway.mockResolvedValue(null);
+    mockedGatewayHealth.mockResolvedValue(null);
     mockedExecSync.mockReturnValue("");
     let output = "";
     const mockOutput = {
@@ -749,6 +902,22 @@ describe("MCP Gateway daemon subsystem", () => {
 
     await cmdDaemon("status", { port: 54321 }, mockOutput);
     expect(output).toContain("Daemon is stopped");
+  });
+
+  test("cmdDaemon start rejects occupied-port failures for the public CLI", async () => {
+    mockedGatewayHealth.mockResolvedValue(null);
+    mockedExecSync.mockReturnValue(process.platform === "win32"
+      ? "TCP    127.0.0.1:54321    0.0.0.0:0    LISTENING    9999"
+      : "9999");
+    let output = "";
+
+    await expect(cmdDaemon("start", { port: 54321 }, {
+      write: (text: string) => {
+        output += text;
+        return true;
+      },
+    })).rejects.toThrow("occupied by PID 9999");
+    expect(output).not.toContain("started in background");
   });
 
   test("readDaemonLogs returns fallback message when no logs exist", () => {

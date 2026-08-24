@@ -69,4 +69,31 @@ describe("cmdCall single-gateway routing", () => {
     ).rejects.toThrow("Invalid JSON argument payload");
     expect(withClient).not.toHaveBeenCalled();
   });
+
+  it("emits exactly one JSON stdout document and sends no-session warnings to stderr", async () => {
+    vi.spyOn(commandClient, "withGatewayClient").mockImplementation(
+      async (options, action) => {
+        options?.onWarning?.("Remote tools are unavailable. Run mcpa login.");
+        return action({
+          callTool: vi.fn(async () => ({ content: [{ type: "text", text: "local result" }] })),
+        } as never);
+      },
+    );
+    let stdout = "";
+    let stderr = "";
+
+    await cmdCall(
+      "local::echo",
+      "{}",
+      { write: (text: string) => { stdout += text; return true; } },
+      {
+        json: true,
+        error: { write: (text: string) => { stderr += text; return true; } },
+      },
+    );
+
+    expect(JSON.parse(stdout)).toEqual({ content: [{ type: "text", text: "local result" }] });
+    expect(stdout.trim().split(/\r?\n/)).toHaveLength(1);
+    expect(stderr).toContain("Remote tools are unavailable. Run mcpa login.");
+  });
 });

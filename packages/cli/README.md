@@ -60,9 +60,10 @@ mcpa schema filesystem::read_file github::list_issues
 mcpa call filesystem::read_file '{"path":"package.json"}'
 mcpa call exa::web_search_exa query="latest AI news"
 mcpa call github::list_issues repo="zonlabs/mcp-ts",state="open"
+mcpa call filesystem::read_file '{"path":"package.json"}' --json
 ```
 
-For automation, pass arguments without a shell and serialize complex payloads with `JSON.stringify`. The [`mcp-cli` skill](../../skills/mcp-cli/SKILL.md#batch-multiple-tool-calls) contains a safe Node `execFile` batch example. Its batch input uses `server|tool`, while the canonical tool ID passed to the CLI uses `server::tool`.
+For automation, pass arguments without a shell, serialize complex payloads with `JSON.stringify`, and add `--json`. In that mode stdout is exactly one JSON document; banners, progress, and warnings go to stderr or are suppressed. The [`mcp-cli` skill](../../skills/mcp-cli/SKILL.md#batch-multiple-tool-calls) contains a safe Node `execFile` batch example. Its batch input uses `server|tool`, while the canonical tool ID passed to the CLI uses `server::tool`.
 
 ## Gateway operations
 
@@ -100,7 +101,7 @@ mcpa search "send email"
 mcpa logout
 ```
 
-Missing or expired authentication is a catalog/auth problem, not a gateway lifecycle problem. Authenticate and retry the normal command; do not restart the gateway or fall back to direct authenticated HTTP.
+Missing or expired authentication is a catalog/auth problem, not a gateway lifecycle problem. A successful `mcpa login` activates the existing local-only gateway's remote bridge in place, without changing its PID or port. Authenticate and retry the normal command; do not restart the gateway or fall back to direct authenticated HTTP.
 
 Add a remote MCP server to the gateway configuration, then use the same normal commands:
 

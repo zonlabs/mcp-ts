@@ -54,13 +54,13 @@ mcpa list           # reuse either gateway, or auto-start the managed daemon
 mcpa list [server] [--tools]
 mcpa search "query" --limit 10
 mcpa schema serverId::toolName
-mcpa call serverId::toolName '{"key":"value"}'
+mcpa call serverId::toolName '{"key":"value"}' [--json]
 mcpa login [--remote URL]
 mcpa serve [--port 8765]
 mcpa daemon <start|stop|status|logs> [--port PORT]
 ```
 
-For complex arguments, invoke the pinned executable without a shell and pass `JSON.stringify(payload)` as one argument. This avoids PowerShell, cmd, and Bash quoting damage.
+For complex arguments, invoke the pinned executable without a shell and pass `JSON.stringify(payload)` as one argument. This avoids PowerShell, cmd, and Bash quoting damage. For machine-readable calls, pass `--json`: stdout then contains exactly one JSON document, while warnings and progress use stderr or are suppressed.
 
 ## Batch multiple tool calls
 
@@ -93,7 +93,7 @@ async function callTool({ target, args }) {
   const toolId = canonicalToolId(target);
   const { stdout } = await execFileAsync(
     process.execPath,
-    [cliEntrypoint, "call", toolId, JSON.stringify(args)],
+    [cliEntrypoint, "call", toolId, JSON.stringify(args), "--json"],
     { windowsHide: true, maxBuffer: 10 * 1024 * 1024 },
   );
   return { toolId, result: JSON.parse(stdout) };

@@ -47,15 +47,20 @@ export async function cmdCall(
   toolName: string,
   rawArgs: string | undefined,
   output: Pick<Writable, "write">,
+  options: {
+    json?: boolean;
+    error?: Pick<Writable, "write">;
+  } = {},
 ): Promise<void> {
   const args = rawArgs ? parseJsonArgs(rawArgs) : {};
+  const diagnosticOutput = options.json ? (options.error ?? process.stderr) : output;
 
   await withGatewayClient(
-    { onWarning: (message) => writeLine(output, message) },
+    { onWarning: (message) => writeLine(diagnosticOutput, message) },
     async (client) => {
       const toolId = await resolveGatewayToolId(client, toolName);
       const result = await callGatewayTool(client, toolId, args);
-      writeLine(output, JSON.stringify(result, null, 2));
+      writeLine(output, JSON.stringify(result, null, options.json ? undefined : 2));
     },
   );
 }

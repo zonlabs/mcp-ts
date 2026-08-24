@@ -40,14 +40,34 @@ function fakeMetaClient(fixtures: MetaFixtures = {}) {
 describe("gateway meta tools", () => {
   it("fetches the gateway server catalog with one list_mcp_servers call", async () => {
     const client = fakeMetaClient({ servers: [
-      { server_id: "github", server_name: "GitHub", tool_count: 4 },
+      { server_id: "github", server_name: "GitHub", source: "remote", tool_count: 4, discovery_state: "complete" },
     ] });
 
     await expect(fetchGatewayServers(client as never, "git")).resolves.toEqual([
-      { serverId: "github", serverName: "GitHub", toolCount: 4 },
+      { serverId: "github", serverName: "GitHub", source: "remote", toolCount: 4, discoveryState: "complete" },
     ]);
     expect(client.callTool).toHaveBeenCalledWith("list_mcp_servers", { query: "git" });
     expect(client.callTool).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves authoritative source and startup diagnostics", async () => {
+    const client = fakeMetaClient({ servers: [{
+      server_id: "broken",
+      server_name: "broken",
+      source: "local",
+      tool_count: 0,
+      discovery_state: "error",
+      error: "connection refused",
+    }] });
+
+    await expect(fetchGatewayServers(client as never, "")).resolves.toEqual([{
+      serverId: "broken",
+      serverName: "broken",
+      source: "local",
+      toolCount: 0,
+      discoveryState: "error",
+      error: "connection refused",
+    }]);
   });
 
   it("propagates list_mcp_servers failure without searching tools", async () => {

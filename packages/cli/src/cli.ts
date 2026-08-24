@@ -17,13 +17,14 @@ import { cmdCodegen } from "./commands/codegen.js";
 import type { LocalMcpDiscoveryMode } from "./gateway/local-http-mcp.js";
 import { setupDaemonLogging } from "./gateway/daemon.js";
 import { DEFAULT_REMOTE_GATEWAY_URL } from "./constants.js";
+import { assertKnownOptions, parsePortOption } from "./cli-options.js";
 
 const HELP = `${renderBanner()}
 Usage:
-  mcpa serve [--host h] [--port p] [--mode <all|search>] [--detached] [--verbose]
+  mcpa serve [--host h] [--port p] [--mode <all|search>] [--verbose]
                                                 Run the local MCP gateway
   mcpa daemon <start|stop|status|logs>          Manage persistent background daemon
-  mcpa call <tool> [jsonArgs]                   Execute an MCP tool through the gateway
+  mcpa call <tool> [jsonArgs] [--json]          Execute an MCP tool through the gateway
   mcpa search [url] <query> [--limit <count>]   Search local or remote tool catalog
   mcpa schema <tool...>                         Inspect tool JSON schemas
   mcpa list [server] [--tools]                  List configured MCP servers (or tools)
@@ -40,7 +41,6 @@ Usage:
 Flags:
   -v, --version                                 Show CLI version
   -h, --help                                    Show help information
-  -d, --detached                                Run server as a detached background daemon
   --verbose                                     Show verbose child process chatter
   --mode <all|search>                           Gateway tool discovery mode (default: search)
   --name <name>                                 Server name for connect
@@ -123,7 +123,10 @@ export async function runCli(
       const toolName = values[0];
       if (!toolName) throw new Error("call requires a tool name (e.g. mcpa call <tool> [jsonArgs])");
       const rawArgs = values.slice(1).join(" ") || undefined;
-      await cmdCall(toolName, rawArgs, streams.output);
+      await cmdCall(toolName, rawArgs, streams.output, {
+        json: commandArgs.includes("--json"),
+        error: streams.error,
+      });
       return 0;
     }
 
@@ -148,7 +151,7 @@ export async function runCli(
       await cmdDaemon(
         action,
         {
-          port: option(commandArgs, "--port") ? Number(option(commandArgs, "--port")) : undefined,
+          port: parsePortOption(option(commandArgs, "--port")),
           verbose,
           lines: (option(commandArgs, "--lines") ?? option(commandArgs, "--limit") ?? option(commandArgs, "-n"))
             ? Number(option(commandArgs, "--lines") ?? option(commandArgs, "--limit") ?? option(commandArgs, "-n"))
@@ -160,16 +163,23 @@ export async function runCli(
     }
 
     if (command === "serve") {
-      const detached = args.includes("-d") || args.includes("--detached");
+      assertKnownOptions(commandArgs, {
+        "--host": "value",
+        "--port": "value",
+        "--path": "value",
+        "--remote": "value",
+        "--login": "value",
+        "--mode": "value",
+        "--verbose": "boolean",
+      });
       await cmdServe({
         host: option(commandArgs, "--host"),
-        port: option(commandArgs, "--port") ? Number(option(commandArgs, "--port")) : undefined,
+        port: parsePortOption(option(commandArgs, "--port")),
         path: option(commandArgs, "--path"),
         remote: option(commandArgs, "--remote"),
         login: option(commandArgs, "--login"),
         mode,
         verbose,
-        detached,
       });
       return 0;
     }

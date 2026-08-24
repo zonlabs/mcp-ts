@@ -109,10 +109,11 @@ mcpa list           # Reuse either gateway, or auto-start the managed daemon
 mcpa connect exa https://mcp.exa.ai/mcp
 mcpa search "send email"
 mcpa call exa::web_search_exa query="latest AI news"
+mcpa call filesystem::read_file '{"path":"package.json"}' --json  # parse-only stdout for automation
 mcpa login           # Authenticate remote catalog access
 ```
 
-Normal `list`, `search`, `schema`, and `call` commands always use the single gateway. They reuse a healthy foreground or background gateway and start the managed daemon when stopped; they never switch to a direct remote HTTP or one-shot bridge path. For full lifecycle and diagnostic details, see the [CLI Package README](packages/cli).
+Normal `list`, `search`, `schema`, and `call` commands always use the single gateway. They reuse a healthy foreground or background gateway and start the managed daemon when stopped; they never switch to a direct remote HTTP or one-shot bridge path. A successful login activates a running local-only gateway in place. For full lifecycle, JSON output, and diagnostic details, see the [CLI Package README](packages/cli).
 
 ### Agent Skills
 

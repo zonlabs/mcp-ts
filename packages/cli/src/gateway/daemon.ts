@@ -16,7 +16,14 @@ import {
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { authConfigDir } from "./auth-store.js";
-import { pingGateway } from "./context.js";
+import { getGatewayHealth } from "./context.js";
+import {
+  createGatewayGeneration,
+  isGatewayGeneration,
+  type GatewayHealth,
+  type GatewayMode,
+} from "./gateway-health.js";
+import { validatePort } from "../cli-options.js";
 
 const GATEWAY_STARTUP_TIMEOUT_MS = 15_000;
 const GATEWAY_POLL_INTERVAL_MS = 150;
@@ -29,7 +36,8 @@ export interface GatewayProcessInfo {
   pid: number;
   startedAt: number;
   port: number;
-  mode: "foreground" | "daemon";
+  mode: GatewayMode;
+  generation: string;
 }
 
 interface GatewayStartLock {
@@ -59,7 +67,7 @@ export interface DaemonStatusInput {
   processRecord: GatewayProcessInfo | null;
   processAlive: boolean;
   portOwnerPid: number | null;
-  gatewayResponsive: boolean;
+  gatewayHealth: GatewayHealth | null;
   now: number;
 }
 
@@ -68,14 +76,22 @@ export function classifyDaemonStatus(input: DaemonStatusInput): Omit<DaemonStatu
   const pidMatchesOwner = Boolean(
     input.processRecord && input.processAlive && input.portOwnerPid === input.processRecord.pid,
   );
-  const managed = Boolean(input.processRecord?.mode === "daemon" && pidMatchesOwner);
+  const identityMatches = Boolean(
+    input.processRecord
+    && input.gatewayHealth
+    && input.gatewayHealth.pid === input.processRecord.pid
+    && input.gatewayHealth.port === input.processRecord.port
+    && input.gatewayHealth.mode === input.processRecord.mode
+    && input.gatewayHealth.generation === input.processRecord.generation,
+  );
+  const managed = Boolean(input.processRecord?.mode === "daemon" && pidMatchesOwner && identityMatches);
   const base = {
     port,
-    gatewayResponsive: input.gatewayResponsive,
+    gatewayResponsive: input.gatewayHealth !== null,
     ...(input.portOwnerPid ? { portOwnerPid: input.portOwnerPid } : {}),
   };
 
-  if (pidMatchesOwner && input.gatewayResponsive) {
+  if (pidMatchesOwner && identityMatches) {
     if (input.processRecord!.mode === "foreground") {
       return {
         ...base,
@@ -113,7 +129,7 @@ export function classifyDaemonStatus(input: DaemonStatusInput): Omit<DaemonStatu
     };
   }
 
-  if (input.gatewayResponsive) {
+  if (input.gatewayHealth) {
     return { ...base, state: "external", managed: false, running: true };
   }
   if (input.portOwnerPid) {
@@ -136,6 +152,7 @@ export function validateManagedStop(
   record: GatewayProcessInfo | null,
   processAlive: boolean,
   portOwnerPid: number | null,
+  gatewayHealth: GatewayHealth | null,
 ): { allowed: boolean; reason?: string } {
   if (record?.mode === "foreground") {
     return {
@@ -148,6 +165,18 @@ export function validateManagedStop(
     return {
       allowed: false,
       reason: `Refused to stop PID ${record.pid}: port ${record.port} is owned by ${portOwnerPid ?? "no process"}.`,
+    };
+  }
+  if (
+    !gatewayHealth
+    || gatewayHealth.pid !== record.pid
+    || gatewayHealth.port !== record.port
+    || gatewayHealth.mode !== record.mode
+    || gatewayHealth.generation !== record.generation
+  ) {
+    return {
+      allowed: false,
+      reason: `Refused to stop PID ${record.pid}: gateway generation or mode does not match the managed process record.`,
     };
   }
   return { allowed: true };
@@ -188,7 +217,8 @@ function isGatewayProcessInfo(value: unknown): value is GatewayProcessInfo {
     && Number.isInteger(record.port)
     && (record.port as number) > 0
     && (record.port as number) <= 65_535
-    && (record.mode === "foreground" || record.mode === "daemon");
+    && (record.mode === "foreground" || record.mode === "daemon")
+    && isGatewayGeneration(record.generation);
 }
 
 export function readGatewayProcess(): GatewayProcessInfo | null {
@@ -202,7 +232,91 @@ export function readGatewayProcess(): GatewayProcessInfo | null {
   }
 }
 
+function invalidProcessRecordCandidate(value: unknown): { pid: number; port: number } | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (
+    !Number.isInteger(record.pid)
+    || (record.pid as number) <= 0
+    || !Number.isInteger(record.port)
+    || (record.port as number) <= 0
+    || (record.port as number) > 65_535
+  ) return null;
+  return { pid: record.pid as number, port: record.port as number };
+}
+
+/**
+ * Removes an invalid process record only when its limited PID/port identity can
+ * be proven unused. It never treats a legacy record as an owned gateway.
+ */
+export async function reclaimInvalidGatewayProcess(): Promise<boolean> {
+  const processPath = getGatewayProcessPath();
+  let raw: string;
+  try {
+    raw = readFileSync(processPath, "utf8");
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `Refused to reclaim invalid gateway process record at ${processPath}: ownership cannot be established.`,
+    );
+  }
+  if (isGatewayProcessInfo(parsed)) return false;
+
+  const candidate = invalidProcessRecordCandidate(parsed);
+  if (!candidate) {
+    throw new Error(
+      `Refused to reclaim invalid gateway process record at ${processPath}: ownership cannot be established.`,
+    );
+  }
+  if (isProcessAlive(candidate.pid)) {
+    throw new Error(
+      `Refused to reclaim invalid gateway process record at ${processPath}: live PID ${candidate.pid} still exists.`,
+    );
+  }
+
+  const [gatewayHealth, portOwnerPid] = await Promise.all([
+    getGatewayHealth("127.0.0.1", candidate.port, 1_000),
+    Promise.resolve(findProcessOnPort(candidate.port)),
+  ]);
+  if (gatewayHealth || portOwnerPid) {
+    throw new Error(
+      `Refused to reclaim invalid gateway process record at ${processPath}: port ${candidate.port} is still owned.`,
+    );
+  }
+
+  return withGatewayProcessLock(() => {
+    let currentRaw: string;
+    try {
+      currentRaw = readFileSync(processPath, "utf8");
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw error;
+    }
+    if (currentRaw !== raw) {
+      throw new Error(`Refused to reclaim gateway process record at ${processPath}: the record changed during verification.`);
+    }
+    if (isProcessAlive(candidate.pid) || findProcessOnPort(candidate.port)) {
+      throw new Error(
+        `Refused to reclaim invalid gateway process record at ${processPath}: its PID or port became active during verification.`,
+      );
+    }
+    unlinkSync(processPath);
+    return true;
+  });
+}
+
 export function writeGatewayProcess(info: GatewayProcessInfo): void {
+  validatePort(info.port);
+  if (!isGatewayProcessInfo(info)) {
+    throw new Error("Gateway process record must include a valid PID, port, mode, timestamp, and generation token.");
+  }
   ensureDaemonDir();
   const processPath = getGatewayProcessPath();
   const temporaryPath = `${processPath}.${process.pid}.${randomUUID()}.tmp`;
@@ -222,7 +336,7 @@ export function writeGatewayProcess(info: GatewayProcessInfo): void {
           if (!existsSync(processPath)) continue;
           throw new Error(`Refused to replace an invalid gateway process record at ${processPath}.`);
         }
-        if (current.pid === info.pid) return;
+        if (current.pid === info.pid && current.generation === info.generation) return;
         if (isProcessAlive(current.pid)) {
           throw new Error(
             `Gateway process record is owned by live PID ${current.pid} on port ${current.port}; it will not be overwritten.`,
@@ -240,10 +354,14 @@ export function writeGatewayProcess(info: GatewayProcessInfo): void {
   }
 }
 
-export function clearGatewayProcess(expectedPid: number): boolean {
+export function clearGatewayProcess(expectedPid: number, expectedGeneration: string): boolean {
   return withGatewayProcessLock(() => {
     const current = readGatewayProcess();
-    if (!current || current.pid !== expectedPid) return false;
+    if (
+      !current
+      || current.pid !== expectedPid
+      || current.generation !== expectedGeneration
+    ) return false;
     try {
       unlinkSync(getGatewayProcessPath());
       return true;
@@ -558,7 +676,7 @@ export async function spawnDaemon(options: {
   token?: string;
   url?: string;
 } = {}): Promise<{ pid: number; port: number; logPath: string; reused?: boolean; managed?: boolean }> {
-  const port = options.port ?? 8765;
+  const port = validatePort(options.port ?? 8765);
   const deadline = Date.now() + GATEWAY_STARTUP_TIMEOUT_MS;
   let status = await getDaemonStatus(port);
   if (status.state === "running" || status.state === "external") {
@@ -590,6 +708,7 @@ export async function spawnDaemon(options: {
   }
 
   let spawnedPid: number | null = null;
+  let spawnedGeneration: string | null = null;
   try {
     status = await getDaemonStatus(port);
     if (status.state === "running" || status.state === "external") {
@@ -611,6 +730,7 @@ export async function spawnDaemon(options: {
     if (!ownsGatewayLock(startupLockPath, ownedLock)) {
       throw new Error("Lost gateway startup lock ownership before spawning the daemon.");
     }
+    await reclaimInvalidGatewayProcess();
 
     const binPath = getCliBinPath();
     const args = ["serve"];
@@ -626,6 +746,7 @@ export async function spawnDaemon(options: {
       env: {
         ...process.env,
         MCPA_DAEMON: "1",
+        MCPA_GATEWAY_GENERATION: spawnedGeneration = createGatewayGeneration(),
       },
     });
 
@@ -634,7 +755,7 @@ export async function spawnDaemon(options: {
     child.unref();
     if (!ownsGatewayLock(startupLockPath, ownedLock)) {
       await terminateProcess(spawnedPid, 1_000);
-      if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid);
+      if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid, spawnedGeneration!);
       throw new Error("Lost gateway startup lock ownership while spawning the daemon.");
     }
     try {
@@ -643,10 +764,11 @@ export async function spawnDaemon(options: {
         startedAt: Date.now(),
         port,
         mode: "daemon",
+        generation: spawnedGeneration,
       });
     } catch (cause) {
       await terminateProcess(spawnedPid, 1_000);
-      if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid);
+      if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid, spawnedGeneration);
       throw cause;
     }
 
@@ -660,7 +782,7 @@ export async function spawnDaemon(options: {
     }
 
     await terminateProcess(spawnedPid, 1_000);
-    if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid);
+    if (!isProcessAlive(spawnedPid)) clearGatewayProcess(spawnedPid, spawnedGeneration);
     throw new Error(`Daemon failed to become healthy within 15 seconds. See ${getDaemonLogPath()}`);
   } finally {
     clearGatewayLock(startupLockPath, ownedLock);
@@ -671,6 +793,7 @@ export async function spawnDaemon(options: {
  * Finds the PID of any process currently bound to the given TCP port.
  */
 export function findProcessOnPort(port: number): number | null {
+  validatePort(port);
   try {
     if (process.platform === "win32") {
       const output = execSync("netstat -ano -p tcp", {
@@ -704,15 +827,21 @@ export function findProcessOnPort(port: number): number | null {
  * Stops the background daemon process if active and if it owns its recorded port.
  */
 export async function stopDaemon(port = 8765): Promise<{ stopped: boolean; pid?: number; reason?: string }> {
+  validatePort(port);
   const current = readGatewayProcess();
   const alive = Boolean(current && isProcessAlive(current.pid));
   if (!current || !alive) {
-    if (current) clearGatewayProcess(current.pid);
+    if (current) clearGatewayProcess(current.pid, current.generation);
     return { stopped: false };
   }
 
   const effectivePort = current.port ?? port;
-  const validation = validateManagedStop(current, alive, findProcessOnPort(effectivePort));
+  const validation = validateManagedStop(
+    current,
+    alive,
+    findProcessOnPort(effectivePort),
+    await getGatewayHealth("127.0.0.1", effectivePort, 1_000),
+  );
   if (!validation.allowed) {
     return {
       stopped: false,
@@ -729,7 +858,7 @@ export async function stopDaemon(port = 8765): Promise<{ stopped: boolean; pid?:
       reason: `Daemon PID ${current.pid} is still running; its process record was preserved.`,
     };
   }
-  clearGatewayProcess(current.pid);
+  clearGatewayProcess(current.pid, current.generation);
   return { stopped: true, pid: current.pid };
 }
 
@@ -737,18 +866,19 @@ export async function stopDaemon(port = 8765): Promise<{ stopped: boolean; pid?:
  * Checks the running status of the foreground or background gateway.
  */
 export async function getDaemonStatus(port = 8765): Promise<DaemonStatus> {
+  validatePort(port);
   const pidPath = getGatewayProcessPath();
   const logPath = getDaemonLogPath();
   let current = readGatewayProcess();
   let processAlive = Boolean(current && isProcessAlive(current.pid));
   if (current && !processAlive) {
-    clearGatewayProcess(current.pid);
+    clearGatewayProcess(current.pid, current.generation);
     current = readGatewayProcess();
     processAlive = Boolean(current && isProcessAlive(current.pid));
   }
   const effectivePort = current?.port ?? port;
-  const [endpoint, portOwnerPid] = await Promise.all([
-    pingGateway("127.0.0.1", effectivePort, "/mcp", 1_000),
+  const [gatewayHealth, portOwnerPid] = await Promise.all([
+    getGatewayHealth("127.0.0.1", effectivePort, 1_000),
     Promise.resolve(findProcessOnPort(effectivePort)),
   ]);
   return {
@@ -757,7 +887,7 @@ export async function getDaemonStatus(port = 8765): Promise<DaemonStatus> {
       processRecord: current,
       processAlive,
       portOwnerPid,
-      gatewayResponsive: endpoint !== null,
+      gatewayHealth,
       now: Date.now(),
     }),
     pidPath,

@@ -42,6 +42,12 @@ function emptyToolDetailMessage(server: ServerEntry): string {
     : "  (No tools registered for this server)";
 }
 
+function statusLabel(server: ServerEntry): string {
+  if (server.discoveryState === "timeout") return pc.yellow("● timed out");
+  if (server.discoveryState === "error") return pc.red("● failed");
+  return pc.green("● active");
+}
+
 function getTransportType(cfg?: McpServerConfig): string {
   if (!cfg) return "stdio";
   if ("url" in cfg && typeof cfg.url === "string") {
@@ -112,7 +118,7 @@ export function renderListOutput(
       const transport = getTransportType(cfg);
       writeLine(output, `${pc.cyan("•")} ${pc.bold(matchedLocal.serverName)} ${pc.dim(`(Local - mcp.json)`)}`);
       writeLine(output, `  ${pc.dim("Transport:")} ${transport}`);
-      writeLine(output, `  ${pc.dim("Status:")}    ${pc.green("● active")}`);
+      writeLine(output, `  ${pc.dim("Status:")}    ${statusLabel(matchedLocal)}`);
       writeLine(output, `  ${pc.dim("Tools:")}     ${displayedToolCount(matchedLocal)}${discoveryDiagnostic(matchedLocal)}`);
       writeLine(output);
       if (matchedLocal.tools.length > 0) {
@@ -190,6 +196,7 @@ export function renderListOutput(
 
   let totalTools = 0;
   let activeServers = 0;
+  let failedServers = 0;
 
   if (localServers.length > 0 || disabledServers.length > 0) {
     if (remoteServers.length > 0) {
@@ -200,10 +207,11 @@ export function renderListOutput(
       const transport = getTransportType(cfg).padEnd(6);
       const count = `${displayedToolCount(server)} tool(s)${discoveryDiagnostic(server)}`;
       totalTools += displayedToolCount(server);
-      activeServers += 1;
+      if (server.discoveryState === "error" || server.discoveryState === "timeout") failedServers += 1;
+      else activeServers += 1;
       writeLine(
         output,
-        `  ${pc.cyan("•")} ${pc.bold(server.serverName.padEnd(20))} ${pc.dim(transport)}  ${pc.green("● active")}    ${pc.dim(count)}`,
+        `  ${pc.cyan("•")} ${pc.bold(server.serverName.padEnd(20))} ${pc.dim(transport)}  ${statusLabel(server)}    ${pc.dim(count)}`,
       );
     }
     for (const [name, cfg] of disabledServers) {
@@ -233,6 +241,7 @@ export function renderListOutput(
   const disabledCount = disabledServers.length;
   const stats = [
     `${activeServers} active`,
+    failedServers > 0 ? `${failedServers} failed` : null,
     disabledCount > 0 ? `${disabledCount} disabled` : null,
     `${totalTools} tools available`,
   ]
@@ -252,8 +261,15 @@ export async function fetchGatewayCatalog(
 
   const toolMap = new Map<string, ToolEntry[]>();
   const states = new Map<string, Pick<ServerEntry, "discoveryState" | "message">>();
+  for (const server of serverList) {
+    states.set(server.serverId, {
+      discoveryState: server.discoveryState,
+      ...(server.error ? { message: server.error } : {}),
+    });
+  }
   if (options.showTools || options.serverName) {
     await Promise.all(serverList.map(async (server) => {
+      if (server.discoveryState !== "complete") return;
       try {
         const results = await searchGatewayTools(client, {
           query: "",
@@ -286,12 +302,12 @@ export async function fetchGatewayCatalog(
 
   for (const s of serverList) {
     const sTools = toolMap.get(s.serverId) ?? [];
-    const isLocal = Boolean(getEnabledServerConfig(s, allConfigs));
+    const isLocal = s.source === "local";
     const entry: ServerEntry = {
       serverId: s.serverId,
       serverName: s.serverName,
       tools: sTools,
-      source: isLocal ? "local" : "remote",
+      source: s.source,
       advertisedToolCount: s.toolCount,
       ...(states.get(s.serverId) ?? {}),
     };

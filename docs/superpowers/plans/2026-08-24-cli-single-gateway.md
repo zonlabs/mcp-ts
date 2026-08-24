@@ -691,3 +691,44 @@ Expected: the first command starts one managed daemon within 15 seconds; status 
 - [ ] **Step 5: Verify branch contents and push**
 
 Run `git status --short`, `git diff --cached --name-only`, and `git log --oneline main..HEAD`. Confirm the excluded session markdown and unrelated user changes are not staged or committed. Push `fix/mcp-cli-stability` only to `origin` (`zonlabs/mcp-ts`) and update PR #199.
+
+### Task 10: Close whole-branch review gaps
+
+**Files:**
+- Modify the focused CLI gateway, daemon, login, list, output, documentation, skill, and tests required by the findings below.
+- Delete obsolete `withMcpGateway` and `serve --detached` compatibility surfaces.
+
+**Interfaces:**
+- Produces live local-only-to-authenticated bridge activation without restarting the gateway.
+- Extends gateway process ownership with a generation token verified through gateway health before stop or adoption.
+- Produces strict port validation and truthful public CLI exit codes.
+- Produces a documented machine-readable call mode suitable for `execFile` batching.
+- Exposes configured server startup failures in the authoritative list catalog.
+
+- [ ] **Step 1: Add failing end-to-end tests for every final-review finding**
+
+Cover local-only daemon followed by login and remote catalog activation without PID/port change; failed and timed-out configured servers in list output (including reload failures); PID reuse with a mismatched gateway generation; occupied/unhealthy/start-timeout public process exit codes; invalid ports including zero, fractional, NaN, and out-of-range input; and a machine-readable batch call with no session whose stdout parses as JSON.
+
+- [ ] **Step 2: Activate a bridge after login without gateway restart**
+
+Give the running gateway one strict, authenticated activation path triggered after a saved login session changes. It must not create a second gateway or command-owned bridge, must be idempotent, and must preserve single bridge ownership. Add deterministic local-only → login → remote-ready coverage.
+
+- [ ] **Step 3: Propagate configured startup diagnostics**
+
+Include registry startup/reload failures in `list_mcp_servers` and render enabled failed servers with explicit discovery/error state. Never omit them silently and never fabricate tool names.
+
+- [ ] **Step 4: Make process identity and ports strict**
+
+Add a cryptographically random gateway generation token to the process record, expose it through the gateway health response, and require PID, port ownership, mode, and matching generation before managed stop. Validate integer ports in `1..65535` before persisting or binding and record the listener's actual port.
+
+- [ ] **Step 5: Make CLI failure/output contracts truthful**
+
+Ensure daemon/serve errors propagate to a non-zero public process exit code. Add an explicit machine-readable call mode that sends only JSON to stdout and diagnostics to stderr; update the safe batch skill example to use it.
+
+- [ ] **Step 6: Remove obsolete compatibility surfaces**
+
+Delete `withMcpGateway`, its bridge-owning options/export/tests, and `serve --detached`. Background operation is only `daemon start`.
+
+- [ ] **Step 7: Verify, synchronize skills, live-smoke, and push**
+
+Run focused tests, CLI type-check, full CLI suite, workspace build, diff check, and package dry-run. Repeat local-only → login activation and authenticated cold/warm read-only live smokes with stable PID/port. Synchronize and validate all skill copies and lock hash. Push only `fix/mcp-cli-stability` to `origin` and confirm PR #199 head.

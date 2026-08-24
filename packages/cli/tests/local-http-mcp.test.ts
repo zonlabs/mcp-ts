@@ -206,7 +206,13 @@ describe("LocalHttpMcp", () => {
         expect(initialCatalog.settle({ state: "ready" })).toBe(true);
 
         await expect(firstList).resolves.toEqual([
-          { serverId: "github", serverName: "GitHub", toolCount: 1 },
+          {
+            serverId: "github",
+            serverName: "GitHub",
+            source: "remote",
+            toolCount: 1,
+            discoveryState: "complete",
+          },
         ]);
         expect(initialCatalog.settle({ state: "error", error: new Error("late failure") })).toBe(false);
         await expect(initialCatalog.wait()).resolves.toEqual({ state: "ready" });
@@ -345,7 +351,13 @@ describe("LocalHttpMcp", () => {
 
     try {
       await expect(fetchGatewayServers(client, "")).resolves.toEqual([
-        { serverId: "docs", serverName: "docs", toolCount: 1 },
+        {
+          serverId: "docs",
+          serverName: "docs",
+          source: "local",
+          toolCount: 1,
+          discoveryState: "complete",
+        },
       ]);
     } finally {
       await client.close();
@@ -384,7 +396,82 @@ describe("LocalHttpMcp", () => {
       await registry.close();
     }
   });
+
+  it("recovers from initial remote error upon explicit activation in a new generation", async () => {
+    const registry = new McpGatewayRegistry({});
+    await registry.start();
+    const initialCatalog = new InitialCatalogBarrier();
+    const initialGen = initialCatalog.getGeneration();
+    initialCatalog.settle({ state: "error", error: new Error("initial remote failure") }, initialGen);
+
+    let activateOutcome = { ready: false };
+    const activateRemote = vi.fn(async () => {
+      const gen = initialCatalog.beginActivation();
+      await registry.replaceRemoteCatalog({
+        servers: [
+          {
+            serverId: "recovered-github",
+            serverName: "Recovered GitHub",
+            tools: [{ name: "recovered_tool", inputSchema: { type: "object" } }],
+          },
+        ],
+      }, vi.fn());
+      initialCatalog.settle({ state: "ready" }, gen);
+      activateOutcome = { ready: true };
+      return activateOutcome;
+    });
+
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp", initialCatalog, activateRemote },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      // 1. Initial error is visible before activation
+      await expect(fetchGatewayServers(client, "")).rejects.toThrow("initial remote failure");
+
+      // 2. Stale settlement from older generation cannot settle newer generation
+      const newGen = initialCatalog.beginActivation();
+      expect(initialCatalog.settle({ state: "error", error: new Error("stale completion") }, initialGen)).toBe(false);
+
+      // 3. Meta operation awaits new generation
+      let settled = false;
+      const pendingFetch = fetchGatewayServers(client, "").finally(() => { settled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(settled).toBe(false);
+
+      // 4. Settling the new generation allows meta operation to succeed
+      await registry.replaceRemoteCatalog({
+        servers: [
+          {
+            serverId: "recovered-github",
+            serverName: "Recovered GitHub",
+            tools: [{ name: "recovered_tool", inputSchema: { type: "object" } }],
+          },
+        ],
+      }, vi.fn());
+      expect(initialCatalog.settle({ state: "ready" }, newGen)).toBe(true);
+
+      await expect(pendingFetch).resolves.toEqual([
+        {
+          serverId: "recovered-github",
+          serverName: "Recovered GitHub",
+          source: "remote",
+          toolCount: 1,
+          discoveryState: "complete",
+        },
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
+  });
 });
+
 
 describe("pingGateway", () => {
   it("rejects non-MCP and error responses and prevents false positives", async () => {

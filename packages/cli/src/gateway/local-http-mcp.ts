@@ -8,6 +8,11 @@ import type { Traffic } from "../traffic.js";
 import { CLI_VERSION } from "../ux.js";
 
 import { MCP_META_TOOL_NAMES, META_TOOL_NAMES_SET } from "../constants.js";
+import {
+  createGatewayGeneration,
+  type GatewayHealth,
+  type GatewayMode,
+} from "./gateway-health.js";
 
 export { MCP_META_TOOL_NAMES };
 
@@ -19,18 +24,45 @@ export type InitialCatalogOutcome =
   | { state: "error"; error: Error };
 
 export class InitialCatalogBarrier {
+  private currentGeneration = 0;
   private resolver: ((outcome: InitialCatalogOutcome) => void) | null = null;
-  private readonly outcome = new Promise<InitialCatalogOutcome>((resolve) => {
-    this.resolver = resolve;
-  });
+  private outcomePromise!: Promise<InitialCatalogOutcome>;
+  private currentOutcome: InitialCatalogOutcome | null = null;
 
-  wait(): Promise<InitialCatalogOutcome> {
-    return this.outcome;
+  constructor() {
+    this.createPendingGeneration(0);
   }
 
-  settle(outcome: InitialCatalogOutcome): boolean {
+  private createPendingGeneration(generation: number): void {
+    this.currentGeneration = generation;
+    this.currentOutcome = null;
+    this.outcomePromise = new Promise<InitialCatalogOutcome>((resolve) => {
+      this.resolver = resolve;
+    });
+  }
+
+  getGeneration(): number {
+    return this.currentGeneration;
+  }
+
+  beginActivation(): number {
+    const nextGen = this.currentGeneration + 1;
+    this.createPendingGeneration(nextGen);
+    return nextGen;
+  }
+
+  wait(): Promise<InitialCatalogOutcome> {
+    if (this.currentOutcome) return Promise.resolve(this.currentOutcome);
+    return this.outcomePromise;
+  }
+
+  settle(outcome: InitialCatalogOutcome, generation?: number): boolean {
+    if (generation !== undefined && generation !== this.currentGeneration) {
+      return false;
+    }
     const resolve = this.resolver;
     if (!resolve) return false;
+    this.currentOutcome = outcome;
     this.resolver = null;
     resolve(outcome);
     return true;
@@ -43,6 +75,12 @@ export interface LocalHttpMcpOptions {
   path: string;
   mode?: LocalMcpDiscoveryMode;
   initialCatalog?: InitialCatalogBarrier;
+  identity?: {
+    pid: number;
+    mode: GatewayMode;
+    generation: string;
+  };
+  activateRemote?: () => Promise<{ ready: boolean; error?: string }>;
 }
 
 export function isSearchDiscoveryMode(mode?: LocalMcpDiscoveryMode): boolean {
@@ -116,6 +154,7 @@ export class LocalHttpMcp {
   private cachedRouter: ToolRouter | null = null;
   private cachedVersion = -1;
   private routerPromise: Promise<ToolRouter> | null = null;
+  private readonly identity: LocalHttpMcpOptions["identity"];
 
   private async getOrBuildRouter(): Promise<ToolRouter> {
     const currentVersion = this.registry.getVersion();
@@ -153,11 +192,15 @@ export class LocalHttpMcp {
     return this.routerPromise;
   }
 
-  private async getReadyRouter(): Promise<ToolRouter> {
+  private async waitForInitialCatalog(): Promise<void> {
     const outcome = this.options.initialCatalog
       ? await this.options.initialCatalog.wait()
       : { state: "local-only" as const };
     if (outcome.state === "error") throw outcome.error;
+  }
+
+  private async getReadyRouter(): Promise<ToolRouter> {
+    await this.waitForInitialCatalog();
     return this.getOrBuildRouter();
   }
 
@@ -242,13 +285,20 @@ export class LocalHttpMcp {
         } as never),
       },
       async (raw) => {
-        const router = await this.getReadyRouter();
+        await this.waitForInitialCatalog();
         const query = String((raw as Record<string, unknown>)?.query ?? "").toLowerCase();
-        const servers = router.listServers(query).map((server: { serverId: string; serverName: string; toolCount: number }) => ({
-          server_id: server.serverId,
-          server_name: server.serverName,
-          tool_count: server.toolCount,
-        }));
+        const servers = this.registry.getServerStatuses()
+          .filter((server) => !query
+            || server.serverId.toLowerCase().includes(query)
+            || server.serverName.toLowerCase().includes(query))
+          .map((server) => ({
+            server_id: server.serverId,
+            server_name: server.serverName,
+            source: server.source,
+            tool_count: server.toolCount,
+            discovery_state: server.discoveryState,
+            ...(server.error ? { error: server.error } : {}),
+          }));
         return textResult({ servers });
       },
     );
@@ -318,13 +368,47 @@ export class LocalHttpMcp {
     private readonly registry: McpGatewayRegistry,
     private readonly options: LocalHttpMcpOptions,
     private readonly traffic: Traffic,
-  ) {}
+  ) {
+    this.identity = options.identity ?? {
+      pid: process.pid,
+      mode: process.env.MCPA_DAEMON === "1" ? "daemon" : "foreground",
+      generation: createGatewayGeneration(),
+    };
+  }
+
+  getHealth(): GatewayHealth {
+    const address = this.server?.address();
+    const port = typeof address === "object" && address ? address.port : this.options.port;
+    return {
+      status: "ok",
+      pid: this.identity!.pid,
+      port,
+      mode: this.identity!.mode,
+      generation: this.identity!.generation,
+    };
+  }
 
   async start(): Promise<string> {
     this.server = createServer(async (request, response) => {
       const started = Date.now();
       try {
         const { webRequest, jsonRpc } = await toWebRequest(request);
+        if (new URL(webRequest.url).pathname === "/healthz" && webRequest.method === "GET") {
+          response.writeHead(200, { "content-type": "application/json" });
+          response.end(JSON.stringify(this.getHealth()));
+          return;
+        }
+        if (new URL(webRequest.url).pathname === "/activate-remote" && webRequest.method === "POST") {
+          if (!this.options.activateRemote) {
+            response.writeHead(503, { "content-type": "application/json" });
+            response.end(JSON.stringify({ ready: false, error: "Remote activation is unavailable." }));
+            return;
+          }
+          const outcome = await this.options.activateRemote();
+          response.writeHead(outcome.ready ? 200 : 503, { "content-type": "application/json" });
+          response.end(JSON.stringify(outcome));
+          return;
+        }
         if (new URL(webRequest.url).pathname !== this.options.path) {
           response.writeHead(404, { "content-type": "application/json" });
           response.end(JSON.stringify({ error: "Not found" }));

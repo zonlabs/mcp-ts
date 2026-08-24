@@ -25,24 +25,19 @@ export async function cmdDaemon(
 
   switch (normalizedAction) {
     case "start": {
-      try {
-        const result = await spawnDaemon({
-          port: options.port,
-          verbose: options.verbose,
-          token: options.token,
-          url: options.url,
-        });
+      const result = await spawnDaemon({
+        port: options.port,
+        verbose: options.verbose,
+        token: options.token,
+        url: options.url,
+      });
         writeLine(output, pc.green(result.reused ? `✔ MCP Gateway is already available.` : `✔ MCP Gateway daemon started in background.`));
-        writeLine(output, `  ${pc.bold("PID:")}    ${result.pid}`);
-        writeLine(output, `  ${pc.bold("Port:")}    ${result.port}`);
-        writeLine(output, `  ${pc.bold("Gateway:")} http://127.0.0.1:${result.port}/mcp`);
-        writeLine(output, `  ${pc.bold("Logs:")}    ${result.logPath}`);
-        writeLine(output);
-        writeLine(output, pc.dim(`Run \`mcpa daemon status\` or \`mcpa daemon logs\` to inspect.`));
-      } catch (err) {
-        writeLine(output, pc.red(`✖ Failed to start daemon: ${(err as Error).message}`));
-        process.exitCode = 1;
-      }
+      writeLine(output, `  ${pc.bold("PID:")}    ${result.pid}`);
+      writeLine(output, `  ${pc.bold("Port:")}    ${result.port}`);
+      writeLine(output, `  ${pc.bold("Gateway:")} http://127.0.0.1:${result.port}/mcp`);
+      writeLine(output, `  ${pc.bold("Logs:")}    ${result.logPath}`);
+      writeLine(output);
+      writeLine(output, pc.dim(`Run \`mcpa daemon status\` or \`mcpa daemon logs\` to inspect.`));
       break;
     }
 
@@ -51,7 +46,7 @@ export async function cmdDaemon(
       if (result.stopped) {
         writeLine(output, pc.green(`✔ MCP Gateway daemon (PID ${result.pid}) stopped.`));
       } else if (result.reason) {
-        writeLine(output, pc.yellow(`• ${result.reason}`));
+        throw new Error(result.reason);
       } else {
         writeLine(output, pc.dim("• No background daemon was running."));
       }
@@ -103,9 +98,7 @@ export async function cmdDaemon(
     }
 
     default: {
-      writeLine(output, pc.red(`Unknown daemon command: "${action}".`));
-      writeLine(output, `Usage: ${pc.cyan("mcpa daemon <start|stop|status|logs>")}`);
-      process.exitCode = 1;
+      throw new Error(`Unknown daemon command: "${action}". Usage: mcpa daemon <start|stop|status|logs>`);
     }
   }
 }
