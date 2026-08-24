@@ -80,16 +80,40 @@ describe("MCP Gateway daemon subsystem", () => {
     expect(clearGatewayProcess(1234)).toBe(true);
   });
 
-  test("allows the same process to refresh its own gateway record", () => {
+  test("accepts the same process claim without overwriting its published record", () => {
     writeGatewayProcess({ pid: 1234, port: 8765, startedAt: 1, mode: "daemon" });
     writeGatewayProcess({ pid: 1234, port: 9123, startedAt: 2, mode: "daemon" });
 
     expect(readGatewayProcess()).toEqual({
       pid: 1234,
-      port: 9123,
-      startedAt: 2,
+      port: 8765,
+      startedAt: 1,
       mode: "daemon",
     });
+  });
+
+  test("publishes one authoritative winner with an atomic no-replace claim", () => {
+    writeGatewayProcess({ pid: 1111, port: 8765, startedAt: 1, mode: "daemon" });
+    const originalKill = process.kill.bind(process);
+    vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      if (pid === 1111) {
+        const error = new Error("stale") as NodeJS.ErrnoException;
+        error.code = "ESRCH";
+        throw error;
+      }
+      if ((pid === 2222 || pid === 3333) && signal === 0) return true;
+      return originalKill(pid, signal as NodeJS.Signals | number | undefined);
+    }) as typeof process.kill);
+
+    writeGatewayProcess({ pid: 2222, port: 9122, startedAt: 2, mode: "foreground" });
+    expect(() => writeGatewayProcess({
+      pid: 3333,
+      port: 9123,
+      startedAt: 3,
+      mode: "daemon",
+    })).toThrow(/owned by live PID 2222/i);
+
+    expect(readGatewayProcess()).toMatchObject({ pid: 2222, port: 9122, mode: "foreground" });
   });
 
   test("refuses to overwrite a live foreign gateway process record", () => {
@@ -477,11 +501,45 @@ describe("MCP Gateway daemon subsystem", () => {
       : String(childPid));
 
     const stopping = stopDaemon();
-    await vi.advanceTimersByTimeAsync(2_000);
+    await vi.advanceTimersByTimeAsync(2_250);
     const result = await stopping;
 
     expect(result).toMatchObject({ stopped: false, pid: childPid, reason: expect.stringContaining("still running") });
     expect(readGatewayProcess()?.pid).toBe(childPid);
+  });
+
+  test("polls for bounded exit after SIGKILL before clearing the record", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(1_000_000));
+    vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+    const childPid = 24687;
+    let alive = true;
+    writeGatewayProcess({ pid: childPid, port: 9318, startedAt: 1, mode: "daemon" });
+    const originalKill = process.kill.bind(process);
+    const kill = vi.spyOn(process, "kill").mockImplementation(((pid: number, signal?: NodeJS.Signals | number) => {
+      if (pid !== childPid) return originalKill(pid, signal as NodeJS.Signals | number | undefined);
+      if (signal === 0) {
+        if (alive) return true;
+        const error = new Error("not running") as NodeJS.ErrnoException;
+        error.code = "ESRCH";
+        throw error;
+      }
+      if (signal === "SIGKILL") {
+        setTimeout(() => {
+          alive = false;
+        }, 100);
+      }
+      return true;
+    }) as typeof process.kill);
+    mockedExecSync.mockReturnValue(String(childPid));
+
+    const stopping = stopDaemon();
+    await vi.advanceTimersByTimeAsync(2_250);
+    const result = await stopping;
+
+    expect(kill).toHaveBeenCalledWith(childPid, "SIGKILL");
+    expect(result).toEqual({ stopped: true, pid: childPid });
+    expect(readGatewayProcess()).toBeNull();
   });
 
   test("cmdDaemon status prints status output cleanly", async () => {

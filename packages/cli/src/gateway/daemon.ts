@@ -5,9 +5,9 @@ import {
   createWriteStream,
   existsSync,
   mkdirSync,
+  linkSync,
   openSync,
   readFileSync,
-  renameSync,
   statSync,
   unlinkSync,
   writeFileSync,
@@ -21,6 +21,7 @@ const GATEWAY_STARTUP_TIMEOUT_MS = 15_000;
 const GATEWAY_POLL_INTERVAL_MS = 150;
 const PROCESS_CLAIM_TIMEOUT_MS = 1_000;
 const PROCESS_CLAIM_POLL_INTERVAL_MS = 10;
+const FORCE_EXIT_WAIT_MS = 250;
 
 export interface GatewayProcessInfo {
   pid: number;
@@ -197,27 +198,41 @@ export function readGatewayProcess(): GatewayProcessInfo | null {
 }
 
 export function writeGatewayProcess(info: GatewayProcessInfo): void {
-  withGatewayProcessLock(() => {
-    const processPath = getGatewayProcessPath();
-    const processFileExists = existsSync(processPath);
-    const current = readGatewayProcess();
-    if (processFileExists && !current) {
-      throw new Error(`Refused to replace an invalid gateway process record at ${processPath}.`);
-    }
-    if (current && current.pid !== info.pid && isProcessAlive(current.pid)) {
-      throw new Error(
-        `Gateway process record is owned by live PID ${current.pid} on port ${current.port}; it will not be overwritten.`,
-      );
-    }
+  ensureDaemonDir();
+  const processPath = getGatewayProcessPath();
+  const temporaryPath = `${processPath}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(temporaryPath, JSON.stringify(info, null, 2), "utf8");
+  try {
+    withGatewayProcessLock(() => {
+      while (true) {
+        try {
+          linkSync(temporaryPath, processPath);
+          return;
+        } catch (error: unknown) {
+          if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        }
 
-    const temporaryPath = `${processPath}.${process.pid}.${randomUUID()}.tmp`;
-    try {
-      writeFileSync(temporaryPath, JSON.stringify(info, null, 2), "utf8");
-      renameSync(temporaryPath, processPath);
-    } finally {
-      if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
-    }
-  });
+        const current = readGatewayProcess();
+        if (!current) {
+          if (!existsSync(processPath)) continue;
+          throw new Error(`Refused to replace an invalid gateway process record at ${processPath}.`);
+        }
+        if (current.pid === info.pid) return;
+        if (isProcessAlive(current.pid)) {
+          throw new Error(
+            `Gateway process record is owned by live PID ${current.pid} on port ${current.port}; it will not be overwritten.`,
+          );
+        }
+        try {
+          unlinkSync(processPath);
+        } catch (error: unknown) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      }
+    });
+  } finally {
+    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+  }
 }
 
 export function clearGatewayProcess(expectedPid: number): boolean {
@@ -437,6 +452,7 @@ function throwIfStartBlocked(status: DaemonStatus): void {
 }
 
 async function terminateProcess(pid: number, waitMs: number): Promise<boolean> {
+  let forceIssued = false;
   if (process.platform === "win32") {
     try {
       execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
@@ -446,6 +462,7 @@ async function terminateProcess(pid: number, waitMs: number): Promise<boolean> {
     } catch {
       // Liveness is checked below; taskkill can fail if the process exited first.
     }
+    forceIssued = true;
   } else {
     try {
       process.kill(pid, "SIGTERM");
@@ -456,17 +473,24 @@ async function terminateProcess(pid: number, waitMs: number): Promise<boolean> {
         return !isProcessAlive(pid);
       }
     }
+    const gracefulDeadline = Date.now() + waitMs;
+    while (isProcessAlive(pid) && Date.now() < gracefulDeadline) {
+      await sleep(50);
+    }
+    if (isProcessAlive(pid)) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        // Process exited after the final liveness check.
+      }
+      forceIssued = true;
+    }
   }
 
-  const deadline = Date.now() + waitMs;
-  while (isProcessAlive(pid) && Date.now() < deadline) {
-    await sleep(50);
-  }
-  if (process.platform !== "win32" && isProcessAlive(pid)) {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Process exited after the final liveness check.
+  if (forceIssued) {
+    const forceDeadline = Date.now() + FORCE_EXIT_WAIT_MS;
+    while (isProcessAlive(pid) && Date.now() < forceDeadline) {
+      await sleep(25);
     }
   }
   return !isProcessAlive(pid);

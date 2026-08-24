@@ -275,7 +275,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     });
   }
 
-  // Launch local servers and remote bridge concurrently in background
+  // Claim the local gateway before starting any remote bridge work.
   const localStartTime = performance.now();
   const localTask = (async () => {
     await localRegistry.start();
@@ -286,24 +286,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
       startedAt: Date.now(),
       mode: process.env.MCPA_DAEMON === "1" ? "daemon" : "foreground",
     });
-    // Keep remote gateway informed of full local catalog once loaded
-    try {
-      await bridge?.publishLocalCatalog();
-    } catch {
-      // Best effort
-    }
     return url;
-  })();
-
-  const remoteStartTime = performance.now();
-  const remoteTask = (async () => {
-    if (!bridge) return false;
-    try {
-      await bridge.start();
-      return await bridge.waitForReady(DEFAULT_BRIDGE_READY_TIMEOUT_MS);
-    } catch {
-      return false;
-    }
   })();
 
   // 1. Render Local Servers UI
@@ -323,6 +306,22 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     clearGatewayProcess(process.pid);
     throw cause;
   }
+
+  const remoteStartTime = performance.now();
+  const remoteTask = (async () => {
+    if (!bridge) return false;
+    try {
+      await bridge.start();
+      try {
+        await bridge.publishLocalCatalog();
+      } catch {
+        // Best effort
+      }
+      return await bridge.waitForReady(DEFAULT_BRIDGE_READY_TIMEOUT_MS);
+    } catch {
+      return false;
+    }
+  })();
   const localDuration = ((performance.now() - localStartTime) / 1000).toFixed(2);
   const localServers = localRegistry.getLocalCatalog().servers;
   startSpin.stop(`Started ${pc.bold(String(localServers.length))} local server(s) ${pc.dim(`in ${localDuration}s`)}`);
@@ -332,7 +331,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     renderServerList(localServers, 5, timings);
   }
 
-  // 2. Render Remote Bridge UI (which has already been connecting in background)
+  // 2. Render Remote Bridge UI (started only after local ownership was claimed)
   const session = loadAuthSession(remote);
   const userInfo = extractUserInfo(session);
   const userEmail = userInfo?.email;

@@ -3,7 +3,12 @@ import type { CatalogSnapshot } from "@mcp-ts/bridge-protocol";
 import { cmdServe, describeRemoteCatalogChanges } from "../src/commands/serve.js";
 
 const serveMocks = vi.hoisted(() => ({
+  bridgePublish: vi.fn(async () => undefined),
+  bridgeStart: vi.fn(async () => undefined),
+  bridgeStop: vi.fn(async () => undefined),
+  bridgeWaitForReady: vi.fn(async () => true),
   clearGatewayProcess: vi.fn(),
+  loadAuthSession: vi.fn(() => null as unknown),
   localClose: vi.fn(async () => undefined),
   localStart: vi.fn(async () => "http://127.0.0.1:9123/mcp"),
   registryClose: vi.fn(async () => undefined),
@@ -37,6 +42,15 @@ vi.mock("../src/gateway/local-http-mcp.js", () => ({
   },
 }));
 
+vi.mock("../src/gateway/bridge-client.js", () => ({
+  RemoteBridgeClient: class {
+    publishLocalCatalog = serveMocks.bridgePublish;
+    start = serveMocks.bridgeStart;
+    stop = serveMocks.bridgeStop;
+    waitForReady = serveMocks.bridgeWaitForReady;
+  },
+}));
+
 vi.mock("../src/gateway/config.js", () => ({
   loadMcpJson: vi.fn(() => {
     throw new Error("no local config");
@@ -47,7 +61,7 @@ vi.mock("../src/gateway/auth-store.js", () => ({
   InvalidAuthSessionError: class extends Error {},
   ensureFreshAuthSession: vi.fn(),
   extractUserInfo: vi.fn(() => undefined),
-  loadAuthSession: vi.fn(() => null),
+  loadAuthSession: serveMocks.loadAuthSession,
 }));
 
 vi.mock("../src/gateway/oauth.js", () => ({ loginToRemote: vi.fn() }));
@@ -85,6 +99,10 @@ let originalSigintListeners: Function[];
 let originalSigtermListeners: Function[];
 
 beforeEach(() => {
+  serveMocks.loadAuthSession.mockReturnValue(null);
+  serveMocks.bridgeStart.mockResolvedValue(undefined);
+  serveMocks.bridgeStop.mockResolvedValue(undefined);
+  serveMocks.bridgeWaitForReady.mockResolvedValue(true);
   originalExitListeners = process.listeners("exit");
   originalSigintListeners = process.listeners("SIGINT");
   originalSigtermListeners = process.listeners("SIGTERM");
@@ -191,5 +209,23 @@ describe("gateway process ownership from serve", () => {
     expect(serveMocks.localClose.mock.invocationCallOrder[0]).toBeLessThan(
       serveMocks.clearGatewayProcess.mock.invocationCallOrder[0],
     );
+  });
+
+  it("does not start a pending remote bridge before the process claim succeeds", async () => {
+    serveMocks.loadAuthSession.mockReturnValue({
+      accessToken: "token",
+      refreshToken: "refresh",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    });
+    serveMocks.bridgeStart.mockImplementation(() => new Promise<never>(() => undefined));
+    serveMocks.writeGatewayProcess.mockImplementationOnce(() => {
+      throw new Error("Gateway process record is owned by live PID 4321.");
+    });
+
+    await expect(cmdServe({ port: 9123 })).rejects.toThrow("owned by live PID 4321");
+
+    expect(serveMocks.bridgeStart).not.toHaveBeenCalled();
+    expect(serveMocks.bridgeStop).toHaveBeenCalledOnce();
+    expect(serveMocks.localClose).toHaveBeenCalledOnce();
   });
 });
