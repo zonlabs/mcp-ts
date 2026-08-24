@@ -53,6 +53,17 @@ function getTransportType(cfg?: McpServerConfig): string {
   return "stdio";
 }
 
+function getEnabledServerConfig(
+  server: Pick<ServerEntry, "serverId" | "serverName">,
+  allConfigs: Record<string, McpServerConfig>,
+): McpServerConfig | undefined {
+  const idConfig = allConfigs[server.serverId];
+  if (idConfig && !idConfig.disabled) return idConfig;
+  const nameConfig = allConfigs[server.serverName];
+  if (nameConfig && !nameConfig.disabled) return nameConfig;
+  return undefined;
+}
+
 export function renderListOutput(
   localServers: ServerEntry[],
   remoteServers: ServerEntry[],
@@ -97,7 +108,7 @@ export function renderListOutput(
     }
 
     if (matchedLocal) {
-      const cfg = allConfigs[matchedLocal.serverName] ?? allConfigs[matchedLocal.serverId];
+      const cfg = getEnabledServerConfig(matchedLocal, allConfigs);
       const transport = getTransportType(cfg);
       writeLine(output, `${pc.cyan("•")} ${pc.bold(matchedLocal.serverName)} ${pc.dim(`(Local - mcp.json)`)}`);
       writeLine(output, `  ${pc.dim("Transport:")} ${transport}`);
@@ -185,7 +196,7 @@ export function renderListOutput(
       writeLine(output, pc.bold(pc.dim("Local Servers (mcp.json):")));
     }
     for (const server of localServers) {
-      const cfg = allConfigs[server.serverName] ?? allConfigs[server.serverId];
+      const cfg = getEnabledServerConfig(server, allConfigs);
       const transport = getTransportType(cfg).padEnd(6);
       const count = `${displayedToolCount(server)} tool(s)${discoveryDiagnostic(server)}`;
       totalTools += displayedToolCount(server);
@@ -275,8 +286,7 @@ export async function fetchGatewayCatalog(
 
   for (const s of serverList) {
     const sTools = toolMap.get(s.serverId) ?? [];
-    const config = allConfigs[s.serverName] ?? allConfigs[s.serverId];
-    const isLocal = Boolean(config && !config.disabled);
+    const isLocal = Boolean(getEnabledServerConfig(s, allConfigs));
     const entry: ServerEntry = {
       serverId: s.serverId,
       serverName: s.serverName,

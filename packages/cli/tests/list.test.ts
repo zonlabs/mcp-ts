@@ -1,6 +1,6 @@
 import { setImmediate } from "node:timers/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cmdList, fetchGatewayCatalog } from "../src/commands/list.js";
+import { cmdList, fetchGatewayCatalog, renderListOutput } from "../src/commands/list.js";
 import * as commandClient from "../src/gateway/command-client.js";
 import * as context from "../src/gateway/context.js";
 
@@ -186,6 +186,54 @@ describe("fetchGatewayCatalog", () => {
     expect(catalog.remoteServers).toMatchObject([
       { serverId: "docs", serverName: "Documentation" },
     ]);
+  });
+
+  it.each([
+    {
+      label: "enabled canonical ID over disabled display name",
+      configs: {
+        "Docs Display": { command: "disabled-name", disabled: true },
+        "docs-id": { url: "https://enabled-id.test/mcp" },
+      },
+      expectedTransport: "http",
+    },
+    {
+      label: "enabled display name when canonical ID is disabled",
+      configs: {
+        "Docs Display": { command: "enabled-name" },
+        "docs-id": { url: "https://disabled-id.test/mcp", disabled: true },
+      },
+      expectedTransport: "stdio",
+    },
+    {
+      label: "canonical ID deterministically when both matches are enabled",
+      configs: {
+        "Docs Display": { command: "enabled-name" },
+        "docs-id": { url: "https://enabled-id.test/mcp" },
+      },
+      expectedTransport: "http",
+    },
+  ])("classifies and renders with $label", async ({ configs, expectedTransport }) => {
+    const client = fakeGatewayClient([
+      { server_id: "docs-id", server_name: "Docs Display", tool_count: 2 },
+    ]);
+    const catalog = await fetchGatewayCatalog(client as never, configs, {});
+
+    expect(catalog.localServers).toMatchObject([
+      { serverId: "docs-id", serverName: "Docs Display", source: "local" },
+    ]);
+    expect(catalog.remoteServers).toEqual([]);
+
+    const capture = captureOutput();
+    renderListOutput(
+      catalog.localServers,
+      catalog.remoteServers,
+      Object.entries(configs).filter(([, config]) => config.disabled),
+      configs,
+      { serverName: "docs-id" },
+      capture.output,
+    );
+    expect(capture.text()).toContain(`Transport: ${expectedTransport}`);
   });
 });
 
