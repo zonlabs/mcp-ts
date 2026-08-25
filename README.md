@@ -20,8 +20,8 @@
     <a href="https://www.npmjs.com/package/@mcp-ts/client">
       <img src="https://img.shields.io/npm/v/@mcp-ts/client?color=dc2626&label=npm&logo=npm&style=flat-square" alt="npm version" />
     </a>
-    <a href="https://pypi.org/project/mcpassistant-gateway/">
-      <img src="https://img.shields.io/pypi/v/mcpassistant-gateway?color=3776ab&label=pypi&logo=pypi&style=flat-square" alt="pypi version" />
+    <a href="https://www.npmjs.com/package/@mcp-ts/cli">
+      <img src="https://img.shields.io/npm/v/@mcp-ts/cli?color=3776ab&label=cli%20npm&logo=npm&style=flat-square" alt="CLI npm version" />
     </a>
     <a href="https://opensource.org/licenses/MIT">
       <img src="https://img.shields.io/badge/license-MIT-84cc16?style=flat-square" alt="License: MIT" />
@@ -33,11 +33,11 @@
 
 ## Why does `mcp-ts or toolkit` even exist?
 
-MCP makes it possible for AI applications to talk to tools, prompts, and resources, but building applications on top of MCP quickly becomes more than calling `listTools()` and `callTool()`.
+The idea of connecting AI applications to tools is not new, and the ecosystem offers many great frameworks, hosted services, and integration platforms (such as Composio, Nango, Smithery, FastMCP, Manufact, Klavis Strata, Cloudflare Agents, and Pipedream). Developers can choose whichever service or platform best fits their requirements.
 
-You need to manage user sessions, OAuth flows, reconnects, storage, browser updates, framework adapters, and on-demand tool discovery so agents can load and call only what they need instead of flooding the model context, similar to Claude Code's [advanced tool use](https://www.anthropic.com/engineering/advanced-tool-use).
+`mcp-ts` is a modular TypeScript client library for quick prototyping, experimentation, and production use. It supports connecting to local MCP servers through the gateway and to remote MCP servers, without routing private data through third-party proprietary clouds or adding per-call proxy markups.
 
-`mcp-ts` exists to handle that application layer while keeping your MCP data in infrastructure you own or choose. See [storage backends](https://docs.mcp-assistant.in/storage-backends/overview) and [framework adapters](https://docs.mcp-assistant.in/ai-adapters/overview).
+`mcp-ts` exists to handle that application layer while keeping your MCP data in infrastructure you own or choose.
 
 It gives you a practical foundation for building MCP-native apps:
 
@@ -47,6 +47,8 @@ It gives you a practical foundation for building MCP-native apps:
 - Review reproducible ToolRouter context-efficiency results in the [benchmark report](benchmarks/benchmark.md)
 - Render interactive MCP Apps in your application
 - Run programmatic tool calling inside a secure sandbox with `CodeMode`
+
+See Anthropic's discussion of [advanced tool use](https://www.anthropic.com/engineering/advanced-tool-use) for related context.
 
 In short: the official MCP SDK gives you the protocol building blocks. `mcp-ts` gives you the application layer for building MCP applications around them.
 
