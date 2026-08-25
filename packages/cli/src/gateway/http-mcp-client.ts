@@ -241,7 +241,7 @@ export async function connectHttpMcpServer(
       const approved = await options.onAuthorizationRequired?.(authorizationUrl) ?? false;
       if (!approved) {
         throw new UnauthorizedError(
-          "authentication required",
+          "auth required",
           error instanceof Error ? error : undefined,
         );
       }

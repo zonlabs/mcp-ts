@@ -18,7 +18,7 @@ import {
   connectHttpMcpServer,
   type HttpMcpConnection,
 } from "./http-mcp-client.js";
-import { CLI_VERSION, error as uxError, serverLog, warn as uxWarn } from "../ux.js";
+import { CLI_VERSION, error as uxError, serverLog } from "../ux.js";
 import { Traffic } from "../traffic.js";
 
 function isHttpServerConfig(config: McpServerConfig): config is HttpServerConfig {
@@ -27,7 +27,6 @@ function isHttpServerConfig(config: McpServerConfig): config is HttpServerConfig
 
 function reportStartupFailure(name: string, error: unknown, reloading = false): void {
   if (error instanceof UnauthorizedError) {
-    uxWarn(`MCP server "${name}": authentication required`);
     return;
   }
   const action = reloading ? "reload" : "start";

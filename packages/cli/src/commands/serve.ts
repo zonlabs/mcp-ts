@@ -19,7 +19,7 @@ import {
   clearTicker,
   dim,
   error,
-  info,
+  fileLink,
   intro,
   outro,
   printBanner,
@@ -28,6 +28,7 @@ import {
   success,
   ticker,
   treeNote,
+  treeSpacer,
   treeSummary,
   warn,
 } from "../ux.js";
@@ -198,14 +199,15 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   process.on("exit", clearTicker);
 
   let localConfig: Record<string, any> = {};
+  let localConfigPath: string | undefined;
   try {
-    const { config } = loadMcpJson(target);
+    const { path: configPath, config } = loadMcpJson(target);
+    localConfigPath = configPath;
     localConfig = config.mcpServers ?? {};
   } catch {
     // Remote-only gateways do not require mcp.json.
   }
 
-  info(`Config: Loaded ${pc.bold(String(Object.keys(localConfig).length))} server(s) from mcp.json`);
   const traffic = new Traffic({ verbose: args.verbose });
   const localRegistry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
   registry = localRegistry;
@@ -356,7 +358,14 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
   // 1. Render Local Servers UI
   const startSpin = spinner();
-  startSpin.start("Starting local MCP servers...");
+  const configuredServerCount = Object.values(localConfig).filter((config) => !config.disabled).length;
+  const configuredLabel = configuredServerCount === 1 ? "MCP server" : "MCP servers";
+  const configSource = localConfigPath ? fileLink("mcp.json", localConfigPath) : "mcp.json";
+  startSpin.start(
+    configuredServerCount === 0
+      ? `Checking ${configSource}...`
+      : `Connecting to ${pc.bold(String(configuredServerCount))} ${configuredLabel} from ${configSource}...`,
+  );
   let localUrl: string;
   try {
     localUrl = await localTask;
@@ -386,11 +395,20 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   })();
   const localDuration = ((performance.now() - localStartTime) / 1000).toFixed(2);
   const localServers = localRegistry.getLocalCatalog().servers;
-  startSpin.stop(`Started ${pc.bold(String(localServers.length))} local server(s) ${pc.dim(`in ${localDuration}s`)}`);
+  const startupSummary = configuredServerCount === 0
+    ? `No MCP servers configured in ${configSource}`
+    : `${pc.bold(String(localServers.length))} of ${pc.bold(String(configuredServerCount))} ${configuredLabel} ready ${pc.dim(`in ${localDuration}s`)}`;
+  treeSpacer();
+  startSpin.stop(startupSummary);
 
   if (localServers.length > 0) {
     const timings = localRegistry.getLocalServerTimings();
     renderServerList(localServers, 5, timings);
+  }
+  for (const [serverName, message] of localRegistry.getLocalServerStartupErrors()) {
+    if (message === "auth required") {
+      treeNote(`${pc.dim("-")} ${pc.yellow("⚠")} ${pc.bold(serverName)}  ${pc.dim("(auth required)")}`);
+    }
   }
 
   // 2. Render Remote Bridge UI (started only after local ownership was claimed)

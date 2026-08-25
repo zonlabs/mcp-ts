@@ -90,7 +90,7 @@ describe("McpGatewayRegistry", () => {
 
   it("does not retry an unchanged server that already failed when another server is removed", async () => {
     const connectHttp = vi.fn(async () => {
-      throw new Error("authentication required");
+      throw new Error("auth required");
     });
     const registry = new McpGatewayRegistry(
       {

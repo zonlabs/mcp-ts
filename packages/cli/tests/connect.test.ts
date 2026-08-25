@@ -42,7 +42,7 @@ describe("connect OAuth confirmation", () => {
     });
     mocks.connectMcpEndpoint.mockImplementation(async (_url, options) => {
       const approved = await options.onAuthorizationRequired("https://auth.example/authorize");
-      if (!approved) throw new Error("authentication required");
+      if (!approved) throw new Error("auth required");
       return { listTools: mocks.listTools, close: mocks.close };
     });
   });
@@ -66,7 +66,7 @@ describe("connect OAuth confirmation", () => {
     await expect(cmdConnect(
       { name: "mem0", url: "https://mem0.example/mcp" },
       { save: false, confirmAuthorization },
-    )).rejects.toThrow("authentication required");
+    )).rejects.toThrow("auth required");
 
     expect(confirmAuthorization).toHaveBeenCalledOnce();
     expect(mocks.listTools).not.toHaveBeenCalled();

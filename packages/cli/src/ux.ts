@@ -1,9 +1,17 @@
 import type { Writable } from "node:stream";
+import { pathToFileURL } from "node:url";
 import pc from "picocolors";
 import { intro, outro, log, spinner } from "@clack/prompts";
 
 export function writeLine(stream: Pick<Writable, "write">, text = ""): void {
   stream.write(`${text}\n`);
+}
+
+export function fileLink(label: string, path: string): string {
+  const text = pc.underline(pc.dim(label));
+  if (!process.stdout.isTTY) return text;
+  const target = pathToFileURL(path).href;
+  return `\u001B]8;;${target}\u001B\\${text}\u001B]8;;\u001B\\`;
 }
 
 import { CLI_VERSION } from "./constants.js";
@@ -72,6 +80,11 @@ export function treeNote(lines: string | string[]): void {
   for (const line of arr) {
     process.stdout.write(`${pc.dim("│")}  ${line}\n`);
   }
+}
+
+/** Start a tree-aligned blank line while an active spinner owns the current line. */
+export function treeSpacer(): void {
+  process.stdout.write(`\n${pc.dim("│")}\n`);
 }
 
 /** Print a structured section with bullet points connected to Clack's tree. */

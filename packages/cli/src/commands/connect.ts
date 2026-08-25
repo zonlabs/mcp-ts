@@ -86,7 +86,7 @@ export async function cmdConnect(
       const client = await connectMcpEndpoint(url, {
         headers: Object.keys(headers).length > 0 ? headers : undefined,
         onAuthorizationRequired: async () => {
-          spin.stop(`"${serverName}": authentication required`);
+          spin.stop(`${serverName} requires sign-in`);
           const ask = options.confirmAuthorization ?? confirmBrowserAuthorization;
           return ask(serverName);
         },
