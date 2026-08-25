@@ -12,14 +12,24 @@ const serveMocks = vi.hoisted(() => ({
   bridgeStop: vi.fn(async () => undefined),
   bridgeWaitForReady: vi.fn(async () => true),
   clearGatewayProcess: vi.fn(),
+  ensureFreshAuthSession: vi.fn(),
+  fileLink: vi.fn((label: string) => label),
+  InvalidAuthSessionError: class extends Error {},
+  loginToRemote: vi.fn(),
   loadAuthSession: vi.fn(() => null as unknown),
+  loadMcpJson: vi.fn(() => ({ path: "C:/workspace/mcp.json", config: { mcpServers: {} } })),
   localClose: vi.fn(async () => undefined),
+  localServerStartupErrors: new Map<string, string>(),
+  localServers: [] as CatalogSnapshot["servers"],
   localOptions: [] as LocalHttpMcpOptions[],
   localStart: vi.fn(async () => "http://127.0.0.1:9123/mcp"),
   registryClose: vi.fn(async () => undefined),
   remoteServers: [] as CatalogSnapshot["servers"],
   registryStart: vi.fn(async () => undefined),
+  spinnerStart: vi.fn(),
   spinnerStop: vi.fn(),
+  treeNote: vi.fn(),
+  treeSpacer: vi.fn(),
   treeSummary: vi.fn(),
   warn: vi.fn(),
   writeGatewayProcess: vi.fn(),
@@ -38,7 +48,8 @@ vi.mock("../src/gateway/registry.js", () => ({
     close = serveMocks.registryClose;
     reload = vi.fn(async () => undefined);
     publishLocalCatalog = vi.fn(async () => undefined);
-    getLocalCatalog = () => ({ servers: [] });
+    getLocalCatalog = () => ({ servers: serveMocks.localServers });
+    getLocalServerStartupErrors = () => new Map(serveMocks.localServerStartupErrors);
     getRemoteCatalog = () => ({ servers: serveMocks.remoteServers });
     getLocalServerTimings = () => new Map();
     aggregatedTools = () => [];
@@ -86,19 +97,17 @@ vi.mock("../src/gateway/bridge-client.js", () => ({
 }));
 
 vi.mock("../src/gateway/config.js", () => ({
-  loadMcpJson: vi.fn(() => {
-    throw new Error("no local config");
-  }),
+  loadMcpJson: serveMocks.loadMcpJson,
 }));
 
 vi.mock("../src/gateway/auth-store.js", () => ({
-  InvalidAuthSessionError: class extends Error {},
-  ensureFreshAuthSession: vi.fn(),
+  InvalidAuthSessionError: serveMocks.InvalidAuthSessionError,
+  ensureFreshAuthSession: serveMocks.ensureFreshAuthSession,
   extractUserInfo: vi.fn(() => undefined),
   loadAuthSession: serveMocks.loadAuthSession,
 }));
 
-vi.mock("../src/gateway/oauth.js", () => ({ loginToRemote: vi.fn() }));
+vi.mock("../src/gateway/oauth.js", () => ({ loginToRemote: serveMocks.loginToRemote }));
 
 vi.mock("../src/gateway/watcher.js", () => ({
   McpConfigWatcher: class {
@@ -113,15 +122,17 @@ vi.mock("../src/ux.js", () => {
     clearTicker: noop,
     dim: (value: string) => value,
     error: noop,
+    fileLink: serveMocks.fileLink,
     info: noop,
     intro: noop,
     outro: noop,
     printBanner: noop,
     serverLog: noop,
-    spinner: () => ({ start: noop, stop: serveMocks.spinnerStop }),
+    spinner: () => ({ start: serveMocks.spinnerStart, stop: serveMocks.spinnerStop }),
     success: noop,
     ticker: noop,
-    treeNote: noop,
+    treeNote: serveMocks.treeNote,
+    treeSpacer: serveMocks.treeSpacer,
     treeSummary: serveMocks.treeSummary,
     warn: serveMocks.warn,
   };
@@ -135,8 +146,18 @@ let originalSigtermListeners: Function[];
 beforeEach(() => {
   serveMocks.localOptions.length = 0;
   serveMocks.remoteServers.length = 0;
+  serveMocks.localServers.length = 0;
+  serveMocks.localServerStartupErrors.clear();
   serveMocks.bridgeOptions.length = 0;
   serveMocks.loadAuthSession.mockReturnValue(null);
+  serveMocks.ensureFreshAuthSession.mockReset();
+  serveMocks.loginToRemote.mockReset();
+  serveMocks.loadMcpJson.mockReturnValue({ path: "C:/workspace/mcp.json", config: { mcpServers: {} } });
+  serveMocks.fileLink.mockClear();
+  serveMocks.spinnerStart.mockClear();
+  serveMocks.spinnerStop.mockClear();
+  serveMocks.treeNote.mockClear();
+  serveMocks.treeSpacer.mockClear();
   serveMocks.bridgeStart.mockResolvedValue(undefined);
   serveMocks.bridgeStop.mockResolvedValue(undefined);
   serveMocks.bridgeWaitForReady.mockResolvedValue(true);
@@ -214,6 +235,45 @@ describe("verbose remote catalog logging", () => {
     ]);
 
     expect(describeRemoteCatalogChanges(snapshot, snapshot)).toEqual([]);
+  });
+});
+
+describe("configured MCP startup status", () => {
+  it("lists auth-required servers beneath the ready server count", async () => {
+    serveMocks.loadMcpJson.mockReturnValue({
+      path: "C:/workspace/mcp.json",
+      config: {
+        mcpServers: {
+          supermemory: { url: "https://supermemory.example/mcp" },
+          mem0: { url: "https://mem0.example/mcp" },
+          "you.com": { url: "https://you.example/mcp" },
+        },
+      },
+    });
+    serveMocks.localServers.push({
+      serverId: "you.com",
+      serverName: "you.com",
+      tools: [{ name: "search", inputSchema: { type: "object" } }],
+    });
+    serveMocks.localServerStartupErrors.set("supermemory", "auth required");
+    serveMocks.localServerStartupErrors.set("mem0", "auth required");
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => {
+      expect(serveMocks.spinnerStop).toHaveBeenCalledWith(
+        expect.stringMatching(/1 of 3 MCP servers ready in \d+\.\d{2}s/),
+      );
+    });
+
+    expect(serveMocks.fileLink).toHaveBeenCalledWith("mcp.json", "C:/workspace/mcp.json");
+    expect(serveMocks.spinnerStart).toHaveBeenCalledWith("Connecting to 3 MCP servers from mcp.json...");
+    expect(serveMocks.treeSpacer).toHaveBeenCalledOnce();
+    expect(serveMocks.treeNote).toHaveBeenCalledWith(expect.stringContaining("supermemory"));
+    expect(serveMocks.treeNote).toHaveBeenCalledWith(expect.stringContaining("mem0"));
+    expect(serveMocks.treeNote).toHaveBeenCalledWith(expect.stringContaining("auth required"));
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
   });
 });
 
@@ -343,6 +403,27 @@ describe("gateway process ownership from serve", () => {
 });
 
 describe("initial catalog readiness from serve", () => {
+  it("does not start browser login when a saved remote session has expired", async () => {
+    const session = {
+      accessToken: "expired-token",
+      refreshToken: "expired-refresh",
+      accessTokenExpiresAt: Date.now() - 1,
+    };
+    serveMocks.loadAuthSession.mockReturnValue(session);
+    serveMocks.ensureFreshAuthSession.mockRejectedValue(new serveMocks.InvalidAuthSessionError());
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.bridgeOptions).toHaveLength(1));
+
+    await expect(serveMocks.bridgeOptions[0].getAccessToken()).rejects.toBeInstanceOf(
+      serveMocks.InvalidAuthSessionError,
+    );
+    expect(serveMocks.loginToRemote).not.toHaveBeenCalled();
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
   it("settles local-only immediately when no saved session exists", async () => {
     process.env.MCPA_DAEMON = "1";
     const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);

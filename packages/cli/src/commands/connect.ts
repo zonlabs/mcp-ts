@@ -5,11 +5,12 @@
  */
 
 import type { Writable } from "node:stream";
+import { confirm, isCancel } from "@clack/prompts";
 import pc from "picocolors";
 import { connectMcpEndpoint } from "../client.js";
 import { LocalMcpConnection } from "../gateway/registry.js";
-import { addOrUpdateServerConfig } from "../gateway/config.js";
-import type { HttpServerConfig, StdioServerConfig } from "../gateway/types.js";
+import { addOrUpdateServerConfig, loadMcpJson } from "../gateway/config.js";
+import type { HttpServerConfig, McpServerConfig, StdioServerConfig } from "../gateway/types.js";
 import { printBanner, spinner, success, treeNote, writeLine } from "../ux.js";
 
 export interface ConnectOptions {
@@ -21,6 +22,16 @@ export interface ConnectOptions {
   auth?: string;
   dir?: string;
   save?: boolean;
+  confirmAuthorization?: (serverName: string) => Promise<boolean>;
+}
+
+async function confirmBrowserAuthorization(serverName: string): Promise<boolean> {
+  if (!process.stdin.isTTY) return false;
+  const response = await confirm({
+    message: `"${serverName}" requires authentication. Open browser?`,
+    initialValue: true,
+  });
+  return !isCancel(response) && response;
 }
 
 export async function cmdConnect(
@@ -31,9 +42,24 @@ export async function cmdConnect(
   printBanner();
 
   const name = options.name || target.name;
-  const url = options.url || target.url;
-  const command = options.command || target.command;
-  const args = options.args || target.args || [];
+  let url = options.url || target.url;
+  let command = options.command || target.command;
+  let args = options.args || target.args || [];
+  let savedConfig: McpServerConfig | undefined;
+
+  if (!url && !command && name) {
+    const { path, config } = loadMcpJson(options.dir);
+    savedConfig = config.mcpServers?.[name];
+    if (!savedConfig) {
+      throw new Error(`Server "${name}" was not found in ${path}.`);
+    }
+    if ("url" in savedConfig) {
+      url = savedConfig.url;
+    } else {
+      command = savedConfig.command;
+      args = savedConfig.args ?? [];
+    }
+  }
 
   if (!url && !command) {
     throw new Error(
@@ -42,7 +68,8 @@ export async function cmdConnect(
   }
 
   const serverName = name || (url ? new URL(url).hostname.replace(/\./g, "-") : "custom-server");
-  const headers: Record<string, string> = { ...(options.headers ?? {}) };
+  const savedHeaders = savedConfig && "url" in savedConfig ? savedConfig.headers : undefined;
+  const headers: Record<string, string> = { ...savedHeaders, ...(options.headers ?? {}) };
   if (options.auth) {
     headers["Authorization"] = `Bearer ${options.auth}`;
   }
@@ -58,6 +85,11 @@ export async function cmdConnect(
       // 1. Connect and test remote HTTP MCP server
       const client = await connectMcpEndpoint(url, {
         headers: Object.keys(headers).length > 0 ? headers : undefined,
+        onAuthorizationRequired: async () => {
+          spin.stop(`${serverName} requires sign-in`);
+          const ask = options.confirmAuthorization ?? confirmBrowserAuthorization;
+          return ask(serverName);
+        },
         onProgress: (stage) => {
           if (stage === "browser_opened") {
             spin.stop("Opened browser for OAuth authorization");
@@ -76,11 +108,10 @@ export async function cmdConnect(
       }
     } else if (command) {
       // 2. Connect and test local stdio MCP server
-      const stdioConn = new LocalMcpConnection(serverName, serverName, {
-        command,
-        args,
-        cwd: options.dir,
-      });
+      const stdioConfig: StdioServerConfig = savedConfig && "command" in savedConfig
+        ? { ...savedConfig, command, args }
+        : { command, args, cwd: options.dir };
+      const stdioConn = new LocalMcpConnection(serverName, serverName, stdioConfig);
       try {
         await stdioConn.start();
         const toolsResult = await stdioConn.listTools();
@@ -111,8 +142,16 @@ export async function cmdConnect(
   const shouldSave = options.save !== false;
   if (shouldSave) {
     const serverConfig = url
-      ? ({ url, headers: Object.keys(headers).length > 0 ? headers : undefined } as HttpServerConfig)
-      : ({ command: command!, args } as StdioServerConfig);
+      ? ({
+          ...(savedConfig && "url" in savedConfig ? savedConfig : {}),
+          url,
+          headers: Object.keys(headers).length > 0 ? headers : undefined,
+        } as HttpServerConfig)
+      : ({
+          ...(savedConfig && "command" in savedConfig ? savedConfig : {}),
+          command: command!,
+          args,
+        } as StdioServerConfig);
 
     const { path } = addOrUpdateServerConfig(serverName, serverConfig, options.dir);
     success(`Saved "${serverName}" to ${pc.underline(path)}`);

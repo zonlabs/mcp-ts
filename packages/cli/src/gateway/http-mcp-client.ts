@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   FileStorageBackend,
   McpClient,
+  UnauthorizedError,
   type McpClientOptions,
   type SessionStore,
 } from "@mcp-ts/client";
@@ -42,6 +43,7 @@ export interface ConnectHttpMcpServerOptions {
   sessionStore?: SessionStore;
   createClient?: CreateClient;
   authorize?: Authorize;
+  onAuthorizationRequired?: (authorizationUrl: string) => Promise<boolean>;
   onProgress?: (message: string) => void;
 }
 
@@ -236,6 +238,13 @@ export async function connectHttpMcpServer(
       throw error;
     }
     try {
+      const approved = await options.onAuthorizationRequired?.(authorizationUrl) ?? false;
+      if (!approved) {
+        throw new UnauthorizedError(
+          "auth required",
+          error instanceof Error ? error : undefined,
+        );
+      }
       options.onProgress?.("browser_opened");
       const callback = await (options.authorize ?? authorizeInBrowser)(authorizationUrl, callbackUrl);
       options.onProgress?.("code_exchanged");

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "vitest";
+import { UnauthorizedError } from "@mcp-ts/client";
 import { connectHttpMcpServer } from "../src/gateway/http-mcp-client.js";
 
 function fakeClientFactory(options: {
@@ -55,6 +56,7 @@ describe("HTTP MCP client", () => {
       serverName: "Example",
       sessionStore: {} as never,
       createClient: fakeClientFactory({ requireAuth: true, captured, finished }) as never,
+      onAuthorizationRequired: async () => true,
       authorize: async (authorizationUrl, callbackUrl) => {
         assert.equal(authorizationUrl, "https://auth.example/authorize");
         assert.equal(callbackUrl, "http://127.0.0.1:43111/oauth/callback");
@@ -66,6 +68,49 @@ describe("HTTP MCP client", () => {
       { code: "oauth-code", state: "oauth-state", iss: "https://issuer.example" },
     ]);
     assert.equal(connection.getServerUrl(), "https://mcp.example.test/mcp");
+  });
+
+  test("reports authentication required without opening OAuth by default", async () => {
+    const captured: Array<Record<string, unknown>> = [];
+    let authorizeCalls = 0;
+
+    await assert.rejects(
+      connectHttpMcpServer("https://mcp.example.test/mcp", {
+        serverId: "remote:example",
+        serverName: "Example",
+        sessionStore: {} as never,
+        createClient: fakeClientFactory({ requireAuth: true, captured, finished: [] }) as never,
+        authorize: async () => {
+          authorizeCalls += 1;
+          return { code: "unexpected" };
+        },
+      }),
+      UnauthorizedError,
+    );
+
+    assert.equal(authorizeCalls, 0);
+  });
+
+  test("does not open OAuth when authorization is declined", async () => {
+    const captured: Array<Record<string, unknown>> = [];
+    let authorizeCalls = 0;
+
+    await assert.rejects(
+      connectHttpMcpServer("https://mcp.example.test/mcp", {
+        serverId: "remote:example",
+        serverName: "Example",
+        sessionStore: {} as never,
+        createClient: fakeClientFactory({ requireAuth: true, captured, finished: [] }) as never,
+        onAuthorizationRequired: async () => false,
+        authorize: async () => {
+          authorizeCalls += 1;
+          return { code: "unexpected" };
+        },
+      }),
+      UnauthorizedError,
+    );
+
+    assert.equal(authorizeCalls, 0);
   });
 
   test("uses a stable session ID for the same MCP endpoint", async () => {

@@ -4,6 +4,7 @@ import {
 } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { BM25SearchStrategy, type IndexedTool } from "@mcp-ts/tool-router";
+import { UnauthorizedError } from "@mcp-ts/client";
 import {
   BridgeProtocolError,
   JSON_RPC_ERROR_CODES,
@@ -22,6 +23,14 @@ import { Traffic } from "../traffic.js";
 
 function isHttpServerConfig(config: McpServerConfig): config is HttpServerConfig {
   return "url" in config;
+}
+
+function reportStartupFailure(name: string, error: unknown, reloading = false): void {
+  if (error instanceof UnauthorizedError) {
+    return;
+  }
+  const action = reloading ? "reload" : "start";
+  uxError(`Failed to ${action} MCP server "${name}": ${(error as Error).message}`);
 }
 
 export interface AggregatedTool {
@@ -297,7 +306,7 @@ export class McpGatewayRegistry {
           const message = (error as Error).message;
           await this.disposeFailedConnection(connection, error);
           this.localServerStartupErrors.set(id, message);
-          uxError(`Failed to start MCP server "${name}": ${message}`);
+          reportStartupFailure(name, error);
         }
       }),
     );
@@ -459,7 +468,7 @@ export class McpGatewayRegistry {
           await this.disposeFailedConnection(newConn, error);
           const message = (error as Error).message;
           this.localServerStartupErrors.set(id, message);
-          uxError(`Failed to reload MCP server "${id}": ${message}`);
+          reportStartupFailure(id, error, true);
         }
       }
     }
@@ -468,7 +477,10 @@ export class McpGatewayRegistry {
     for (const [name, config] of Object.entries(newConfigs)) {
       if (config.disabled) continue;
       if (attempted.has(name)) continue;
-      if (!this.localConnections.has(name)) {
+      const previousConfig = this.configs[name];
+      const isNewlyEnabled = previousConfig?.disabled === true;
+      const isNewOrChanged = !previousConfig || JSON.stringify(config) !== JSON.stringify(previousConfig);
+      if (!this.localConnections.has(name) && (isNewlyEnabled || isNewOrChanged)) {
         const id = name;
         const connection = new LocalMcpConnection(
           id,
@@ -487,7 +499,7 @@ export class McpGatewayRegistry {
           await this.disposeFailedConnection(connection, error);
           const message = (error as Error).message;
           this.localServerStartupErrors.set(id, message);
-          uxError(`Failed to start MCP server "${name}": ${message}`);
+          reportStartupFailure(name, error);
         }
       }
     }

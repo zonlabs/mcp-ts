@@ -42,6 +42,7 @@ it.each([
   ["daemon", "start", "--port", "0"],
   ["serve", "--port", "65536"],
   ["serve", "--detached"],
+  ["login", "--login", "https://auth.example"],
 ])("returns a nonzero public CLI exit for invalid arguments: %s", async (...args) => {
   let stderr = "";
   const code = await runCli(args, {

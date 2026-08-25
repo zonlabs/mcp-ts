@@ -14,6 +14,7 @@ type HttpConnector = typeof connectHttpMcpServer;
 export interface McpEndpointClientOptions {
   headers?: Record<string, string>;
   connector?: HttpConnector;
+  onAuthorizationRequired?: (authorizationUrl: string) => Promise<boolean>;
   onProgress?: (message: string) => void;
 }
 
@@ -27,6 +28,7 @@ export class McpEndpointClient implements ToolClient {
   private readonly serverId: string;
   private readonly headers?: Record<string, string>;
   private readonly connector: HttpConnector;
+  private readonly onAuthorizationRequired?: (authorizationUrl: string) => Promise<boolean>;
   private readonly onProgress?: (message: string) => void;
 
   constructor(
@@ -39,6 +41,7 @@ export class McpEndpointClient implements ToolClient {
     } else {
       this.connector = optionsOrConnector?.connector ?? connectHttpMcpServer;
       this.headers = optionsOrConnector?.headers;
+      this.onAuthorizationRequired = optionsOrConnector?.onAuthorizationRequired;
       this.onProgress = optionsOrConnector?.onProgress;
     }
   }
@@ -52,13 +55,14 @@ export class McpEndpointClient implements ToolClient {
         const session = await ensureFreshAuthSession(origin);
         headers = { Authorization: `Bearer ${session.accessToken}` };
       } catch {
-        // Fall back to unauthenticated connection or browser OAuth
+        // Fall back to an unauthenticated connection; callers decide whether OAuth is allowed.
       }
     }
     this.connection = await this.connector(this.endpoint.toString(), {
       serverId: this.serverId,
       serverName: this.endpoint.hostname,
       headers,
+      onAuthorizationRequired: this.onAuthorizationRequired,
       onProgress: this.onProgress,
     });
   }
@@ -98,15 +102,21 @@ export async function connectMcpEndpoint(
   }
 
   let options: McpEndpointClientOptions | HttpConnector | undefined;
-  if (
-    optionsOrConnector &&
-    typeof optionsOrConnector === "object" &&
-    typeof (optionsOrConnector as any).connector !== "function" &&
-    !("headers" in optionsOrConnector)
-  ) {
-    options = { headers: optionsOrConnector as Record<string, string> };
+  if (optionsOrConnector && typeof optionsOrConnector === "object") {
+    const candidate = optionsOrConnector as Record<string, unknown>;
+    const isOptions =
+      typeof candidate.connector === "function" ||
+      typeof candidate.onAuthorizationRequired === "function" ||
+      typeof candidate.onProgress === "function" ||
+      ("headers" in candidate && (
+        candidate.headers === undefined ||
+        (typeof candidate.headers === "object" && candidate.headers !== null)
+      ));
+    options = isOptions
+      ? optionsOrConnector as McpEndpointClientOptions
+      : { headers: optionsOrConnector as Record<string, string> };
   } else {
-    options = optionsOrConnector as McpEndpointClientOptions | HttpConnector | undefined;
+    options = optionsOrConnector as HttpConnector | undefined;
   }
 
   const client = new McpEndpointClient(url, options);
