@@ -133,8 +133,7 @@
             "group": "Resources",
             "pages": [
               "modelcontextprotocol",
-              "faq",
-              "migration"
+              "faq"
             ]
           }
         ]
