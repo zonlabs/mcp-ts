@@ -87,7 +87,8 @@ function setup(overrides: Partial<RemoteBridgeClientOptions> = {}) {
 
 describe("RemoteBridgeClient", () => {
   it("authenticates with a header and initializes with only the local catalog", async () => {
-    const { bridge, manager, socket } = setup();
+    const onRemoteCatalogChanged = vi.fn();
+    const { bridge, manager, socket } = setup({ onRemoteCatalogChanged });
     await bridge.start();
     socket.open();
 
@@ -109,6 +110,7 @@ describe("RemoteBridgeClient", () => {
       }),
     );
     await vi.waitFor(() => expect(manager.replaceRemoteCatalog).toHaveBeenCalledWith(remoteCatalog, expect.any(Function)));
+    expect(onRemoteCatalogChanged).toHaveBeenCalledWith(remoteCatalog);
   });
 
   it("routes tool calls in both directions", async () => {
@@ -191,6 +193,17 @@ describe("RemoteBridgeClient", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("visibly reports genuine bridge replacement", async () => {
+    const onReplaced = vi.fn();
+    const state = setup({ onReplaced });
+    await state.bridge.start();
+    state.socket.open();
+
+    state.socket.emit("close", BRIDGE_CLOSE_CODES.replaced, Buffer.from("replaced"));
+
+    expect(onReplaced).toHaveBeenCalledOnce();
   });
 
   it("times out pending calls and sends best-effort cancellation", async () => {
@@ -288,6 +301,167 @@ describe("RemoteBridgeClient", () => {
       // Should resolve again upon reconnect initialize
       const readyAfterReconnect = await state.bridge.waitForReady(500);
       expect(readyAfterReconnect).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps an initial waiter across a reconnectable close without restarting its deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const sockets: FakeSocket[] = [];
+      const socketFactory: BridgeSocketFactory = vi.fn(() => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      });
+      const state = setup({ socketFactory, reconnectInitialDelayMs: 100 });
+      await state.bridge.start();
+      sockets[0].open();
+
+      let result: boolean | "pending" = "pending";
+      const readiness = state.bridge.waitForReady(500).then((ready) => {
+        result = ready;
+        return ready;
+      });
+      await vi.advanceTimersByTimeAsync(300);
+      sockets[0].close(1006, "connection dropped before initialization");
+      await vi.advanceTimersByTimeAsync(100);
+
+      expect(sockets).toHaveLength(2);
+      sockets[1].open();
+      const initialize = JSON.parse(sockets[1].sent[0]);
+      sockets[1].receive(
+        createSuccessResponse(initialize.id, {
+          protocolVersion: BRIDGE_PROTOCOL_VERSION,
+          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          remoteCatalog: {
+            servers: [
+              {
+                serverId: "github",
+                serverName: "GitHub",
+                tools: [{ name: "pull_request_read", inputSchema: { type: "object" } }],
+              },
+            ],
+          },
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(result).toBe(true);
+      await expect(readiness).resolves.toBe(true);
+      expect(state.manager.replaceRemoteCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ servers: [expect.objectContaining({ serverId: "github" })] }),
+        expect.any(Function),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not restart the readiness deadline after a reconnectable close", async () => {
+    vi.useFakeTimers();
+    try {
+      const sockets: FakeSocket[] = [];
+      const socketFactory: BridgeSocketFactory = vi.fn(() => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      });
+      const state = setup({ socketFactory, reconnectInitialDelayMs: 100 });
+      await state.bridge.start();
+      sockets[0].open();
+
+      const readiness = state.bridge.waitForReady(500);
+      await vi.advanceTimersByTimeAsync(300);
+      sockets[0].close(1006, "connection dropped before initialization");
+      await vi.advanceTimersByTimeAsync(200);
+
+      await expect(readiness).resolves.toBe(false);
+      expect(sockets).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores stale initialization completion from a socket that already closed", async () => {
+    vi.useFakeTimers();
+    try {
+      const sockets: FakeSocket[] = [];
+      const socketFactory: BridgeSocketFactory = vi.fn(() => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      });
+      let resolveFirstReplace!: () => void;
+      const firstReplace = new Promise<void>((resolve) => {
+        resolveFirstReplace = resolve;
+      });
+      const state = setup({ socketFactory, reconnectInitialDelayMs: 100 });
+      state.manager.replaceRemoteCatalog
+        .mockImplementationOnce(async () => firstReplace)
+        .mockResolvedValue(undefined);
+      await state.bridge.start();
+      sockets[0].open();
+      const firstInitialize = JSON.parse(sockets[0].sent[0]);
+      sockets[0].receive(
+        createSuccessResponse(firstInitialize.id, {
+          protocolVersion: BRIDGE_PROTOCOL_VERSION,
+          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          remoteCatalog: { servers: [] },
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      expect(state.manager.replaceRemoteCatalog).toHaveBeenCalledOnce();
+
+      let result: boolean | "pending" = "pending";
+      const readiness = state.bridge.waitForReady(500).then((ready) => {
+        result = ready;
+        return ready;
+      });
+      sockets[0].close(1006, "closed during catalog registration");
+      await vi.advanceTimersByTimeAsync(100);
+      expect(sockets).toHaveLength(2);
+
+      resolveFirstReplace();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(result).toBe("pending");
+
+      sockets[1].open();
+      const secondInitialize = JSON.parse(sockets[1].sent[0]);
+      sockets[1].receive(
+        createSuccessResponse(secondInitialize.id, {
+          protocolVersion: BRIDGE_PROTOCOL_VERSION,
+          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          remoteCatalog: { servers: [] },
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(result).toBe(true);
+      await expect(readiness).resolves.toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("settles initial readiness immediately when initialization closes terminally", async () => {
+    vi.useFakeTimers();
+    try {
+      const state = setup();
+      await state.bridge.start();
+      state.socket.open();
+      let result: boolean | "pending" = "pending";
+      const readiness = state.bridge.waitForReady(10_000).then((ready) => {
+        result = ready;
+        return ready;
+      });
+
+      state.socket.close(BRIDGE_CLOSE_CODES.incompatibleProtocol, "initialization failed");
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(result).toBe(false);
+      await expect(readiness).resolves.toBe(false);
     } finally {
       vi.useRealTimers();
     }

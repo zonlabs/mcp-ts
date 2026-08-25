@@ -1,6 +1,11 @@
+import { createHash } from "node:crypto";
 import pc from "picocolors";
+import type { CatalogSnapshot } from "@mcp-ts/bridge-protocol";
 import { McpGatewayRegistry } from "../gateway/registry.js";
-import { LocalHttpMcp } from "../gateway/local-http-mcp.js";
+import {
+  InitialCatalogBarrier,
+  LocalHttpMcp,
+} from "../gateway/local-http-mcp.js";
 import { RemoteBridgeClient } from "../gateway/bridge-client.js";
 import { Traffic } from "../traffic.js";
 import { loadMcpJson } from "../gateway/config.js";
@@ -9,6 +14,7 @@ import {
   extractUserInfo,
   InvalidAuthSessionError,
   loadAuthSession,
+  type AuthSession,
 } from "../gateway/auth-store.js";
 import { loginToRemote } from "../gateway/oauth.js";
 import {
@@ -29,7 +35,12 @@ import {
 } from "../ux.js";
 
 import { McpConfigWatcher } from "../gateway/watcher.js";
-import { spawnDaemon } from "../gateway/daemon.js";
+import { clearGatewayProcess, writeGatewayProcess } from "../gateway/daemon.js";
+import {
+  createGatewayGeneration,
+  isGatewayGeneration,
+} from "../gateway/gateway-health.js";
+import { validatePort } from "../cli-options.js";
 
 export interface ServeArgs {
   host?: string;
@@ -39,7 +50,6 @@ export interface ServeArgs {
   login?: string;
   verbose?: boolean;
   mode?: "all" | "search";
-  detached?: boolean;
 }
 
 import {
@@ -116,31 +126,38 @@ function renderServerList(
   }
 }
 
-export async function cmdServe(args: ServeArgs): Promise<void> {
-  if (args.detached) {
-    try {
-      const result = await spawnDaemon({
-        port: args.port,
-        verbose: args.verbose,
-        url: args.remote,
-      });
-      printBanner();
-      intro(pc.bold("mcpa serve (detached)"));
-      success(`Daemon started in background (PID ${pc.bold(String(result.pid))})`);
-      treeSummary("Daemon Details", [
-        { label: "Gateway", value: pc.cyan(`http://127.0.0.1:${result.port}/mcp`) },
-        { label: "Port", value: pc.bold(String(result.port)) },
-        { label: "Logs", value: result.logPath },
-      ]);
-      outro(pc.dim("Inspect with `mcpa daemon status` or `mcpa daemon logs`"));
-      return;
-    } catch (err) {
-      error(`Failed to start daemon: ${(err as Error).message}`);
-      process.exitCode = 1;
-      return;
-    }
+export function describeRemoteCatalogChanges(
+  previous: CatalogSnapshot,
+  current: CatalogSnapshot,
+): string[] {
+  const previousById = new Map(previous.servers.map((server) => [server.serverId, server]));
+  const currentById = new Map(current.servers.map((server) => [server.serverId, server]));
+  const messages: string[] = [];
+
+  for (const server of current.servers) {
+    if (previousById.has(server.serverId)) continue;
+    messages.push(
+      `Remote server connected: ${server.serverName} (${server.tools.length} tool${server.tools.length === 1 ? "" : "s"})`,
+    );
+  }
+  for (const server of previous.servers) {
+    if (currentById.has(server.serverId)) continue;
+    messages.push(
+      `Remote server disconnected: ${server.serverName} (${server.tools.length} tool${server.tools.length === 1 ? "" : "s"} removed)`,
+    );
   }
 
+  return messages;
+}
+
+function sessionFingerprint(session: AuthSession | null): string | null {
+  if (!session) return null;
+  const token = session.refreshToken || session.accessToken;
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export async function cmdServe(args: ServeArgs): Promise<void> {
+  const requestedPort = validatePort(args.port ?? DEFAULT_LOCAL_MCP_PORT);
   printBanner();
   intro(pc.bold("mcpa serve"));
   const target = process.cwd();
@@ -148,6 +165,11 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   let localHttpMcp: LocalHttpMcp | null = null;
   let bridge: RemoteBridgeClient | null = null;
   let watcher: McpConfigWatcher | null = null;
+  const configuredGeneration = process.env.MCPA_GATEWAY_GENERATION;
+  if (configuredGeneration !== undefined && !isGatewayGeneration(configuredGeneration)) {
+    throw new Error("MCPA_GATEWAY_GENERATION must be a valid UUID generation token.");
+  }
+  const gatewayGeneration = configuredGeneration ?? createGatewayGeneration();
 
   const shutdown = createShutdownHandler({
     onSignal: (signal) => {
@@ -169,6 +191,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
         localHttpMcp?.close(),
         registry?.close(),
       ]);
+      clearGatewayProcess(process.pid, gatewayGeneration);
     },
   });
   const handleSigint = () => void shutdown("SIGINT");
@@ -190,10 +213,122 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   const localRegistry = new McpGatewayRegistry(localConfig, traffic, { verbose: args.verbose });
   registry = localRegistry;
   const host = args.host ?? "127.0.0.1";
-  const port = args.port ?? DEFAULT_LOCAL_MCP_PORT;
+  const port = requestedPort;
   const path = args.path ?? "/mcp";
   const mode = args.mode ?? "search";
-  localHttpMcp = new LocalHttpMcp(localRegistry, { host, port, path, mode }, traffic);
+  const initialCatalog = new InitialCatalogBarrier();
+  const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
+  let previousRemoteCatalog: CatalogSnapshot = { servers: [] };
+  let activeSessionFingerprint: string | null = null;
+  let bridgeActivation: Promise<{ ready: boolean; error?: string }> | null = null;
+
+  const activateRemote = (): Promise<{ ready: boolean; error?: string }> => {
+    const currentSession = loadAuthSession(remote);
+    if (!currentSession) {
+      return Promise.resolve({ ready: false, error: "No saved remote session found." });
+    }
+    const currentFingerprint = sessionFingerprint(currentSession);
+    if (bridge && bridge.isReady() && activeSessionFingerprint === currentFingerprint) {
+      return Promise.resolve({ ready: true });
+    }
+    if (bridgeActivation) return bridgeActivation;
+
+    const generation = initialCatalog.beginActivation();
+    bridgeActivation = (async () => {
+      try {
+        const session = loadAuthSession(remote);
+        if (!session) {
+          const message = "No saved remote session found.";
+          initialCatalog.settle({ state: "error", error: new Error(message) }, generation);
+          return { ready: false, error: message };
+        }
+        const fingerprint = sessionFingerprint(session);
+
+        if (bridge) {
+          activeSessionFingerprint = null;
+          await bridge.stop().catch(() => undefined);
+          bridge = null;
+        }
+
+        bridge = new RemoteBridgeClient(localRegistry, {
+          remoteUrl: remote,
+          getAccessToken: async () => {
+            try {
+              return (await ensureFreshAuthSession(remote)).accessToken;
+            } catch (error) {
+              if (!(error instanceof InvalidAuthSessionError)) throw error;
+              return (await loginToRemote(remote, args.login)).accessToken;
+            }
+          },
+          onRemoteCatalogChanged: (catalog) => {
+            for (const message of describeRemoteCatalogChanges(previousRemoteCatalog, catalog)) {
+              serverLog("bridge", message, args.verbose);
+            }
+            previousRemoteCatalog = catalog;
+          },
+          onTerminalClose: () => {
+            activeSessionFingerprint = null;
+          },
+          onReplaced: () => {
+            activeSessionFingerprint = null;
+            warn("This gateway's remote bridge was replaced by another long-running gateway. Remote tools were removed; stop the other gateway and reactivate this one to restore them.");
+          },
+        });
+
+        await bridge.start();
+        try {
+          await bridge.publishLocalCatalog();
+        } catch {
+          // The initialization request already carries the local catalog.
+        }
+        const ready = await bridge.waitForReady(DEFAULT_BRIDGE_READY_TIMEOUT_MS);
+        if (!ready) {
+          const message = "Remote catalog initialization failed before the initial snapshot was registered.";
+          initialCatalog.settle({ state: "error", error: new Error(message) }, generation);
+          return { ready: false, error: message };
+        }
+        activeSessionFingerprint = fingerprint;
+        initialCatalog.settle({ state: "ready" }, generation);
+        return { ready: true };
+      } catch (cause) {
+        const activationError = cause instanceof Error ? cause : new Error(String(cause));
+        initialCatalog.settle({ state: "error", error: activationError }, generation);
+        return { ready: false, error: activationError.message };
+      }
+    })();
+
+    void bridgeActivation.then(
+      (outcome) => {
+        bridgeActivation = null;
+        if (!outcome.ready) {
+          activeSessionFingerprint = null;
+        }
+      },
+      () => {
+        bridgeActivation = null;
+        activeSessionFingerprint = null;
+      },
+    );
+    return bridgeActivation;
+  };
+
+  localHttpMcp = new LocalHttpMcp(
+    localRegistry,
+    {
+      host,
+      port,
+      path,
+      mode,
+      initialCatalog,
+      identity: {
+        pid: process.pid,
+        mode: process.env.MCPA_DAEMON === "1" ? "daemon" : "foreground",
+        generation: gatewayGeneration,
+      },
+      activateRemote,
+    },
+    traffic,
+  );
 
   // Start file watcher for automatic hot-reloading on mcp.json changes
   watcher = new McpConfigWatcher(target, async (newConfig) => {
@@ -208,7 +343,6 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   });
   watcher.start();
 
-  const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
   if (!loadAuthSession(remote)) {
     if (process.env.MCPA_DAEMON === "1" || !process.stdin.isTTY) {
       warn("No saved remote session found. Running gateway in local-only mode.");
@@ -225,51 +359,24 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
-  if (loadAuthSession(remote)) {
-    bridge = new RemoteBridgeClient(localRegistry, {
-      remoteUrl: remote,
-      getAccessToken: async () => {
-        try {
-          return (await ensureFreshAuthSession(remote)).accessToken;
-        } catch (error) {
-          if (!(error instanceof InvalidAuthSessionError)) throw error;
-          return (await loginToRemote(remote, args.login)).accessToken;
-        }
-      },
-      onRemoteCatalogChanged: (catalog) => {
-        if (args.verbose) {
-          serverLog(
-            "bridge",
-            `Remote catalog updated: ${catalog.servers.length} server(s)`,
-          );
-        }
-      },
-    });
+  if (!loadAuthSession(remote)) {
+    initialCatalog.settle({ state: "local-only" }, 0);
   }
 
-  // Launch local servers and remote bridge concurrently in background
+  // Claim the local gateway before starting any remote bridge work.
   const localStartTime = performance.now();
   const localTask = (async () => {
     await localRegistry.start();
     const url = await localHttpMcp.start();
-    // Keep remote gateway informed of full local catalog once loaded
-    try {
-      await bridge?.publishLocalCatalog();
-    } catch {
-      // Best effort
-    }
+    const health = localHttpMcp.getHealth();
+    writeGatewayProcess({
+      pid: health.pid,
+      port: health.port,
+      startedAt: Date.now(),
+      mode: health.mode,
+      generation: health.generation,
+    });
     return url;
-  })();
-
-  const remoteStartTime = performance.now();
-  const remoteTask = (async () => {
-    if (!bridge) return false;
-    try {
-      await bridge.start();
-      return await bridge.waitForReady(DEFAULT_BRIDGE_READY_TIMEOUT_MS);
-    } catch {
-      return false;
-    }
   })();
 
   // 1. Render Local Servers UI
@@ -279,10 +386,29 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   try {
     localUrl = await localTask;
   } catch (cause) {
+    initialCatalog.settle({
+      state: "error",
+      error: cause instanceof Error ? cause : new Error(String(cause)),
+    }, 0);
     error(`Could not start local endpoint on ${host}:${port}${path}: ${(cause as Error).message}`);
-    await localRegistry.close();
+    watcher?.stop();
+    await Promise.allSettled([
+      localHttpMcp?.close(),
+      localRegistry.close(),
+    ]);
+    clearGatewayProcess(process.pid, gatewayGeneration);
     throw cause;
   }
+
+  const remoteStartTime = performance.now();
+  const remoteTask = (async () => {
+    if (!loadAuthSession(remote)) return { ready: false, error: null };
+    const outcome = await activateRemote();
+    return {
+      ready: outcome.ready,
+      error: outcome.error ? new Error(outcome.error) : null,
+    };
+  })();
   const localDuration = ((performance.now() - localStartTime) / 1000).toFixed(2);
   const localServers = localRegistry.getLocalCatalog().servers;
   startSpin.stop(`Started ${pc.bold(String(localServers.length))} local server(s) ${pc.dim(`in ${localDuration}s`)}`);
@@ -292,26 +418,30 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     renderServerList(localServers, 5, timings);
   }
 
-  // 2. Render Remote Bridge UI (which has already been connecting in background)
+  // 2. Render Remote Bridge UI (started only after local ownership was claimed)
   const session = loadAuthSession(remote);
   const userInfo = extractUserInfo(session);
   const userEmail = userInfo?.email;
+  let bridgeStatus = pc.dim("disabled");
 
-  if (bridge) {
+  if (session) {
     const bridgeSpin = spinner();
     bridgeSpin.start(`Connecting to remote gateway (${remote})...`);
-    const ready = await remoteTask;
+    const remoteOutcome = await remoteTask;
     const remoteDuration = ((performance.now() - remoteStartTime) / 1000).toFixed(2);
     const remoteServers = localRegistry.getRemoteCatalog().servers;
     const userSuffix = userEmail ? ` as ${pc.bold(userEmail)}` : "";
-    if (ready || remoteServers.length > 0) {
+    if (remoteOutcome.ready) {
       bridgeSpin.stop(`Connected to remote gateway${userSuffix}`);
+      bridgeStatus = pc.cyan(remote);
       if (remoteServers.length > 0) {
         success(`Found ${pc.bold(String(remoteServers.length))} remote server(s) ${pc.dim(`in ${remoteDuration}s`)}`);
         renderServerList(remoteServers, 5);
       }
     } else {
-      bridgeSpin.stop(`Connected to remote gateway${userSuffix}`);
+      bridgeSpin.stop(`Remote gateway unavailable${userSuffix}`);
+      warn(`Remote catalog initialization failed: ${remoteOutcome.error?.message ?? "unknown error"}`);
+      bridgeStatus = `${pc.cyan(remote)} ${pc.dim("(unavailable)")}`;
     }
   } else {
     warn("No remote session available. Local endpoint only.");
@@ -319,11 +449,6 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
   const remoteCount = localRegistry.getRemoteCatalog().servers.length;
   const totalTools = localRegistry.aggregatedTools().length;
-  const bridgeStatus = bridge
-    ? remoteCount > 0
-      ? pc.cyan(remote)
-      : `${pc.cyan(remote)} ${pc.dim("(syncing)")}`
-    : pc.dim("disabled");
 
   const summaryItems = [
     ...(userEmail ? [{ label: "Account", value: pc.bold(userEmail) }] : []),

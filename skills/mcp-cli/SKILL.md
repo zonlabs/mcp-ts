@@ -1,207 +1,112 @@
 ---
 name: mcp-cli
-description: Use when running, automating, or integrating the MCP CLI (`mcpa` / `mcp-ts`). Covers local and remote MCP tool discovery, schema inspection, direct tool execution, running local MCP gateway daemons with WebSocket bridges, authenticating via OAuth, benchmarking tool router strategies, and generating TypeScript wrappers.
+description: Use when running, automating, integrating, or troubleshooting the MCP CLI (`mcpa` | `mcp-ts`), including local or remote discovery, authentication, schema inspection, tool calls, and gateway lifecycle errors.
 ---
 
-# MCP CLI (`mcpa` | `mcp-ts`) Agent Skill
+# MCP CLI (`mcpa` | `mcp-ts`)
 
-Use this skill when interacting with the **`@mcp-ts/cli`** toolchain (`mcpa` or `mcp-ts`). It provides guidance for discovering, inspecting, executing, bridging, and benchmarking Model Context Protocol (MCP) tools across both local and remote environments.
+## Overview
 
----
+Use this skill for every task that invokes `mcpa` or `mcp-ts`. CLI 0.3.0 has one gateway: `serve` runs it in the foreground with live logs, while `daemon start` runs the same gateway in the background.
 
-## 1. Quick Aliases & Installation
+Normal `list`, `search`, `schema`, and `call` commands always use that gateway. They reuse a healthy managed or foreground gateway and auto-start the managed daemon when the gateway is stopped.
 
-The CLI is available as either `mcpa` (fast 4-letter alias) or `mcp-ts`:
+## Mandatory preflight
 
-```bash
-# Global install
-npm install -g @mcp-ts/cli
+Complete these checks before MCP work:
 
-# Run via npx
-npx @mcp-ts/cli <command> [options]
+1. Resolve the executable and print its version.
+   - PowerShell: `Get-Command mcpa,mcp-ts -ErrorAction SilentlyContinue`, then `mcpa --version`.
+   - POSIX: `command -v mcpa || command -v mcp-ts`, then `mcpa --version`.
+   - Pin that resolved executable or an explicit local `node .../dist/bin/mcp-ts.js` entrypoint for the whole session.
+2. If neither executable exists, stop and request approval to install `@mcp-ts/cli` or download it with `npx`. Never install or download silently.
+3. Require CLI version 0.3.0 or newer. If it is older, stop and request an upgrade; do not use pre-0.3.0 flags or behavior as a compatibility path.
+4. Run `mcpa daemon status` and follow the state table below.
+5. Run `mcpa list --tools` with the same pinned CLI. Verify the expected local and remote catalog before choosing a tool.
+6. If a remote server is missing because the session is absent or expired, run `mcpa login`, then repeat `mcpa list --tools`. Authentication failures are not gateway failures; do not restart the gateway to repair auth.
+
+| Gateway state | Required response |
+|---|---|
+| `running` | Reuse the managed gateway. |
+| `external` | Reuse the healthy foreground gateway. Do not adopt, restart, or stop it. |
+| `stopped` | Let the next normal command auto-start the managed daemon. |
+| `starting` | Wait briefly, then check status again. |
+| `occupied` | Stop and report the port owner diagnostic. Never kill, adopt, or restart an unknown owner. |
+| `unhealthy` | Stop and inspect the reported log/health diagnostic. Never replace it automatically. |
+
+## Gateway execution contract
+
+```text
+mcpa serve          # foreground gateway with live logs
+mcpa daemon start   # the same gateway in the background
+mcpa list           # reuse either gateway, or auto-start the managed daemon
 ```
 
----
+- `list`, `search`, `schema`, and `call` do not create a direct remote HTTP path or a one-shot bridge.
+- A command failure never switches transports. Diagnose the gateway, catalog, or authentication error that was reported.
+- Do not invent or use `--no-daemon`, alternate transport, legacy bridge, or direct authenticated HTTP fallbacks.
+- `mcpa daemon stop` stops only the recorded managed daemon. It cannot stop a foreground (`external`) gateway or an unknown port owner.
+- Use canonical `serverId::toolName` IDs for schema and call operations.
 
-## 2. Command Reference Cheatsheet
+## Core commands
 
-| Command | Usage | Purpose |
-| :--- | :--- | :--- |
-| **`mcpa list`** | `mcpa list [--dir <path>]` | List all local MCP servers and their exposed tools defined in `mcp.json`. |
-| **`mcpa search`** | `mcpa search [url] <query> [--limit <n>]` | Search local tools (BM25) or remote server tools for capabilities matching a natural language query. |
-| **`mcpa schema`** | `mcpa schema <tool1> [tool2...]` | Inspect input/output JSON schemas for one or more local/remote tools. |
-| **`mcpa call`** | `mcpa call <tool> [jsonArgs]` | Directly execute an MCP tool without running a persistent daemon. |
-| **`mcpa serve`** | `mcpa serve [-d] [--port 8765] [--mode <search\|all>]` | Start the unified local MCP HTTP gateway + connect the remote WebSocket bridge (`-d` for background). |
-| **`mcpa daemon`** | `mcpa daemon <start\|stop\|status\|logs> [--limit <n>]` | Manage the persistent background MCP gateway daemon process. |
-| **`mcpa login`** | `mcpa login [--remote <url>]` | Authenticate with MCP Assistant via browser OAuth (PKCE) and store the session locally. |
-| **`mcpa logout`** | `mcpa logout [--remote <url>]` | Revoke active CLI OAuth session and clear credentials. |
-| **`mcpa init`** | `mcpa init [--dir <path>]` | Generate a default `.mcpassistant/mcp.json` configuration. |
-| **`mcpa connect`** | `mcpa connect --name <name> --url <url> [--auth <token>]` | Test connection to a remote/local MCP server, discover its tools, and save to `mcp.json`. |
-| **`mcpa disconnect`** | `mcpa disconnect <name>` *(alias: remove, rm)* | Remove an MCP server configuration from `mcp.json`. |
-| **`mcpa enable`** | `mcpa enable <name>` | Enable a disabled MCP server in `mcp.json`. |
-| **`mcpa disable`** | `mcpa disable <name>` | Disable an MCP server in `mcp.json` (`"disabled": true`). |
-| **`mcpa bench`** | `mcpa bench <url>` | Benchmark context token costs across exposure strategies (`all`, `search`, `groups`). |
-| **`mcpa codegen`** | `mcpa codegen <url> --out <file>` | Generate strongly typed TypeScript wrapper clients directly from tool schemas. |
-
----
-
-## 3. Agent Workflows & Decision Tree
-
-### Workflow A: Direct Local Tool Execution (One-Shot)
-
-When an agent needs to discover and call tools locally without keeping a server process open:
-
-1. **List / Search Tools**:
-   ```bash
-   mcpa search "read file content"
-   # or list all servers
-   mcpa list
-   ```
-2. **Inspect Schema**:
-   ```bash
-   mcpa schema filesystem:read_file
-   ```
-3. **Execute Tool**:
-   ```bash
-   mcpa call filesystem:read_file '{"path": "package.json"}'
-   ```
-
----
-
-### Workflow B: Connecting & Registering New MCP Servers (`mcpa connect`)
-
-When adding a new remote HTTP MCP server (with or without auth) or local stdio server:
-
-```bash
-# Connect and save a remote HTTP MCP server:
-mcpa connect --name tavily --url https://mcp.tavily.com
-
-# Connect with Bearer authentication / API Key:
-mcpa connect --name custom-api --url https://api.example.com/mcp --auth "YOUR_API_TOKEN"
-
-# Connect with custom headers:
-mcpa connect --name internal-mcp --url https://mcp.internal.net --header "X-API-Key=secret123"
-
-# Connect a local stdio command:
-mcpa connect --name postgres --command npx --args "-y @modelcontextprotocol/server-postgres postgresql://localhost/mydb"
+```text
+mcpa list [server] [--tools]
+mcpa search "query" --limit 10
+mcpa schema serverId::toolName
+mcpa call serverId::toolName '{"key":"value"}' [--json]
+mcpa login [--remote URL]
+mcpa serve [--port 8765]
+mcpa daemon <start|stop|status|logs> [--port PORT]
 ```
 
----
+For complex arguments, invoke the pinned executable without a shell and pass `JSON.stringify(payload)` as one argument. This avoids PowerShell, cmd, and Bash quoting damage. For machine-readable calls, pass `--json`: stdout then contains exactly one JSON document, while warnings and progress use stderr or are suppressed.
 
-### Workflow C: Running the Unified Local MCP Gateway (`mcpa serve` & `mcpa daemon`)
+## Batch multiple tool calls
 
-Use `mcpa serve` or `mcpa daemon` to expose a local HTTP MCP endpoint (`http://127.0.0.1:8765/mcp`) for IDEs, Claude Desktop, Cursor, Antigravity, OpenCode, or custom agents.
+For multiple calls, use a Node.js script with `execFile`. In batch input, separate the server and tool with `|`, for example `github|list_issues`. Convert that value to the canonical CLI ID `github::list_issues` before invoking `mcpa`; `|` is only the script input separator and is never sent as the tool ID.
 
-```bash
-# Foreground Interactive Server (streaming live JSON-RPC traffic):
-mcpa serve --mode search
+Run independent read-only calls concurrently. Run dependent calls sequentially, and treat mutating calls as sequential unless their independence and authorization are established. Never automatically retry non-idempotent calls.
 
-# Background Persistent Daemon (survives closed terminals & Ctrl+C):
-mcpa daemon start
-# or: mcpa serve -d
-
-# Inspect & Manage Background Daemon:
-mcpa daemon status
-mcpa daemon logs --limit 20
-mcpa daemon stop
-```
-
-**🔄 Automatic Hot-Reloading:**
-- The gateway file watcher automatically monitors `mcp.json`.
-- Changes made via `mcpa connect`, `mcpa enable`, `mcpa disable`, `mcpa disconnect`, or manual file edits are dynamically hot-reloaded into the running gateway with zero HTTP downtime.
-
-**How Progressive Discovery Mode works:**
-- Instead of exposing hundreds of tool schemas at once, the gateway exposes dynamic meta-tools:
-  - `search_tools(query, limit)` — Search tools across local and bridged remote servers
-  - `get_tool_schema(tool_name)` — Fetch input/output JSON schema for a discovered tool
-  - `call_tool(tool_name, arguments)` — Proxy execution to the selected tool
-- This reduces prompt token overhead by up to 90%.
-- Both local stdio tools and bridged remote tools are initialized concurrently in parallel.
-- CLI commands (`mcpa call`, `mcpa search`, `mcpa schema`) automatically detect a running `mcpa serve` daemon and route through it for sub-millisecond execution without re-spawning processes.
-
----
-
-### Workflow D: Remote Server Discovery & Remote Bridge
-
-When accessing remote servers hosted on MCP Assistant (`https://api.mcp-assistant.in`):
-
-1. **Ensure Authentication**:
-   ```bash
-   mcpa login --remote https://api.mcp-assistant.in
-   ```
-2. **Search Remote Tools**:
-   ```bash
-   mcpa search https://api.mcp-assistant.in/mcp "github create pull request"
-   ```
-3. **Bridge Local & Remote Tools Together**:
-   When `mcpa serve` runs on an authenticated machine, it automatically initiates a WebSocket bridge (`wss://api.mcp-assistant.in/bridge/connect`).
-   - Local tools in `mcp.json` become callable remotely.
-   - Remote tools (GitHub, Notion, Exa, Supabase, Zapier) become callable locally through `http://127.0.0.1:8765/mcp`.
-
----
-
-### Workflow E: Code Generation & Benchmarking
-
-When writing integration code or optimizing token budgets for agents:
-
-```bash
-# Compare token usage between 'all', 'search', and 'groups' strategies:
-mcpa bench https://api.mcp-assistant.in/mcp
-
-# Generate typed TypeScript client bindings:
-mcpa codegen https://api.mcp-assistant.in/mcp --out ./src/mcp-generated.ts
-```
-
----
-
-## 4. Agent Script Automation & Large Payload Handling
-
-When agents or automated scripts invoke `mcpa call` with large JSON payloads, multiline Markdown (such as pull request bodies, issue descriptions, or code snippets), passing large strings directly on the shell command line can suffer from shell quote-stripping and newline breaking (especially in PowerShell / cmd on Windows).
-
-### Method 1: Node.js Script Automation (Recommended for Complex Payloads)
-Agents can write a small scratch script and execute `mcpa` via `execFile`:
-
-```javascript
+```js
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+const cliEntrypoint = process.env.MCPA_CLI_JS;
+if (!cliEntrypoint) throw new Error("Set MCPA_CLI_JS to the preflight-verified CLI entrypoint");
 
-const payload = {
-  owner: "zonlabs",
-  repo: "mcp-ts",
-  title: "feat: new feature",
-  body: `## Summary\n- Detailed item 1\n- Detailed item 2`,
-};
+const calls = [
+  { target: "filesystem|read_file", args: { path: "package.json" } },
+  { target: "github|list_issues", args: { repo: "zonlabs/mcp-ts", state: "open" } },
+];
 
-// Safe execution without shell quote escaping issues:
-const { stdout } = await execFileAsync("mcpa", [
-  "call",
-  "github::create_pull_request",
-  JSON.stringify(payload),
-]);
+function canonicalToolId(target) {
+  const parts = target.split("|");
+  if (parts.length !== 2 || parts.some((part) => !part || part.includes("::"))) {
+    throw new Error(`Expected server|tool, received: ${target}`);
+  }
+  return `${parts[0]}::${parts[1]}`;
+}
 
-console.log(JSON.parse(stdout));
+async function callTool({ target, args }) {
+  const toolId = canonicalToolId(target);
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [cliEntrypoint, "call", toolId, JSON.stringify(args), "--json"],
+    { windowsHide: true, maxBuffer: 10 * 1024 * 1024 },
+  );
+  return { toolId, result: JSON.parse(stdout) };
+}
+
+const results = await Promise.allSettled(calls.map(callTool));
+for (const result of results) console.log(result);
+if (results.some((result) => result.status === "rejected")) process.exitCode = 1;
 ```
 
-### Method 2: Shorthand Key-Value Syntax (CLI Terminal)
-For straightforward single or multiple scalar arguments, use the `key=value` syntax:
-```bash
-mcpa call exa::web_search_exa query="latest AI news"
-mcpa call github::list_issues repo="zonlabs/mcp-ts",state="open"
-```
+## Configuration
 
-### Method 3: Escaped JSON (PowerShell / Bash)
-When typing JSON inline in PowerShell, escape inner quotes:
-```powershell
-mcpa call exa::web_search_exa '{\"query\": \"latest AI news\"}'
-```
-
----
-
-## 5. Configuration File Structure (`mcp.json`)
-
-`mcpa` automatically searches upwards for `.mcpassistant/mcp.json` or `mcp.json` (or uses `MCP_CONFIG_PATH`).
+The CLI searches upward for `.mcpassistant/mcp.json` or `mcp.json`. `MCP_CONFIG_PATH` selects a file explicitly. `REMOTE_GATEWAY_URL` selects the remote gateway. `MCPA_CONFIG_DIR` selects the auth/session/daemon state directory.
 
 ```json
 {
@@ -209,41 +114,15 @@ mcpa call exa::web_search_exa '{\"query\": \"latest AI news\"}'
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
-    },
-    "custom-remote": {
-      "url": "https://api.example.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_TOKEN"
-      }
     }
   }
 }
 ```
 
----
+## Common mistakes
 
-## 6. Authentication & Storage Paths
-
-CLI OAuth tokens and session data are stored locally:
-
-| OS | Config / Token Directory |
-| :--- | :--- |
-| **Windows** | `%LOCALAPPDATA%\mcp-assistant\` (`auth.json`, `mcp-sessions.json`, `daemon.pid`, `daemon.log`) |
-| **macOS** | `~/Library/Application Support/mcp-assistant/` |
-| **Linux** | `~/.config/mcp-assistant/` (or `$XDG_CONFIG_HOME/mcp-assistant`) |
-
-Environment variable overrides:
-- `MCPA_CONFIG_DIR` — Custom configuration and token directory
-- `REMOTE_GATEWAY_URL` — Custom remote gateway URL (default: `https://api.mcp-assistant.in`)
-- `MCP_CONFIG_PATH` — Path to explicit `mcp.json` file
-
----
-
-## 7. Common Errors & Troubleshooting
-
-- **`InvalidAuthSessionError` / `Not signed in`**:
-  Run `mcpa login` or re-authenticate.
-- **Port Conflict on `8765`**:
-  Run with `--port <port>`, e.g., `mcpa serve --port 8780` or use `mcpa daemon stop` to stop any lingering background daemon.
-- **Tool name collision**:
-  When tools share names across servers, reference them using composite IDs: `<serverId>::<toolName>` (e.g. `github::create_issue` or `local:filesystem::read_file`).
+- **Missing remote tools:** authenticate with `mcpa login`, then repeat the catalog check. Do not start another gateway.
+- **Occupied or unhealthy gateway:** stop and diagnose the reported owner or log. Do not switch transports, kill a process, or create another gateway as an automatic fallback.
+- **Partial list:** keep successful server results and inspect each reported diagnostic. Never invent missing tool names.
+- **Name collision:** repeat the operation with `serverId::toolName`.
+- **Mixed CLI binaries:** repeat preflight and use the same verified 0.3.0+ entrypoint for every command.

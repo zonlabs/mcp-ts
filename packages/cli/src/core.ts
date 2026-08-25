@@ -50,22 +50,23 @@ export async function createRouter(client: ToolClient): Promise<ToolRouter> {
 }
 
 function parseMetaSearchResults(raw: unknown): SearchResult[] {
-  let text = "";
-  if (raw && typeof raw === "object" && "content" in raw && Array.isArray((raw as { content: unknown[] }).content)) {
-    const firstText = (raw as { content: Array<{ type?: string; text?: string }> }).content.find(
-      (c) => c.type === "text",
-    );
-    text = firstText?.text ?? "";
-  } else if (typeof raw === "string") {
-    text = raw;
+  if (!raw || typeof raw !== "object" || !("content" in raw) || !Array.isArray((raw as { content: unknown[] }).content)) {
+    throw new Error("Gateway meta search returned no text content.");
   }
-  if (!text) return [];
+  const firstText = (raw as { content: Array<{ type?: string; text?: string }> }).content.find(
+    (content) => content.type === "text" && typeof content.text === "string",
+  );
+  const text = firstText?.text;
+  if ((raw as { isError?: unknown }).isError === true) {
+    throw new Error(`Gateway meta search failed: ${text || "gateway returned an error"}`);
+  }
+  if (!text) throw new Error("Gateway meta search returned no text content.");
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    return [];
+    throw new Error("Gateway meta search returned invalid JSON.");
   }
 
   const items = Array.isArray(parsed)
@@ -100,21 +101,13 @@ export async function searchTools(
   query: string,
   limit = 10,
 ): Promise<SearchResult[]> {
-  const metaSearchTool =
-    resolveTool(router, "search_mcp_tools") ?? resolveTool(router, "search_tools");
+  const metaSearchTool = resolveTool(router, "search_mcp_tools");
   if (metaSearchTool) {
-    try {
-      const rawResult = await router.callTool({
-        toolId: metaSearchTool.toolId,
-        args: { query, limit },
-      });
-      const metaResults = parseMetaSearchResults(rawResult);
-      if (metaResults.length > 0) {
-        return metaResults;
-      }
-    } catch {
-      // Fallback to router.searchTools
-    }
+    const rawResult = await router.callTool({
+      toolId: metaSearchTool.toolId,
+      args: { query, limit },
+    });
+    return parseMetaSearchResults(rawResult);
   }
 
   const results = await router.searchTools({ query, limit });

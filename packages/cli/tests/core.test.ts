@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { ToolClient } from "@mcp-ts/tool-router";
 import type { Tool } from "@modelcontextprotocol/client";
 import { benchmarkStrategies, createRouter, generateWrappers, resolveTool, searchTools } from "../src/core.js";
@@ -110,11 +110,18 @@ test("renders banner, tree formatters and reports version", async () => {
   });
   assert.equal(helpCode, 0);
   assert.ok(helpOutput.includes("mcpa call"));
+  assert.ok(helpOutput.includes("Execute an MCP tool through the gateway"));
   assert.ok(helpOutput.includes("mcpa search"));
   assert.ok(helpOutput.includes("mcpa schema"));
   assert.ok(helpOutput.includes("mcpa list"));
   assert.ok(helpOutput.includes("--mode"));
   assert.ok(!helpOutput.includes("all|search|auto"));
+  assert.ok(!helpOutput.includes("--detached"));
+});
+
+test("does not export the obsolete bridge-owning one-shot context", async () => {
+  const publicApi = await import("../src/index.js");
+  assert.equal("withMcpGateway" in publicApi, false);
 });
 
 test("accepts only deterministic discovery modes", () => {
@@ -170,6 +177,89 @@ test("correctly parses search_mcp_tools payload with camelCase toolName and serv
   assert.equal(results[0].toolName, "add_reply_to_pull_request_comment");
   assert.equal(results[0].serverId, "3a0zk9sliokm");
   assert.equal(results[0].toolId, "3a0zk9sliokm::add_reply_to_pull_request_comment");
+});
+
+test("propagates a selected gateway meta-search failure without router fallback", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => {
+      throw new Error("catalog offline");
+    },
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /catalog offline/);
+});
+
+test("uses the router index when only legacy search_tools is exposed", async () => {
+  const routerSearch = vi.fn(async () => []);
+  const callTool = vi.fn(async () => {
+    throw new Error("legacy search_tools must not be called");
+  });
+  const router = {
+    getToolSchemas: vi.fn(({ toolIds }: { toolIds: string[] }) =>
+      toolIds[0] === "remote::search_tools"
+        ? [{ toolId: "remote::search_tools", toolName: "search_tools" }]
+        : [],
+    ),
+    callTool,
+    searchTools: routerSearch,
+  } as never;
+
+  await searchTools(router, "legacy", 5);
+
+  expect(routerSearch).toHaveBeenCalledWith({ query: "legacy", limit: 5 });
+  expect(routerSearch).toHaveBeenCalledTimes(1);
+  expect(callTool).not.toHaveBeenCalled();
+});
+
+test("propagates invalid JSON from a selected gateway meta-search", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => ({ content: [{ type: "text", text: "not json" }] }),
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /valid JSON/);
+});
+
+test("propagates an error envelope from a selected gateway meta-search", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => ({
+      isError: true,
+      content: [{ type: "text", text: "catalog offline" }],
+    }),
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /catalog offline/);
+});
+
+test("rejects missing text from a selected gateway meta-search", async () => {
+  const metaClient: ToolClient = {
+    listTools: async () => ({
+      tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
+    }),
+    callTool: async () => ({ content: [] }),
+    getServerId: () => "remote",
+    getServerName: () => "Remote Server",
+  };
+
+  const router = await createRouter(metaClient);
+  await assert.rejects(searchTools(router, "issue", 5), /text content/);
 });
 
 test("parseToolRef handles double-colon, single-colon and plain names", async () => {

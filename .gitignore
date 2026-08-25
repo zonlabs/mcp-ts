@@ -43,6 +43,7 @@ coverage/
 
 # Local planning & review artifacts
 .superpowers/
+/.worktrees/
 
 # Local gateway runtime state
 .mcpassistant/

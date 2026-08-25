@@ -11,7 +11,7 @@ import {
 
 type HttpConnector = typeof connectHttpMcpServer;
 
-export interface RemoteToolClientOptions {
+export interface McpEndpointClientOptions {
   headers?: Record<string, string>;
   connector?: HttpConnector;
   onProgress?: (message: string) => void;
@@ -22,7 +22,7 @@ function serverIdFor(url: URL): string {
   return `${url.hostname}${path ? `_${path}` : ""}`.toLowerCase();
 }
 
-export class RemoteToolClient implements ToolClient {
+export class McpEndpointClient implements ToolClient {
   private connection: HttpMcpConnection | null = null;
   private readonly serverId: string;
   private readonly headers?: Record<string, string>;
@@ -31,7 +31,7 @@ export class RemoteToolClient implements ToolClient {
 
   constructor(
     private readonly endpoint: URL,
-    optionsOrConnector?: RemoteToolClientOptions | HttpConnector,
+    optionsOrConnector?: McpEndpointClientOptions | HttpConnector,
   ) {
     this.serverId = serverIdFor(endpoint);
     if (typeof optionsOrConnector === "function") {
@@ -85,10 +85,10 @@ export class RemoteToolClient implements ToolClient {
   }
 }
 
-export async function connectRemote(
+export async function connectMcpEndpoint(
   endpoint: string,
-  optionsOrConnector?: RemoteToolClientOptions | HttpConnector | Record<string, string>,
-): Promise<RemoteToolClient> {
+  optionsOrConnector?: McpEndpointClientOptions | HttpConnector | Record<string, string>,
+): Promise<McpEndpointClient> {
   const url = new URL(endpoint);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("MCP endpoint must use http:// or https://");
@@ -97,7 +97,7 @@ export async function connectRemote(
     url.pathname = "/mcp";
   }
 
-  let options: RemoteToolClientOptions | HttpConnector | undefined;
+  let options: McpEndpointClientOptions | HttpConnector | undefined;
   if (
     optionsOrConnector &&
     typeof optionsOrConnector === "object" &&
@@ -106,10 +106,10 @@ export async function connectRemote(
   ) {
     options = { headers: optionsOrConnector as Record<string, string> };
   } else {
-    options = optionsOrConnector as RemoteToolClientOptions | HttpConnector | undefined;
+    options = optionsOrConnector as McpEndpointClientOptions | HttpConnector | undefined;
   }
 
-  const client = new RemoteToolClient(url, options);
+  const client = new McpEndpointClient(url, options);
   try {
     await client.connect();
     return client;

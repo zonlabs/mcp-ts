@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
+import { connectMcpEndpoint } from "../src/client.js";
 import {
+  InitialCatalogBarrier,
   LocalHttpMcp,
   MCP_META_TOOL_NAMES,
   isSearchDiscoveryMode,
 } from "../src/gateway/local-http-mcp.js";
 import { pingGateway } from "../src/gateway/context.js";
 import { McpGatewayRegistry } from "../src/gateway/registry.js";
+import {
+  callGatewayTool,
+  fetchGatewayServers,
+  fetchGatewayToolSchemas,
+  searchGatewayTools,
+} from "../src/gateway/meta-tools.js";
 import { Traffic } from "../src/traffic.js";
 
 describe("LocalHttpMcp", () => {
@@ -113,7 +121,357 @@ describe("LocalHttpMcp", () => {
     await server.close();
     await registry.close();
   });
+
+  it("returns the canonical search envelope and filters by exact serverId", async () => {
+    const registry = new McpGatewayRegistry({});
+    await registry.start();
+    await registry.replaceRemoteCatalog({
+      servers: [
+        {
+          serverId: "alpha",
+          serverName: "Shared",
+          tools: [{ name: "alpha_tool", description: "Alpha", inputSchema: { type: "object" } }],
+        },
+        {
+          serverId: "beta",
+          serverName: "Shared",
+          tools: [{ name: "beta_tool", description: "Beta", inputSchema: { type: "object" } }],
+        },
+      ],
+    }, vi.fn());
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp" },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      await expect(searchGatewayTools(client, {
+        query: "",
+        serverId: "alpha",
+        limit: 10,
+        detail: "detailed",
+      })).resolves.toMatchObject([
+        { serverId: "alpha", toolName: "alpha_tool", description: "Alpha" },
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
+  });
+
+  it.each(["search", "all"] as const)(
+    "keeps tools/list health immediate in %s mode while the first meta request awaits the remote snapshot",
+    async (mode) => {
+      const registry = new McpGatewayRegistry({});
+      await registry.start();
+      const initialCatalog = new InitialCatalogBarrier();
+      const waitForInitialCatalog = vi.spyOn(initialCatalog, "wait");
+      const server = new LocalHttpMcp(
+        registry,
+        { host: "127.0.0.1", port: 0, path: "/mcp", mode, initialCatalog },
+        new Traffic(),
+      );
+      const endpoint = await server.start();
+      const endpointUrl = new URL(endpoint);
+      await expect(
+        pingGateway(endpointUrl.hostname, Number(endpointUrl.port), endpointUrl.pathname, 250),
+      ).resolves.toBe(endpoint);
+      const client = await connectMcpEndpoint(endpoint);
+
+      try {
+        const listedTools = await client.listTools();
+        expect(listedTools.tools.map((tool) => tool.name)).toContain(MCP_META_TOOL_NAMES.listServers);
+
+        let settled = false;
+        const firstList = fetchGatewayServers(client, "").finally(() => {
+          settled = true;
+        });
+
+        await vi.waitFor(() => expect(waitForInitialCatalog).toHaveBeenCalled());
+        expect(settled).toBe(false);
+
+        await registry.replaceRemoteCatalog({
+          servers: [
+            {
+              serverId: "github",
+              serverName: "GitHub",
+              tools: [{ name: "pull_request_read", inputSchema: { type: "object" } }],
+            },
+          ],
+        }, vi.fn());
+        expect(initialCatalog.settle({ state: "ready" })).toBe(true);
+
+        await expect(firstList).resolves.toEqual([
+          {
+            serverId: "github",
+            serverName: "GitHub",
+            source: "remote",
+            toolCount: 1,
+            discoveryState: "complete",
+          },
+        ]);
+        expect(initialCatalog.settle({ state: "error", error: new Error("late failure") })).toBe(false);
+        await expect(initialCatalog.wait()).resolves.toEqual({ state: "ready" });
+      } finally {
+        await client.close();
+        await server.close();
+        await registry.close();
+      }
+    },
+  );
+
+  it("keeps concrete all-mode invocation behind readiness while tools/list stays immediate", async () => {
+    const invoke = vi.fn(async () => ({ content: [{ type: "text" as const, text: "local-result" }] }));
+    const registry = new McpGatewayRegistry(
+      { docs: { url: "https://docs.example/mcp" } },
+      undefined,
+      {
+        connectHttp: async () => ({
+          listTools: async () => ({
+            tools: [{ name: "local_echo", inputSchema: { type: "object" as const } }],
+          }),
+          callTool: invoke,
+          close: vi.fn(async () => undefined),
+          getServerId: () => "docs",
+          getServerName: () => "docs",
+          getServerUrl: () => "https://docs.example/mcp",
+        }),
+      } as never,
+    );
+    await registry.start();
+    const initialCatalog = new InitialCatalogBarrier();
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp", mode: "all", initialCatalog },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      await expect(client.listTools()).resolves.toMatchObject({
+        tools: expect.arrayContaining([expect.objectContaining({ name: "local_echo" })]),
+      });
+
+      const invocation = client.callTool("local_echo", {});
+      const beforeReady = await Promise.race([
+        invocation.then(() => "invoked" as const),
+        new Promise<"pending">((resolve) => setTimeout(() => resolve("pending"), 50)),
+      ]);
+      expect(beforeReady).toBe("pending");
+      expect(invoke).not.toHaveBeenCalled();
+
+      initialCatalog.settle({ state: "local-only" });
+      await expect(invocation).resolves.toMatchObject({
+        content: [{ type: "text", text: "local-result" }],
+      });
+      expect(invoke).toHaveBeenCalledOnce();
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
+  });
+
+  it("reserves meta-tool names in all mode without hiding canonical upstream access", async () => {
+    const invoke = vi.fn(async () => ({ content: [{ type: "text" as const, text: "upstream-result" }] }));
+    const registry = new McpGatewayRegistry(
+      { docs: { url: "https://docs.example/mcp" } },
+      undefined,
+      {
+        connectHttp: async () => ({
+          listTools: async () => ({
+            tools: [{ name: MCP_META_TOOL_NAMES.listServers, inputSchema: { type: "object" as const } }],
+          }),
+          callTool: invoke,
+          close: vi.fn(async () => undefined),
+          getServerId: () => "docs",
+          getServerName: () => "docs",
+          getServerUrl: () => "https://docs.example/mcp",
+        }),
+      } as never,
+    );
+    await registry.start();
+    const initialCatalog = new InitialCatalogBarrier();
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp", mode: "all", initialCatalog },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      const listed = await client.listTools();
+      expect(listed.tools.filter((tool) => tool.name === MCP_META_TOOL_NAMES.listServers)).toHaveLength(1);
+
+      initialCatalog.settle({ state: "local-only" });
+      await expect(
+        callGatewayTool(client, `docs::${MCP_META_TOOL_NAMES.listServers}`, {}),
+      ).resolves.toMatchObject({ content: [{ type: "text", text: "upstream-result" }] });
+      expect(invoke).toHaveBeenCalledOnce();
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
+  });
+
+  it("serves local-only meta requests after an explicit no-session outcome", async () => {
+    const registry = new McpGatewayRegistry(
+      { docs: { url: "https://docs.example/mcp" } },
+      undefined,
+      {
+        connectHttp: async () => ({
+          listTools: async () => ({
+            tools: [{ name: "search_docs", inputSchema: { type: "object" as const } }],
+          }),
+          callTool: vi.fn(),
+          close: vi.fn(async () => undefined),
+          getServerId: () => "docs",
+          getServerName: () => "docs",
+          getServerUrl: () => "https://docs.example/mcp",
+        }),
+      } as never,
+    );
+    await registry.start();
+    const initialCatalog = new InitialCatalogBarrier();
+    initialCatalog.settle({ state: "local-only" });
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp", initialCatalog },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      await expect(fetchGatewayServers(client, "")).resolves.toEqual([
+        {
+          serverId: "docs",
+          serverName: "docs",
+          source: "local",
+          toolCount: 1,
+          discoveryState: "complete",
+        },
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
+  });
+
+  it("surfaces the same definitive initialization error from every meta operation", async () => {
+    const registry = new McpGatewayRegistry({});
+    await registry.start();
+    const initialCatalog = new InitialCatalogBarrier();
+    initialCatalog.settle({ state: "error", error: new Error("remote catalog initialization failed") });
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp", initialCatalog },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      await expect(fetchGatewayServers(client, "")).rejects.toThrow("remote catalog initialization failed");
+      await expect(searchGatewayTools(client, { query: "pull request" })).rejects.toThrow(
+        "remote catalog initialization failed",
+      );
+      await expect(fetchGatewayToolSchemas(client, ["github::pull_request_read"])).rejects.toThrow(
+        "remote catalog initialization failed",
+      );
+      await expect(callGatewayTool(client, "github::pull_request_read", {})).rejects.toThrow(
+        "remote catalog initialization failed",
+      );
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
+  });
+
+  it("recovers from initial remote error upon explicit activation in a new generation", async () => {
+    const registry = new McpGatewayRegistry({});
+    await registry.start();
+    const initialCatalog = new InitialCatalogBarrier();
+    const initialGen = initialCatalog.getGeneration();
+    initialCatalog.settle({ state: "error", error: new Error("initial remote failure") }, initialGen);
+
+    let activateOutcome = { ready: false };
+    const activateRemote = vi.fn(async () => {
+      const gen = initialCatalog.beginActivation();
+      await registry.replaceRemoteCatalog({
+        servers: [
+          {
+            serverId: "recovered-github",
+            serverName: "Recovered GitHub",
+            tools: [{ name: "recovered_tool", inputSchema: { type: "object" } }],
+          },
+        ],
+      }, vi.fn());
+      initialCatalog.settle({ state: "ready" }, gen);
+      activateOutcome = { ready: true };
+      return activateOutcome;
+    });
+
+    const server = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp", initialCatalog, activateRemote },
+      new Traffic(),
+    );
+    const endpoint = await server.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    try {
+      // 1. Initial error is visible before activation
+      await expect(fetchGatewayServers(client, "")).rejects.toThrow("initial remote failure");
+
+      // 2. Stale settlement from older generation cannot settle newer generation
+      const newGen = initialCatalog.beginActivation();
+      expect(initialCatalog.settle({ state: "error", error: new Error("stale completion") }, initialGen)).toBe(false);
+
+      // 3. Meta operation awaits new generation
+      let settled = false;
+      const pendingFetch = fetchGatewayServers(client, "").finally(() => { settled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(settled).toBe(false);
+
+      // 4. Settling the new generation allows meta operation to succeed
+      await registry.replaceRemoteCatalog({
+        servers: [
+          {
+            serverId: "recovered-github",
+            serverName: "Recovered GitHub",
+            tools: [{ name: "recovered_tool", inputSchema: { type: "object" } }],
+          },
+        ],
+      }, vi.fn());
+      expect(initialCatalog.settle({ state: "ready" }, newGen)).toBe(true);
+
+      await expect(pendingFetch).resolves.toEqual([
+        {
+          serverId: "recovered-github",
+          serverName: "Recovered GitHub",
+          source: "remote",
+          toolCount: 1,
+          discoveryState: "complete",
+        },
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+      await registry.close();
+    }
+  });
 });
+
 
 describe("pingGateway", () => {
   it("rejects non-MCP and error responses and prevents false positives", async () => {

@@ -1,4 +1,4 @@
-export { connectRemote, RemoteToolClient } from "./client.js";
+export { connectMcpEndpoint, McpEndpointClient } from "./client.js";
 export {
   benchmarkStrategies,
   createRouter,
@@ -30,9 +30,8 @@ export {
 } from "./gateway/config.js";
 export {
   pingGateway,
-  withMcpGateway,
+  getGatewayHealth,
   getServerConfig,
-  type GatewayContextOptions,
 } from "./gateway/context.js";
 export type { AggregatedTool } from "./gateway/registry.js";
 export { McpConfigWatcher, type McpConfigWatcherOptions } from "./gateway/watcher.js";
@@ -43,7 +42,11 @@ export {
   readDaemonLogs,
   isProcessAlive,
   getCliBinPath,
-  type DaemonInfo,
+  readGatewayProcess,
+  writeGatewayProcess,
+  clearGatewayProcess,
+  getGatewayProcessPath,
+  type GatewayProcessInfo,
   type DaemonStatus,
 } from "./gateway/daemon.js";
 export * from "./constants.js";

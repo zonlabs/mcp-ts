@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
@@ -44,6 +45,21 @@ describe("published CLI package", () => {
     const { stdout } = await execFileAsync(process.execPath, [bin, "--version"]);
 
     expect(stdout.trim()).toBe(`@mcp-ts/cli v${packageJson.version}`);
+  });
+
+  test("the bin never overwrites a process exit code set by command execution", async () => {
+    const bin = pathToFileURL(fileURLToPath(new URL("../dist/bin/mcp-ts.js", import.meta.url))).href;
+    const script = `process.argv = [process.execPath, ${JSON.stringify(fileURLToPath(new URL("../dist/bin/mcp-ts.js", import.meta.url)))}, "--version"]; process.exitCode = 17; await import(${JSON.stringify(bin)});`;
+
+    await expect(execFileAsync(process.execPath, ["--input-type=module", "--eval", script]))
+      .rejects.toMatchObject({ code: 17 });
+  });
+
+  test("the published bin exits nonzero for a removed serve lifecycle flag", async () => {
+    const bin = fileURLToPath(new URL("../dist/bin/mcp-ts.js", import.meta.url));
+
+    await expect(execFileAsync(process.execPath, [bin, "serve", "--detached"]))
+      .rejects.toMatchObject({ code: 1, stderr: expect.stringMatching(/unknown option.*--detached/i) });
   });
 
   test("does not ship stale implementation versions", async () => {

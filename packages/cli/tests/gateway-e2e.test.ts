@@ -2,11 +2,72 @@ import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
 import { LocalHttpMcp } from "../src/gateway/local-http-mcp.js";
 import { McpGatewayRegistry } from "../src/gateway/registry.js";
-import { pingGateway } from "../src/gateway/context.js";
+import { getGatewayHealth, pingGateway } from "../src/gateway/context.js";
 import { Traffic } from "../src/traffic.js";
 import { RemoteBridgeClient } from "../src/gateway/bridge-client.js";
+import { connectMcpEndpoint } from "../src/client.js";
 
 describe("Gateway End-to-End Integration Suite", () => {
+  it("exposes the listener's actual port and generation through health", async () => {
+    const registry = new McpGatewayRegistry({});
+    await registry.start();
+    const httpMcp = new LocalHttpMcp(registry, {
+      host: "127.0.0.1",
+      port: 0,
+      path: "/mcp",
+      identity: {
+        pid: process.pid,
+        mode: "daemon",
+        generation: "11111111-1111-4111-8111-111111111111",
+      },
+    }, new Traffic());
+    const endpoint = await httpMcp.start();
+    const port = Number(new URL(endpoint).port);
+
+    await expect(getGatewayHealth("127.0.0.1", port, 100)).resolves.toEqual({
+      status: "ok",
+      pid: process.pid,
+      port,
+      mode: "daemon",
+      generation: "11111111-1111-4111-8111-111111111111",
+    });
+
+    await httpMcp.close();
+    await registry.close();
+  });
+
+  it("returns configured startup failures from list_mcp_servers", async () => {
+    const registry = new McpGatewayRegistry(
+      { broken: { url: "https://broken.example/mcp" } },
+      undefined,
+      { connectHttp: async () => { throw new Error("connection refused"); } } as never,
+    );
+    await registry.start();
+    const httpMcp = new LocalHttpMcp(
+      registry,
+      { host: "127.0.0.1", port: 0, path: "/mcp" },
+      new Traffic(),
+    );
+    const endpoint = await httpMcp.start();
+    const client = await connectMcpEndpoint(endpoint);
+
+    const result = await client.callTool("list_mcp_servers", { query: "" }) as {
+      content: Array<{ type: string; text: string }>;
+    };
+    expect(JSON.parse(result.content[0].text)).toEqual({ servers: [{
+      server_id: "broken",
+      server_name: "broken",
+      source: "local",
+      tool_count: 0,
+      discovery_state: "error",
+      error: "connection refused",
+    }] });
+
+    await client.close();
+    await httpMcp.close();
+    await registry.close();
+  });
+
   describe("pingGateway validation", () => {
     it("rejects non-listening ports", async () => {
       const result = await pingGateway("127.0.0.1", 59998, "/mcp", 50);

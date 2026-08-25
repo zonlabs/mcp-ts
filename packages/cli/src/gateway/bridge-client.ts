@@ -54,6 +54,8 @@ export interface RemoteBridgeClientOptions {
   reconnectMaxDelayMs?: number;
   requestTimeoutMs?: number;
   onRemoteCatalogChanged?: (catalog: CatalogSnapshot) => void;
+  onTerminalClose?: (code: number) => void;
+  onReplaced?: () => void;
 }
 
 interface PendingRequest {
@@ -71,6 +73,7 @@ export class RemoteBridgeClient {
   private reconnectDelay: number;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly pending = new Map<JsonRpcId, PendingRequest>();
+  private ready = false;
   private readyResolver: (() => void) | null = null;
   private readyPromise!: Promise<void>;
 
@@ -82,10 +85,20 @@ export class RemoteBridgeClient {
     this.resetReadyPromise();
   }
 
+  isReady(): boolean {
+    return !this.closed && this.ready;
+  }
+
   private resetReadyPromise(): void {
     this.readyPromise = new Promise((resolve) => {
       this.readyResolver = resolve;
     });
+  }
+
+  private signalReadyStateChange(): void {
+    const resolver = this.readyResolver;
+    this.resetReadyPromise();
+    resolver?.();
   }
 
   async start(): Promise<void> {
@@ -96,15 +109,26 @@ export class RemoteBridgeClient {
 
   async waitForReady(timeoutMs = 3_000): Promise<boolean> {
     if (this.closed) return false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    try {
-      const timeout = new Promise<boolean>((resolve) => {
-        timer = setTimeout(() => resolve(false), timeoutMs);
-      });
-      const ready = this.readyPromise.then(() => !this.closed);
-      return await Promise.race([ready, timeout]);
-    } finally {
-      if (timer) clearTimeout(timer);
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      if (this.closed) return false;
+      if (this.ready) return true;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return false;
+
+      const generation = this.readyPromise;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      try {
+        const changed = await Promise.race([
+          generation.then(() => true),
+          new Promise<boolean>((resolve) => {
+            timer = setTimeout(() => resolve(false), remaining);
+          }),
+        ]);
+        if (!changed) return false;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
     }
   }
 
@@ -127,7 +151,7 @@ export class RemoteBridgeClient {
       socket.on("open", () => {
         if (this.socket !== socket || this.closed) return;
         this.reconnectDelay = this.options.reconnectInitialDelayMs ?? 1_000;
-        void this.initialize().catch((error) => {
+        void this.initialize(socket).catch((error) => {
           serverLog("bridge", `initialization failed: ${error.message}`);
           socket.close(BRIDGE_CLOSE_CODES.incompatibleProtocol, "initialization failed");
         });
@@ -146,7 +170,7 @@ export class RemoteBridgeClient {
     }
   }
 
-  private async initialize(): Promise<void> {
+  private async initialize(socket: BridgeSocket): Promise<void> {
     const result = await this.sendRequest(BRIDGE_METHODS.initialize, {
       protocolVersion: BRIDGE_PROTOCOL_VERSION,
       clientInfo: { name: "@mcp-ts/cli", version: CLI_VERSION },
@@ -156,7 +180,10 @@ export class RemoteBridgeClient {
     await this.registry.replaceRemoteCatalog(initialized.remoteCatalog, (params) =>
       this.callRemoteTool(params),
     );
-    this.readyResolver?.();
+    if (this.socket !== socket || this.closed) return;
+    this.options.onRemoteCatalogChanged?.(initialized.remoteCatalog);
+    this.ready = true;
+    this.signalReadyStateChange();
   }
 
   async publishLocalCatalog(): Promise<void> {
@@ -224,9 +251,11 @@ export class RemoteBridgeClient {
 
     if (message.method === BRIDGE_METHODS.remoteCatalogChanged) {
       await this.registry.replaceRemoteCatalog(message.params, (params) => this.callRemoteTool(params));
+      if (this.socket !== socket || this.closed) return;
       this.options.onRemoteCatalogChanged?.(message.params);
       if (message.params.servers.length > 0) {
-        this.readyResolver?.();
+        this.ready = true;
+        this.signalReadyStateChange();
       }
       return;
     }
@@ -262,20 +291,23 @@ export class RemoteBridgeClient {
 
   private handleClose(socket: BridgeSocket, code: number): void {
     if (this.socket !== socket) return;
+    const terminal =
+      code === BRIDGE_CLOSE_CODES.replaced ||
+      code === BRIDGE_CLOSE_CODES.incompatibleProtocol ||
+      code === BRIDGE_CLOSE_CODES.loggedOut;
     this.socket = null;
-    this.resetReadyPromise();
+    this.ready = false;
+    if (terminal) this.closed = true;
+    this.signalReadyStateChange();
     this.rejectPending(new Error("Bridge connection closed"));
     void this.registry
       .replaceRemoteCatalog({ servers: [] }, (params) => this.callRemoteTool(params))
       .catch((error) =>
         serverLog("bridge", `failed to clear remote catalog: ${(error as Error).message}`),
       );
-    if (
-      code === BRIDGE_CLOSE_CODES.replaced ||
-      code === BRIDGE_CLOSE_CODES.incompatibleProtocol ||
-      code === BRIDGE_CLOSE_CODES.loggedOut
-    ) {
-      this.closed = true;
+    if (terminal) {
+      this.options.onTerminalClose?.(code);
+      if (code === BRIDGE_CLOSE_CODES.replaced) this.options.onReplaced?.();
       return;
     }
     if (!this.closed) this.scheduleReconnect();
@@ -302,9 +334,8 @@ export class RemoteBridgeClient {
 
   async stop(): Promise<void> {
     this.closed = true;
-    const resolver = this.readyResolver;
-    this.resetReadyPromise();
-    resolver?.();
+    this.ready = false;
+    this.signalReadyStateChange();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
     this.rejectPending(new Error("Bridge stopped"));
