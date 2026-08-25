@@ -10,7 +10,6 @@ interface LoginDependencies {
 
 export async function cmdLogin(
   remote: string,
-  loginBase?: string,
   dependencies: LoginDependencies = {},
 ): Promise<void> {
   printBanner();
@@ -18,7 +17,7 @@ export async function cmdLogin(
   const spin = spinner();
   spin.start("Waiting for sign-in in your browser...");
   try {
-    const result = await (dependencies.login ?? loginToRemote)(remote, loginBase);
+    const result = await (dependencies.login ?? loginToRemote)(remote);
     await (dependencies.activate ?? activateRunningGateway)();
     spin.stop(result.alreadySignedIn ? "Already signed in" : "Sign-in complete");
     outro(pc.green(result.alreadySignedIn ? "Already signed in" : "Signed in successfully"));

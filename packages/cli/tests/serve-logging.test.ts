@@ -12,6 +12,9 @@ const serveMocks = vi.hoisted(() => ({
   bridgeStop: vi.fn(async () => undefined),
   bridgeWaitForReady: vi.fn(async () => true),
   clearGatewayProcess: vi.fn(),
+  ensureFreshAuthSession: vi.fn(),
+  InvalidAuthSessionError: class extends Error {},
+  loginToRemote: vi.fn(),
   loadAuthSession: vi.fn(() => null as unknown),
   localClose: vi.fn(async () => undefined),
   localOptions: [] as LocalHttpMcpOptions[],
@@ -92,13 +95,13 @@ vi.mock("../src/gateway/config.js", () => ({
 }));
 
 vi.mock("../src/gateway/auth-store.js", () => ({
-  InvalidAuthSessionError: class extends Error {},
-  ensureFreshAuthSession: vi.fn(),
+  InvalidAuthSessionError: serveMocks.InvalidAuthSessionError,
+  ensureFreshAuthSession: serveMocks.ensureFreshAuthSession,
   extractUserInfo: vi.fn(() => undefined),
   loadAuthSession: serveMocks.loadAuthSession,
 }));
 
-vi.mock("../src/gateway/oauth.js", () => ({ loginToRemote: vi.fn() }));
+vi.mock("../src/gateway/oauth.js", () => ({ loginToRemote: serveMocks.loginToRemote }));
 
 vi.mock("../src/gateway/watcher.js", () => ({
   McpConfigWatcher: class {
@@ -137,6 +140,8 @@ beforeEach(() => {
   serveMocks.remoteServers.length = 0;
   serveMocks.bridgeOptions.length = 0;
   serveMocks.loadAuthSession.mockReturnValue(null);
+  serveMocks.ensureFreshAuthSession.mockReset();
+  serveMocks.loginToRemote.mockReset();
   serveMocks.bridgeStart.mockResolvedValue(undefined);
   serveMocks.bridgeStop.mockResolvedValue(undefined);
   serveMocks.bridgeWaitForReady.mockResolvedValue(true);
@@ -343,6 +348,27 @@ describe("gateway process ownership from serve", () => {
 });
 
 describe("initial catalog readiness from serve", () => {
+  it("does not start browser login when a saved remote session has expired", async () => {
+    const session = {
+      accessToken: "expired-token",
+      refreshToken: "expired-refresh",
+      accessTokenExpiresAt: Date.now() - 1,
+    };
+    serveMocks.loadAuthSession.mockReturnValue(session);
+    serveMocks.ensureFreshAuthSession.mockRejectedValue(new serveMocks.InvalidAuthSessionError());
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.bridgeOptions).toHaveLength(1));
+
+    await expect(serveMocks.bridgeOptions[0].getAccessToken()).rejects.toBeInstanceOf(
+      serveMocks.InvalidAuthSessionError,
+    );
+    expect(serveMocks.loginToRemote).not.toHaveBeenCalled();
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
   it("settles local-only immediately when no saved session exists", async () => {
     process.env.MCPA_DAEMON = "1";
     const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);

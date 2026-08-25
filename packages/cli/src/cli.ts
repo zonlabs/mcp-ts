@@ -107,8 +107,9 @@ export async function runCli(
     }
 
     if (command === "login") {
+      assertKnownOptions(commandArgs, { "--remote": "value" });
       const remote = option(commandArgs, "--remote") ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
-      await cmdLogin(remote, option(commandArgs, "--login"));
+      await cmdLogin(remote);
       return 0;
     }
 
@@ -168,7 +169,6 @@ export async function runCli(
         "--port": "value",
         "--path": "value",
         "--remote": "value",
-        "--login": "value",
         "--mode": "value",
         "--verbose": "boolean",
       });
@@ -177,7 +177,6 @@ export async function runCli(
         port: parsePortOption(option(commandArgs, "--port")),
         path: option(commandArgs, "--path"),
         remote: option(commandArgs, "--remote"),
-        login: option(commandArgs, "--login"),
         mode,
         verbose,
       });

@@ -88,6 +88,27 @@ describe("McpGatewayRegistry", () => {
     );
   });
 
+  it("does not retry an unchanged server that already failed when another server is removed", async () => {
+    const connectHttp = vi.fn(async () => {
+      throw new Error("authentication required");
+    });
+    const registry = new McpGatewayRegistry(
+      {
+        mem0: { url: "https://mem0.example/mcp" },
+        filesystem: { command: "unused" },
+      },
+      undefined,
+      { connectHttp } as never,
+    );
+
+    await registry.start();
+    expect(connectHttp).toHaveBeenCalledOnce();
+
+    await registry.reload({ mem0: { url: "https://mem0.example/mcp" } });
+
+    expect(connectHttp).toHaveBeenCalledOnce();
+  });
+
   it("keeps failed and timed-out enabled servers in the authoritative catalog", async () => {
     const registry = new McpGatewayRegistry(
       {

@@ -12,11 +12,9 @@ import { loadMcpJson } from "../gateway/config.js";
 import {
   ensureFreshAuthSession,
   extractUserInfo,
-  InvalidAuthSessionError,
   loadAuthSession,
   type AuthSession,
 } from "../gateway/auth-store.js";
-import { loginToRemote } from "../gateway/oauth.js";
 import {
   clearTicker,
   dim,
@@ -47,7 +45,6 @@ export interface ServeArgs {
   port?: number;
   path?: string;
   remote?: string;
-  login?: string;
   verbose?: boolean;
   mode?: "all" | "search";
 }
@@ -252,14 +249,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
         bridge = new RemoteBridgeClient(localRegistry, {
           remoteUrl: remote,
-          getAccessToken: async () => {
-            try {
-              return (await ensureFreshAuthSession(remote)).accessToken;
-            } catch (error) {
-              if (!(error instanceof InvalidAuthSessionError)) throw error;
-              return (await loginToRemote(remote, args.login)).accessToken;
-            }
-          },
+          getAccessToken: async () => (await ensureFreshAuthSession(remote)).accessToken,
           onRemoteCatalogChanged: (catalog) => {
             for (const message of describeRemoteCatalogChanges(previousRemoteCatalog, catalog)) {
               serverLog("bridge", message, args.verbose);
@@ -344,22 +334,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   watcher.start();
 
   if (!loadAuthSession(remote)) {
-    if (process.env.MCPA_DAEMON === "1" || !process.stdin.isTTY) {
-      warn("No saved remote session found. Running gateway in local-only mode.");
-    } else {
-      const signInSpin = spinner();
-      signInSpin.start(`Waiting for sign-in in browser (${remote})...`);
-      try {
-        await loginToRemote(remote, args.login);
-      } catch {
-        warn("Could not authenticate with remote gateway. Continuing in local-only mode.");
-      } finally {
-        signInSpin.stop("Sign-in complete");
-      }
-    }
-  }
-
-  if (!loadAuthSession(remote)) {
+    warn("No saved remote session found. Running gateway in local-only mode.");
     initialCatalog.settle({ state: "local-only" }, 0);
   }
 

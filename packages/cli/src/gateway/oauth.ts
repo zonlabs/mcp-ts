@@ -58,13 +58,12 @@ function reportSignedIn(remote: string, session: AuthSession): void {
 
 export async function loginToRemote(
   remote: string,
-  loginBase?: string,
 ): Promise<LoginResult> {
   const savedSession = await reuseSavedAuthSession(remote);
   if (savedSession) {
     return { ...savedSession, alreadySignedIn: true };
   }
-  const authOrigin = loginBase ?? process.env.LOGIN_BASE_URL ?? normalizeRemoteOrigin(remote);
+  const authOrigin = normalizeRemoteOrigin(remote);
   const callbackUrl = `http://127.0.0.1:${DEFAULT_OAUTH_CALLBACK_PORT}/callback`;
   const state = randomBytes(16).toString("base64url");
   let resolveCallback!: (value: { code: string; state: string }) => void;

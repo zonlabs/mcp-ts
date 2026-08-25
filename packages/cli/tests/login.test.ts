@@ -57,7 +57,7 @@ it("invokes gateway activation only after successful login", async () => {
     return { activated: true, port: 9123 } as const;
   });
 
-  await cmdLogin("https://remote.example", undefined, { login, activate });
+  await cmdLogin("https://remote.example", { login, activate });
 
   expect(order).toEqual(["login", "activate"]);
 });
@@ -73,7 +73,7 @@ it.each([
   loginUx.outro.mockClear();
   loginUx.spinnerStop.mockClear();
 
-  await cmdLogin("https://remote.example", undefined, {
+  await cmdLogin("https://remote.example", {
     login: vi.fn(async () => ({ ...authSession, alreadySignedIn })) as never,
     activate: vi.fn(async () => ({ activated: false })) as never,
   });
