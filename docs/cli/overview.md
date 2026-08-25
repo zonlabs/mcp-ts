@@ -1,68 +1,66 @@
 ---
 title: "Developer CLI Overview"
 sidebarTitle: "CLI Overview"
-description: "Explore remote MCP servers, test and benchmark tool discovery, generate TypeScript client wrappers, and run the local MCP gateway daemon with @mcp-ts/cli."
+description: "Learn how to use the @mcp-ts/cli to run a local MCP gateway, manage servers, and work with MCP tools."
 icon: "terminal"
 ---
 
-The **@mcp-ts/cli** (`mcpa` / `mcp-ts`) is an all-in-one developer CLI and gateway daemon for the Model Context Protocol.
+The **@mcp-ts/cli** (`mcpa` / `mcp-ts`) is a command-line tool for working with the Model Context Protocol.
 
-It allows you to inspect remote MCP endpoints, test on-demand tool discovery, generate typed wrappers, and bridge local MCP servers to remote assistants such as ChatGPT, Claude, and MCP Assistant with zero firewall configuration.
+It can run the servers in `mcp.json` through a local gateway. It also has commands for finding tools, viewing schemas, calling tools, running benchmarks, and generating code.
+
+## Install
 
 ```bash
-# Global install (gives you both `mcpa` and `mcp-ts`)
 npm install -g @mcp-ts/cli
-
-# Or run directly via npx
-npx @mcp-ts/cli [command]
 ```
 
----
+Or run it without a global install:
 
-## ⚡ Key Capabilities
-
-<CardGroup cols={2}>
-  <Card title="Local MCP Gateway" icon="server" href="/gateway/overview">
-    Run local stdio and HTTP/SSE MCP servers, aggregate tools, and expose a clean local HTTP endpoint (`http://127.0.0.1:8765/mcp`).
-  </Card>
-  <Card title="Remote Bridge" icon="cloud" href="/gateway/configuration">
-    Sign in via OAuth (`mcpa login`) and bridge local servers to remote AI assistants over an outbound JSON-RPC WebSocket.
-  </Card>
-  <Card title="Interactive REPL" icon="terminal" href="/cli/commands#connect">
-    Connect to any remote MCP server to search tools, view JSON schemas, and execute calls interactively.
-  </Card>
-  <Card title="Tool Wrappers Codegen" icon="code" href="/cli/commands#codegen">
-    Generate type-safe TypeScript wrappers from server tool schemas with zero runtime dependencies.
-  </Card>
-</CardGroup>
-
----
-
-## 🚀 Quick Start
-
-### 1. Initialize and Run Local Gateway
 ```bash
-# Generate a starter mcp.json in the current directory
+npx @mcp-ts/cli <command>
+```
+
+`mcpa` and `mcp-ts` are two names for the same CLI. These examples use CLI `0.3.0` and later.
+
+## Gateway model
+
+The gateway can run in the foreground or in the background:
+
+```bash
+mcpa serve          # foreground gateway with live logs
+mcpa daemon start   # the same gateway in the background
+mcpa daemon status  # lifecycle, owner, port, and health
+```
+
+The `list`, `search`, `schema`, and `call` commands use a running foreground gateway or managed daemon. If no gateway is running, the CLI starts the managed daemon.
+
+The default endpoint is `http://127.0.0.1:8765/mcp`. Configure local and remote servers in `mcp.json`; `mcpa init` creates a starter file.
+
+## Quick start
+
+```bash
 mcpa init
-
-# Run the local gateway daemon
 mcpa serve
+mcpa list --tools
+mcpa search "send email" --limit 10
+mcpa schema filesystem::read_file
+mcpa call filesystem::read_file '{"path":"package.json"}'
 ```
 
-### 2. Sign in to MCP Assistant
+For remote tools that need an MCP Assistant sign-in, run:
+
 ```bash
-# Authenticate your machine with MCP Assistant
 mcpa login
-
-# Start daemon with automated remote bridging
-mcpa serve
+mcpa list --tools
 ```
 
-### 3. Explore a Remote MCP Server
+To add a configured remote MCP server, use its name and endpoint:
+
 ```bash
-# Start an interactive REPL
-mcpa connect https://api.example.com/mcp
-
-# Search for specific tools
-mcpa search https://api.example.com/mcp "send message"
+mcpa connect exa https://mcp.exa.ai/mcp
 ```
+
+When a remote server needs OAuth, the `connect` command asks before opening a browser. Other commands do not open a browser; they show that auth is required.
+
+See the [command reference](/cli/commands) for flags, daemon lifecycle, JSON output, and interactive connection details.
