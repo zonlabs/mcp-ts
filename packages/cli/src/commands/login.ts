@@ -19,7 +19,7 @@ export async function cmdLogin(
   try {
     const result = await (dependencies.login ?? loginToRemote)(remote);
     await (dependencies.activate ?? activateRunningGateway)();
-    spin.stop(result.alreadySignedIn ? "Already signed in" : "Sign-in complete");
+    spin.stop();
     outro(pc.green(result.alreadySignedIn ? "Already signed in" : "Signed in successfully"));
   } catch (error) {
     spin.stop("Sign-in failed");

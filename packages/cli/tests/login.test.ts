@@ -63,11 +63,10 @@ it("invokes gateway activation only after successful login", async () => {
 });
 
 it.each([
-  { alreadySignedIn: true, spinnerText: "Already signed in", outroText: "Already signed in" },
-  { alreadySignedIn: false, spinnerText: "Sign-in complete", outroText: "Signed in successfully" },
+  { alreadySignedIn: true, outroText: "Already signed in" },
+  { alreadySignedIn: false, outroText: "Signed in successfully" },
 ])("renders the correct login result when alreadySignedIn=$alreadySignedIn", async ({
   alreadySignedIn,
-  spinnerText,
   outroText,
 }) => {
   loginUx.outro.mockClear();
@@ -78,7 +77,7 @@ it.each([
     activate: vi.fn(async () => ({ activated: false })) as never,
   });
 
-  expect(loginUx.spinnerStop).toHaveBeenCalledWith(spinnerText);
+  expect(loginUx.spinnerStop).toHaveBeenCalledWith();
   expect(loginUx.outro).toHaveBeenCalledWith(outroText);
 });
 
