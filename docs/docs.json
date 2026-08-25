@@ -60,10 +60,7 @@
             "group": "Developer CLI & Gateway",
             "pages": [
               "cli/overview",
-              "cli/commands",
-              "gateway/overview",
-              "gateway/installation",
-              "gateway/configuration"
+              "cli/commands"
             ]
           },
           {

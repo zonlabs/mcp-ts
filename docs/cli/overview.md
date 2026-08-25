@@ -5,6 +5,8 @@ description: "Learn how to use the @mcp-ts/cli to run a local MCP gateway, manag
 icon: "terminal"
 ---
 
+> For setup, automation, and troubleshooting guidance, see the [`mcp-cli` skill](https://github.com/zonlabs/mcp-ts/blob/main/skills/mcp-cli/SKILL.md).
+
 The **@mcp-ts/cli** (`mcpa` / `mcp-ts`) is a command-line tool for working with the Model Context Protocol.
 
 It can run the servers in `mcp.json` through a local gateway. It also has commands for finding tools, viewing schemas, calling tools, running benchmarks, and generating code.
