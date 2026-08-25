@@ -44,6 +44,7 @@ It gives you a practical foundation for building MCP-native apps:
 - Have multiple users using your application
 - Already using AI SDK, LangChain, Mastra, and AG-UI Protocol where handling oauth, tokens management for mcp clients seems overhead
 - Reduce large model context with on-demand tool discovery through `ToolRouter`
+- Review reproducible ToolRouter context-efficiency results in the [benchmark report](benchmarks/benchmark.md)
 - Render interactive MCP Apps in your application
 - Run programmatic tool calling inside a secure sandbox with `CodeMode`
 

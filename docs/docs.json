@@ -1,11 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
   "name": "MCP Toolkit",
-  "banner": {
-    "content": "🎉 **v2.0.0 is out!** Please note that the API may contain breaking changes. See the [migration guide](/migration) and [changelog](/changelog) for details.",
-    "dismissible": true,
-    "type": "critical"
-  },
   "github": "https://github.com/zonlabs/mcp-ts",
   "theme": "mint",
   "logo": {
