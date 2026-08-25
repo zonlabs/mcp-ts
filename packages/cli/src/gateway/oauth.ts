@@ -5,7 +5,9 @@ import { execFile } from "node:child_process";
 import {
   authFilePath,
   clearAuthSession,
+  ensureFreshAuthSession,
   extractUserInfo,
+  InvalidAuthSessionError,
   loadAuthSession,
   normalizeRemoteOrigin,
   saveAuthSession,
@@ -20,10 +22,45 @@ function openBrowser(url: string): void {
   else execFile("xdg-open", [url]);
 }
 
+interface SavedSessionDependencies {
+  load?: typeof loadAuthSession;
+  ensureFresh?: typeof ensureFreshAuthSession;
+}
+
+export async function reuseSavedAuthSession(
+  remote: string,
+  dependencies: SavedSessionDependencies = {},
+): Promise<AuthSession | null> {
+  const load = dependencies.load ?? loadAuthSession;
+  if (!load(remote)) return null;
+  try {
+    return await (dependencies.ensureFresh ?? ensureFreshAuthSession)(remote);
+  } catch (error) {
+    if (error instanceof InvalidAuthSessionError) return null;
+    throw error;
+  }
+}
+
+function reportSignedIn(remote: string, session: AuthSession): void {
+  const userInfo = extractUserInfo(session);
+  const origin = normalizeRemoteOrigin(remote);
+  if (userInfo?.email) {
+    success(`Signed in as ${pc.bold(userInfo.email)} (${origin})`);
+  } else {
+    success(`Signed in to ${origin}`);
+  }
+  treeNote(pc.dim(`Auth state saved to ${authFilePath()}`));
+}
+
 export async function loginToRemote(
   remote: string,
   loginBase?: string,
 ): Promise<AuthSession> {
+  const savedSession = await reuseSavedAuthSession(remote);
+  if (savedSession) {
+    reportSignedIn(remote, savedSession);
+    return savedSession;
+  }
   const authOrigin = loginBase ?? process.env.LOGIN_BASE_URL ?? normalizeRemoteOrigin(remote);
   const callbackUrl = `http://127.0.0.1:${DEFAULT_OAUTH_CALLBACK_PORT}/callback`;
   const state = randomBytes(16).toString("base64url");
@@ -71,13 +108,7 @@ export async function loginToRemote(
       session.userInfo = userInfo;
     }
     saveAuthSession(remote, session);
-    const origin = normalizeRemoteOrigin(remote);
-    if (userInfo?.email) {
-      success(`Signed in as ${pc.bold(userInfo.email)} (${origin})`);
-    } else {
-      success(`Signed in to ${origin}`);
-    }
-    treeNote(pc.dim(`Auth state saved to ${authFilePath()}`));
+    reportSignedIn(remote, session);
     return session;
   } finally {
     server.close();
