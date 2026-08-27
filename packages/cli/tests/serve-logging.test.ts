@@ -462,6 +462,11 @@ describe("initial catalog readiness from serve", () => {
 
     expect(serveMocks.confirmSignIn).toHaveBeenCalledOnce();
     expect(serveMocks.loginToRemote).toHaveBeenCalledWith("https://api.mcp-assistant.in");
+    expect(serveMocks.spinnerStart).not.toHaveBeenCalledWith("Waiting for sign-in in your browser...");
+    expect(serveMocks.spinnerStart).toHaveBeenCalledWith("Connecting to upstream...");
+    expect(serveMocks.spinnerStop).toHaveBeenCalledWith(
+      "🤝 Connection established with upstream gateway!",
+    );
     const barrier = serveMocks.localOptions[0].initialCatalog as InitialCatalogBarrier;
     await expect(barrier.wait()).resolves.toEqual({ state: "ready" });
 
@@ -573,7 +578,7 @@ describe("initial catalog readiness from serve", () => {
         );
       });
       expect(serveMocks.spinnerStop).not.toHaveBeenCalledWith(
-        expect.stringContaining("Connected to remote gateway"),
+        expect.stringContaining("Connection established with upstream gateway!"),
       );
       expect(serveMocks.treeSummary).toHaveBeenCalledWith(
         "Gateway Summary",

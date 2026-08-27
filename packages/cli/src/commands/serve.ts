@@ -414,15 +414,6 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   }
 
   const runRemoteTask = async () => {
-    if (!loadAuthSession(remote)) {
-      try {
-        await loginToRemote(remote);
-      } catch (cause) {
-        const loginError = cause instanceof Error ? cause : new Error(String(cause));
-        initialCatalog.settle({ state: "local-only" }, 0);
-        return { ready: false, error: loginError };
-      }
-    }
     const outcome = await activateRemote();
     return {
       ready: outcome.ready,
@@ -438,26 +429,41 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
   if (shouldConnectRemote) {
     const remoteStartTime = performance.now();
-    const bridgeSpin = spinner();
-    bridgeSpin.start(session ? `Connecting to remote gateway (${remote})...` : "Waiting for sign-in in your browser...");
-    const remoteOutcome = await runRemoteTask();
-    const remoteDuration = ((performance.now() - remoteStartTime) / 1000).toFixed(2);
-    const remoteServers = localRegistry.getRemoteCatalog().servers;
+    let loginError: Error | null = null;
+    if (!session) {
+      try {
+        await loginToRemote(remote);
+      } catch (cause) {
+        loginError = cause instanceof Error ? cause : new Error(String(cause));
+        initialCatalog.settle({ state: "local-only" }, 0);
+      }
+    }
     const refreshedSession = loadAuthSession(remote);
     const refreshedUserInfo = extractUserInfo(refreshedSession);
     userEmail = refreshedUserInfo?.email ?? userEmail;
     const userSuffix = userEmail ? ` as ${pc.bold(userEmail)}` : "";
-    if (remoteOutcome.ready) {
-      bridgeSpin.stop(`Connected to remote gateway${userSuffix}`);
-      bridgeStatus = pc.cyan(remote);
-      if (remoteServers.length > 0) {
-        success(`Found ${pc.bold(String(remoteServers.length))} remote server(s) ${pc.dim(`in ${remoteDuration}s`)}`);
-        renderServerList(remoteServers, 5);
-      }
-    } else {
-      bridgeSpin.stop(`Remote gateway unavailable${userSuffix}`);
-      warn(`Remote catalog initialization failed: ${remoteOutcome.error?.message ?? "unknown error"}`);
+
+    if (loginError) {
+      warn(`Remote sign-in failed: ${loginError.message}`);
       bridgeStatus = `${pc.cyan(remote)} ${pc.dim("(unavailable)")}`;
+    } else {
+      const bridgeSpin = spinner();
+      bridgeSpin.start("Connecting to upstream...");
+      const remoteOutcome = await runRemoteTask();
+      const remoteDuration = ((performance.now() - remoteStartTime) / 1000).toFixed(2);
+      const remoteServers = localRegistry.getRemoteCatalog().servers;
+      if (remoteOutcome.ready) {
+        bridgeSpin.stop("🤝 Connection established with upstream gateway!");
+        bridgeStatus = pc.cyan(remote);
+        if (remoteServers.length > 0) {
+          success(`Found ${pc.bold(String(remoteServers.length))} remote server(s) ${pc.dim(`in ${remoteDuration}s`)}`);
+          renderServerList(remoteServers, 5);
+        }
+      } else {
+        bridgeSpin.stop(`Remote gateway unavailable${userSuffix}`);
+        warn(`Remote catalog initialization failed: ${remoteOutcome.error?.message ?? "unknown error"}`);
+        bridgeStatus = `${pc.cyan(remote)} ${pc.dim("(unavailable)")}`;
+      }
     }
   } else if (isDaemonMode) {
     warn("No remote session available. Local endpoint only.");

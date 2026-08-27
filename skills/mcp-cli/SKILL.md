@@ -11,6 +11,12 @@ Use this skill for every task that invokes `mcpa` or `mcp-ts`. CLI 0.3.0 has one
 
 Normal `list`, `search`, `schema`, and `call` commands always use that gateway. They reuse a healthy managed or foreground gateway and auto-start the managed daemon when the gateway is stopped.
 
+## Remote MCP catalog
+
+The CLI connects to the hosted gateway at `https://api.mcp-assistant.in` for authenticated access to remote MCP servers. Users manage those connections at `https://mcp-assistant.in/mcp?tab=apps`.
+
+Servers connected or disconnected in the MCP Assistant app are synchronized automatically with the running CLI gateway and become available or unavailable in the remote catalog. Do not add app-managed remote servers to local `mcp.json`, and do not restart a healthy gateway to pick up connection changes. Use `mcpa list --tools` to inspect the current combined local and remote catalog.
+
 ## Mandatory preflight
 
 Complete these checks before MCP work:
