@@ -49,7 +49,7 @@ function reportSignedIn(remote: string, session: AuthSession): void {
   const userInfo = extractUserInfo(session);
   const origin = normalizeRemoteOrigin(remote);
   if (userInfo?.email) {
-    success(`Signed in as ${pc.bold(userInfo.email)} (${origin})`);
+    success(`Signed in as ${pc.bold(userInfo.email)}`);
   } else {
     success(`Signed in to ${origin}`);
   }

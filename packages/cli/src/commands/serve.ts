@@ -39,6 +39,8 @@ import {
   createGatewayGeneration,
   isGatewayGeneration,
 } from "../gateway/gateway-health.js";
+import { loginToRemote } from "../gateway/oauth.js";
+import { confirmSignIn } from "../gateway/sign-in-prompt.js";
 import { validatePort } from "../cli-options.js";
 
 export interface ServeArgs {
@@ -217,6 +219,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   const mode = args.mode ?? "search";
   const initialCatalog = new InitialCatalogBarrier();
   const remote = args.remote ?? process.env.REMOTE_GATEWAY_URL ?? DEFAULT_REMOTE_GATEWAY_URL;
+  const isDaemonMode = process.env.MCPA_DAEMON === "1";
   let previousRemoteCatalog: CatalogSnapshot = { servers: [] };
   let activeSessionFingerprint: string | null = null;
   let bridgeActivation: Promise<{ ready: boolean; error?: string }> | null = null;
@@ -314,7 +317,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
       initialCatalog,
       identity: {
         pid: process.pid,
-        mode: process.env.MCPA_DAEMON === "1" ? "daemon" : "foreground",
+        mode: isDaemonMode ? "daemon" : "foreground",
         generation: gatewayGeneration,
       },
       activateRemote,
@@ -335,7 +338,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   });
   watcher.start();
 
-  if (!loadAuthSession(remote)) {
+  if (isDaemonMode && !loadAuthSession(remote)) {
     warn("No saved remote session found. Running gateway in local-only mode.");
     initialCatalog.settle({ state: "local-only" }, 0);
   }
@@ -384,15 +387,6 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     throw cause;
   }
 
-  const remoteStartTime = performance.now();
-  const remoteTask = (async () => {
-    if (!loadAuthSession(remote)) return { ready: false, error: null };
-    const outcome = await activateRemote();
-    return {
-      ready: outcome.ready,
-      error: outcome.error ? new Error(outcome.error) : null,
-    };
-  })();
   const localDuration = ((performance.now() - localStartTime) / 1000).toFixed(2);
   const localServers = localRegistry.getLocalCatalog().servers;
   const startupSummary = configuredServerCount === 0
@@ -411,18 +405,47 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
     }
   }
 
+  let shouldConnectRemote = Boolean(loadAuthSession(remote));
+  if (!shouldConnectRemote && !isDaemonMode) {
+    shouldConnectRemote = await confirmSignIn();
+    if (!shouldConnectRemote) {
+      initialCatalog.settle({ state: "local-only" }, 0);
+    }
+  }
+
+  const runRemoteTask = async () => {
+    if (!loadAuthSession(remote)) {
+      try {
+        await loginToRemote(remote);
+      } catch (cause) {
+        const loginError = cause instanceof Error ? cause : new Error(String(cause));
+        initialCatalog.settle({ state: "local-only" }, 0);
+        return { ready: false, error: loginError };
+      }
+    }
+    const outcome = await activateRemote();
+    return {
+      ready: outcome.ready,
+      error: outcome.error ? new Error(outcome.error) : null,
+    };
+  };
+
   // 2. Render Remote Bridge UI (started only after local ownership was claimed)
   const session = loadAuthSession(remote);
   const userInfo = extractUserInfo(session);
-  const userEmail = userInfo?.email;
+  let userEmail = userInfo?.email;
   let bridgeStatus = pc.dim("disabled");
 
-  if (session) {
+  if (shouldConnectRemote) {
+    const remoteStartTime = performance.now();
     const bridgeSpin = spinner();
-    bridgeSpin.start(`Connecting to remote gateway (${remote})...`);
-    const remoteOutcome = await remoteTask;
+    bridgeSpin.start(session ? `Connecting to remote gateway (${remote})...` : "Waiting for sign-in in your browser...");
+    const remoteOutcome = await runRemoteTask();
     const remoteDuration = ((performance.now() - remoteStartTime) / 1000).toFixed(2);
     const remoteServers = localRegistry.getRemoteCatalog().servers;
+    const refreshedSession = loadAuthSession(remote);
+    const refreshedUserInfo = extractUserInfo(refreshedSession);
+    userEmail = refreshedUserInfo?.email ?? userEmail;
     const userSuffix = userEmail ? ` as ${pc.bold(userEmail)}` : "";
     if (remoteOutcome.ready) {
       bridgeSpin.stop(`Connected to remote gateway${userSuffix}`);
@@ -436,7 +459,7 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
       warn(`Remote catalog initialization failed: ${remoteOutcome.error?.message ?? "unknown error"}`);
       bridgeStatus = `${pc.cyan(remote)} ${pc.dim("(unavailable)")}`;
     }
-  } else {
+  } else if (isDaemonMode) {
     warn("No remote session available. Local endpoint only.");
   }
 

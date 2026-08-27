@@ -12,6 +12,7 @@ const serveMocks = vi.hoisted(() => ({
   bridgeStop: vi.fn(async () => undefined),
   bridgeWaitForReady: vi.fn(async () => true),
   clearGatewayProcess: vi.fn(),
+  confirmSignIn: vi.fn(async () => true),
   ensureFreshAuthSession: vi.fn(),
   fileLink: vi.fn((label: string) => label),
   InvalidAuthSessionError: class extends Error {},
@@ -109,6 +110,10 @@ vi.mock("../src/gateway/auth-store.js", () => ({
 
 vi.mock("../src/gateway/oauth.js", () => ({ loginToRemote: serveMocks.loginToRemote }));
 
+vi.mock("../src/gateway/sign-in-prompt.js", () => ({
+  confirmSignIn: serveMocks.confirmSignIn,
+}));
+
 vi.mock("../src/gateway/watcher.js", () => ({
   McpConfigWatcher: class {
     start = vi.fn();
@@ -150,6 +155,8 @@ beforeEach(() => {
   serveMocks.localServerStartupErrors.clear();
   serveMocks.bridgeOptions.length = 0;
   serveMocks.loadAuthSession.mockReturnValue(null);
+  serveMocks.confirmSignIn.mockReset();
+  serveMocks.confirmSignIn.mockResolvedValue(true);
   serveMocks.ensureFreshAuthSession.mockReset();
   serveMocks.loginToRemote.mockReset();
   serveMocks.loadMcpJson.mockReturnValue({ path: "C:/workspace/mcp.json", config: { mcpServers: {} } });
@@ -430,6 +437,47 @@ describe("initial catalog readiness from serve", () => {
     const serving = cmdServe({ port: 9123 });
     await vi.waitFor(() => expect(serveMocks.localStart).toHaveBeenCalledOnce());
 
+    const barrier = serveMocks.localOptions[0].initialCatalog as InitialCatalogBarrier;
+    await expect(barrier.wait()).resolves.toEqual({ state: "local-only" });
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("signs in after foreground consent when no saved session exists", async () => {
+    const signedInSession = {
+      accessToken: "token-after-login",
+      refreshToken: "refresh-after-login",
+      accessTokenExpiresAt: Date.now() + 60_000,
+    };
+    serveMocks.loginToRemote.mockImplementationOnce(async () => {
+      serveMocks.loadAuthSession.mockReturnValue(signedInSession);
+      return { ...signedInSession, alreadySignedIn: false };
+    });
+    serveMocks.ensureFreshAuthSession.mockResolvedValue(signedInSession);
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.bridgeStart).toHaveBeenCalledOnce());
+
+    expect(serveMocks.confirmSignIn).toHaveBeenCalledOnce();
+    expect(serveMocks.loginToRemote).toHaveBeenCalledWith("https://api.mcp-assistant.in");
+    const barrier = serveMocks.localOptions[0].initialCatalog as InitialCatalogBarrier;
+    await expect(barrier.wait()).resolves.toEqual({ state: "ready" });
+
+    await stopServing(serving);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it("continues local-only when foreground sign-in is declined", async () => {
+    serveMocks.confirmSignIn.mockResolvedValueOnce(false);
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    const serving = cmdServe({ port: 9123 });
+    await vi.waitFor(() => expect(serveMocks.confirmSignIn).toHaveBeenCalledOnce());
+
+    expect(serveMocks.loginToRemote).not.toHaveBeenCalled();
+    expect(serveMocks.bridgeStart).not.toHaveBeenCalled();
     const barrier = serveMocks.localOptions[0].initialCatalog as InitialCatalogBarrier;
     await expect(barrier.wait()).resolves.toEqual({ state: "local-only" });
 
