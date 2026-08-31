@@ -1,0 +1,105 @@
+import React from "react";
+import { useI18n } from "@/lib/web-i18n";
+
+const RECIPE_DATA = [
+  {
+    id: "composio-email-summary",
+    title: "Email Summary",
+    description: "Using Composio MCP to get access to Gmail, check my unread emails from today and summarize the important ones",
+    icons: ["https://logos.composio.dev/api/gmail"],
+  },
+  {
+    id: "web-search",
+    title: "Semantic Search",
+    description: "Search the web using Exa to find the latest research papers on LLM optimization from the past month.",
+    icons: ["https://awsmp-logos.s3.amazonaws.com/seller-7s5a3z2w3unay/b6519f9126c0432087c79827b95283c6.png"],
+  },
+  {
+    id: "github-issue-summary",
+    title: "GitHub Issue Summary",
+    description: "Use Composio MCP to get access to Github to fetch the latest open issues for this repository and summarize the most critical bugs.",
+    icons: ["https://logos.composio.dev/api/github"],
+  },
+  {
+    id: "supabase-project",
+    title: "Supabase Project",
+    description: "You help users manage Supabase projects and databases. Assist with projects, tables, migrations, SQL, and troubleshooting while following Supabase best practices. Use documentation and project context to provide accurate, safe, and actionable guidance.",
+    icons: ["https://github.com/supabase.png"],
+  },
+  {
+    id: "notion-meeting-prep",
+    title: "Notion Meeting Prep",
+    description: "Generate a briefing document by synthesizing project notes and recent updates directly from Notion.",
+    icons: [
+      "https://api.iconify.design/logos:notion-icon.svg",
+    ],
+  },
+  {
+    id: "stock-research",
+    title: "Market Analysis",
+    description: "Use Alpha Vantage to fetch the last 30 days of daily prices for {TICKER}. Summarize whether the price trend is up, down, or flat.",
+    icons: [
+      "https://media.licdn.com/dms/image/v2/C4E0BAQExXHCGjZYOeg/company-logo_200_200/company-logo_200_200/0/1635279005628/alpha_vantage_inc_logo?e=2147483647&v=beta&t=1eCKMzXdgp4XiMrzN4edDUCqMdUSHQ9nx5nXjD8RQ3Q",
+    ],
+  },
+];
+interface Props {
+  onAction: (text: string) => void;
+}
+
+export const RecipeComponent: React.FC<Props> = ({ onAction }) => {
+  const { t } = useI18n();
+
+  const localizedRecipeData = [
+    { ...RECIPE_DATA[0], title: t("recipeEmailSummary"), description: t("recipeEmailSummaryDesc") },
+    { ...RECIPE_DATA[1], title: t("recipeSemanticSearch"), description: t("recipeSemanticSearchDesc") },
+    { ...RECIPE_DATA[2], title: t("recipeGithubIssueSummary"), description: t("recipeGithubIssueSummaryDesc") },
+    { ...RECIPE_DATA[3], title: t("recipeSupabaseProject"), description: t("recipeSupabaseProjectDesc") },
+    { ...RECIPE_DATA[4], title: t("recipeNotionMeetingPrep"), description: t("recipeNotionMeetingPrepDesc") },
+    { ...RECIPE_DATA[5], title: t("recipeMarketAnalysis"), description: t("recipeMarketAnalysisDesc") },
+  ];
+
+  return (
+    <div className="grid sm:grid-cols-3 gap-2.5 w-full max-w-2xl mx-auto">
+      {localizedRecipeData.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => onAction(item.description)}
+          className="
+            group relative text-left
+            h-[92px]
+            rounded-sm border border-border
+            bg-card
+            px-3.5 py-2.5
+            flex flex-col justify-between
+            hover:border-foreground/40
+            transition-all
+            cursor-pointer
+          "
+        >
+          {/* Icons */}
+          <div className="absolute top-2.5 right-2.5 flex gap-1">
+            {item.icons.map((icon, i) => (
+              <img
+                key={i}
+                src={icon}
+                className="w-5 h-5 rounded-xs opacity-70 group-hover:opacity-100 object-contain"
+                alt=""
+              />
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="pr-8">
+            <h3 className="text-xs font-semibold text-foreground leading-tight">
+              {item.title}
+            </h3>
+            <p className="mt-1 text-[11px] text-muted-foreground leading-snug line-clamp-2">
+              {item.description}
+            </p>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+};

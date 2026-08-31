@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MCP Apps sandbox proxy</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100vh;
+        width: 100vw;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      iframe {
+        background-color: transparent;
+        border: 0px none transparent;
+        padding: 0;
+        overflow: hidden;
+        flex-grow: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      (function () {
+        /** @see SANDBOX_RESOURCE_READY_METHOD in @modelcontextprotocol/ext-apps/app-bridge */
+        var RESOURCE_READY = 'ui/notifications/sandbox-resource-ready';
+        /** @see SANDBOX_PROXY_READY_METHOD in @modelcontextprotocol/ext-apps/app-bridge */
+        var PROXY_READY = 'ui/notifications/sandbox-proxy-ready';
+
+        var params = new URLSearchParams(location.search);
+        var cspParam = params.get('csp');
+        var urlCspString = '';
+        if (cspParam) {
+          try {
+            var cspObj = JSON.parse(cspParam);
+            if (cspObj && typeof cspObj === 'object' && !Array.isArray(cspObj)) {
+              urlCspString = Object.entries(cspObj)
+                .map(function (e) {
+                  return e[0] + ' ' + e[1];
+                })
+                .join('; ');
+            }
+          } catch (e) {}
+        }
+
+        function isDirectiveMap(obj) {
+          if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+          return Object.keys(obj).some(function (k) {
+            return k.indexOf('-') !== -1;
+          });
+        }
+
+        function cspMetaContent(notificationCsp) {
+          if (notificationCsp && isDirectiveMap(notificationCsp)) {
+            return Object.entries(notificationCsp)
+              .map(function (e) {
+                return e[0] + ' ' + e[1];
+              })
+              .join('; ');
+          }
+          return urlCspString;
+        }
+
+        function escapeMetaContent(s) {
+          return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        }
+
+        var inner = document.createElement('iframe');
+        inner.id = 'root';
+        var pending = null;
+
+        function renderHtmlInIframe(markup, cspDirectives) {
+          var doc = inner.contentDocument || inner.contentWindow.document;
+          if (!doc) return false;
+          try {
+            doc.open();
+            var csp = cspDirectives || urlCspString;
+            if (csp) {
+              doc.write(
+                '<meta http-equiv="Content-Security-Policy" content="' +
+                  escapeMetaContent(csp) +
+                  '">',
+              );
+            }
+            doc.write(markup);
+            doc.close();
+            return true;
+          } catch (err) {
+            return false;
+          }
+        }
+
+        inner.addEventListener('load', function () {
+          if (pending) {
+            var p = pending;
+            pending = null;
+            renderHtmlInIframe(p.html, p.csp);
+          }
+        });
+
+        inner.style.cssText = 'width:100%;height:100%;border:none;';
+        inner.src = 'about:blank';
+        inner.setAttribute('allow', 'fullscreen');
+        document.body.appendChild(inner);
+
+        window.addEventListener('message', function (event) {
+          if (event.source === window.parent) {
+            var d = event.data;
+            if (d && d.method === RESOURCE_READY && d.params && typeof d.params.html === 'string') {
+              var html = d.params.html;
+              var csp = cspMetaContent(d.params.csp);
+              if (!renderHtmlInIframe(html, csp)) {
+                pending = { html: html, csp: csp };
+              }
+              return;
+            }
+            if (inner.contentWindow) {
+              inner.contentWindow.postMessage(d, '*');
+            }
+          } else if (event.source === inner.contentWindow) {
+            window.parent.postMessage(event.data, '*');
+          }
+        });
+
+        window.parent.postMessage(
+          { jsonrpc: '2.0', method: PROXY_READY, params: {} },
+          '*',
+        );
+      })();
+    </script>
+  </body>
+</html>

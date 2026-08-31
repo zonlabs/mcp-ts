@@ -1,0 +1,477 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+/* Warp Design Language System */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist), var(--font-inter), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-geist: var(--font-geist);
+  --font-inter: var(--font-inter);
+  --font-geist-mono: var(--font-geist-mono);
+
+  /* Warp custom semantic tokens */
+  --color-canvas: var(--canvas);
+  --color-canvas-soft: var(--canvas-soft);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-body-strong: var(--body-strong);
+  --color-body: var(--body-text);
+  --color-mute: var(--mute);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-full: 9999px;
+
+  --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite alternate;
+  --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
+
+  @keyframes shimmer-slide {
+    to {
+      transform: translate(calc(100cqw - 100%), 0);
+    }
+  }
+
+  @keyframes spin-around {
+    0% {
+      transform: translateZ(0) rotate(0);
+    }
+
+    15%,
+    35% {
+      transform: translateZ(0) rotate(90deg);
+    }
+
+    65%,
+    85% {
+      transform: translateZ(0) rotate(270deg);
+    }
+
+    100% {
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+}
+
+:root {
+  --heading-weight: 400;
+  --heading-letter-spacing: -0.035em;
+  --body-weight: 400;
+  --lh-tight: 1.1;
+  --lh-snug: 1.25;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.75;
+  --radius: 4px;
+
+  /* Clean Modern Studio - Light Mode */
+  --canvas: #ffffff;
+  --canvas-soft: #f1f5f9;
+  --hairline: #e2e8f0;
+  --ink: #0f172a;
+  --body-strong: #334155;
+  --body-text: #475569;
+  --mute: #64748b;
+
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f172a;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #e2e8f0;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #94a3b8;
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #6366f1;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+  --sidebar: #f7f6f2;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #1c1917;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edebe4;
+  --sidebar-accent-foreground: #1c1917;
+  --sidebar-border: #e6e3da;
+  --sidebar-ring: #a8a29e;
+}
+
+.dark,
+:root.dark,
+html.dark {
+  --radius: 4px;
+
+  /* Pure Monochrome Neutral - Dark Mode (Zero Blue Undertones) */
+  --canvas: #0f0f0f;
+  --canvas-soft: #171717;
+  --hairline: #262626;
+  --ink: #f5f5f5;
+  --body-strong: #e5e5e5;
+  --body-text: #a3a3a3;
+  --mute: #737373;
+
+  --background: #0f0f0f;
+  --foreground: #f5f5f5;
+  --card: #171717;
+  --card-foreground: #f5f5f5;
+  --popover: #171717;
+  --popover-foreground: #f5f5f5;
+  --primary: #f5f5f5;
+  --primary-foreground: #0a0a0a;
+  --secondary: #212121;
+  --secondary-foreground: #f5f5f5;
+  --muted: #171717;
+  --muted-foreground: #8a8a8a;
+  --accent: #212121;
+  --accent-foreground: #f5f5f5;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #262626;
+  --input: #262626;
+  --ring: #737373;
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #6366f1;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+  --sidebar: #080808;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #f5f5f5;
+  --sidebar-primary-foreground: #080808;
+  --sidebar-accent: #171717;
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: #212121;
+  --sidebar-ring: #737373;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-sans font-semibold leading-tight tracking-tight text-foreground;
+  }
+
+  input,
+  textarea,
+  button,
+  select,
+  label {
+    @apply font-sans;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    @apply font-mono;
+  }
+
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not(:disabled):not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* Thin Minimalist Auto-Hiding Scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  *:hover {
+    scrollbar-color: var(--border) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    transition: background-color 0.15s ease-in-out;
+  }
+
+  *:hover::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide inner scrollbars in chat conversation viewports */
+  [data-stick-to-bottom],
+  [data-stick-to-bottom-scroll-viewport],
+  .conversation-scroll-viewport {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  [data-stick-to-bottom]::-webkit-scrollbar,
+  [data-stick-to-bottom-scroll-viewport]::-webkit-scrollbar,
+  .conversation-scroll-viewport::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .scrollbar-minimal {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .scrollbar-minimal:hover {
+    scrollbar-color: var(--hairline) transparent;
+  }
+
+  .scrollbar-minimal::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-minimal::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 2px;
+  }
+
+  .scrollbar-minimal:hover::-webkit-scrollbar-thumb {
+    background-color: var(--hairline);
+  }
+
+  .text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@layer components {
+
+  /* Warp Card & Panel styles */
+  .warp-card {
+    @apply bg-card border border-border rounded-md text-foreground;
+  }
+
+  .warp-card-hover {
+    @apply transition-colors hover:border-body-strong/30;
+  }
+
+  /* Prose styling for chat & markdown output */
+  .prose {
+    @apply text-foreground max-w-none;
+  }
+
+  .prose p {
+    @apply my-2 leading-relaxed text-body-strong;
+  }
+
+  .prose p:first-child {
+    @apply mt-0;
+  }
+
+  .prose p:last-child {
+    @apply mb-0;
+  }
+
+  .prose strong {
+    @apply font-medium text-foreground;
+  }
+
+  .prose em {
+    @apply italic;
+  }
+
+  .prose ul,
+  .prose ol {
+    @apply my-2 pl-5 space-y-1 text-body-strong;
+  }
+
+  .prose ul {
+    @apply list-disc;
+  }
+
+  .prose ol {
+    @apply list-decimal;
+  }
+
+  .prose li {
+    @apply leading-relaxed;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4 {
+    @apply font-sans font-medium text-foreground mt-4 mb-2 tracking-tight;
+  }
+
+  .prose h1 {
+    @apply text-xl;
+  }
+
+  .prose h2 {
+    @apply text-lg;
+  }
+
+  .prose h3 {
+    @apply text-base font-semibold;
+  }
+
+  .prose h4 {
+    @apply text-sm font-semibold;
+  }
+
+  .prose code {
+    @apply bg-canvas-soft border border-hairline px-1.5 py-0.5 rounded-sm text-xs font-mono text-ink;
+  }
+
+  .prose pre {
+    @apply bg-canvas-soft border border-hairline p-3.5 rounded-md overflow-x-auto my-3 text-xs font-mono;
+  }
+
+  .prose pre code {
+    @apply bg-transparent border-none p-0 text-xs;
+  }
+
+  .prose blockquote {
+    @apply border-l-2 border-hairline pl-3.5 italic my-3 text-body;
+  }
+
+  .prose a {
+    @apply text-ink underline underline-offset-2 hover:opacity-80;
+  }
+
+  .prose hr {
+    @apply border-hairline my-4;
+  }
+
+  /* Shimmer and animation styles */
+  .shimmer {
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(247, 245, 240, 0.25) 50%,
+        transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  @keyframes collapsible-down {
+    from {
+      height: 0;
+    }
+
+    to {
+      height: var(--radix-collapsible-content-height);
+    }
+  }
+
+  @keyframes collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+    }
+
+    to {
+      height: 0;
+    }
+  }
+
+  .animate-collapsible-down {
+    animation: collapsible-down 0.2s ease-out;
+  }
+
+  .animate-collapsible-up {
+    animation: collapsible-up 0.2s ease-out;
+  }
+}
