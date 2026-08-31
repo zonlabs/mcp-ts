@@ -253,6 +253,11 @@ function extractChatId(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
+function getOptimisticChatTitle(promptText: string, existingMessageCount: number): string | null {
+  if (existingMessageCount > 0) return null;
+  return promptText.length > 50 ? `${promptText.slice(0, 47)}...` : promptText;
+}
+
 export function PlaygroundChat({ 
   chatId: propChatId, 
   initialMessages = [], 
@@ -383,9 +388,9 @@ export function PlaygroundChat({
 
     const currentConfig = getCurrentLlmConfig();
     const promptText = data.text || (data.parts?.find((p: any) => p.type === 'text')?.text) || "New Chat";
-    const initialTitle = promptText.length > 50 ? promptText.slice(0, 47) + "..." : promptText;
+    const optimisticTitle = getOptimisticChatTitle(promptText, messages.length);
 
-    upsertChat({ id: chatId, title: initialTitle, user_id: chatUserId });
+    upsertChat({ id: chatId, ...(optimisticTitle ? { title: optimisticTitle } : {}), user_id: chatUserId });
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
