@@ -157,6 +157,9 @@ export default function McpClientLayout({
     return fetchedServer || (initialSelectedServer?.id === selectedServerId ? initialSelectedServer : null);
   }, [selectedServerId, selectedAppObj, userServers, catalogServers, connections, fetchedServer, initialSelectedServer]);
 
+  const selectedServerConnection = selectedServer ? findConnectionForServer(connections, selectedServer) : undefined;
+  const selectedServerTools = (selectedServerConnection?.tools as any[] | undefined) ?? selectedServer?.tools ?? [];
+
   // Handle navigating to an App detail instantly (0ms)
   const handleSelectApp = useCallback(
     (appOrId: McpServer | string) => {
@@ -386,7 +389,7 @@ export default function McpClientLayout({
               <div className="flex-1 overflow-hidden">
                 <ToolExecutionPanel
                   server={selectedServer}
-                  tools={selectedServer.tools ?? []}
+                  tools={selectedServerTools}
                   initialToolName={selectedToolName}
                 />
               </div>
