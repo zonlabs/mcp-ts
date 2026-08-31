@@ -9,13 +9,11 @@ import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
 import { ServerIcon } from '@/components/common/ServerIcon';
-import { Button } from '@/components/ui/button';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { UserMessage, AssistantMessage } from '@/components/chat/ChatMessage';
 import { McpAppRenderer } from '@/components/chat/McpAppRenderer';
 import { SimpleTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { normalizeServerUrl } from '@/lib/url';
 import { useMcpContext } from '@/components/providers/McpProvider';
 import { findConnectionForServer } from '@/lib/mcp/connection-utils';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
@@ -26,12 +24,8 @@ import {
   BrainIcon,
   CheckCircle2,
   ChevronDownIcon,
-  X,
   ArrowLeft,
   Maximize2,
-  Code2,
-  Plus,
-  Clock,
 } from 'lucide-react';
 import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
