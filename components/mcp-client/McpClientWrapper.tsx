@@ -28,6 +28,7 @@ export default function McpClientWrapper({ session }: McpClientWrapperProps) {
     });
     const json = await res.json();
     if (!res.ok || json.error) throw new Error(json.error || "Failed to add server");
+    return json;
   };
 
   const handleServerUpdate = async (data: Record<string, unknown>) => {
@@ -38,6 +39,7 @@ export default function McpClientWrapper({ session }: McpClientWrapperProps) {
     });
     const json = await res.json();
     if (!res.ok || json.error) throw new Error(json.error || "Failed to update server");
+    return json;
   };
 
   const handleServerDelete = async (serverId: string) => {

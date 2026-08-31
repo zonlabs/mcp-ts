@@ -71,6 +71,7 @@ export default function McpPageClient({
       if (!response.ok || result.error) {
         throw new Error(result.error || "Failed to update server");
       }
+      return result;
     },
     []
   );

@@ -163,6 +163,8 @@ export default function McpClientLayout({
       const serverId = typeof appOrId === "string" ? appOrId : appOrId.id;
       if (typeof appOrId === "object") {
         setSelectedAppObj(appOrId);
+      } else {
+        setSelectedAppObj(null);
       }
       setSelectedServerId(serverId);
       const params = new URLSearchParams(window.location.search);
@@ -308,8 +310,8 @@ export default function McpClientLayout({
                   server={selectedServer}
                   onSubmit={async (data) => {
                     const result = await onServerUpdate({ id: selectedServer.id, ...data });
-                    void refetchUserServers();
-                    handleSelectApp(selectedServer.id);
+                    await refetchUserServers();
+                    handleSelectApp(result?.server ?? selectedServer.id);
                     return result;
                   }}
                   onCancel={() => handleSelectApp(selectedServer.id)}
