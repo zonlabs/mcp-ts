@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   const formattedDate = new Date().toISOString().slice(0, 10);
   const filename = chatId && chats?.[0]
     ? `chat-export-${(chats[0].title || "conversation").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30)}-${formattedDate}.json`
-    : `web-assistant-chats-${formattedDate}.json`;
+    : `mcp-assistant-chats-${formattedDate}.json`;
 
   return new NextResponse(JSON.stringify(exportPayload, null, 2), {
     status: 200,
