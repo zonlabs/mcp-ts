@@ -1,5 +1,5 @@
 import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
-import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, McpSubscription, ProtocolEra } from "@modelcontextprotocol/client";
+import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, ListChangedHandlers, McpSubscription, ProtocolEra } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
 import { isTransportNotImplemented } from './errors.js';
@@ -23,6 +23,7 @@ export type McpSdkClientOptions = Pick<
   | 'inputRequired'
   | 'supportedProtocolVersions'
   | 'enforceStrictCapabilities'
+  | 'listChanged'
   | 'listMaxPages'
   | 'responseCacheStore'
   | 'cachePartition'
@@ -135,8 +136,6 @@ export interface MCPOAuthClientOptions {
   serverOptions?: StoredMcpServerOptions | null;
   /** Persisted server/discover result used for v2 restore optimization. */
   discoverResult?: DiscoverResult | null;
-  /** Called after the server emits notifications/tools/list_changed. */
-  onToolsChanged?: () => void;
   /**
    * Arbitrary caller-supplied key-value pairs stored alongside the session.
    * The library stores this opaquely and never reads or interprets it.
@@ -146,6 +145,13 @@ export interface MCPOAuthClientOptions {
 }
 
 export type McpClientOptions = MCPOAuthClientOptions;
+
+export type McpListType = 'tools' | 'prompts' | 'resources';
+
+export interface McpListChangedEvent {
+  listType: McpListType;
+  error: Error | null;
+}
 
 /**
  * MCP client with OAuth 2.1 (PKCE & DCR) lifecycle support.
@@ -180,6 +186,9 @@ export class McpClient {
   private readonly _onConnectionEvent = new Emitter<McpConnectionEvent>();
   public readonly onConnectionEvent = this._onConnectionEvent.event;
 
+  private readonly _onListChanged = new Emitter<McpListChangedEvent>();
+  public readonly onListChanged = this._onListChanged.event;
+
   private readonly _onObservabilityEvent = new Emitter<McpObservabilityEvent>();
   public readonly onObservabilityEvent = this._onObservabilityEvent.event;
 
@@ -211,6 +220,37 @@ export class McpClient {
 
   private createSdkClient(): Client {
     const options = normalizeMcpSdkClientOptions(this.config.client);
+    const configuredListChanged = options.listChanged;
+    const listChanged: ListChangedHandlers = {
+      tools: {
+        ...configuredListChanged?.tools,
+        onChanged: (error, tools) => {
+          if (!error && tools) this.cachedTools = tools;
+          this._onListChanged.fire({ listType: 'tools', error });
+          configuredListChanged?.tools?.onChanged(error, tools);
+        },
+      },
+      prompts: {
+        ...configuredListChanged?.prompts,
+        onChanged: (error, prompts) => {
+          if (!error && prompts) this.cachedPrompts = prompts;
+          this._onListChanged.fire({ listType: 'prompts', error });
+          configuredListChanged?.prompts?.onChanged(error, prompts);
+        },
+      },
+      resources: {
+        ...configuredListChanged?.resources,
+        onChanged: (error, resources) => {
+          if (!error && resources) this.cachedResources = resources;
+          // MCP uses the resources list-change notification for both concrete
+          // resources and resource templates.
+          this.cachedResourceTemplates = null;
+          this._onListChanged.fire({ listType: 'resources', error });
+          configuredListChanged?.resources?.onChanged(error, resources);
+        },
+      },
+    };
+
     return new Client(
       {
         name: MCP_CLIENT_NAME,
@@ -218,14 +258,7 @@ export class McpClient {
       },
       {
         ...options,
-        listChanged: {
-          tools: {
-            onChanged: () => {
-              this.cachedTools = null;
-              this.config.onToolsChanged?.();
-            },
-          },
-        },
+        listChanged,
       },
     );
   }
@@ -261,12 +294,16 @@ export class McpClient {
   }
 
   private async openRestoredListSubscription(): Promise<void> {
-    if (!this.client.getServerCapabilities()?.tools?.listChanged) return;
+    const capabilities = this.client.getServerCapabilities();
+    const filter = {
+      ...(capabilities?.tools?.listChanged && { toolsListChanged: true }),
+      ...(capabilities?.prompts?.listChanged && { promptsListChanged: true }),
+      ...(capabilities?.resources?.listChanged && { resourcesListChanged: true }),
+    };
+    if (Object.keys(filter).length === 0) return;
 
     try {
-      this._restoredListSubscription = await this.client.listen({
-        toolsListChanged: true,
-      });
+      this._restoredListSubscription = await this.client.listen(filter);
     } catch (error) {
       this.client.onerror?.(
         error instanceof Error ? error : new Error(String(error)),
@@ -642,7 +679,7 @@ export class McpClient {
    * @throws {Error} When connection fails for other reasons.
    */
   async connect(): Promise<void> {
-    this.cachedTools = null;
+    this.clearCatalogCaches();
     await this.closeRestoredListSubscription();
     // Close any existing transport so we can negotiate a fresh session.
     // The SDK Client throws if asked to connect() while a transport is
@@ -857,6 +894,16 @@ export class McpClient {
    * the memory when the client is no longer needed.
    */
   private cachedTools: Tool[] | null = null;
+  private cachedPrompts: Prompt[] | null = null;
+  private cachedResources: Resource[] | null = null;
+  private cachedResourceTemplates: ResourceTemplateType[] | null = null;
+
+  private clearCatalogCaches(): void {
+    this.cachedTools = null;
+    this.cachedPrompts = null;
+    this.cachedResources = null;
+    this.cachedResourceTemplates = null;
+  }
 
   /**
    * Lists all available tools from the connected MCP server without emitting
@@ -891,6 +938,10 @@ export class McpClient {
   }
 
   async fetchPrompts(): Promise<Prompt[]> {
+    if (this.cachedPrompts) {
+      return this.cachedPrompts;
+    }
+
     let promptsAgg: Prompt[] = [];
     let promptsResult: ListPromptsResult = { prompts: [] };
     do {
@@ -901,10 +952,15 @@ export class McpClient {
       );
       promptsAgg = promptsAgg.concat(promptsResult.prompts);
     } while (promptsResult.nextCursor);
+    this.cachedPrompts = promptsAgg;
     return promptsAgg;
   }
 
   async fetchResources(): Promise<Resource[]> {
+    if (this.cachedResources) {
+      return this.cachedResources;
+    }
+
     let resourcesAgg: Resource[] = [];
     let resourcesResult: ListResourcesResult = { resources: [] };
     do {
@@ -915,10 +971,15 @@ export class McpClient {
       );
       resourcesAgg = resourcesAgg.concat(resourcesResult.resources);
     } while (resourcesResult.nextCursor);
+    this.cachedResources = resourcesAgg;
     return resourcesAgg;
   }
 
   async fetchResourceTemplates(): Promise<ResourceTemplateType[]> {
+    if (this.cachedResourceTemplates) {
+      return this.cachedResourceTemplates;
+    }
+
     let templatesAgg: ResourceTemplateType[] = [];
     let templatesResult: ListResourceTemplatesResult = {
       resourceTemplates: [],
@@ -931,6 +992,7 @@ export class McpClient {
       );
       templatesAgg = templatesAgg.concat(templatesResult.resourceTemplates);
     } while (templatesResult.nextCursor);
+    this.cachedResourceTemplates = templatesAgg;
     return templatesAgg;
   }
 
@@ -1303,7 +1365,9 @@ export class McpClient {
    * Call this when the client is permanently shut down (not just disconnected).
    */
   dispose(): void {
-    this.cachedTools = null;
+    void this.closeRestoredListSubscription();
+    this.clearCatalogCaches();
+    this._onListChanged.dispose();
     this._onConnectionEvent.dispose();
     this._onObservabilityEvent.dispose();
   }

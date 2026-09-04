@@ -9,6 +9,8 @@ export {
   normalizeMcpSdkClientOptions,
   type McpSdkClientOptions,
   type McpClientOptions,
+  type McpListType,
+  type McpListChangedEvent,
   type MCPOAuthClientOptions,
 } from './mcp/client.js';
 export { UnauthorizedError } from '../shared/errors.js';

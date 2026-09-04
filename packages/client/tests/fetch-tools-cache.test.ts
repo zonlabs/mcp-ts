@@ -1,12 +1,11 @@
 /**
- * Tests for the fetchTools() in-memory cache introduced on McpClient.
+ * Tests for McpClient catalog caches.
  *
  * Changes covered:
- * - `cachedTools` is null on construction.
- * - First call to `fetchTools()` contacts the remote and populates the cache.
+ * - All catalog caches are null on construction.
+ * - First fetch contacts the remote and populates the matching cache.
  * - Subsequent calls return the cached value without extra network requests.
- * - `connect()` clears `cachedTools` so a reconnection fetches a fresh list.
- * - `dispose()` clears `cachedTools` to release memory.
+ * - `connect()` and `dispose()` clear every catalog cache.
  */
 
 import { test, expect } from '@playwright/test';
@@ -24,7 +23,7 @@ function makeMcpClient() {
   });
 }
 
-test.describe('McpClient.fetchTools cache', () => {
+test.describe('McpClient catalog caches', () => {
   test.beforeEach(() => {
     _setStorageInstanceForTesting(new MemoryStorageBackend());
   });
@@ -33,9 +32,12 @@ test.describe('McpClient.fetchTools cache', () => {
     _setStorageInstanceForTesting(null);
   });
 
-  test('cachedTools is null on construction', () => {
+  test('all catalog caches are null on construction', () => {
     const client = makeMcpClient();
     expect((client as any).cachedTools).toBeNull();
+    expect((client as any).cachedPrompts).toBeNull();
+    expect((client as any).cachedResources).toBeNull();
+    expect((client as any).cachedResourceTemplates).toBeNull();
   });
 
   test('fetchTools populates cachedTools after the first call', async () => {
@@ -79,42 +81,75 @@ test.describe('McpClient.fetchTools cache', () => {
     expect(callCount).toBe(1); // only ONE remote call made
   });
 
-  test('connect() clears cachedTools so reconnect fetches a fresh list', async () => {
+  test('prompt, resource, and template fetches reuse their caches', async () => {
+    const client = makeMcpClient();
+    const prompts = [{ name: 'prompt-a' }];
+    const resources = [{ uri: 'file:///resource-a', name: 'Resource A' }];
+    const resourceTemplates = [{ uriTemplate: 'file:///{name}', name: 'Template A' }];
+    const calls = { prompts: 0, resources: 0, templates: 0 };
+    (client as any).client = {
+      listPrompts: async () => {
+        calls.prompts += 1;
+        return { prompts };
+      },
+      listResources: async () => {
+        calls.resources += 1;
+        return { resources };
+      },
+      listResourceTemplates: async () => {
+        calls.templates += 1;
+        return { resourceTemplates };
+      },
+    };
+
+    await expect(client.fetchPrompts()).resolves.toEqual(prompts);
+    await expect(client.fetchPrompts()).resolves.toEqual(prompts);
+    await expect(client.fetchResources()).resolves.toEqual(resources);
+    await expect(client.fetchResources()).resolves.toEqual(resources);
+    await expect(client.fetchResourceTemplates()).resolves.toEqual(resourceTemplates);
+    await expect(client.fetchResourceTemplates()).resolves.toEqual(resourceTemplates);
+
+    expect(calls).toEqual({ prompts: 1, resources: 1, templates: 1 });
+  });
+
+  test('connect() clears all catalog caches', async () => {
     const client = makeMcpClient();
 
-    // Pre-populate the cache manually
-    (client as any).cachedTools = { tools: [{ name: 'stale_tool' }] };
-    expect((client as any).cachedTools).not.toBeNull();
+    (client as any).cachedTools = [{ name: 'stale-tool' }];
+    (client as any).cachedPrompts = [{ name: 'stale-prompt' }];
+    (client as any).cachedResources = [{ uri: 'file:///stale-resource' }];
+    (client as any).cachedResourceTemplates = [{ uriTemplate: 'file:///{stale}' }];
 
     // Stub connect internals so we don't actually open a network socket.
-    // We only need to verify cachedTools is cleared at the START of connect().
-    const originalEnsureSession = (client as any).ensureSession.bind(client);
-    let cacheStateAtConnectStart: unknown = 'not-checked';
-
-    (client as any).cachedTools = { tools: [{ name: 'stale_tool' }] };
+    let cacheStateAtConnectStart: unknown[] = ['not-checked'];
     (client as any).ensureSession = async () => {
-      // Capture cachedTools state after `connect()` clears it but before
-      // the rest of the method runs.
-      cacheStateAtConnectStart = (client as any).cachedTools;
-      // Re-throw to abort further connection so we don't need a real server
+      cacheStateAtConnectStart = [
+        (client as any).cachedTools,
+        (client as any).cachedPrompts,
+        (client as any).cachedResources,
+        (client as any).cachedResourceTemplates,
+      ];
       throw new Error('abort-for-test');
     };
 
     await client.connect().catch(() => { /* expected */ });
 
-    // cachedTools should have been set to null before ensureSession was called
-    expect(cacheStateAtConnectStart).toBeNull();
+    expect(cacheStateAtConnectStart).toEqual([null, null, null, null]);
   });
 
-  test('dispose() clears cachedTools to release memory', () => {
+  test('dispose() clears all catalog caches', () => {
     const client = makeMcpClient();
 
-    // Pre-populate the cache
-    (client as any).cachedTools = { tools: [{ name: 'some_tool' }] };
-    expect((client as any).cachedTools).not.toBeNull();
+    (client as any).cachedTools = [{ name: 'tool' }];
+    (client as any).cachedPrompts = [{ name: 'prompt' }];
+    (client as any).cachedResources = [{ uri: 'file:///resource' }];
+    (client as any).cachedResourceTemplates = [{ uriTemplate: 'file:///{name}' }];
 
     client.dispose();
 
     expect((client as any).cachedTools).toBeNull();
+    expect((client as any).cachedPrompts).toBeNull();
+    expect((client as any).cachedResources).toBeNull();
+    expect((client as any).cachedResourceTemplates).toBeNull();
   });
 });
