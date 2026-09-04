@@ -1,5 +1,5 @@
 import { Client, StreamableHTTPClientTransport, SSEClientTransport, UnauthorizedError as SDKUnauthorizedError, ProtocolError, ListToolsResult, CallToolRequest, CallToolResult, ListPromptsResult, GetPromptRequest, GetPromptResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequest, ReadResourceResult } from "@modelcontextprotocol/client";
-import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
+import type { Tool, Prompt, Resource, ResourceTemplateType, Implementation, OAuthTokens, OAuthClientProvider, StoredOAuthClientInformation, OAuthClientInformationMixed, ClientOptions, DiscoverResult, McpSubscription, ProtocolEra } from "@modelcontextprotocol/client";
 import { nanoid } from 'nanoid';
 import { StorageOAuthClientProvider, type AgentsOAuthProvider } from './storage-oauth-provider.js';
 import { isTransportNotImplemented } from './errors.js';
@@ -173,6 +173,7 @@ export class McpClient {
   private _negotiatedProtocolVersion: string | undefined;
   private _protocolEra: ProtocolEra | undefined;
   private _discoverResult: DiscoverResult | undefined;
+  private _restoredListSubscription: McpSubscription | undefined;
   private _store!: SessionStore;
 
   /** Event emitters for connection lifecycle */
@@ -257,6 +258,26 @@ export class McpClient {
       return { prior: { kind: 'modern', discover: discoverResult } };
     }
     return undefined;
+  }
+
+  private async openRestoredListSubscription(): Promise<void> {
+    if (!this.client.getServerCapabilities()?.tools?.listChanged) return;
+
+    try {
+      this._restoredListSubscription = await this.client.listen({
+        toolsListChanged: true,
+      });
+    } catch (error) {
+      this.client.onerror?.(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    }
+  }
+
+  private async closeRestoredListSubscription(): Promise<void> {
+    const subscription = this._restoredListSubscription;
+    this._restoredListSubscription = undefined;
+    await subscription?.close().catch(() => {});
   }
 
   /** Shared session-shaped data for ensureSession and saveSession */
@@ -581,8 +602,12 @@ export class McpClient {
     this.transport = transport;
 
     try {
-      await this.client.connect(transport, this.getConnectOptions());
+      const connectOptions = this.getConnectOptions();
+      await this.client.connect(transport, connectOptions);
       this.captureConnectionMetadata();
+      if (connectOptions?.prior.kind === 'modern') {
+        await this.openRestoredListSubscription();
+      }
       return { transport: currentType };
     } catch (connectError) {
       if (currentType === 'streamable-http' && isTransportNotImplemented(connectError)) {
@@ -591,8 +616,12 @@ export class McpClient {
         }
         const sseTransport = this.getTransport('sse');
         this.transport = sseTransport;
-        await this.client.connect(sseTransport, this.getConnectOptions());
+        const connectOptions = this.getConnectOptions();
+        await this.client.connect(sseTransport, connectOptions);
         this.captureConnectionMetadata();
+        if (connectOptions?.prior.kind === 'modern') {
+          await this.openRestoredListSubscription();
+        }
         return { transport: 'sse' };
       }
       throw connectError;
@@ -614,6 +643,7 @@ export class McpClient {
    */
   async connect(): Promise<void> {
     this.cachedTools = null;
+    await this.closeRestoredListSubscription();
     // Close any existing transport so we can negotiate a fresh session.
     // The SDK Client throws if asked to connect() while a transport is
     // already attached; close() detaches it cleanly so the same Client
@@ -1219,6 +1249,8 @@ export class McpClient {
    * (e.g. server already restarted, 404/405 responses) are silently ignored.
    */
   async disconnect(): Promise<void> {
+    await this.closeRestoredListSubscription();
+
     // Per the MCP Streamable HTTP spec (2025-11-25), clients SHOULD send an
     // HTTP DELETE with the mcp-session-id header when they no longer need a
     // session. The server MAY respond with 405 if it doesn't support explicit
