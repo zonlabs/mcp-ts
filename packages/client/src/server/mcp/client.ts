@@ -218,38 +218,42 @@ export class McpClient {
     this.client = this.createSdkClient();
   }
 
-  private createSdkClient(): Client {
-    const options = normalizeMcpSdkClientOptions(this.config.client);
-    const configuredListChanged = options.listChanged;
-    const listChanged: ListChangedHandlers = {
+  private createListChangedHandlers(
+    configured?: ListChangedHandlers,
+  ): ListChangedHandlers {
+    return {
       tools: {
-        ...configuredListChanged?.tools,
+        ...configured?.tools,
         onChanged: (error, tools) => {
           if (!error && tools) this.cachedTools = tools;
           this._onListChanged.fire({ listType: 'tools', error });
-          configuredListChanged?.tools?.onChanged(error, tools);
+          configured?.tools?.onChanged(error, tools);
         },
       },
       prompts: {
-        ...configuredListChanged?.prompts,
+        ...configured?.prompts,
         onChanged: (error, prompts) => {
           if (!error && prompts) this.cachedPrompts = prompts;
           this._onListChanged.fire({ listType: 'prompts', error });
-          configuredListChanged?.prompts?.onChanged(error, prompts);
+          configured?.prompts?.onChanged(error, prompts);
         },
       },
       resources: {
-        ...configuredListChanged?.resources,
+        ...configured?.resources,
         onChanged: (error, resources) => {
           if (!error && resources) this.cachedResources = resources;
           // MCP uses the resources list-change notification for both concrete
           // resources and resource templates.
           this.cachedResourceTemplates = null;
           this._onListChanged.fire({ listType: 'resources', error });
-          configuredListChanged?.resources?.onChanged(error, resources);
+          configured?.resources?.onChanged(error, resources);
         },
       },
     };
+  }
+
+  private createSdkClient(): Client {
+    const options = normalizeMcpSdkClientOptions(this.config.client);
 
     return new Client(
       {
@@ -258,7 +262,7 @@ export class McpClient {
       },
       {
         ...options,
-        listChanged,
+        listChanged: this.createListChangedHandlers(options.listChanged),
       },
     );
   }
