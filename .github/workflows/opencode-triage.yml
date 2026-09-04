@@ -47,7 +47,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
-          model: opencode/deepseek-v4-flash-free
+          model: ${{ vars.OPENCODE_MODEL }}
           use_github_token: true
           prompt: |
             Review this issue. If there's a clear fix or relevant docs:
