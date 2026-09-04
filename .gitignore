@@ -43,6 +43,7 @@ coverage/
 
 # Local planning & review artifacts
 .superpowers/
+docs/superpowers/
 /.worktrees/
 
 # Local gateway runtime state

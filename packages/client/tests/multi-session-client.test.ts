@@ -338,7 +338,7 @@ test.describe('McpManager', () => {
         }
     });
 
-    test('should forward downstream tool-list changes with the session id', async () => {
+    test('should forward downstream catalog changes with the session id', async () => {
         (McpClient.prototype as any).connect = async function() {
             (this as any)._mockConnected = true;
         };
@@ -351,15 +351,19 @@ test.describe('McpManager', () => {
             status: 'active',
         }] as any;
         _setStorageInstanceForTesting(mockStorage);
-        const changed: string[] = [];
+        const changed: Array<{ sessionId: string; listType: string }> = [];
         const manager = new McpManager(userId, {
-            onToolsChanged: (sessionId) => changed.push(sessionId),
+            onListChanged: (sessionId, event) => {
+                changed.push({ sessionId, listType: event.listType });
+            },
         });
 
         await manager.connect();
         const client = (manager as any).clients[0];
-        client.config.onToolsChanged();
+        client._onListChanged.fire({ listType: 'prompts', error: null });
 
-        expect(changed).toEqual(['session-tools']);
+        expect(changed).toEqual([
+            { sessionId: 'session-tools', listType: 'prompts' },
+        ]);
     });
 });

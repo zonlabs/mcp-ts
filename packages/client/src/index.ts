@@ -20,6 +20,8 @@ export {
 export {
   McpClient,
   type McpClientOptions,
+  type McpListType,
+  type McpListChangedEvent,
   type MCPOAuthClientOptions,
 } from './server/mcp/client.js';
 

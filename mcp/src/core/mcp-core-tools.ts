@@ -61,7 +61,9 @@ export async function getMcpManager(
   };
   manager = new McpManager(userId, {
     onObservabilityEvent: handleObservability,
-    onToolsChanged: () => void publishCatalog(),
+    onListChanged: (_sessionId, event) => {
+      if (event.listType === "tools") void publishCatalog();
+    },
   });
   await manager.connect();
   if (options.publishOnConnect) {

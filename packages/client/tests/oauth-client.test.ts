@@ -412,6 +412,215 @@ test.describe('McpClient', () => {
     });
 
     test.describe('protocol metadata and transport negotiation', () => {
+        const restoredDiscoverResult = {
+            supportedVersions: ['2026-07-28'],
+            capabilities: {
+                tools: { listChanged: true },
+                prompts: { listChanged: true },
+                resources: { listChanged: true },
+            },
+        } as any;
+
+        function createPriorClient(fakeSdkClient: Record<string, unknown>) {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'restored-list-subscription-session',
+                serverId: 'restored-list-subscription-server',
+                serverName: 'Restored List Subscription Server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+                discoverResult: restoredDiscoverResult,
+                oauthProvider: {} as any,
+            });
+            (client as any).getTransport = (transportType: string) => ({ transportType });
+            (client as any).client = fakeSdkClient;
+            return client;
+        }
+
+        test('opens and closes all advertised list subscriptions after a prior-based connect', async () => {
+            const listenCalls: unknown[] = [];
+            let closeCalls = 0;
+            const fakeSdkClient = {
+                transport: undefined,
+                connect: async () => {},
+                getServerCapabilities: () => restoredDiscoverResult.capabilities,
+                getServerVersion: () => ({ name: 'server', version: '1.0.0' }),
+                getNegotiatedProtocolVersion: () => '2026-07-28',
+                getProtocolEra: () => 'modern',
+                getDiscoverResult: () => restoredDiscoverResult,
+                listen: async (filter: unknown) => {
+                    listenCalls.push(filter);
+                    return {
+                        honoredFilter: filter,
+                        close: async () => { closeCalls += 1; },
+                        closed: Promise.resolve('local' as const),
+                    };
+                },
+            };
+            const client = createPriorClient(fakeSdkClient);
+
+            await client.connect();
+            expect(listenCalls).toEqual([{
+                toolsListChanged: true,
+                promptsListChanged: true,
+                resourcesListChanged: true,
+            }]);
+
+            await client.disconnect();
+            expect(closeCalls).toBe(1);
+        });
+
+        test('does not listen when restored capabilities omit tools list changes', async () => {
+            let listenCalls = 0;
+            const fakeSdkClient = {
+                transport: undefined,
+                connect: async () => {},
+                getServerCapabilities: () => ({ tools: {} }),
+                getServerVersion: () => ({ name: 'server', version: '1.0.0' }),
+                getNegotiatedProtocolVersion: () => '2026-07-28',
+                getProtocolEra: () => 'modern',
+                getDiscoverResult: () => restoredDiscoverResult,
+                listen: async () => {
+                    listenCalls += 1;
+                    throw new Error('listen should not be called');
+                },
+            };
+            const client = createPriorClient(fakeSdkClient);
+
+            await client.connect();
+
+            expect(listenCalls).toBe(0);
+        });
+
+        test('reports a restored listen failure without failing connect', async () => {
+            const errors: Error[] = [];
+            const listenError = new Error('listen unavailable');
+            const fakeSdkClient = {
+                transport: undefined,
+                onerror: (error: Error) => errors.push(error),
+                connect: async () => {},
+                getServerCapabilities: () => ({ tools: { listChanged: true } }),
+                getServerVersion: () => ({ name: 'server', version: '1.0.0' }),
+                getNegotiatedProtocolVersion: () => '2026-07-28',
+                getProtocolEra: () => 'modern',
+                getDiscoverResult: () => restoredDiscoverResult,
+                listen: async () => { throw listenError; },
+            };
+            const client = createPriorClient(fakeSdkClient);
+
+            await expect(client.connect()).resolves.toBeUndefined();
+            expect(errors).toEqual([listenError]);
+        });
+
+        test('updates catalog caches and emits typed list-change events', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'catalog-handlers-session',
+                serverId: 'catalog-handlers-server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+            });
+            const events: Array<{ listType: string; error: Error | null }> = [];
+            client.onListChanged((event) => events.push(event));
+
+            const handlers = (client as any).client._listChangedConfig;
+            const tools = [{ name: 'updated-tool', inputSchema: { type: 'object' } }];
+            const prompts = [{ name: 'updated-prompt' }];
+            const resources = [{ uri: 'file:///updated-resource', name: 'Updated resource' }];
+            (client as any).cachedResourceTemplates = [{ uriTemplate: 'file:///{name}' }];
+
+            handlers.tools.onChanged(null, tools);
+            handlers.prompts.onChanged(null, prompts);
+            handlers.resources.onChanged(null, resources);
+
+            await expect(client.fetchTools()).resolves.toEqual(tools);
+            await expect(client.fetchPrompts()).resolves.toEqual(prompts);
+            await expect(client.fetchResources()).resolves.toEqual(resources);
+            expect((client as any).cachedResourceTemplates).toBeNull();
+            expect(events).toEqual([
+                { listType: 'tools', error: null },
+                { listType: 'prompts', error: null },
+                { listType: 'resources', error: null },
+            ]);
+        });
+
+        test('preserves caller list-change options and callbacks', () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const callerEvents: unknown[][] = [];
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'configured-list-handlers-session',
+                serverId: 'configured-list-handlers-server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+                client: {
+                    listChanged: {
+                        tools: {
+                            autoRefresh: false,
+                            debounceMs: 25,
+                            onChanged: (error, tools) => callerEvents.push([error, tools]),
+                        },
+                    },
+                },
+            });
+            const tools = [{ name: 'updated-tool', inputSchema: { type: 'object' } }];
+            const configured = (client as any).client._listChangedConfig.tools;
+
+            configured.onChanged(null, tools);
+
+            expect(configured.autoRefresh).toBe(false);
+            expect(configured.debounceMs).toBe(25);
+            expect(callerEvents).toEqual([[null, tools]]);
+            expect((client as any).cachedTools).toEqual(tools);
+        });
+
+        test('dispose closes a restored list subscription', async () => {
+            let closeCalls = 0;
+            const fakeSdkClient = {
+                transport: undefined,
+                connect: async () => {},
+                getServerCapabilities: () => ({ tools: { listChanged: true } }),
+                getServerVersion: () => ({ name: 'server', version: '1.0.0' }),
+                getNegotiatedProtocolVersion: () => '2026-07-28',
+                getProtocolEra: () => 'modern',
+                getDiscoverResult: () => restoredDiscoverResult,
+                listen: async () => ({
+                    close: async () => { closeCalls += 1; },
+                    closed: Promise.resolve('local' as const),
+                }),
+            };
+            const client = createPriorClient(fakeSdkClient);
+
+            await client.connect();
+            client.dispose();
+            await Promise.resolve();
+
+            expect(closeCalls).toBe(1);
+        });
+
+        test('preserves cached catalog data when a list refresh fails', () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'catalog-handler-error-session',
+                serverId: 'catalog-handler-error-server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+            });
+            const previousPrompts = [{ name: 'existing-prompt' }];
+            const refreshError = new Error('prompt refresh failed');
+            const events: Array<{ listType: string; error: Error | null }> = [];
+            (client as any).cachedPrompts = previousPrompts;
+            client.onListChanged((event) => events.push(event));
+
+            (client as any).client._listChangedConfig.prompts.onChanged(refreshError, null);
+
+            expect((client as any).cachedPrompts).toBe(previousPrompts);
+            expect(events).toEqual([{ listType: 'prompts', error: refreshError }]);
+        });
+
         test('reuses saved discover result as prior and persists negotiated metadata', async () => {
             const storage = new MemoryStorageBackend();
             _setStorageInstanceForTesting(storage);
@@ -458,6 +667,7 @@ test.describe('McpClient', () => {
                 connect: async (transport: unknown, options?: unknown) => {
                     connectCalls.push({ transport, options });
                 },
+                getServerCapabilities: () => ({ tools: {} }),
                 getServerVersion: () => ({ name: 'new-server', version: '2.0.0' }),
                 getNegotiatedProtocolVersion: () => '2026-07-28',
                 getProtocolEra: () => 'modern',
