@@ -360,7 +360,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     }
 
     async invalidateCredentials(
-        scope: "all" | "client" | "tokens" | "verifier"
+        scope: "all" | "client" | "tokens" | "verifier" | "discovery"
     ): Promise<void> {
         if (scope === "all") {
             this._cachedTokens = undefined;
@@ -378,6 +378,8 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
                 this._cachedCodeVerifier = undefined;
                 this._hasCodeVerifier = false;
                 updates.codeVerifier = null;
+            } else if (scope === "discovery") {
+                updates.discoveryState = null;
             }
             await this.patchCredentials(updates);
         }

@@ -175,4 +175,21 @@ test.describe('StorageOAuthClientProvider OAuth state', () => {
     const afterTokensRetrieved = await provider.discoveryState();
     expect(afterTokensRetrieved).toBeUndefined();
   });
+
+  test('current token invalidation clears persisted tokens', async () => {
+    const currentTokens = {
+      access_token: 'access-current',
+      refresh_token: 'refresh-current',
+      token_type: 'bearer' as const,
+    };
+    await sessions.patchCredentials(userId, sessionId, { tokens: currentTokens });
+    const provider = createProvider();
+
+    await provider.invalidateCredentials('tokens');
+
+    await expect(provider.tokens()).resolves.toBeUndefined();
+    await expect(sessions.getCredentials(userId, sessionId)).resolves.toMatchObject({
+      tokens: null,
+    });
+  });
 });
