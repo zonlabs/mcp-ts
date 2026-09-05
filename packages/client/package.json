@@ -1,6 +1,6 @@
 {
   "name": "@mcp-ts/client",
-  "version": "4.2.2",
+  "version": "4.2.3",
   "publishConfig": {
     "access": "public"
   },
