@@ -74,6 +74,11 @@ function extractUserText(messages: McpAgentUIMessage[]): string {
 }
 
 const TITLE_SYSTEM_PROMPT = `You are a chat title generator. Output ONLY a concise title (3 to 6 words) summarizing the user's message. Do NOT answer the question. Do NOT use quotes or punctuation at the start/end.`;
+const NEW_CHAT_TITLE = 'New Chat';
+
+function fallbackTitleFromUserMessage(userText: string): string {
+  return userText.length > 50 ? `${userText.slice(0, 47)}...` : userText;
+}
 
 async function generateTitleFromUserMessage(
   userText: string,
@@ -92,8 +97,31 @@ async function generateTitleFromUserMessage(
     return cleaned || null;
   } catch (err) {
     console.error('[generateTitleFromUserMessage] Failed:', err);
-    return userText.length > 50 ? userText.slice(0, 47) + '...' : userText;
+    return null;
   }
+}
+
+async function claimTitleGeneration(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  chatId: string,
+  userId: string,
+  userText: string
+): Promise<boolean> {
+  const fallbackTitle = fallbackTitleFromUserMessage(userText);
+  const { data, error } = await supabase
+    .from('chats')
+    .update({ title: fallbackTitle, updated_at: new Date().toISOString() })
+    .eq('id', chatId)
+    .eq('user_id', userId)
+    .or(`title.is.null,title.eq.${NEW_CHAT_TITLE}`)
+    .select('id');
+
+  if (error) {
+    console.error('[claimTitleGeneration] Failed:', error);
+    return false;
+  }
+
+  return (data?.length ?? 0) === 1;
 }
 
 export async function POST(req: Request) {
@@ -140,7 +168,7 @@ export async function POST(req: Request) {
     const userMessages = chatMessages.filter((m) => m.role === 'user');
     if (userMessages.length === 1 && trigger === 'submit-user-message') {
       const userText = extractUserText(userMessages);
-      if (userText) {
+      if (userText && await claimTitleGeneration(supabase, chatId, user.id, userText)) {
         titlePromise = generateTitleFromUserMessage(userText, llmConfig);
       }
     }
