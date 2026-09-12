@@ -283,9 +283,9 @@ export default function McpClientLayout({
                   mode="add"
                   onSubmit={async (data) => {
                     const result = await onServerAdd(data);
-                    const serverId = result?.server?.id;
-                    if (serverId) {
-                      handleSelectApp(serverId);
+                    const addedServer = result?.server;
+                    if (addedServer?.id) {
+                      handleSelectApp(addedServer);
                     } else {
                       handleBackToApps();
                     }
