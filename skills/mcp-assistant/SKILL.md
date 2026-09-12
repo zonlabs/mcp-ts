@@ -10,13 +10,13 @@ Use MCP Assistant when a task needs tools from connected MCP servers, especially
 MCP Assistant server:
 
 ```text
-https://api.mcp-assistant.in/mcp
+https://mcp.linkos.in/mcp
 ```
 
 User connection page:
 
 ```text
-https://mcp-assistant.in/mcp
+https://app.linkos.in/mcp
 ```
 
 ## What MCP Assistant Provides
@@ -62,7 +62,7 @@ query Supabase rows
 If no relevant tools are found, tell the user they likely need to connect the relevant MCP server at:
 
 ```text
-https://mcp-assistant.in/mcp
+https://app.linkos.in/mcp
 ```
 
 ### `get_mcp_tool_schemas`
@@ -155,7 +155,7 @@ Read-only discovery, search, listing, and summarization can usually proceed with
 If `search_mcp_tools` finds no relevant tools:
 
 ```text
-I could not find a connected MCP tool for this. Please connect the relevant MCP server at https://mcp-assistant.in/mcp, then I can search again.
+I could not find a connected MCP tool for this. Please connect the relevant MCP server at https://app.linkos.in/mcp, then I can search again.
 ```
 
 If a selected tool schema is unclear, inspect another candidate tool or ask the user for the missing required input.

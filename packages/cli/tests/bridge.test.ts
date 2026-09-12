@@ -70,13 +70,13 @@ function setup(overrides: Partial<RemoteBridgeClientOptions> = {}) {
     }),
   };
   const socketFactory: BridgeSocketFactory = vi.fn((url, options) => {
-    expect(url).toBe("wss://api.mcp-assistant.in/bridge/connect");
+    expect(url).toBe("wss://mcp.linkos.in/bridge/connect");
     expect(options.headers).toEqual({ Authorization: "Bearer access-secret" });
     expect(url).not.toContain("access-secret");
     return socket;
   });
   const bridge = new RemoteBridgeClient(manager, {
-    remoteUrl: "https://api.mcp-assistant.in/mcp",
+    remoteUrl: "https://mcp.linkos.in/mcp",
     getAccessToken: async () => "access-secret",
     socketFactory,
     reconnectInitialDelayMs: 60_000,

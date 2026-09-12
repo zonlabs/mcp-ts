@@ -2,7 +2,7 @@
 
 The `mcp-server` service runs MCP Assistant's standalone HTTP MCP service, connecting AI clients to MCP tools and remote app integrations through the Model Context Protocol. Use it when you want an MCP client to access MCP Assistant without hosting your own server.
 
-After connecting remote MCP servers in [mcp-assistant.in](https://mcp-assistant.in/), it provides access to 100+ MCP servers (GitHub, Notion, Zapier, Supabase, and more). It also exposes meta-tools for dynamic MCP discovery and a CodeMode tool that executes programs inside a secure sandbox for programmatic tool calling.
+After connecting remote MCP servers in [app.linkos.in](https://app.linkos.in/), it provides access to 100+ MCP servers (GitHub, Notion, Zapier, Supabase, and more). It also exposes meta-tools for dynamic MCP discovery and a CodeMode tool that executes programs inside a secure sandbox for programmatic tool calling.
 
 ## What it does
 

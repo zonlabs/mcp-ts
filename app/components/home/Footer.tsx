@@ -69,7 +69,7 @@ export default function Footer() {
               <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">Resources</h4>
               <div className="flex flex-col space-y-2">
                 <a
-                  href="https://docs.mcp-assistant.in/"
+                  href="https://docs.linkos.in/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"

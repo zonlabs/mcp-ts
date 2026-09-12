@@ -403,14 +403,14 @@ export default function Home() {
                 <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground font-semibold select-none">Endpoint</span>
                 <div className="h-3.5 w-px bg-border" />
                 <code className="font-mono text-xs sm:text-sm text-foreground inline-flex items-center gap-2">
-                  https://api.mcp-assistant.in/mcp
+                  https://mcp.linkos.in/mcp
                   <TooltipProvider delayDuration={120}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           type="button"
                           onClick={() => {
-                            const url = "https://api.mcp-assistant.in/mcp";
+                            const url = "https://mcp.linkos.in/mcp";
                             if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
                               navigator.clipboard.writeText(url);
                             }
@@ -473,8 +473,8 @@ export default function Home() {
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-3.5">
                   {[
-                    { name: "VS Code", icon: "https://api.iconify.design/logos:visual-studio-code.svg", invert: false, href: "vscode:mcp/install?%7B%22name%22%3A%22mcp-assistant%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fapi.mcp-assistant.in%2Fmcp%22%7D" },
-                    { name: "Cursor", icon: "https://api.iconify.design/simple-icons:cursor.svg", invert: true, href: "cursor://anysphere.cursor-deeplink/mcp/install?name=mcp-assistant&config=eyJ0eXBlIjoic3NlIiwidXJsIjoiaHR0cHM6Ly9hcGkubWNwLWFzc2lzdGFudC5pbi9tY3AifQ==" },
+                    { name: "VS Code", icon: "https://api.iconify.design/logos:visual-studio-code.svg", invert: false, href: "vscode:mcp/install?%7B%22name%22%3A%22mcp-assistant%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.linkos.in%2Fmcp%22%7D" },
+                    { name: "Cursor", icon: "https://api.iconify.design/simple-icons:cursor.svg", invert: true, href: "cursor://anysphere.cursor-deeplink/mcp/install?name=mcp-assistant&config=eyJ0eXBlIjoic3NlIiwidXJsIjoiaHR0cHM6Ly9tY3AubGlua29zLmluL21jcCJ9" },
                     { name: "Claude Desktop", icon: "https://api.iconify.design/simple-icons:anthropic.svg", invert: true },
                     { name: "ChatGPT", icon: "https://api.iconify.design/simple-icons:openai.svg", invert: true },
                     { name: "Antigravity", icon: "https://api.iconify.design/material-symbols:antigravity.svg", invert: true },
@@ -512,7 +512,7 @@ export default function Home() {
                   })}
                 </div>
                 <Link
-                  href="https://docs.mcp-assistant.in/mcp-server"
+                  href="https://docs.linkos.in/mcp-server"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-primary font-medium text-xs sm:text-sm hover:underline transition-all mt-2"
@@ -659,7 +659,7 @@ export default function Home() {
 
               <motion.div variants={fadeInUp} className="flex flex-wrap items-center justify-center gap-4 text-xs sm:text-sm">
                 <Link
-                  href="https://docs.mcp-assistant.in/"
+                  href="https://docs.linkos.in/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline transition-all"
@@ -669,7 +669,7 @@ export default function Home() {
                 </Link>
                 <span className="text-muted-foreground/60">·</span>
                 <Link
-                  href="https://docs.mcp-assistant.in/examples"
+                  href="https://docs.linkos.in/examples"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline transition-all"

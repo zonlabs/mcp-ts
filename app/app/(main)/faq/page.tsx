@@ -276,7 +276,7 @@ export default function FAQPage() {
                             <ExternalLink className="h-3 w-3 ml-auto opacity-60" />
                         </a>
                         <a
-                            href="https://docs.mcp-assistant.in"
+                            href="https://docs.linkos.in"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors py-1"

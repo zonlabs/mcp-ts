@@ -27,32 +27,32 @@ const session: AuthSession = {
 
 describe("global auth session store", () => {
   it("normalizes sessions by remote origin", () => {
-    expect(normalizeRemoteOrigin("https://api.mcp-assistant.in/mcp?q=1")).toBe(
-      "https://api.mcp-assistant.in",
+    expect(normalizeRemoteOrigin("https://mcp.linkos.in/mcp?q=1")).toBe(
+      "https://mcp.linkos.in",
     );
   });
 
   it("saves, loads, and clears a session outside project configuration", () => {
     const configDir = tempConfigDir();
-    saveAuthSession("https://api.mcp-assistant.in", session, { configDir });
+    saveAuthSession("https://mcp.linkos.in", session, { configDir });
 
-    expect(loadAuthSession("https://api.mcp-assistant.in/mcp", { configDir })).toEqual(session);
+    expect(loadAuthSession("https://mcp.linkos.in/mcp", { configDir })).toEqual(session);
     expect(JSON.parse(readFileSync(join(configDir, "auth.json"), "utf8"))).toEqual({
       version: 1,
-      sessions: { "https://api.mcp-assistant.in": session },
+      sessions: { "https://mcp.linkos.in": session },
     });
     expect(readdirSync(configDir).filter((name) => name.endsWith(".tmp"))).toEqual([]);
 
-    clearAuthSession("https://api.mcp-assistant.in", { configDir });
-    expect(loadAuthSession("https://api.mcp-assistant.in", { configDir })).toBeNull();
+    clearAuthSession("https://mcp.linkos.in", { configDir });
+    expect(loadAuthSession("https://mcp.linkos.in", { configDir })).toBeNull();
   });
 
   it("refreshes and persists rotated credentials near expiry", async () => {
     const configDir = tempConfigDir();
-    saveAuthSession("https://api.mcp-assistant.in", session, { configDir });
+    saveAuthSession("https://mcp.linkos.in", session, { configDir });
     const requests: Array<{ url: string; init?: RequestInit }> = [];
 
-    const fresh = await ensureFreshAuthSession("https://api.mcp-assistant.in", {
+    const fresh = await ensureFreshAuthSession("https://mcp.linkos.in", {
       configDir,
       now: () => 1_950_001,
       fetchImpl: async (url, init) => {
@@ -70,17 +70,17 @@ describe("global auth session store", () => {
       refreshToken: "refresh-two",
       accessTokenExpiresAt: 4_000_000,
     });
-    expect(loadAuthSession("https://api.mcp-assistant.in", { configDir })).toEqual(fresh);
-    expect(requests[0]?.url).toBe("https://api.mcp-assistant.in/oauth/token/refresh");
+    expect(loadAuthSession("https://mcp.linkos.in", { configDir })).toEqual(fresh);
+    expect(requests[0]?.url).toBe("https://mcp.linkos.in/oauth/token/refresh");
     expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({ refreshToken: "refresh-one" });
   });
 
   it("does not refresh a session with more than 60 seconds remaining", async () => {
     const configDir = tempConfigDir();
-    saveAuthSession("https://api.mcp-assistant.in", session, { configDir });
+    saveAuthSession("https://mcp.linkos.in", session, { configDir });
     let called = false;
 
-    const fresh = await ensureFreshAuthSession("https://api.mcp-assistant.in", {
+    const fresh = await ensureFreshAuthSession("https://mcp.linkos.in", {
       configDir,
       now: () => 1_000_000,
       fetchImpl: async () => {
@@ -95,10 +95,10 @@ describe("global auth session store", () => {
 
   it("distinguishes invalid refresh credentials from transient failures", async () => {
     const configDir = tempConfigDir();
-    saveAuthSession("https://api.mcp-assistant.in", session, { configDir });
+    saveAuthSession("https://mcp.linkos.in", session, { configDir });
 
     await expect(
-      ensureFreshAuthSession("https://api.mcp-assistant.in", {
+      ensureFreshAuthSession("https://mcp.linkos.in", {
         configDir,
         now: () => 1_950_001,
         fetchImpl: async () => Response.json({ error: "invalid" }, { status: 401 }),
@@ -106,7 +106,7 @@ describe("global auth session store", () => {
     ).rejects.toBeInstanceOf(InvalidAuthSessionError);
 
     await expect(
-      ensureFreshAuthSession("https://api.mcp-assistant.in", {
+      ensureFreshAuthSession("https://mcp.linkos.in", {
         configDir,
         now: () => 1_950_001,
         fetchImpl: async () => Response.json({ error: "down" }, { status: 503 }),

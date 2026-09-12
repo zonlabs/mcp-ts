@@ -11,9 +11,9 @@
   <p>Every resource is context for your AI</p>
 
   <p>
-    <a href="https://mcp-assistant.in/">🌐 Website</a>
+    <a href="https://app.linkos.in/">🌐 Website</a>
     &nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="https://docs.mcp-assistant.in/">📚 Documentation</a>
+    <a href="https://docs.linkos.in/">📚 Documentation</a>
   </p>
 
   <p>
@@ -72,7 +72,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 ## 🌐 Hosted MCP Endpoints
 
 ### MCP Assistant Server
-- **Endpoint**: `https://api.mcp-assistant.in/mcp`
+- **Endpoint**: `https://mcp.linkos.in/mcp`
 - Access 100+ MCP tools (GitHub, Notion, Zapier, Supabase, etc.), dynamic tool discovery, and sandboxed `CodeMode` execution.
 
 #### Antigravity / Cursor / VS Code Configuration
@@ -81,14 +81,14 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 {
   "mcpServers": {
     "mcp-assistant": {
-      "serverUrl": "https://api.mcp-assistant.in/mcp"
+      "serverUrl": "https://mcp.linkos.in/mcp"
     }
   }
 }
 ```
 
 ### Documentation MCP
-- **Endpoint**: `https://docs.mcp-assistant.in/mcp`
+- **Endpoint**: `https://docs.linkos.in/mcp`
 - Access `mcp-ts` and toolkit documentation directly over MCP.
 
 ---
@@ -127,6 +127,6 @@ Normal `list`, `search`, `schema`, and `call` commands always use the single gat
 
 ## 📚 Documentation & Contributing
 
-- **Full Documentation**: [docs.mcp-assistant.in](https://docs.mcp-assistant.in/)
+- **Full Documentation**: [docs.linkos.in](https://docs.linkos.in/)
 - **Contributing**: [CONTRIBUTING.md](packages/client/CONTRIBUTING.md)
 - **License**: [MIT](LICENSE)

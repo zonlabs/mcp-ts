@@ -11,7 +11,7 @@ export const { GET, POST } = createNextMcpHandler({
 
     clientDefaults: {
         clientName: "MCP Assistant",
-        clientUri: "https://mcp-assistant.in",
+        clientUri: "https://app.linkos.in",
     }
     // Optional: customize how to extract userId and auth token
     // getUserId: (request) => new URL(request.url).searchParams.get('userId'),

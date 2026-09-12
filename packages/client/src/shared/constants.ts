@@ -18,9 +18,9 @@ export const REDIS_KEY_PREFIX = 'mcp:session:';
 
 // Client Information
 export const DEFAULT_CLIENT_NAME = 'MCP Assistant';
-export const DEFAULT_CLIENT_URI = 'https://mcp-assistant.in';
-export const DEFAULT_LOGO_URI = 'https://mcp-assistant.in/logo.svg';
-export const DEFAULT_POLICY_URI = 'https://mcp-assistant.in/privacy';
+export const DEFAULT_CLIENT_URI = 'https://app.linkos.in';
+export const DEFAULT_LOGO_URI = 'https://app.linkos.in/logo.svg';
+export const DEFAULT_POLICY_URI = 'https://app.linkos.in/privacy';
 export const SOFTWARE_ID = '@mcp-ts';
 export const SOFTWARE_VERSION = '4.0.0';
 

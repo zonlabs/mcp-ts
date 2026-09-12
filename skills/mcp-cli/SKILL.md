@@ -13,7 +13,7 @@ Normal `list`, `search`, `schema`, and `call` commands always use that gateway. 
 
 ## Remote MCP catalog
 
-The CLI connects to the hosted gateway at `https://api.mcp-assistant.in` for authenticated access to remote MCP servers. Users manage those connections at `https://mcp-assistant.in/mcp?tab=apps`.
+The CLI connects to the hosted gateway at `https://mcp.linkos.in` for authenticated access to remote MCP servers. Users manage those connections at `https://app.linkos.in/mcp?tab=apps`.
 
 Servers connected or disconnected in the MCP Assistant app are synchronized automatically with the running CLI gateway and become available or unavailable in the remote catalog. Do not add app-managed remote servers to local `mcp.json`, and do not restart a healthy gateway to pick up connection changes. Use `mcpa list --tools` to inspect the current combined local and remote catalog.
 

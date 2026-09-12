@@ -147,7 +147,7 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
         <DropdownMenuSeparator className="my-1 bg-border/60" />
 
         <DropdownMenuItem asChild className="cursor-pointer gap-2.5 rounded-xs px-2.5 py-1.5 text-xs text-foreground hover:bg-card">
-          <a href="https://docs.mcp-assistant.in/" target="_blank" rel="noopener noreferrer">
+          <a href="https://docs.linkos.in/" target="_blank" rel="noopener noreferrer">
             <FileText className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} />
             <span>Documentation</span>
           </a>

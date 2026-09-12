@@ -11,7 +11,7 @@ import { usePublicServers } from "@/hooks/usePublicServers";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-const MCP_ASSISTANT_URL = "https://api.mcp-assistant.in/mcp";
+const MCP_ASSISTANT_URL = "https://mcp.linkos.in/mcp";
 const MCP_CLIENT_ICONS = [
   {
     name: "VS Code",
@@ -63,7 +63,7 @@ export function HomeView({
     let active = true;
     async function checkHealth() {
       try {
-        const res = await fetch("https://api.mcp-assistant.in/healthz", {
+        const res = await fetch("https://mcp.linkos.in/healthz", {
           signal: AbortSignal.timeout(1500),
         });
         if (res.ok) {

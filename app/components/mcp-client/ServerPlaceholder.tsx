@@ -14,7 +14,7 @@ interface ServerPlaceholderProps {
   featuredServers?: McpServer[];
 }
 
-const MCP_ASSISTANT_URL = "https://api.mcp-assistant.in/mcp";
+const MCP_ASSISTANT_URL = "https://mcp.linkos.in/mcp";
 const MCP_CLIENT_ICONS = [
   {
     name: "VS Code",

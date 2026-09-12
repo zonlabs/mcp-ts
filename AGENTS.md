@@ -7,7 +7,7 @@ mcp-ts is a TypeScript monorepo for building MCP (Model Context Protocol) applic
 - `@mcp-ts/tool-router` — on-demand tool discovery to reduce LLM context bloat
 - `@mcp-ts/codemode` — sandboxed programmatic tool execution
 
-The Client package is consumed by [mcp-client](https://mcp-assistant.in) (Next.js, hosted on Vercel) and [mcp-server](https://api.mcp-assistant.in/mcp) (Hono, hosted on Railway).
+The Client package is consumed by [mcp-client](https://app.linkos.in) (Next.js, hosted on Vercel) and [mcp-server](https://mcp.linkos.in/mcp) (Hono, hosted on Railway).
 
 ## Repository Structure
 
@@ -15,7 +15,7 @@ The Client package is consumed by [mcp-client](https://mcp-assistant.in) (Next.j
 mcp-ts/
   .github/workflows/   # CI/CD — release.yml auto-publishes to npm on version bumps
   .claude/              # Claude settings
-  docs/                 # Mintlify documentation (docs.mcp-assistant.in)
+  docs/                 # Mintlify documentation (docs.linkos.in)
   benchmarks/           # tool-router performance benchmarks
   AGENTS.md             # ← this file — project guide for AI agents and contributors
   README.md             # public-facing readme (npm-published for Client)

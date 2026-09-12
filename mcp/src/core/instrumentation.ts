@@ -7,7 +7,7 @@ import { policyManager } from "./policy";
 
 export const MCP_ASSISTANT_SERVER_ID = "mcp-assistant";
 export const MCP_ASSISTANT_SERVER_NAME = "MCP Assistant";
-export const MCP_ASSISTANT_SERVER_URL = "https://api.mcp-assistant.in/mcp";
+export const MCP_ASSISTANT_SERVER_URL = "https://mcp.linkos.in/mcp";
 
 function recordTopLevelToolCall(
   toolName: string,

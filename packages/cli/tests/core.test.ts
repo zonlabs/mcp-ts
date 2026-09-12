@@ -90,7 +90,7 @@ test("renders banner, tree formatters and reports version", async () => {
   const banner = renderBanner();
   assert.ok(banner.includes("███╗"));
   assert.ok(banner.includes(CLI_VERSION));
-  assert.ok(banner.includes("https://mcp-assistant.in"));
+  assert.ok(banner.includes("https://app.linkos.in"));
 
   const { runCli } = await import("../src/cli.js");
   let output = "";
