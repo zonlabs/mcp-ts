@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { useSidebarChats, SIDEBAR_CHATS_QUERY_KEY } from "@/lib/hooks/use-sidebar-chats";
 import { DeleteAllChatsDialog } from "@/components/settings/DeleteAllChatsDialog";
+import { DeleteMcpUsageEventsDialog } from "@/components/settings/DeleteMcpUsageEventsDialog";
 import type { SidebarChat } from "@/lib/sidebar-chats";
 
 export default function DataControlsPage() {
@@ -31,6 +32,7 @@ export default function DataControlsPage() {
 
   const [isExporting, setIsExporting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteUsageEventsDialogOpen, setDeleteUsageEventsDialogOpen] = useState(false);
   const [copiedChatId, setCopiedChatId] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [isRevokingAll, setIsRevokingAll] = useState(false);
@@ -150,6 +152,17 @@ export default function DataControlsPage() {
     await queryClient.invalidateQueries({ queryKey: SIDEBAR_CHATS_QUERY_KEY });
     toast.success("All conversations permanently deleted");
     router.push("/chat");
+  };
+
+  const handleDeleteMcpUsageEvents = async () => {
+    const res = await fetch("/api/remote-mcp/usage", { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to delete MCP usage events");
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["mcpUsage"] });
+    toast.success("MCP usage events permanently deleted");
   };
 
   return (
@@ -365,6 +378,27 @@ export default function DataControlsPage() {
             <div className="md:col-span-2 bg-card border border-destructive/20 rounded-md p-4 space-y-4 shadow-xs">
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-medium text-foreground">Delete MCP usage events</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Permanently remove MCP dashboard activity and usage metrics without deleting conversations.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteUsageEventsDialogOpen(true)}
+                  className="h-8 px-3 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 rounded-sm shrink-0 transition-all"
+                >
+                  <Trash2 className="size-3.5 mr-1.5" />
+                  Delete usage events
+                </Button>
+              </div>
+
+              <div className="border-t border-destructive/20" />
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground">Delete all conversations</p>
                   <p className="text-[11px] text-muted-foreground">
                     Permanently remove all conversations and history.
@@ -393,6 +427,11 @@ export default function DataControlsPage() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteAllChats}
         chatCount={chats?.length}
+      />
+      <DeleteMcpUsageEventsDialog
+        open={deleteUsageEventsDialogOpen}
+        onOpenChange={setDeleteUsageEventsDialogOpen}
+        onConfirm={handleDeleteMcpUsageEvents}
       />
     </div>
   );
