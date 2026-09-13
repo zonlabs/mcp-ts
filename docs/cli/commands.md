@@ -105,7 +105,7 @@ With `--json`, stdout contains one JSON document, which is useful in scripts.
 
 ### `login`
 
-Sign in to MCP Assistant using browser OAuth. The saved session is stored in the platform user configuration directory.
+Sign in to LinkOS using browser OAuth. The saved session is stored in the platform user configuration directory.
 
 ```bash
 mcpa login

@@ -16,7 +16,7 @@ vi.mock("../../src/core/request-context", () => ({
 
 import {
   createInstrumentedMcpServer,
-  MCP_ASSISTANT_SERVER_ID,
+  LINKOS_SERVER_ID,
 } from "../../src/core/instrumentation";
 
 describe("createInstrumentedMcpServer", () => {
@@ -47,7 +47,7 @@ describe("createInstrumentedMcpServer", () => {
       expect.objectContaining({
         userId: "user-1",
         requestId: "request-1",
-        serverId: MCP_ASSISTANT_SERVER_ID,
+        serverId: LINKOS_SERVER_ID,
         toolName: "test-tool",
         eventType: "top_level",
         status: "success",

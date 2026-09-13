@@ -89,12 +89,12 @@ export function authConfigDir(
 ): string {
   if (env.MCPA_CONFIG_DIR) return env.MCPA_CONFIG_DIR;
   if (platform === "win32") {
-    return join(env.LOCALAPPDATA ?? join(userHome, "AppData", "Local"), "mcp-assistant");
+    return join(env.LOCALAPPDATA ?? join(userHome, "AppData", "Local"), "linkos");
   }
   if (platform === "darwin") {
-    return join(userHome, "Library", "Application Support", "mcp-assistant");
+    return join(userHome, "Library", "Application Support", "linkos");
   }
-  return join(env.XDG_CONFIG_HOME ?? join(userHome, ".config"), "mcp-assistant");
+  return join(env.XDG_CONFIG_HOME ?? join(userHome, ".config"), "linkos");
 }
 
 import { AUTH_FILENAME } from "../constants.js";

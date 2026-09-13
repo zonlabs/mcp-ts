@@ -14,7 +14,7 @@ export default function Footer() {
                 <Logo size={48} />
               </div>
               <div className="space-y-1">
-                <h3 className="text-lg font-bold text-foreground">MCP Assistant</h3>
+                <h3 className="text-lg font-bold text-foreground">LinkOS</h3>
                 <p className="text-sm text-muted-foreground">
                   One place to discover and interact with MCPs.
                 </p>
@@ -109,7 +109,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-6 border-t border-border/30 flex flex-col md:flex-row items-center justify-center gap-4">
           <p className="text-sm text-muted-foreground text-center">
-            © {new Date().getFullYear()} MCP Assistant. All rights reserved.
+            © {new Date().getFullYear()} LinkOS. All rights reserved.
           </p>
         </div>
       </div>

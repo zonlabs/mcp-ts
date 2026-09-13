@@ -1,11 +1,11 @@
 ---
 title: "MCP Server"
 sidebarTitle: "Remote MCP Server"
-description: "Use the hosted MCP server from MCP Assistant to access remote MCP servers, dynamic discovery tools, and Code Mode from MCP clients."
+description: "Use the hosted MCP server from LinkOS to access remote MCP servers, dynamic discovery tools, and Code Mode from MCP clients."
 icon: "cloud"
 ---
 
-The hosted **MCP Server** gives MCP clients a single Streamable HTTP endpoint for working with [MCP Assistant](https://app.linkos.in/mcp).
+The hosted **MCP Server** gives MCP clients a single Streamable HTTP endpoint for working with [LinkOS](https://app.linkos.in/mcp).
 
 ## Endpoint
 
@@ -15,13 +15,13 @@ Use this URL in MCP clients that support Streamable HTTP:
 https://mcp.linkos.in/mcp
 ```
 
-Connect and manage remote MCP servers from [app.linkos.in](https://app.linkos.in). The hosted endpoint uses those connected servers when MCP clients call MCP Assistant.
+Connect and manage remote MCP servers from [app.linkos.in](https://app.linkos.in). The hosted endpoint uses those connected servers when MCP clients call LinkOS.
 
 ## What is the hosted MCP Server?
 
 The MCP Server connects AI clients to MCP tools and remote app integrations through the Model Context Protocol.
 
-Use it when you want an MCP client to access MCP Assistant without hosting your own server. After connecting remote MCP servers in [app.linkos.in](https://app.linkos.in), the MCP Assistant server can provide access to 100+ MCP servers, including GitHub, Notion, Zapier, Supabase, and other supported services.
+Use it when you want an MCP client to access LinkOS without hosting your own server. After connecting remote MCP servers in [app.linkos.in](https://app.linkos.in), the LinkOS server can provide access to 100+ MCP servers, including GitHub, Notion, Zapier, Supabase, and other supported services.
 
 It also exposes meta-tools for dynamic MCP discovery and a `CodeMode` tool that executes programs inside a secure sandbox for programmatic tool calling and result processing. This helps avoid expensive LLM tool-calling loops when a task is better handled as a small program.
 
@@ -42,7 +42,7 @@ It also exposes meta-tools for dynamic MCP discovery and a `CodeMode` tool that 
 - A hosted MCP endpoint for clients that support Streamable HTTP.
 - Access to 100+ MCP servers, including GitHub, Notion, Zapier, Supabase, and other supported services.
 - Meta-tools for dynamic MCP discovery across 100+ supported MCP servers.
-- Server-side tool execution through MCP Assistant.
+- Server-side tool execution through LinkOS.
 - `CodeMode` support for running small programs that call MCP tools inside a secure sandbox.
 - A simple core flow: list servers, search tools, inspect schema, then run with CodeMode.
 - Separate workflow tools for saving scripts and inspecting workflow state.
@@ -136,7 +136,7 @@ The service also supports OpenTelemetry traces and metrics through OTLP for prod
 ```json
 {
   "servers": {
-    "mcp-assistant": {
+    "linkos": {
       "type": "http",
       "url": "https://mcp.linkos.in/mcp"
     }
@@ -149,7 +149,7 @@ The service also supports OpenTelemetry traces and metrics through OTLP for prod
 ```json
 {
   "mcpServers": {
-    "mcp-assistant": {
+    "linkos": {
       "serverUrl": "https://mcp.linkos.in/mcp"
     }
   }

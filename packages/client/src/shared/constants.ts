@@ -17,7 +17,7 @@ export const AUTH_REDIRECT_DEBOUNCE_MS = 1000; // 1 second debounce for OAuth re
 export const REDIS_KEY_PREFIX = 'mcp:session:';
 
 // Client Information
-export const DEFAULT_CLIENT_NAME = 'MCP Assistant';
+export const DEFAULT_CLIENT_NAME = 'LinkOS';
 export const DEFAULT_CLIENT_URI = 'https://app.linkos.in';
 export const DEFAULT_LOGO_URI = 'https://app.linkos.in/logo.svg';
 export const DEFAULT_POLICY_URI = 'https://app.linkos.in/privacy';

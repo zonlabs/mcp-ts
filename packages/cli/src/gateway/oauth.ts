@@ -77,7 +77,7 @@ export async function loginToRemote(
       return;
     }
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end("<!doctype html><title>MCP Assistant</title><p>Login successful. You can close this tab.</p>");
+    response.end("<!doctype html><title>LinkOS</title><p>Login successful. You can close this tab.</p>");
     resolveCallback({ code: url.searchParams.get("code") ?? "", state: url.searchParams.get("state") ?? "" });
   });
   server.listen(DEFAULT_OAUTH_CALLBACK_PORT, "127.0.0.1");

@@ -85,7 +85,7 @@ export default function SignInPage() {
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="flex items-center gap-2">
             <Logo size={36} />
-            <span className="text-lg font-semibold text-foreground">MCP Assistant</span>
+            <span className="text-lg font-semibold text-foreground">LinkOS</span>
           </div>
           <p className="text-base text-foreground/80">
             Sign in to your account to continue

@@ -71,7 +71,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 
 ## 🌐 Hosted MCP Endpoints
 
-### MCP Assistant Server
+### LinkOS Server
 - **Endpoint**: `https://mcp.linkos.in/mcp`
 - Access 100+ MCP tools (GitHub, Notion, Zapier, Supabase, etc.), dynamic tool discovery, and sandboxed `CodeMode` execution.
 
@@ -80,7 +80,7 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 ```json
 {
   "mcpServers": {
-    "mcp-assistant": {
+    "linkos": {
       "serverUrl": "https://mcp.linkos.in/mcp"
     }
   }
@@ -121,7 +121,7 @@ Normal `list`, `search`, `schema`, and `call` commands always use the single gat
 ### Agent Skills
 
 - Use [`mcp-cli`](skills/mcp-cli/SKILL.md) when a task invokes, automates, installs, or troubleshoots `mcpa` / `mcp-ts`. It covers the 0.3.0+ preflight, one-gateway lifecycle, authentication, catalog discovery, schema inspection, tool calls, and safe Node batching.
-- Use [`mcp-assistant`](skills/mcp-assistant/SKILL.md) when a task needs dynamic MCP server/tool discovery, selective schema inspection, routing across connected services, or sandboxed multi-tool workflows without loading every tool into context.
+- Use [`linkos`](skills/linkos/SKILL.md) when a task needs dynamic MCP server/tool discovery, selective schema inspection, routing across connected services, or sandboxed multi-tool workflows without loading every tool into context.
 
 ---
 

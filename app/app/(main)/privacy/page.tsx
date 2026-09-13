@@ -24,7 +24,7 @@ export default function PrivacyPolicy() {
             <div>
               <h2 className="text-xl font-medium tracking-tight mb-3 text-foreground">Introduction</h2>
               <p className="text-muted-foreground">
-                MCP Assistant (&quot;we&quot;, &quot;our&quot;, or &quot;the service&quot;) is a platform that helps users manage MCP (Model Context Protocol) servers and interact with AI assistants. This privacy policy explains how we collect, use, and protect your information.
+                LinkOS (&quot;we&quot;, &quot;our&quot;, or &quot;the service&quot;) is a platform that helps users manage MCP (Model Context Protocol) servers and interact with AI assistants. This privacy policy explains how we collect, use, and protect your information.
               </p>
             </div>
 
@@ -143,7 +143,7 @@ export default function PrivacyPolicy() {
             <div>
               <h2 className="text-2xl font-semibold mb-4">Children&apos;s Privacy</h2>
               <p className="text-muted-foreground">
-                MCP Assistant is not intended for children under 13. We do not knowingly collect information from children under 13.
+                LinkOS is not intended for children under 13. We do not knowingly collect information from children under 13.
               </p>
             </div>
 
@@ -180,7 +180,7 @@ export default function PrivacyPolicy() {
             {/* Highlight Box */}
             <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded-xl p-6">
               <p className="text-yellow-900 dark:text-yellow-400 font-medium">
-                <strong>Your Privacy Matters:</strong> We are committed to protecting your privacy and being transparent about our data practices. MCP Assistant is designed to keep your data secure with no subscriptions required.
+                <strong>Your Privacy Matters:</strong> We are committed to protecting your privacy and being transparent about our data practices. LinkOS is designed to keep your data secure with no subscriptions required.
               </p>
             </div>
           </div>

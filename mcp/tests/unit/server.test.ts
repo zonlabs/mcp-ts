@@ -8,7 +8,7 @@ const { mockRegisterMcpCoreTools, mockCreateInstrumentedMcpServer } = vi.hoisted
 
 vi.mock("../../src/core/instrumentation", () => ({
   createInstrumentedMcpServer: mockCreateInstrumentedMcpServer,
-  MCP_ASSISTANT_SERVER_ID: "mcp-assistant",
+  LINKOS_SERVER_ID: "linkos",
 }));
 
 vi.mock("../../src/core/mcp-core-tools", () => ({
@@ -26,7 +26,7 @@ describe("createMcpServer", () => {
     const server = createMcpServer();
 
     expect(mockCreateInstrumentedMcpServer).toHaveBeenCalledWith({
-      name: "mcp-assistant",
+      name: "linkos",
       version: "1.0.4",
     });
     expect(server).toBe(mockMcpInstance);

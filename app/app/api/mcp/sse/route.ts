@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 export const { GET, POST } = createNextMcpHandler({
 
     clientDefaults: {
-        clientName: "MCP Assistant",
+        clientName: "LinkOS",
         clientUri: "https://app.linkos.in",
     }
     // Optional: customize how to extract userId and auth token

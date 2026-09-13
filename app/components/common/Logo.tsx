@@ -10,7 +10,7 @@ type LogoProps = {
   alt?: string;
 };
 
-export default function Logo({ size = 36, className, alt = "MCP Assistant Logo" }: LogoProps) {
+export default function Logo({ size = 36, className, alt = "LinkOS Logo" }: LogoProps) {
   return (
     <Image
       src="/logo.svg"

@@ -105,7 +105,7 @@ describe("RemoteBridgeClient", () => {
     socket.receive(
       createSuccessResponse(initialize.id, {
         protocolVersion: BRIDGE_PROTOCOL_VERSION,
-        serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+        serverInfo: { name: "linkos", version: "1.0.0" },
         remoteCatalog,
       }),
     );
@@ -121,7 +121,7 @@ describe("RemoteBridgeClient", () => {
     state.socket.receive(
       createSuccessResponse(initialize.id, {
         protocolVersion: BRIDGE_PROTOCOL_VERSION,
-        serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+        serverInfo: { name: "linkos", version: "1.0.0" },
         remoteCatalog: { servers: [] },
       }),
     );
@@ -160,7 +160,7 @@ describe("RemoteBridgeClient", () => {
     state.socket.receive(
       createSuccessResponse(initialize.id, {
         protocolVersion: BRIDGE_PROTOCOL_VERSION,
-        serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+        serverInfo: { name: "linkos", version: "1.0.0" },
         remoteCatalog: { servers: [] },
       }),
     );
@@ -216,7 +216,7 @@ describe("RemoteBridgeClient", () => {
       state.socket.receive(
         createSuccessResponse(initialize.id, {
           protocolVersion: BRIDGE_PROTOCOL_VERSION,
-          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          serverInfo: { name: "linkos", version: "1.0.0" },
           remoteCatalog: { servers: [] },
         }),
       );
@@ -257,7 +257,7 @@ describe("RemoteBridgeClient", () => {
       socket1.receive(
         createSuccessResponse(init1.id, {
           protocolVersion: BRIDGE_PROTOCOL_VERSION,
-          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          serverInfo: { name: "linkos", version: "1.0.0" },
           remoteCatalog: { servers: [] },
         }),
       );
@@ -289,7 +289,7 @@ describe("RemoteBridgeClient", () => {
       socket2.receive(
         createSuccessResponse(init2.id, {
           protocolVersion: BRIDGE_PROTOCOL_VERSION,
-          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          serverInfo: { name: "linkos", version: "1.0.0" },
           remoteCatalog: { servers: [] },
         }),
       );
@@ -334,7 +334,7 @@ describe("RemoteBridgeClient", () => {
       sockets[1].receive(
         createSuccessResponse(initialize.id, {
           protocolVersion: BRIDGE_PROTOCOL_VERSION,
-          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          serverInfo: { name: "linkos", version: "1.0.0" },
           remoteCatalog: {
             servers: [
               {
@@ -407,7 +407,7 @@ describe("RemoteBridgeClient", () => {
       sockets[0].receive(
         createSuccessResponse(firstInitialize.id, {
           protocolVersion: BRIDGE_PROTOCOL_VERSION,
-          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          serverInfo: { name: "linkos", version: "1.0.0" },
           remoteCatalog: { servers: [] },
         }),
       );
@@ -432,7 +432,7 @@ describe("RemoteBridgeClient", () => {
       sockets[1].receive(
         createSuccessResponse(secondInitialize.id, {
           protocolVersion: BRIDGE_PROTOCOL_VERSION,
-          serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+          serverInfo: { name: "linkos", version: "1.0.0" },
           remoteCatalog: { servers: [] },
         }),
       );

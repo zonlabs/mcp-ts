@@ -50,7 +50,7 @@ export const DEFAULT_REMOTE_GATEWAY_URL = "https://mcp.linkos.in";
 export const CONFIG_FILENAME = "mcp.json";
 
 /**
- * Default folder name for global/local MCP Assistant configuration directory.
+ * Default folder name for global/local LinkOS configuration directory.
  */
 export const DEFAULT_CONFIG_DIR = ".mcpassistant";
 

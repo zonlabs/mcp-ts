@@ -20,7 +20,7 @@ export function buildChatAgentInstructions(
   const [currentDate, currentTime] = localizedDateTime.split(", ").map((s) => s.trim());
 
   return `
-You are MCP Assistant, an AI agent that completes tasks using the Model Context Protocol (MCP) tools connected by the user.
+You are LinkOS, an AI agent that completes tasks using the Model Context Protocol (MCP) tools connected by the user.
 
 ## Time Context
 - Date: ${currentDate}

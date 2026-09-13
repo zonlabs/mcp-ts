@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./public/logo.svg" alt="MCP Assistant Logo" width="96" height="96" />
-  <h1>MCP Assistant</h1>
-  <img src="./public/images/mcpassistant.png" alt="MCP Assistant Banner" width="100%" />
+  <img src="./public/logo.svg" alt="LinkOS Logo" width="96" height="96" />
+  <h1>LinkOS</h1>
+  <img src="./public/images/mcpassistant.png" alt="LinkOS Banner" width="100%" />
   <p><strong>Web-based MCP client for remote servers and AI tools.</strong></p>
 
   [![Website](https://img.shields.io/badge/Website-app.linkos.in-0A66C2?style=for-the-badge&logo=googlechrome&logoColor=white)](https://app.linkos.in/)
@@ -11,9 +11,9 @@
 
 ## 🌐 Overview
 
-MCP Assistant addresses common pain points when working with the Model Context Protocol:
+LinkOS addresses common pain points when working with the Model Context Protocol:
 
-## ✨ Why MCP Assistant
+## ✨ Why LinkOS
 
 - Connect to remote MCP servers from one interface
 - Manage multiple MCP servers from a single interface
@@ -37,10 +37,10 @@ flowchart TD
         B[User Browser]
     end
 
-    subgraph MCPA["MCP Assistant"]
+    subgraph MCPA["LinkOS"]
         subgraph UI["UI"]
             direction TB
-            MAR["MCP Assistant Registry"]
+            MAR["LinkOS Registry"]
             MPR["Model Context Protocol Registry"]
             PG["Playground"]
         end

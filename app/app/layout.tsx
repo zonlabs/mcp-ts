@@ -11,7 +11,7 @@ import { Toaster } from "react-hot-toast";
 import { geist, inter, geistMono } from "@/lib/fonts";
 
 export const metadata: Metadata = {
-  title: "MCP Assistant",
+  title: "LinkOS",
   description: "Web-based MCP (Model Context Protocol) client for managing servers and exploring tools",
   icons: {
     icon: "/favicon.ico",

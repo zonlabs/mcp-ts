@@ -63,7 +63,7 @@ export interface McpUsageHeatmapApp {
   serverIcons?: ServerIcon[] | null;
 }
 
-const ORCHESTRATOR_APP_KEYS = new Set(["mcp_assistant"]);
+const ORCHESTRATOR_APP_KEYS = new Set(["linkos"]);
 
 const KNOWN_APP_NAMES: Record<string, string> = {
   asana: "Asana",
@@ -117,7 +117,7 @@ export function summarizeMcpUsage(
     };
   }
 
-  // Upstream tool calls from MCP Assistant only (excluding downstream tool calls)
+  // Upstream tool calls from LinkOS only (excluding downstream tool calls)
   const upstreamEvents = events.filter((e) => !e.event_type || e.event_type === "top_level");
   const mcpAssistantCallsTotal = upstreamEvents.length;
 

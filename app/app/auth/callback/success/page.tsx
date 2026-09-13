@@ -163,7 +163,7 @@ function CallbackSuccessContent() {
       <Card className="w-full max-w-sm border-border/60 shadow-lg rounded-sm overflow-hidden">
         <div className="flex items-center justify-center gap-2.5 px-6 py-3 border-b border-border">
           <Image src="/logo.svg" alt="" width={32} height={32} className="rounded-md" />
-          <span className="text-base font-medium text-foreground">MCP Assistant</span>
+          <span className="text-base font-medium text-foreground">LinkOS</span>
         </div>
         <CardContent className="flex flex-col items-center px-6 py-5 text-center">
           {status === "loading" && (

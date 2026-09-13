@@ -206,7 +206,7 @@ export class LocalHttpMcp {
 
   private async createMcpServer(): Promise<McpServer> {
     const mcp = new McpServer(
-      { name: "mcp-assistant-gateway", version: CLI_VERSION },
+      { name: "linkos-gateway", version: CLI_VERSION },
       { capabilities: { tools: {} } },
     );
     const progressive = isSearchDiscoveryMode(this.options.mode);

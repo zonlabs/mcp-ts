@@ -5,9 +5,9 @@ import { extractReturnedError } from "./mcp-tool-output";
 import { errorResponse } from "./tool-result";
 import { policyManager } from "./policy";
 
-export const MCP_ASSISTANT_SERVER_ID = "mcp-assistant";
-export const MCP_ASSISTANT_SERVER_NAME = "MCP Assistant";
-export const MCP_ASSISTANT_SERVER_URL = "https://mcp.linkos.in/mcp";
+export const LINKOS_SERVER_ID = "linkos";
+export const LINKOS_SERVER_NAME = "LinkOS";
+export const LINKOS_SERVER_URL = "https://mcp.linkos.in/mcp";
 
 function recordTopLevelToolCall(
   toolName: string,
@@ -23,11 +23,11 @@ function recordTopLevelToolCall(
     userId: context.userId,
     requestId: context.requestId,
     mcpSessionId: context.mcpSessionId,
-    serverId: MCP_ASSISTANT_SERVER_ID,
-    serverName: MCP_ASSISTANT_SERVER_NAME,
-    serverUrl: MCP_ASSISTANT_SERVER_URL,
+    serverId: LINKOS_SERVER_ID,
+    serverName: LINKOS_SERVER_NAME,
+    serverUrl: LINKOS_SERVER_URL,
     toolName,
-    toolNamespace: MCP_ASSISTANT_SERVER_ID,
+    toolNamespace: LINKOS_SERVER_ID,
     eventType: "top_level",
     status,
     error,

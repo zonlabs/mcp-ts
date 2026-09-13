@@ -1,6 +1,6 @@
 # MCP Server
 
-The `mcp-server` service runs MCP Assistant's standalone HTTP MCP service, connecting AI clients to MCP tools and remote app integrations through the Model Context Protocol. Use it when you want an MCP client to access MCP Assistant without hosting your own server.
+The `mcp-server` service runs LinkOS's standalone HTTP MCP service, connecting AI clients to MCP tools and remote app integrations through the Model Context Protocol. Use it when you want an MCP client to access LinkOS without hosting your own server.
 
 After connecting remote MCP servers in [app.linkos.in](https://app.linkos.in/), it provides access to 100+ MCP servers (GitHub, Notion, Zapier, Supabase, and more). It also exposes meta-tools for dynamic MCP discovery and a CodeMode tool that executes programs inside a secure sandbox for programmatic tool calling.
 
@@ -8,7 +8,7 @@ After connecting remote MCP servers in [app.linkos.in](https://app.linkos.in/), 
 
 - Serves the public MCP endpoint at `POST /mcp`
 - Exposes OAuth metadata and token endpoints, validating access tokens and scopes
-- Connects clients to the MCP Assistant tool network
+- Connects clients to the LinkOS tool network
 - Provides meta-tools for MCP discovery, schema inspection, and CodeMode execution
 - Tracks usage and session state through Supabase
 - Provides a health endpoint for uptime and deploy checks
@@ -68,7 +68,7 @@ Runs the Worker locally with `wrangler dev` (default `http://localhost:8788`).
 
 ## Cloudflare Workers deployment
 
-Deploy with `wrangler deploy` (the `mcp-assistant` worker). Health check path: `/healthz`.
+Deploy with `wrangler deploy` (the `linkos` worker). Health check path: `/healthz`.
 
 ## Endpoints
 

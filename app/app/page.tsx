@@ -473,8 +473,8 @@ export default function Home() {
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-3.5">
                   {[
-                    { name: "VS Code", icon: "https://api.iconify.design/logos:visual-studio-code.svg", invert: false, href: "vscode:mcp/install?%7B%22name%22%3A%22mcp-assistant%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.linkos.in%2Fmcp%22%7D" },
-                    { name: "Cursor", icon: "https://api.iconify.design/simple-icons:cursor.svg", invert: true, href: "cursor://anysphere.cursor-deeplink/mcp/install?name=mcp-assistant&config=eyJ0eXBlIjoic3NlIiwidXJsIjoiaHR0cHM6Ly9tY3AubGlua29zLmluL21jcCJ9" },
+                    { name: "VS Code", icon: "https://api.iconify.design/logos:visual-studio-code.svg", invert: false, href: "vscode:mcp/install?%7B%22name%22%3A%22linkos%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.linkos.in%2Fmcp%22%7D" },
+                    { name: "Cursor", icon: "https://api.iconify.design/simple-icons:cursor.svg", invert: true, href: "cursor://anysphere.cursor-deeplink/mcp/install?name=linkos&config=eyJ0eXBlIjoic3NlIiwidXJsIjoiaHR0cHM6Ly9tY3AubGlua29zLmluL21jcCJ9" },
                     { name: "Claude Desktop", icon: "https://api.iconify.design/simple-icons:anthropic.svg", invert: true },
                     { name: "ChatGPT", icon: "https://api.iconify.design/simple-icons:openai.svg", invert: true },
                     { name: "Antigravity", icon: "https://api.iconify.design/material-symbols:antigravity.svg", invert: true },
@@ -705,7 +705,7 @@ export default function Home() {
                 variants={fadeInUp}
                 className="text-muted-foreground text-base sm:text-lg leading-relaxed text-center tracking-[-0.01em]"
               >
-                Common questions about MCP Assistant and Model Context Protocol.
+                Common questions about LinkOS and Model Context Protocol.
               </motion.p>
             </motion.div>
 

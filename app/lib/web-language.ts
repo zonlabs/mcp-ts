@@ -1,7 +1,7 @@
 import { WEB_I18N_LANGUAGE_OPTIONS } from "./web-i18n-dictionaries";
 
-export const WEB_LANGUAGE_STORAGE_KEY = "mcp-assistant:web-language:v1";
-export const WEB_LANGUAGE_CHANGE_EVENT = "mcp-assistant:web-language:changed";
+export const WEB_LANGUAGE_STORAGE_KEY = "linkos:web-language:v1";
+export const WEB_LANGUAGE_CHANGE_EVENT = "linkos:web-language:changed";
 export const DEFAULT_WEB_LANGUAGE = "en-US";
 
 export const WEB_LANGUAGE_OPTIONS = WEB_I18N_LANGUAGE_OPTIONS;
