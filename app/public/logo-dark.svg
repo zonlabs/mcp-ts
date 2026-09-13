@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 160" width="560" height="160" role="img" aria-label="linkos">
+  <g fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="24" y="46" width="82" height="48" rx="24"/>
+    <rect x="72" y="84" width="82" height="48" rx="24"/>
+  </g>
+  <text x="188" y="112" fill="#ffffff" font-family="Inter, Arial, Helvetica, sans-serif" font-size="82" font-weight="700" letter-spacing="-5">linkos</text>
+</svg>

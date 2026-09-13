@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import Image from "next/image";
+import { LogoBadge } from "@/components/common/Logo";
 import { CheckCircle2, XCircle } from "lucide-react";
 
 const AUTH_CHANNEL_NAME = "mcp-auth-channel";
@@ -161,9 +161,8 @@ function CallbackSuccessContent() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm border-border/60 shadow-lg rounded-sm overflow-hidden">
-        <div className="flex items-center justify-center gap-2.5 px-6 py-3 border-b border-border">
-          <Image src="/logo.svg" alt="" width={32} height={32} className="rounded-md" />
-          <span className="text-base font-medium text-foreground">LinkOS</span>
+        <div className="flex items-center justify-center px-6 py-3 border-b border-border">
+          <LogoBadge size={30} />
         </div>
         <CardContent className="flex flex-col items-center px-6 py-5 text-center">
           {status === "loading" && (
