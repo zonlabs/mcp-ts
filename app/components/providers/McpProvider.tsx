@@ -37,6 +37,35 @@ export interface McpContextValue {
 
 const McpContext = createContext<McpContextValue | null>(null);
 
+const unauthenticatedMcpContext: McpContextValue = {
+  connections: [],
+  connectionMap: {},
+  activeConnections: [],
+  activeConnectionCount: 0,
+  status: 'disconnected',
+  isInitializing: false,
+  connect: async () => '',
+  disconnect: async () => undefined,
+  reconnect: async () => '',
+  callTool: async () => undefined,
+  finishAuth: async () => undefined,
+  updateToolPolicy: async () => undefined,
+  getToolAccess: async () => ({
+    toolPolicy: { mode: 'all', toolIds: [] },
+    tools: [],
+    toolCount: 0,
+    allowedToolCount: 0,
+  }),
+  updateSession: async () => ({ success: false }),
+  listPrompts: async () => [],
+  getPrompt: async () => undefined,
+  listResources: async () => [],
+  listResourceTemplates: async () => [],
+  readResource: async () => undefined,
+  sseClient: null,
+  refresh: async () => undefined,
+};
+
 export function useMcpContext(): McpContextValue {
   const context = useContext(McpContext);
   if (!context) {
@@ -50,7 +79,11 @@ export function McpProvider({ children }: { children: React.ReactNode }) {
   const userId = userSession?.user?.id;
 
   if (!userId) {
-    return <>{children}</>;
+    return (
+      <McpContext.Provider value={unauthenticatedMcpContext}>
+        {children}
+      </McpContext.Provider>
+    );
   }
 
   return <McpProviderInner userId={userId}>{children}</McpProviderInner>;
