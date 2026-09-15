@@ -1,6 +1,6 @@
 {
   "name": "@mcp-ts/cli",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Connect local and remote MCP servers to ChatGPT, Claude Desktop, OpenCode, and other MCP clients, with progressive tool discovery, search, and a local MCP gateway.",
   "type": "module",
   "bin": {
