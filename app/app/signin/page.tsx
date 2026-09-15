@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LogoBadge } from "@/components/common/Logo";
 import { ArrowRight, Github, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -155,10 +156,70 @@ export default function SignInPage() {
         </section>
 
         <aside className="relative hidden flex-1 overflow-hidden rounded-[18px] bg-[#252525] lg:block">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_22%,rgba(255,255,255,0.18),transparent_24%),radial-gradient(circle_at_80%_78%,rgba(255,255,255,0.2),transparent_25%),linear-gradient(135deg,#505050_0%,#1b1b1b_52%,#858585_145%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_22%,rgba(255,255,255,0.12),transparent_24%),radial-gradient(circle_at_80%_78%,rgba(255,255,255,0.12),transparent_25%),#252525]" />
           <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:52px_52px]" />
-          <div className="relative flex h-full min-h-0 items-center justify-center p-12">
-            <div className="relative w-full max-w-[520px]">
+          <div className="relative flex h-full min-h-0 items-center justify-center p-12 pr-6">
+            <div className="relative z-10 flex w-full max-w-none flex-col justify-between self-stretch py-3 text-white">
+              <div className="pointer-events-none absolute right-0 top-[12%] h-[350px] w-[370px] opacity-90">
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-lg font-semibold tracking-[-0.08em] text-white">LinkOS</span>
+                {[
+                  { name: "GitHub", icon: "https://logos.composio.dev/api/github", invert: true, position: "left-1/2 top-0 -translate-x-1/2" },
+                  { name: "X", icon: "https://logos.composio.dev/api/twitter", invert: true, position: "left-[25%] top-[5%]" },
+                  { name: "Calendly", icon: "https://logos.composio.dev/api/calendly", position: "right-[25%] top-[5%]" },
+                  { name: "Notion", icon: "https://logos.composio.dev/api/notion", position: "right-[7%] top-[20%]" },
+                  { name: "Perplexity", icon: "https://logos.composio.dev/api/perplexityai", position: "right-0 top-1/2 -translate-y-1/2" },
+                  { name: "Gmail", icon: "https://logos.composio.dev/api/gmail", position: "right-[7%] bottom-[20%]" },
+                  { name: "Cloudinary", icon: "https://logos.composio.dev/api/cloudinary", position: "right-[25%] bottom-[5%]" },
+                  { name: "Google Docs", icon: "https://logos.composio.dev/api/googledocs", position: "left-1/2 bottom-0 -translate-x-1/2" },
+                  { name: "Exa", icon: "https://logos.composio.dev/api/exa", position: "left-[25%] bottom-[5%]" },
+                  { name: "Netlify", icon: "https://logos.composio.dev/api/netlify", position: "left-[7%] bottom-[20%]" },
+                  { name: "Parallel Search", icon: "https://logos.composio.dev/api/parallel", invert: true, position: "left-[7%] top-[20%]" },
+                  { name: "Heroku", icon: "https://logos.composio.dev/api/heroku", position: "left-0 top-1/2 -translate-y-1/2" },
+                ].map((platform) => (
+                  <div key={platform.name} className={`absolute flex h-12 w-12 items-center justify-center ${platform.position}`}>
+                    <Image
+                      src={platform.icon}
+                      alt=""
+                      width={36}
+                      height={36}
+                      className={`h-8 w-8 rounded-xs object-contain ${platform.invert ? "invert" : ""}`}
+                      unoptimized
+                    />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h2 className="max-w-[370px] text-[clamp(3.8rem,6.5vw,6.5rem)] font-medium leading-[0.9] tracking-[-0.08em] text-white">
+                  Give AI
+                  <br />
+                  <span className="text-white/35">the right</span>
+                  <br />
+                  tools.
+                </h2>
+                <p className="mt-9 max-w-[360px] text-[15px] leading-7 text-white/55">
+                  Manage MCP servers, data sources, and actions from one secure workspace.
+                </p>
+              </div>
+
+              <div className="grid w-full grid-cols-3 gap-3 border-t border-white/15 pt-5">
+                <div>
+                  <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">01</div>
+                  <div className="text-xs font-medium text-white/85">Connect anything</div>
+                  <div className="mt-1 text-[11px] leading-5 text-white/40">Your tools, in one place.</div>
+                </div>
+                <div>
+                  <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">02</div>
+                  <div className="text-xs font-medium text-white/85">Stay in control</div>
+                  <div className="mt-1 text-[11px] leading-5 text-white/40">Clear access, every time.</div>
+                </div>
+                <div>
+                  <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">03</div>
+                  <div className="text-xs font-medium text-white/85">Move with intent</div>
+                  <div className="mt-1 text-[11px] leading-5 text-white/40">Less setup. More making.</div>
+                </div>
+              </div>
+            </div>
+            <div className="hidden">
               <div className="rounded-[20px] border border-white/30 bg-white/95 p-7 text-[#17242a] shadow-2xl shadow-black/20 backdrop-blur-sm">
                 <div className="mb-5 text-[15px] leading-6 sm:text-[17px]">
                   “The fastest way to make an AI assistant useful is to give it the right tools.”
@@ -172,6 +233,46 @@ export default function SignInPage() {
                 </div>
               </div>
 
+            </div>
+            <div
+              aria-hidden="true"
+              className="hidden"
+            >
+              <div className="absolute left-1/2 top-1/2 z-10 flex h-36 w-36 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-white/50 bg-[#171717]/90 shadow-[0_0_80px_rgba(255,255,255,0.16)] backdrop-blur-xl">
+                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-lg font-bold text-[#171717] shadow-lg shadow-black/20">L</div>
+                <span className="text-sm font-semibold tracking-tight text-white">LinkOS</span>
+                <span className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/45">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399] motion-reduce:animate-none" />
+                  workspace ready
+                </span>
+              </div>
+
+              <div className="absolute left-[11%] top-[18%] h-px w-[29%] origin-left rotate-[27deg] bg-gradient-to-r from-white/45 to-white/10"><span className="absolute -top-1 left-[40%] h-2 w-2 animate-ping rounded-full bg-white shadow-[0_0_12px_#fff] motion-reduce:animate-none" /></div>
+              <div className="absolute right-[11%] top-[18%] h-px w-[29%] origin-right -rotate-[27deg] bg-gradient-to-l from-white/45 to-white/10"><span className="absolute -top-1 right-[40%] h-2 w-2 animate-ping rounded-full bg-white shadow-[0_0_12px_#fff] [animation-delay:700ms] motion-reduce:animate-none" /></div>
+              <div className="absolute bottom-[18%] left-[11%] h-px w-[29%] origin-left -rotate-[27deg] bg-gradient-to-r from-white/45 to-white/10"><span className="absolute -top-1 left-[40%] h-2 w-2 animate-ping rounded-full bg-white shadow-[0_0_12px_#fff] [animation-delay:1200ms] motion-reduce:animate-none" /></div>
+              <div className="absolute bottom-[18%] right-[11%] h-px w-[29%] origin-right rotate-[27deg] bg-gradient-to-l from-white/45 to-white/10"><span className="absolute -top-1 right-[40%] h-2 w-2 animate-ping rounded-full bg-white shadow-[0_0_12px_#fff] [animation-delay:1700ms] motion-reduce:animate-none" /></div>
+              <div className="absolute bottom-[7%] left-1/2 h-[21%] w-px -translate-x-1/2 bg-gradient-to-b from-white/35 to-transparent"><span className="absolute -left-1 top-[42%] h-2 w-2 animate-ping rounded-full bg-white shadow-[0_0_12px_#fff] [animation-delay:400ms] motion-reduce:animate-none" /></div>
+
+              <div className="absolute left-[3%] top-[5%] rounded-2xl border border-white/20 bg-black/20 p-3 backdrop-blur-md">
+                <div className="mb-2 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-xs font-semibold">GH</span><span className="text-xs font-medium text-white">GitHub</span></div>
+                <span className="rounded-md bg-white/10 px-2 py-1 text-[10px] text-white/50">search · read</span>
+              </div>
+              <div className="absolute right-[3%] top-[5%] rounded-2xl border border-white/20 bg-black/20 p-3 backdrop-blur-md">
+                <div className="mb-2 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-xs font-semibold">N</span><span className="text-xs font-medium text-white">Notion</span></div>
+                <span className="rounded-md bg-white/10 px-2 py-1 text-[10px] text-white/50">query · create</span>
+              </div>
+              <div className="absolute bottom-[5%] left-[3%] rounded-2xl border border-white/20 bg-black/20 p-3 backdrop-blur-md">
+                <div className="mb-2 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-xs font-semibold">Li</span><span className="text-xs font-medium text-white">Linear</span></div>
+                <span className="rounded-md bg-white/10 px-2 py-1 text-[10px] text-white/50">issues · update</span>
+              </div>
+              <div className="absolute bottom-[5%] right-[3%] rounded-2xl border border-white/20 bg-black/20 p-3 backdrop-blur-md">
+                <div className="mb-2 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-xs font-semibold">PG</span><span className="text-xs font-medium text-white">Postgres</span></div>
+                <span className="rounded-md bg-white/10 px-2 py-1 text-[10px] text-white/50">tables · query</span>
+              </div>
+
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/50 backdrop-blur-md">
+                4 connected servers · 28 tools
+              </div>
             </div>
           </div>
         </aside>
