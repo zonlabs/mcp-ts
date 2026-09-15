@@ -461,7 +461,7 @@ describe("initial catalog readiness from serve", () => {
     await vi.waitFor(() => expect(serveMocks.bridgeStart).toHaveBeenCalledOnce());
 
     expect(serveMocks.confirmSignIn).toHaveBeenCalledOnce();
-    expect(serveMocks.loginToRemote).toHaveBeenCalledWith("https://api.mcp-assistant.in");
+    expect(serveMocks.loginToRemote).toHaveBeenCalledWith("https://mcp.linkos.in");
     expect(serveMocks.spinnerStart).not.toHaveBeenCalledWith("Waiting for sign-in in your browser...");
     expect(serveMocks.spinnerStart).toHaveBeenCalledWith("Connecting to upstream...");
     expect(serveMocks.spinnerStop).toHaveBeenCalledWith(

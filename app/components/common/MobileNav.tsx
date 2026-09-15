@@ -17,7 +17,7 @@ export function MobileNav() {
     { href: "/", label: "Home", icon: Home },
     { href: "/mcp", label: "MCP", icon: Hammer },
     { href: "/chat", label: "Chat", icon: MessageSquare },
-    { href: "https://docs.mcp-assistant.in/", label: "Docs", icon: BookOpen, external: true },
+    { href: "https://docs.linkos.in/", label: "Docs", icon: BookOpen, external: true },
   ];
 
   return (

@@ -95,7 +95,7 @@ Point local MCP clients at the gateway:
 Sign in before expecting authenticated remote tools in the gateway catalog:
 
 ```bash
-mcpa login --remote https://api.mcp-assistant.in
+mcpa login --remote https://mcp.linkos.in
 mcpa list --tools
 mcpa search "send email"
 mcpa logout

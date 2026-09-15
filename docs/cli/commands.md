@@ -45,7 +45,7 @@ mcpa serve [options]
 | `--host <host>` | Bind host (default `127.0.0.1`). |
 | `--port <port>` | Bind port (default `8765`). |
 | `--path <path>` | MCP route (default `/mcp`). |
-| `--remote <url>` | Remote gateway origin (default `https://api.mcp-assistant.in`). |
+| `--remote <url>` | Remote gateway origin (default `https://mcp.linkos.in`). |
 | `--verbose` | Show detailed server and gateway logs. |
 
 ### `daemon`
@@ -105,7 +105,7 @@ With `--json`, stdout contains one JSON document, which is useful in scripts.
 
 ### `login`
 
-Sign in to MCP Assistant using browser OAuth. The saved session is stored in the platform user configuration directory.
+Sign in to LinkOS using browser OAuth. The saved session is stored in the platform user configuration directory.
 
 ```bash
 mcpa login

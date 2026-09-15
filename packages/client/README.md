@@ -386,16 +386,16 @@ const user = mcp.user('user_123');
 
 ## 📚 Documentation Links
 
-- **[Getting Started Guide](https://docs.mcp-assistant.in/get-started)**
-- **[Installation Guide](https://docs.mcp-assistant.in/install)**
-- **[AI SDK Integration](https://docs.mcp-assistant.in/ai-adapters/ai-sdk)**
-- **[Mastra Integration](https://docs.mcp-assistant.in/ai-adapters/mastra)**
-- **[LangChain Integration](https://docs.mcp-assistant.in/ai-adapters/langchain)**
-- **[Storage Backends Overview](https://docs.mcp-assistant.in/storage-backends/overview)**
-- **[Redis Storage Guide](https://docs.mcp-assistant.in/storage-backends/redis)**
-- **[Next.js Integration](https://docs.mcp-assistant.in/nextjs)**
-- **[React Hook Guide](https://docs.mcp-assistant.in/react)**
-- **[API Reference](https://docs.mcp-assistant.in/reference/server)**
+- **[Getting Started Guide](https://docs.linkos.in/get-started)**
+- **[Installation Guide](https://docs.linkos.in/install)**
+- **[AI SDK Integration](https://docs.linkos.in/ai-adapters/ai-sdk)**
+- **[Mastra Integration](https://docs.linkos.in/ai-adapters/mastra)**
+- **[LangChain Integration](https://docs.linkos.in/ai-adapters/langchain)**
+- **[Storage Backends Overview](https://docs.linkos.in/storage-backends/overview)**
+- **[Redis Storage Guide](https://docs.linkos.in/storage-backends/redis)**
+- **[Next.js Integration](https://docs.linkos.in/nextjs)**
+- **[React Hook Guide](https://docs.linkos.in/react)**
+- **[API Reference](https://docs.linkos.in/reference/server)**
 
 ---
 

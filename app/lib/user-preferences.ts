@@ -5,7 +5,7 @@ export interface UserPreferences {
   toolApprovalMode: ToolApprovalMode;
 }
 
-export const USER_PREFERENCES_STORAGE_KEY = "mcp-assistant:user-preferences:v1";
+export const USER_PREFERENCES_STORAGE_KEY = "linkos:user-preferences:v1";
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   timezone: "Asia/Kolkata",

@@ -223,7 +223,7 @@ export function McpUsageOverview({
 
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
-              MCP Assistant
+              LinkOS
             </p>
             <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground tracking-tight">
               {resolvedMcpAssistantCount.toLocaleString()}

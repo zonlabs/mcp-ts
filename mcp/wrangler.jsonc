@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "mcp-assistant",
+  "name": "linkos",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-28",
   "compatibility_flags": [

@@ -139,7 +139,7 @@ export default function McpServersSection() {
             <div className="space-y-2">
               <h2 className="flex items-center gap-2 text-2xl md:text-3xl font-bold tracking-tight">
                 <Star className="h-5 w-5 text-yellow-500" />
-                Featured on MCP Assistant
+                Featured on LinkOS
               </h2>
               <p className="text-sm md:text-base text-muted-foreground">
               Discover a curated selection of MCP servers you can access and test in Playground.

@@ -6,8 +6,8 @@ import { RemoteBridgeClient } from "../src/gateway/bridge-client.js";
 import { loadAuthSession, ensureFreshAuthSession } from "../src/gateway/auth-store.js";
 import { Traffic } from "../src/traffic.js";
 
-describe("Live Remote Production Worker (https://api.mcp-assistant.in)", () => {
-  const remoteUrl = "https://api.mcp-assistant.in";
+describe("Live Remote Production Worker (https://mcp.linkos.in)", () => {
+  const remoteUrl = "https://mcp.linkos.in";
 
   it("returns healthy status from production /healthz", async () => {
     const healthRes = await fetch(`${remoteUrl}/healthz`);

@@ -131,7 +131,6 @@ export default function ToolExecutionPanel({
 
   const resources = stored?.resources ?? server.resources ?? [];
   const resourceTemplates = stored?.resourceTemplates ?? [];
-  const prompts = stored?.prompts ?? server.prompts ?? [];
 
   // Resource / Template view states
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
@@ -531,6 +530,7 @@ export default function ToolExecutionPanel({
           >
             <Database className="h-3.5 w-3.5" />
             Resources
+            <span className="text-[10px] opacity-75 font-mono">({resources.length})</span>
           </button>
           <button
             onClick={() => setActivePanelTab("templates")}
@@ -542,6 +542,7 @@ export default function ToolExecutionPanel({
           >
             <Boxes className="h-3.5 w-3.5" />
             Templates
+            <span className="text-[10px] opacity-75 font-mono">({resourceTemplates.length})</span>
           </button>
         </div>
       </div>

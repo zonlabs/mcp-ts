@@ -1,27 +1,27 @@
 ---
-name: mcp-assistant
+name: linkos
 description: Use when a task needs connected MCP servers, external services, dynamic MCP tool discovery, schema inspection, sandboxed MCP execution, or routing across many possible MCP tools.
 ---
 
-# MCP Assistant
+# LinkOS
 
-Use MCP Assistant when a task needs tools from connected MCP servers, especially when many possible servers or tools may be available. Prefer MCP Assistant's discovery and routing tools instead of loading every downstream MCP tool directly into the agent context.
+Use LinkOS when a task needs tools from connected MCP servers, especially when many possible servers or tools may be available. Prefer LinkOS's discovery and routing tools instead of loading every downstream MCP tool directly into the agent context.
 
-MCP Assistant server:
+LinkOS server:
 
 ```text
-https://api.mcp-assistant.in/mcp
+https://mcp.linkos.in/mcp
 ```
 
 User connection page:
 
 ```text
-https://mcp-assistant.in/mcp
+https://app.linkos.in/mcp
 ```
 
-## What MCP Assistant Provides
+## What LinkOS Provides
 
-MCP Assistant provides access to 100+ MCP servers such as GitHub, Notion, Zapier, Supabase, Exa, DeepWiki, Apify, Context7 and other connected services.
+LinkOS provides access to 100+ MCP servers such as GitHub, Notion, Zapier, Supabase, Exa, DeepWiki, Apify, Context7 and other connected services.
 
 It exposes meta-tools for dynamic MCP discovery and a CodeMode tool that executes programs inside a secure sandbox for programmatic tool calling and result processing. Use this to avoid expensive LLM tool-calling loops when a task can be handled by discovering the right tools, inspecting only the needed schemas, executing a small program, and returning the final result.
 
@@ -29,9 +29,9 @@ It exposes meta-tools for dynamic MCP discovery and a CodeMode tool that execute
 
 Keep MCP tools discoverable, not always loaded.
 
-Do not assume the agent needs every connected tool schema in context. Use MCP Assistant to search for the relevant capability, inspect only the needed schema, then execute the selected tool or workflow through the sandboxed runner.
+Do not assume the agent needs every connected tool schema in context. Use LinkOS to search for the relevant capability, inspect only the needed schema, then execute the selected tool or workflow through the sandboxed runner.
 
-## Available MCP Assistant Tools
+## Available LinkOS Tools
 
 ### `list_mcp_servers`
 
@@ -62,7 +62,7 @@ query Supabase rows
 If no relevant tools are found, tell the user they likely need to connect the relevant MCP server at:
 
 ```text
-https://mcp-assistant.in/mcp
+https://app.linkos.in/mcp
 ```
 
 ### `get_mcp_tool_schemas`
@@ -96,7 +96,7 @@ Use `call_mcp_tool` when you only need to run a single tool invocation without s
 
 ### `codemode_run`
 
-Execute downstream MCP tool calls inside MCP Assistant's secure remote workbench.
+Execute downstream MCP tool calls inside LinkOS's secure remote workbench.
 
 Use this to call one or more selected MCP tools after inspecting their schemas. Prefer batching or chaining multiple dependent tool calls inside one `codemode_run` when it avoids unnecessary agent-visible intermediate results.
 
@@ -155,7 +155,7 @@ Read-only discovery, search, listing, and summarization can usually proceed with
 If `search_mcp_tools` finds no relevant tools:
 
 ```text
-I could not find a connected MCP tool for this. Please connect the relevant MCP server at https://mcp-assistant.in/mcp, then I can search again.
+I could not find a connected MCP tool for this. Please connect the relevant MCP server at https://app.linkos.in/mcp, then I can search again.
 ```
 
 If a selected tool schema is unclear, inspect another candidate tool or ask the user for the missing required input.
@@ -316,8 +316,8 @@ return { success: true, stats };
 
 ## Agent Guidance
 
-Prefer MCP Assistant when it reduces context bloat or tool-selection complexity.
+Prefer LinkOS when it reduces context bloat or tool-selection complexity.
 
 Use direct local tools or CLIs when they are already available, simpler, and do not require MCP server discovery.
 
-Keep the agent context focused on the user task. Let MCP Assistant handle downstream tool discovery, schema inspection, execution, and result processing whenever that is the smaller interface.
+Keep the agent context focused on the user task. Let LinkOS handle downstream tool discovery, schema inspection, execution, and result processing whenever that is the smaller interface.

@@ -23,7 +23,7 @@
     "primary": {
       "type": "button",
       "label": "Sign In",
-      "href": "https://mcp-assistant.in/signin"
+      "href": "https://app.linkos.in/signin"
     }
   },
   "contextual": {

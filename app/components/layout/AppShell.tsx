@@ -535,7 +535,7 @@ export function AppShell({
               className="flex items-center gap-1.5 select-none hover:opacity-85 transition-opacity"
             >
               <span className="text-[15px] font-bold tracking-tight text-foreground">
-                MCP <span className="font-semibold text-muted-foreground">Assistant</span>
+                Link<span className="font-semibold text-muted-foreground">OS</span>
               </span>
             </Link>
           )}

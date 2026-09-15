@@ -10,23 +10,21 @@ type LogoProps = {
   alt?: string;
 };
 
-export default function Logo({ size = 36, className, alt = "MCP Assistant Logo" }: LogoProps) {
+export default function Logo({ size = 36, className, alt = "LinkOS Logo" }: LogoProps) {
   return (
     <Image
-      src="/logo.svg"
+      src="/logo-light.svg"
       alt={alt}
-      width={size}
+      width={Math.round(size * 3.5)}
       height={size}
       priority
-      className={cn("shrink-0 object-contain", className)}
+      className={cn("shrink-0 object-contain dark:invert", className)}
     />
   );
 }
 
 export function LogoBadge({ className, size = 36 }: { className?: string; size?: number }) {
   return (
-    <div className={cn("flex items-center select-none", className)}>
-      <Logo size={size} />
-    </div>
+    <Logo size={size} className={cn("select-none", className)} alt="LinkOS" />
   );
 }

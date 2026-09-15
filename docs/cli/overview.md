@@ -50,7 +50,7 @@ mcpa schema filesystem::read_file
 mcpa call filesystem::read_file '{"path":"package.json"}'
 ```
 
-For remote tools that need an MCP Assistant sign-in, run:
+For remote tools that need a LinkOS sign-in, run:
 
 ```bash
 mcpa login

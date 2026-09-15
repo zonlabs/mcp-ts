@@ -13,6 +13,22 @@ interface ServerIconProps {
   fallbackImage?: string;
 }
 
+function sanitizeInlineSvg(icon: string): string | null {
+  const trimmed = icon.trim();
+  if (!/^<svg\b/i.test(trimmed)) return null;
+
+  const sanitized = trimmed
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<script\b[^>]*\/?\s*>/gi, '')
+    .replace(/\s+on[a-z-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(
+      /\s+(?:href|xlink:href)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*'|javascript:[^\s>]+)/gi,
+      ''
+    );
+
+  return /<svg\b/i.test(sanitized) ? sanitized : null;
+}
+
 export function ServerIcon({
   serverName,
   serverUrl,
@@ -33,11 +49,14 @@ export function ServerIcon({
   // If an explicit icon is provided (URL or inline SVG), render it first
   if (icon && !iconError) {
     if (typeof icon === "string" && icon.trim().startsWith("<svg")) {
+      const safeIcon = sanitizeInlineSvg(icon);
+      if (!safeIcon) return null;
+
       return (
         <span
           className={className}
           style={{ width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-          dangerouslySetInnerHTML={{ __html: icon }}
+          dangerouslySetInnerHTML={{ __html: safeIcon }}
         />
       );
     }

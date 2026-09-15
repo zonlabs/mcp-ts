@@ -130,7 +130,7 @@ export function renderListOutput(
         writeLine(output, pc.dim(emptyToolDetailMessage(matchedLocal)));
       }
     } else if (matchedRemote) {
-      writeLine(output, `${pc.magenta("•")} ${pc.bold(matchedRemote.serverName)} ${pc.dim(`(Remote - MCP Assistant)`)}`);
+      writeLine(output, `${pc.magenta("•")} ${pc.bold(matchedRemote.serverName)} ${pc.dim(`(Remote - LinkOS)`)}`);
       writeLine(output, `  ${pc.dim("Status:")}    ${pc.green("● active")}`);
       writeLine(output, `  ${pc.dim("Tools:")}     ${displayedToolCount(matchedRemote)}${discoveryDiagnostic(matchedRemote)}`);
       writeLine(output);
@@ -178,7 +178,7 @@ export function renderListOutput(
     }
 
     if (remoteServers.length > 0) {
-      writeLine(output, pc.bold(pc.dim("Remote Servers (MCP Assistant):")));
+      writeLine(output, pc.bold(pc.dim("Remote Servers (LinkOS):")));
       for (const server of remoteServers) {
         writeLine(output, `${pc.magenta("•")} ${pc.bold(server.serverName)} - ${displayedToolCount(server)} tool(s)${discoveryDiagnostic(server)}`);
         for (const tool of server.tools) {
@@ -225,7 +225,7 @@ export function renderListOutput(
   }
 
   if (remoteServers.length > 0) {
-    writeLine(output, pc.bold(pc.dim("Remote Servers (MCP Assistant):")));
+    writeLine(output, pc.bold(pc.dim("Remote Servers (LinkOS):")));
     for (const server of remoteServers) {
       const count = `${displayedToolCount(server)} tool(s)${discoveryDiagnostic(server)}`;
       totalTools += displayedToolCount(server);

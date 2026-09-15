@@ -11,7 +11,7 @@ import { usePublicServers } from "@/hooks/usePublicServers";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-const MCP_ASSISTANT_URL = "https://api.mcp-assistant.in/mcp";
+const LINKOS_URL = "https://mcp.linkos.in/mcp";
 const MCP_CLIENT_ICONS = [
   {
     name: "VS Code",
@@ -63,7 +63,7 @@ export function HomeView({
     let active = true;
     async function checkHealth() {
       try {
-        const res = await fetch("https://api.mcp-assistant.in/healthz", {
+        const res = await fetch("https://mcp.linkos.in/healthz", {
           signal: AbortSignal.timeout(1500),
         });
         if (res.ok) {
@@ -104,7 +104,7 @@ export function HomeView({
     event.preventDefault();
     event.stopPropagation();
     try {
-      await navigator.clipboard.writeText(MCP_ASSISTANT_URL);
+      await navigator.clipboard.writeText(LINKOS_URL);
       setUrlCopied(true);
       window.setTimeout(() => setUrlCopied(false), 1600);
     } catch {
@@ -160,14 +160,14 @@ export function HomeView({
               <div className="flex items-center gap-3 min-w-0">
                 <div className="size-9 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-1">
                   <ServerIcon
-                    serverName="MCP Assistant"
-                    serverUrl={MCP_ASSISTANT_URL}
+                    serverName="LinkOS"
+                    serverUrl={LINKOS_URL}
                     size={32}
                   />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-semibold text-foreground">MCP Assistant</h3>
+                    <h3 className="text-sm font-semibold text-foreground">LinkOS</h3>
                     <span className="text-[10px] text-muted-foreground/45">•</span>
                     <div className="inline-flex items-center gap-1.5 bg-transparent">
                       <span className={cn(
@@ -225,7 +225,7 @@ export function HomeView({
           {/* Copyable URL Bar */}
           <div className="flex items-center justify-between gap-3 rounded-sm border border-border bg-background px-3 py-2">
             <code className="text-xs font-mono text-muted-foreground truncate">
-              {MCP_ASSISTANT_URL}
+              {LINKOS_URL}
             </code>
             <SimpleTooltip content={urlCopied ? "Copied!" : "Copy endpoint"} side="left">
               <button
@@ -253,7 +253,7 @@ export function HomeView({
                 </h2>
               </div>
               <p className="text-xs text-muted-foreground">
-                Featured connectors and apps available in MCP Assistant.
+                Featured connectors and apps available in LinkOS.
               </p>
             </div>
 

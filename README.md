@@ -11,9 +11,9 @@
   <p>Every resource is context for your AI</p>
 
   <p>
-    <a href="https://mcp-assistant.in/">🌐 Website</a>
+    <a href="https://app.linkos.in/">🌐 Website</a>
     &nbsp;&nbsp;|&nbsp;&nbsp;
-    <a href="https://docs.mcp-assistant.in/">📚 Documentation</a>
+    <a href="https://docs.linkos.in/">📚 Documentation</a>
   </p>
 
   <p>
@@ -71,8 +71,8 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 
 ## 🌐 Hosted MCP Endpoints
 
-### MCP Assistant Server
-- **Endpoint**: `https://api.mcp-assistant.in/mcp`
+### LinkOS Server
+- **Endpoint**: `https://mcp.linkos.in/mcp`
 - Access 100+ MCP tools (GitHub, Notion, Zapier, Supabase, etc.), dynamic tool discovery, and sandboxed `CodeMode` execution.
 
 #### Antigravity / Cursor / VS Code Configuration
@@ -80,15 +80,15 @@ If you already use a managed service/platform such as Smithery, Klavis Strata, C
 ```json
 {
   "mcpServers": {
-    "mcp-assistant": {
-      "serverUrl": "https://api.mcp-assistant.in/mcp"
+    "linkos": {
+      "serverUrl": "https://mcp.linkos.in/mcp"
     }
   }
 }
 ```
 
 ### Documentation MCP
-- **Endpoint**: `https://docs.mcp-assistant.in/mcp`
+- **Endpoint**: `https://docs.linkos.in/mcp`
 - Access `mcp-ts` and toolkit documentation directly over MCP.
 
 ---
@@ -121,12 +121,12 @@ Normal `list`, `search`, `schema`, and `call` commands always use the single gat
 ### Agent Skills
 
 - Use [`mcp-cli`](skills/mcp-cli/SKILL.md) when a task invokes, automates, installs, or troubleshoots `mcpa` / `mcp-ts`. It covers the 0.3.0+ preflight, one-gateway lifecycle, authentication, catalog discovery, schema inspection, tool calls, and safe Node batching.
-- Use [`mcp-assistant`](skills/mcp-assistant/SKILL.md) when a task needs dynamic MCP server/tool discovery, selective schema inspection, routing across connected services, or sandboxed multi-tool workflows without loading every tool into context.
+- Use [`linkos`](skills/linkos/SKILL.md) when a task needs dynamic MCP server/tool discovery, selective schema inspection, routing across connected services, or sandboxed multi-tool workflows without loading every tool into context.
 
 ---
 
 ## 📚 Documentation & Contributing
 
-- **Full Documentation**: [docs.mcp-assistant.in](https://docs.mcp-assistant.in/)
+- **Full Documentation**: [docs.linkos.in](https://docs.linkos.in/)
 - **Contributing**: [CONTRIBUTING.md](packages/client/CONTRIBUTING.md)
 - **License**: [MIT](LICENSE)

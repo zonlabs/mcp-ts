@@ -12,7 +12,7 @@ The `mcp-ts` documentation is available as a Model Context Protocol (MCP) server
 The documentation server is hosted at:
 
 ```bash
-https://docs.mcp-assistant.in/mcp
+https://docs.linkos.in/mcp
 ```
 
 ### How to use

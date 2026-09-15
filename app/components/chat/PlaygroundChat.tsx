@@ -45,7 +45,7 @@ import {
   hasVisibleReasoningText,
 } from '@/components/chat/chain-of-thought-utils';
 
-export const PENDING_CHAT_MESSAGE_STORAGE_KEY = "mcp-assistant:pending-chat-message:v1";
+export const PENDING_CHAT_MESSAGE_STORAGE_KEY = "linkos:pending-chat-message:v1";
 
 interface PlaygroundChatProps {
   chatId?: string;
@@ -881,7 +881,7 @@ export function PlaygroundChat({
             <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
               <div className="mb-7">
                 <Image
-                  src="/logo.svg"
+                  src="/logo-light.svg"
                   alt="Assistant logo"
                   width={46}
                   height={46}

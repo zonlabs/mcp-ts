@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Mail, Github, Bug, Shield, Server, Code, BookOpen } from "lucide-react";
-import Logo from "@/components/common/Logo";
+import { LogoBadge } from "@/components/common/Logo";
 
 export default function Footer() {
   return (
@@ -8,17 +8,15 @@ export default function Footer() {
       <div className="container mx-auto px-6 py-12">
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
-          <div className="space-y-3">
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:text-left text-center">
-              <div className="sm:mt-1 flex-shrink-0">
-                <Logo size={48} />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-lg font-bold text-foreground">MCP Assistant</h3>
-                <p className="text-sm text-muted-foreground">
-                  One place to discover and interact with MCPs.
-                </p>
-              </div>
+          <div className="space-y-3 text-center sm:text-left">
+            <LogoBadge size={40} className="mx-auto sm:mx-0" />
+            <div className="max-w-[240px] space-y-1 mx-auto sm:mx-0">
+              <p className="text-sm leading-5 text-muted-foreground">
+                One place to discover and interact with MCPs.
+              </p>
+              <p className="text-xs text-muted-foreground/70">
+                Powered by MCP Toolkit.
+              </p>
             </div>
           </div>
 
@@ -69,7 +67,7 @@ export default function Footer() {
               <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider">Resources</h4>
               <div className="flex flex-col space-y-2">
                 <a
-                  href="https://docs.mcp-assistant.in/"
+                  href="https://docs.linkos.in/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
@@ -109,7 +107,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-6 border-t border-border/30 flex flex-col md:flex-row items-center justify-center gap-4">
           <p className="text-sm text-muted-foreground text-center">
-            © {new Date().getFullYear()} MCP Assistant. All rights reserved.
+            © {new Date().getFullYear()} LinkOS. All rights reserved.
           </p>
         </div>
       </div>

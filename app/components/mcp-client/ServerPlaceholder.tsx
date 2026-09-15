@@ -14,7 +14,7 @@ interface ServerPlaceholderProps {
   featuredServers?: McpServer[];
 }
 
-const MCP_ASSISTANT_URL = "https://api.mcp-assistant.in/mcp";
+const LINKOS_URL = "https://mcp.linkos.in/mcp";
 const MCP_CLIENT_ICONS = [
   {
     name: "VS Code",
@@ -76,7 +76,7 @@ export function ServerPlaceholder({
     event.stopPropagation();
 
     try {
-      await navigator.clipboard.writeText(MCP_ASSISTANT_URL);
+      await navigator.clipboard.writeText(LINKOS_URL);
       setUrlCopied(true);
       window.setTimeout(() => setUrlCopied(false), 1600);
     } catch {
@@ -108,13 +108,13 @@ export function ServerPlaceholder({
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center">
                     <ServerIcon
-                      serverName="MCP Assistant"
-                      serverUrl={MCP_ASSISTANT_URL}
+                      serverName="LinkOS"
+                      serverUrl={LINKOS_URL}
                       size={36}
                       className="rounded-lg"
                     />
                   </div>
-                  <p className="text-sm font-semibold text-foreground truncate">MCP Assistant</p>
+                  <p className="text-sm font-semibold text-foreground truncate">LinkOS</p>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -148,7 +148,7 @@ export function ServerPlaceholder({
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5 hover:bg-muted/40 transition-colors">
                   <div className="min-w-0 flex-1 flex items-center gap-2">
                     <code className="truncate text-xs text-muted-foreground font-mono">
-                      {MCP_ASSISTANT_URL}
+                      {LINKOS_URL}
                     </code>
                   </div>
                   <SimpleTooltip content={urlCopied ? "Copied!" : "Copy endpoint"} side="left">
@@ -181,7 +181,7 @@ export function ServerPlaceholder({
                   <h2 className="text-base font-semibold text-foreground">Popular MCPs</h2>
                 </div>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  Featured servers available in MCP Assistant.
+                  Featured servers available in LinkOS.
                 </p>
               </div>
 

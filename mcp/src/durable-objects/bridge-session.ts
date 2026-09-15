@@ -186,7 +186,7 @@ export class BridgeSession extends DurableObject<BridgeSessionEnv> {
       );
       this.send(socket, createSuccessResponse(message.id, {
         protocolVersion: BRIDGE_PROTOCOL_VERSION,
-        serverInfo: { name: "mcp-assistant", version: "1.0.0" },
+        serverInfo: { name: "linkos", version: "1.0.0" },
         remoteCatalog,
       }));
       return;

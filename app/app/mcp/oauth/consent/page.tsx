@@ -59,7 +59,7 @@ export default async function McpOAuthConsentPage({ searchParams }: PageProps) {
     }
   }
 
-  const accountLabel = user?.email ?? "your MCP Assistant account";
+  const accountLabel = user?.email ?? "your LinkOS account";
   const avatarUrl = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? null;
 
   return (
@@ -133,7 +133,7 @@ export default async function McpOAuthConsentPage({ searchParams }: PageProps) {
           <h1 className="text-xl font-semibold tracking-tight">Authorize MCP access</h1>
 
           <div className="mt-4 flex items-center justify-center gap-3">
-            {/* Left: MCP Assistant (our platform) logo */}
+            {/* Left: LinkOS (our platform) logo */}
             <div
               aria-label="MCP Platform"
               className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border-2 border-zinc-300 dark:border-zinc-600 shadow-sm"

@@ -22,7 +22,7 @@ export { CLI_VERSION, pc, intro, outro, spinner };
  * Returns a high-impact, professional block ASCII banner for mcp-ts.
  */
 export function renderBanner(version: string = CLI_VERSION): string {
-  // Vibrant TrueColor crimson red (rgb 225, 29, 38) matching MCP Assistant brand
+  // Vibrant TrueColor crimson red (rgb 225, 29, 38) matching LinkOS brand
   const isColorSupported = !process.env.NO_COLOR && (process.stdout.isTTY || process.env.FORCE_COLOR);
   const r = (s: string) => (isColorSupported ? `\x1b[38;2;225;29;38m\x1b[1m${s}\x1b[0m` : pc.red(pc.bold(s)));
   const w = (s: string) => (isColorSupported ? `\x1b[38;2;255;255;255m\x1b[1m${s}\x1b[0m` : pc.white(pc.bold(s)));
@@ -38,7 +38,7 @@ export function renderBanner(version: string = CLI_VERSION): string {
     "  " + r("██║ ╚═╝ ██║ ╚██████╗ ██║     ") + "             " + w("██║     ███████╔╝"),
     "  " + r("╚═╝     ╚═╝  ╚═════╝ ╚═╝     ") + "             " + w("╚═╝     ╚══════╝ ") + "  " + tag,
     "",
-    "  " + d("MCP Gateway & Execution Engine for Agents") + "  " + pc.underline(d("https://mcp-assistant.in")),
+    "  " + d("MCP Gateway & Execution Engine for Agents") + "  " + pc.underline(d("https://app.linkos.in")),
     "",
   ].join("\n");
 }

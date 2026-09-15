@@ -38,7 +38,7 @@ export const DEFAULT_LOCAL_MCP_PATH = "/mcp";
 /**
  * Default remote gateway backend URL.
  */
-export const DEFAULT_REMOTE_GATEWAY_URL = "https://api.mcp-assistant.in";
+export const DEFAULT_REMOTE_GATEWAY_URL = "https://mcp.linkos.in";
 
 // ============================================================================
 // File: packages/cli/src/gateway/config.ts
@@ -50,7 +50,7 @@ export const DEFAULT_REMOTE_GATEWAY_URL = "https://api.mcp-assistant.in";
 export const CONFIG_FILENAME = "mcp.json";
 
 /**
- * Default folder name for global/local MCP Assistant configuration directory.
+ * Default folder name for global/local LinkOS configuration directory.
  */
 export const DEFAULT_CONFIG_DIR = ".mcpassistant";
 

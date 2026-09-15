@@ -160,3 +160,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function DELETE() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { count, error } = await supabase
+      .from("mcp_tool_call_events")
+      .delete({ count: "exact" })
+      .eq("user_id", user.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, deletedCount: count ?? 0 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete usage events";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
