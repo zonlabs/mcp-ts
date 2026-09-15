@@ -84,11 +84,11 @@ export default function SignInPage() {
             </div>
 
             <div className="mb-8">
-              <h1 className="text-[32px] font-medium leading-[1.08] tracking-[-0.045em] sm:text-[36px]">
-                Give your AI the tools to do more.
+              <h1 className="whitespace-nowrap text-[28px] font-medium leading-[1.08] tracking-[-0.055em] sm:text-[30px]">
+                Access your workspace.
               </h1>
               <p className="mt-3 text-sm leading-6 text-white/50">
-                Sign in to connect your AI workspace to the MCP servers you use every day.
+                Sign in or create an account to get started.
               </p>
             </div>
 
@@ -158,37 +158,47 @@ export default function SignInPage() {
         <aside className="relative hidden flex-1 overflow-hidden rounded-[18px] bg-[#252525] lg:block">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_22%,rgba(255,255,255,0.12),transparent_24%),radial-gradient(circle_at_80%_78%,rgba(255,255,255,0.12),transparent_25%),#252525]" />
           <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(255,255,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:52px_52px]" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="signin-panel-glow absolute -right-24 top-10 h-72 w-72 rounded-full bg-cyan-200/15 blur-3xl" />
+            <div className="signin-panel-glow signin-panel-glow-delay absolute left-1/3 top-1/3 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute bottom-[-18%] left-[-10%] h-80 w-80 rounded-full bg-indigo-200/10 blur-3xl" />
+          </div>
           <div className="relative flex h-full min-h-0 items-center justify-center p-12 pr-6">
-            <div className="relative z-10 flex w-full max-w-none flex-col justify-between self-stretch py-3 text-white">
-              <div className="pointer-events-none absolute right-0 top-[12%] h-[350px] w-[370px] opacity-90">
-                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-lg font-semibold tracking-[-0.08em] text-white">LinkOS</span>
+            <div className="relative z-10 grid h-full w-full max-w-none grid-cols-[minmax(0,1fr)_minmax(230px,0.9fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-8 gap-y-6 self-stretch py-3 text-white">
+              <div className="pointer-events-none relative col-start-2 row-start-1 h-full min-h-0 w-full max-w-[560px] justify-self-end opacity-90">
                 {[
-                  { name: "GitHub", icon: "https://logos.composio.dev/api/github", invert: true, position: "left-1/2 top-0 -translate-x-1/2" },
-                  { name: "X", icon: "https://logos.composio.dev/api/twitter", invert: true, position: "left-[25%] top-[5%]" },
-                  { name: "Calendly", icon: "https://logos.composio.dev/api/calendly", position: "right-[25%] top-[5%]" },
-                  { name: "Notion", icon: "https://logos.composio.dev/api/notion", position: "right-[7%] top-[20%]" },
-                  { name: "Perplexity", icon: "https://logos.composio.dev/api/perplexityai", position: "right-0 top-1/2 -translate-y-1/2" },
-                  { name: "Gmail", icon: "https://logos.composio.dev/api/gmail", position: "right-[7%] bottom-[20%]" },
-                  { name: "Cloudinary", icon: "https://logos.composio.dev/api/cloudinary", position: "right-[25%] bottom-[5%]" },
-                  { name: "Google Docs", icon: "https://logos.composio.dev/api/googledocs", position: "left-1/2 bottom-0 -translate-x-1/2" },
-                  { name: "Exa", icon: "https://logos.composio.dev/api/exa", position: "left-[25%] bottom-[5%]" },
-                  { name: "Netlify", icon: "https://logos.composio.dev/api/netlify", position: "left-[7%] bottom-[20%]" },
-                  { name: "Parallel Search", icon: "https://logos.composio.dev/api/parallel", invert: true, position: "left-[7%] top-[20%]" },
-                  { name: "Heroku", icon: "https://logos.composio.dev/api/heroku", position: "left-0 top-1/2 -translate-y-1/2" },
+                  { name: "GitHub", icon: "https://logos.composio.dev/api/github", invert: true, position: "left-[6%] top-[2%]", delay: "-1s" },
+                  { name: "X", icon: "https://logos.composio.dev/api/twitter", invert: true, position: "left-[42%] top-[8%]", delay: "-5s" },
+                  { name: "Calendly", icon: "https://logos.composio.dev/api/calendly", position: "right-[4%] top-0", delay: "-8s" },
+                  { name: "Supabase", icon: "https://logos.composio.dev/api/supabase", position: "left-[17%] top-[13%]", delay: "-6s" },
+                  { name: "Higgsfield", icon: "https://logos.composio.dev/api/higgsfield", position: "right-[14%] top-[17%]", delay: "-2s" },
+                  { name: "Notion", icon: "https://logos.composio.dev/api/notion", position: "left-[25%] top-[28%]", delay: "-3s" },
+                  { name: "Perplexity", icon: "https://logos.composio.dev/api/perplexityai", position: "right-[29%] top-[30%]", delay: "-10s" },
+                  { name: "Gmail", icon: "https://logos.composio.dev/api/gmail", position: "left-[2%] top-[54%]", delay: "-6s" },
+                  { name: "Apify", icon: "https://logos.composio.dev/api/apify", position: "left-[45%] top-[58%]", delay: "-12s" },
+                  { name: "Google Docs", icon: "https://logos.composio.dev/api/googledocs", position: "right-[3%] top-[66%]", delay: "-4s" },
+                  { name: "Mem0", icon: "https://logos.composio.dev/api/mem0", position: "left-[28%] top-[80%]", delay: "-9s" },
+                  { name: "Netlify", icon: "https://logos.composio.dev/api/netlify", position: "right-[31%] top-[86%]", delay: "-2s" },
+                  { name: "Parallel Search", icon: "https://logos.composio.dev/api/parallel", invert: true, position: "left-[61%] top-[43%]", delay: "-7s" },
+                  { name: "Heroku", icon: "https://logos.composio.dev/api/heroku", position: "right-0 top-[46%]", delay: "-11s" },
                 ].map((platform) => (
-                  <div key={platform.name} className={`absolute flex h-12 w-12 items-center justify-center ${platform.position}`}>
+                  <div
+                    key={platform.name}
+                    className={`signin-tool-float absolute flex h-11 w-11 items-center justify-center rounded-xl border-0 bg-white/[0.12] shadow-[0_10px_26px_rgba(0,0,0,0.16)] backdrop-blur-lg ${platform.position}`}
+                    style={{ animationDelay: platform.delay }}
+                  >
                     <Image
                       src={platform.icon}
                       alt=""
                       width={36}
                       height={36}
-                      className={`h-8 w-8 rounded-xs object-contain ${platform.invert ? "invert" : ""}`}
+                      className={`h-6 w-6 rounded-xs object-contain ${platform.invert ? "invert" : ""}`}
                       unoptimized
                     />
                   </div>
                 ))}
               </div>
-              <div>
+              <div className="col-start-1 row-start-1 self-start">
                 <h2 className="max-w-[370px] text-[clamp(3.8rem,6.5vw,6.5rem)] font-medium leading-[0.9] tracking-[-0.08em] text-white">
                   Give AI
                   <br />
@@ -197,11 +207,11 @@ export default function SignInPage() {
                   tools.
                 </h2>
                 <p className="mt-9 max-w-[360px] text-[15px] leading-7 text-white/55">
-                  Manage MCP servers, data sources, and actions from one secure workspace.
+                  Manage tools, data sources, and actions from one single place.
                 </p>
               </div>
 
-              <div className="grid w-full grid-cols-3 gap-3 border-t border-white/15 pt-5">
+              <div className="col-span-2 row-start-2 grid w-full grid-cols-3 gap-3 pt-5">
                 <div>
                   <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">01</div>
                   <div className="text-xs font-medium text-white/85">Connect anything</div>

@@ -326,6 +326,48 @@ html.dark {
 
 @layer components {
 
+  .signin-tool-float {
+    animation: signin-tool-float 12s ease-in-out infinite;
+  }
+
+  .signin-panel-glow {
+    animation: signin-panel-glow 14s ease-in-out infinite alternate;
+  }
+
+  .signin-panel-glow-delay {
+    animation-delay: -7s;
+  }
+
+  @keyframes signin-tool-float {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    50% {
+      transform: translate3d(0, -9px, 0) rotate(1.5deg);
+    }
+  }
+
+  @keyframes signin-panel-glow {
+    0% {
+      transform: translate3d(-3%, -2%, 0) scale(0.96);
+      opacity: 0.55;
+    }
+
+    100% {
+      transform: translate3d(5%, 4%, 0) scale(1.08);
+      opacity: 0.9;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .signin-tool-float,
+    .signin-panel-glow {
+      animation: none;
+    }
+  }
+
   /* Warp Card & Panel styles */
   .warp-card {
     @apply bg-card border border-border rounded-md text-foreground;
