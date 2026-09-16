@@ -1,7 +1,9 @@
 import { loadEnv } from "../config/env";
-import { getRequestContext, type WorkerExecutionContext } from "./request-context";
-import { recordMcpToolCallEvent } from "./analytics";
-import { extractReturnedError } from "./mcp-tool-output";
+import { getRequestContext } from "./request-context";
+import {
+  withDownstreamToolAnalytics,
+  type DownstreamAnalyticsContext,
+} from "./instrumentation";
 
 type ClientProvider = {
   getClients(): unknown[];
@@ -30,12 +32,7 @@ type CodeModeRuntime = {
   }>;
 };
 
-type AnalyticsContext = {
-  userId?: string;
-  requestId?: string;
-  mcpSessionId?: string;
-  executionCtx?: WorkerExecutionContext;
-};
+type AnalyticsContext = DownstreamAnalyticsContext;
 
 type CloudflareCodeModeRuntimeEnv = {
   loader?: unknown;
@@ -106,15 +103,6 @@ async function createCloudflareCodeModeExecutor(loader: unknown, timeoutMs?: num
   });
 }
 
-function resolveAnalyticsContext(explicit?: AnalyticsContext): AnalyticsContext {
-  const current = getRequestContext();
-  return {
-    userId: explicit?.userId ?? current.userId,
-    requestId: explicit?.requestId ?? current.requestId,
-    mcpSessionId: explicit?.mcpSessionId ?? current.mcpSessionId,
-  };
-}
-
 function wrapToolServersForAnalytics<T>(servers: T[], analyticsContext?: AnalyticsContext): T[] {
   return servers.map((server) => wrapToolServerForAnalytics(server, analyticsContext));
 }
@@ -148,88 +136,15 @@ async function recordToolCall<T>(
   call: () => Promise<T>,
   analyticsContext?: AnalyticsContext
 ): Promise<T> {
-  const context = resolveAnalyticsContext(analyticsContext);
-  const startedAt = new Date();
-  const startedMs = Date.now();
-
-  try {
-    const result = await call();
-    const returnedError = extractReturnedError(result);
-    recordToolCallEvent(
-      context,
-      server,
+  return withDownstreamToolAnalytics(
+    {
+      serverId: server.serverId ?? server.getServerId?.(),
+      serverName: server.serverName ?? server.getServerName?.(),
+      serverUrl: server.serverUrl,
+      serverIcons: server.getServerInfo?.()?.icons,
       toolName,
-      returnedError ? "error" : "success",
-      startedAt,
-      Date.now() - startedMs,
-      returnedError
-    );
-    return result;
-  } catch (error) {
-    recordToolCallEvent(
-      context,
-      server,
-      toolName,
-      "error",
-      startedAt,
-      Date.now() - startedMs,
-      error
-    );
-    throw error;
-  }
-}
-
-function resolveServerId(server: ToolServer): string | undefined {
-  return server.serverId ?? server.getServerId?.();
-}
-
-function resolveServerName(server: ToolServer): string | undefined {
-  return server.serverName ?? server.getServerName?.();
-}
-
-function resolveServerUrl(server: ToolServer): string | undefined {
-  return server.serverUrl;
-}
-
-function resolveServerIcons(server: ToolServer): { src: string; mimeType?: string; sizes?: string[]; theme?: string }[] | undefined {
-  return server.getServerInfo?.()?.icons;
-}
-
-function recordToolCallEvent(
-  context: AnalyticsContext,
-  server: ToolServer,
-  toolName: string,
-  status: "success" | "error",
-  startedAt: Date,
-  durationMs: number,
-  error?: unknown
-): void {
-  if (!context.userId?.trim() || !context.requestId?.trim()) {
-    return;
-  }
-
-  const serverId = resolveServerId(server);
-  const task = Promise.resolve(
-    recordMcpToolCallEvent({
-      userId: context.userId,
-      requestId: context.requestId,
-      mcpSessionId: context.mcpSessionId,
-      serverId,
-      serverName: resolveServerName(server),
-      serverUrl: resolveServerUrl(server),
-      serverIcons: resolveServerIcons(server),
-      toolName,
-      toolNamespace: serverId,
-      eventType: "downstream_tool",
-      status,
-      error,
-      startedAt,
-      completedAt: new Date(startedAt.getTime() + Math.max(0, durationMs)),
-      durationMs,
-    })
-  ).catch((recordError) => {
-    console.warn("[mcp-analytics] Failed to queue downstream tool call event", recordError);
-  });
-  const executionCtx = context.executionCtx ?? getRequestContext().executionCtx;
-  executionCtx?.waitUntil(task);
+    },
+    call,
+    analyticsContext,
+  );
 }

@@ -324,6 +324,71 @@ describe("mcp-core-tools", () => {
       expect(result).toEqual({
         content: [{ type: "text", text: "done" }],
       });
+      expect(mockRecordMcpToolCallEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serverId: "docs-server",
+          serverName: "Docs",
+          serverUrl: "https://docs.example.com",
+          toolName: "search_docs",
+          eventType: "downstream_tool",
+          status: "success",
+        })
+      );
+    });
+
+    it("records returned MCP errors as failed downstream calls", async () => {
+      mockToolRouterCallTool.mockResolvedValue({
+        content: [{ type: "text", text: "permission denied" }],
+        isError: true,
+      });
+
+      const handlers = new Map<string, Function>();
+      const server = {
+        registerTool: (name: string, _config: unknown, handler: Function) =>
+          handlers.set(name, handler),
+      };
+
+      registerMcpCoreTools(server as never);
+      await handlers.get("call_mcp_tool")?.(
+        { toolId: "docs-server::search_docs", args: {} },
+        makeExtra()
+      );
+
+      expect(mockRecordMcpToolCallEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolName: "search_docs",
+          eventType: "downstream_tool",
+          status: "error",
+          error: "permission denied",
+        })
+      );
+    });
+
+    it("records thrown downstream errors and preserves the error response", async () => {
+      const failure = new Error("downstream unavailable");
+      mockToolRouterCallTool.mockRejectedValue(failure);
+
+      const handlers = new Map<string, Function>();
+      const server = {
+        registerTool: (name: string, _config: unknown, handler: Function) =>
+          handlers.set(name, handler),
+      };
+
+      registerMcpCoreTools(server as never);
+      const result = await handlers.get("call_mcp_tool")?.(
+        { toolId: "docs-server::search_docs", args: {} },
+        makeExtra()
+      );
+
+      expect(result?.isError).toBe(true);
+      expect(mockRecordMcpToolCallEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolName: "search_docs",
+          eventType: "downstream_tool",
+          status: "error",
+          error: failure,
+        })
+      );
     });
 
     it("supports legacy server_id and tool_name arguments", async () => {

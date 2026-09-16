@@ -10,6 +10,7 @@ import {
 import { createWorkflowCodeModeRuntime } from "./codemode-runtime";
 import { getRequestContext } from "./request-context";
 import { asJsonObject, errorResponse, jsonResponse } from "./tool-result";
+import { withDownstreamToolAnalytics } from "./instrumentation";
 import { publishRemoteCatalogForUser } from "./bridge-session-access";
 import { buildRemoteCatalogFromClients } from "./remote-catalog";
 import { buildLocalToolServers } from "./local-bridge-tools";
@@ -91,7 +92,7 @@ function normalizeCodeModeScript(script: string): string {
 
 async function withToolRouter<T>(
   userId: string,
-  fn: (router: ToolRouter, manager: McpManager) => Promise<T> | T
+  fn: (router: ToolRouter, manager: McpManager, localServers: Awaited<ReturnType<typeof buildLocalToolServers>>) => Promise<T> | T
 ): Promise<T> {
   return withMcpManager(userId, async (manager) => {
     const localServers = await buildLocalToolServers();
@@ -106,7 +107,7 @@ async function withToolRouter<T>(
     ];
 
     const router = await createToolRouter({ servers });
-    return await fn(router, manager);
+    return await fn(router, manager, localServers);
   });
 }
 
@@ -174,9 +175,28 @@ export function registerMcpCoreTools(server: McpServer): void {
         (params.server_id ? `${params.server_id}::${params.tool_name}` : (params.tool_name ?? ""));
       const toolArgs = (params.args ?? params.arguments ?? {}) as Record<string, unknown>;
 
-      return await withToolRouter(userId, async (router) => {
-        const result = await router.callTool({ toolId, args: toolArgs });
-        return result as never;
+      return await withToolRouter(userId, async (router, manager, localServers) => {
+        const toolSchema = router.getToolSchemas({ toolIds: [toolId] })[0];
+        const [serverId] = toolId.split("::");
+        const connectedClient = manager.getClients().find(
+          (client) => client.getServerId?.() === (toolSchema?.serverId ?? serverId)
+        );
+        const localServer = localServers.find(
+          (server) => server.serverId === (toolSchema?.serverId ?? serverId)
+        );
+        const toolName = toolSchema?.toolName ?? toolId.slice(toolId.indexOf("::") + 2);
+        return (await withDownstreamToolAnalytics(
+          {
+            serverId: toolSchema?.serverId ?? serverId,
+            serverName:
+              toolSchema?.serverName ??
+              localServer?.serverName ??
+              connectedClient?.getServerName?.(),
+            serverUrl: connectedClient?.getServerUrl?.(),
+            toolName,
+          },
+          () => router.callTool({ toolId, args: toolArgs }),
+        )) as never;
       });
     } catch (error) {
       return errorResponse(error instanceof Error ? error.message : "MCP tool call failed");

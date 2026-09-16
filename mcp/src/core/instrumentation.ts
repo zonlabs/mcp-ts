@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/server";
-import { getRequestContext } from "./request-context";
+import { getRequestContext, type WorkerExecutionContext } from "./request-context";
 import { recordMcpToolCallEvent } from "./analytics";
 import { extractReturnedError } from "./mcp-tool-output";
 import { errorResponse } from "./tool-result";
@@ -67,6 +67,94 @@ export function recordSelectedDownstreamToolSchemaInspection(tool: {
     durationMs: tool.durationMs,
   }).catch((err) => {
     console.warn("[instrumentation] Failed to record schema inspection event", err);
+  });
+  context.executionCtx?.waitUntil(task);
+}
+
+export type DownstreamToolMetadata = {
+  serverId?: string;
+  serverName?: string;
+  serverUrl?: string;
+  serverIcons?: { src: string; mimeType?: string; sizes?: string[]; theme?: string }[];
+  toolName: string;
+};
+
+export type DownstreamAnalyticsContext = {
+  userId?: string;
+  requestId?: string;
+  mcpSessionId?: string;
+  executionCtx?: WorkerExecutionContext;
+};
+
+export async function withDownstreamToolAnalytics<T>(
+  tool: DownstreamToolMetadata,
+  call: () => Promise<T>,
+  explicitContext?: DownstreamAnalyticsContext,
+): Promise<T> {
+  const context = resolveDownstreamAnalyticsContext(explicitContext);
+  const startedAt = new Date();
+  const startedMs = Date.now();
+
+  try {
+    const result = await call();
+    const returnedError = extractReturnedError(result);
+    queueDownstreamToolEvent(
+      context,
+      tool,
+      returnedError ? "error" : "success",
+      startedAt,
+      Date.now() - startedMs,
+      returnedError,
+    );
+    return result;
+  } catch (error) {
+    queueDownstreamToolEvent(context, tool, "error", startedAt, Date.now() - startedMs, error);
+    throw error;
+  }
+}
+
+function resolveDownstreamAnalyticsContext(
+  explicit?: DownstreamAnalyticsContext,
+): DownstreamAnalyticsContext {
+  const current = getRequestContext();
+  return {
+    userId: explicit?.userId ?? current.userId,
+    requestId: explicit?.requestId ?? current.requestId,
+    mcpSessionId: explicit?.mcpSessionId ?? current.mcpSessionId,
+    executionCtx: explicit?.executionCtx ?? current.executionCtx,
+  };
+}
+
+function queueDownstreamToolEvent(
+  context: DownstreamAnalyticsContext,
+  tool: DownstreamToolMetadata,
+  status: "success" | "error",
+  startedAt: Date,
+  durationMs: number,
+  error?: unknown,
+): void {
+  if (!context.userId?.trim() || !context.requestId?.trim() || !tool.toolName.trim()) return;
+
+  const task = Promise.resolve(
+    recordMcpToolCallEvent({
+      userId: context.userId,
+      requestId: context.requestId,
+      mcpSessionId: context.mcpSessionId,
+      serverId: tool.serverId,
+      serverName: tool.serverName,
+      serverUrl: tool.serverUrl,
+      serverIcons: tool.serverIcons,
+      toolName: tool.toolName,
+      toolNamespace: tool.serverId,
+      eventType: "downstream_tool",
+      status,
+      error,
+      startedAt,
+      completedAt: new Date(startedAt.getTime() + Math.max(0, durationMs)),
+      durationMs,
+    }),
+  ).catch((recordError) => {
+    console.warn("[mcp-analytics] Failed to queue downstream tool call event", recordError);
   });
   context.executionCtx?.waitUntil(task);
 }
