@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { auth } from '@modelcontextprotocol/client';
 import { McpClient } from '../src/server/mcp/client';
 import { SSEConnectionManager } from '../src/server/handlers/sse-handler';
-import { _setStorageInstanceForTesting } from '../src/server/storage';
+import { _setStorageInstanceForTesting, sessions } from '../src/server/storage';
 import { MemoryStorageBackend } from '../src/server/storage/memory-backend';
 
 test.describe('McpClient', () => {
@@ -320,6 +321,224 @@ test.describe('McpClient', () => {
                 client_id: 'my-manual-client-id',
                 client_secret: 'my-manual-client-secret',
             });
+        });
+
+        test('passes clientMetadataUrl to StorageOAuthClientProvider', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const clientMetadataUrl = 'https://app.example.com/oauth/client-metadata.json';
+
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'client-metadata-url-session',
+                serverId: 'client-metadata-url-server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+                clientMetadataUrl,
+            });
+
+            await (client as any).ensureSession();
+            expect((client.oauthProvider as any).clientMetadataUrl).toBe(clientMetadataUrl);
+        });
+
+        test('persists and restores clientMetadataUrl from server options', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const clientMetadataUrl = 'https://app.example.com/oauth/client-metadata.json';
+            const options = {
+                userId: 'test-user',
+                sessionId: 'persisted-client-metadata-url-session',
+                serverId: 'persisted-client-metadata-url-server',
+                serverUrl: 'https://example.com/mcp',
+                callbackUrl: 'https://app.local/auth/callback',
+                clientMetadataUrl,
+            };
+
+            const client = new McpClient(options);
+            await (client as any).ensureSession();
+
+            const stored = await sessions.get(options.userId, options.sessionId);
+            expect(stored?.serverOptions?.clientMetadataUrl).toBe(clientMetadataUrl);
+
+            const restored = new McpClient({
+                userId: options.userId,
+                sessionId: options.sessionId,
+                serverId: options.serverId,
+                serverUrl: options.serverUrl,
+                callbackUrl: options.callbackUrl,
+                serverOptions: stored?.serverOptions,
+                sessionStore: (client as any)._store,
+            });
+            await (restored as any).ensureSession();
+            expect((restored.oauthProvider as any).clientMetadataUrl).toBe(clientMetadataUrl);
+        });
+
+        test('selects CIMD URL as client_id and skips registration when CIMD is supported', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const clientMetadataUrl = 'https://app.example.com/oauth/client-metadata.json';
+            const serverUrl = 'https://mcp.example.com/mcp';
+            const authServerUrl = 'https://auth.example.com';
+            const requests: Array<{ url: string; method: string; body?: string }> = [];
+
+            const mockFetch = async (url: string | URL, init?: RequestInit) => {
+                const urlStr = String(url);
+                requests.push({ url: urlStr, method: init?.method || 'GET', body: init?.body as string | undefined });
+                if (urlStr.includes('oauth-protected-resource')) {
+                    return new Response(JSON.stringify({
+                        resource: serverUrl,
+                        authorization_servers: [authServerUrl],
+                    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                }
+                if (urlStr.includes('oauth-authorization-server')) {
+                    return new Response(JSON.stringify({
+                        issuer: authServerUrl,
+                        authorization_endpoint: `${authServerUrl}/authorize`,
+                        token_endpoint: `${authServerUrl}/token`,
+                        client_id_metadata_document_supported: true,
+                        response_types_supported: ['code'],
+                    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                }
+                return new Response('Not Found', { status: 404 });
+            };
+
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'cimd-auth-session',
+                serverId: 'cimd-auth-server',
+                serverUrl,
+                callbackUrl: 'https://app.local/auth/callback',
+                clientMetadataUrl,
+            });
+            await (client as any).ensureSession();
+
+            const res = await auth(client.oauthProvider as any, { serverUrl, fetchFn: mockFetch as any });
+            expect(res).toBe('REDIRECT');
+
+            const registerRequest = requests.find((r) => r.url.includes('/register'));
+            expect(registerRequest).toBeUndefined();
+
+            const authUrl = (client.oauthProvider as any).authUrl;
+            expect(authUrl).toContain(`client_id=${encodeURIComponent(clientMetadataUrl)}`);
+
+            const savedInfo = await (client.oauthProvider as any).clientInformation();
+            expect(savedInfo?.client_id).toBe(clientMetadataUrl);
+        });
+
+        test('falls back to DCR when CIMD is not supported by the authorization server', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const clientMetadataUrl = 'https://app.example.com/oauth/client-metadata.json';
+            const serverUrl = 'https://mcp.example.com/mcp';
+            const authServerUrl = 'https://auth.example.com';
+            const registrationEndpoint = `${authServerUrl}/register`;
+            const requests: Array<{ url: string; method: string; body?: string }> = [];
+
+            const mockFetch = async (url: string | URL, init?: RequestInit) => {
+                const urlStr = String(url);
+                requests.push({ url: urlStr, method: init?.method || 'GET', body: init?.body as string | undefined });
+                if (urlStr.includes('oauth-protected-resource')) {
+                    return new Response(JSON.stringify({
+                        resource: serverUrl,
+                        authorization_servers: [authServerUrl],
+                    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                }
+                if (urlStr.includes('oauth-authorization-server')) {
+                    return new Response(JSON.stringify({
+                        issuer: authServerUrl,
+                        authorization_endpoint: `${authServerUrl}/authorize`,
+                        token_endpoint: `${authServerUrl}/token`,
+                        registration_endpoint: registrationEndpoint,
+                        client_id_metadata_document_supported: false,
+                        response_types_supported: ['code'],
+                    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                }
+                if (urlStr === registrationEndpoint) {
+                    return new Response(JSON.stringify({
+                        client_id: 'dcr-registered-id',
+                        client_secret: 'dcr-registered-secret',
+                        redirect_uris: ['https://app.local/auth/callback'],
+                    }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+                }
+                return new Response('Not Found', { status: 404 });
+            };
+
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'dcr-fallback-session',
+                serverId: 'dcr-fallback-server',
+                serverUrl,
+                callbackUrl: 'https://app.local/auth/callback',
+                clientMetadataUrl,
+            });
+            await (client as any).ensureSession();
+
+            const res = await auth(client.oauthProvider as any, { serverUrl, fetchFn: mockFetch as any });
+            expect(res).toBe('REDIRECT');
+
+            const registerRequests = requests.filter((r) => r.url === registrationEndpoint && r.method === 'POST');
+            expect(registerRequests).toHaveLength(1);
+            const parsedBody = JSON.parse(registerRequests[0].body!);
+            expect(parsedBody.redirect_uris).toEqual(['https://app.local/auth/callback']);
+
+            const authUrl = (client.oauthProvider as any).authUrl;
+            expect(authUrl).toContain('client_id=dcr-registered-id');
+
+            const savedInfo = await (client.oauthProvider as any).clientInformation();
+            expect(savedInfo?.client_id).toBe('dcr-registered-id');
+        });
+
+        test('pre-registered clientInformation takes priority over CIMD and skips registration', async () => {
+            _setStorageInstanceForTesting(new MemoryStorageBackend());
+            const clientMetadataUrl = 'https://app.example.com/oauth/client-metadata.json';
+            const serverUrl = 'https://mcp.example.com/mcp';
+            const authServerUrl = 'https://auth.example.com';
+            const registrationEndpoint = `${authServerUrl}/register`;
+            const requests: Array<{ url: string; method: string; body?: string }> = [];
+
+            const mockFetch = async (url: string | URL, init?: RequestInit) => {
+                const urlStr = String(url);
+                requests.push({ url: urlStr, method: init?.method || 'GET', body: init?.body as string | undefined });
+                if (urlStr.includes('oauth-protected-resource')) {
+                    return new Response(JSON.stringify({
+                        resource: serverUrl,
+                        authorization_servers: [authServerUrl],
+                    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                }
+                if (urlStr.includes('oauth-authorization-server')) {
+                    return new Response(JSON.stringify({
+                        issuer: authServerUrl,
+                        authorization_endpoint: `${authServerUrl}/authorize`,
+                        token_endpoint: `${authServerUrl}/token`,
+                        registration_endpoint: registrationEndpoint,
+                        client_id_metadata_document_supported: true,
+                        response_types_supported: ['code'],
+                    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+                }
+                return new Response('Not Found', { status: 404 });
+            };
+
+            const client = new McpClient({
+                userId: 'test-user',
+                sessionId: 'preregistered-priority-session',
+                serverId: 'preregistered-priority-server',
+                serverUrl,
+                callbackUrl: 'https://app.local/auth/callback',
+                clientMetadataUrl,
+                clientInformation: {
+                    client_id: 'supplied-client-id',
+                    client_secret: 'supplied-client-secret',
+                },
+            });
+            await (client as any).ensureSession();
+
+            const res = await auth(client.oauthProvider as any, { serverUrl, fetchFn: mockFetch as any });
+            expect(res).toBe('REDIRECT');
+
+            const registerRequest = requests.find((r) => r.url.includes('/register'));
+            expect(registerRequest).toBeUndefined();
+
+            const authUrl = (client.oauthProvider as any).authUrl;
+            expect(authUrl).toContain('client_id=supplied-client-id');
+
+            const savedInfo = await (client.oauthProvider as any).clientInformation();
+            expect(savedInfo?.client_id).toBe('supplied-client-id');
         });
 
         test('passes all headers including Authorization in requestInit', async () => {

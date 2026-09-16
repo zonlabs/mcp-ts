@@ -59,6 +59,7 @@ interface ClientMetadata {
   clientUri?: string;
   logoUri?: string;
   policyUri?: string;
+  clientMetadataUrl?: string;
   oauthProvider?: OAuthClientProvider;
   client?: McpSdkClientOptions;
 }
@@ -110,8 +111,48 @@ const client = new MCPClient({
   clientUri?: string,
   logoUri?: string,
   policyUri?: string,
+  clientMetadataUrl?: string,
 });
 ```
+
+#### OAuth client registration and CIMD
+
+For OAuth-protected MCP servers, registration is attempted in this order:
+
+1. Supplied client information, when available.
+2. Client ID Metadata Documents (CIMD), when `clientMetadataUrl` is configured and the authorization server advertises `client_id_metadata_document_supported: true`.
+3. Dynamic Client Registration (DCR) as a fallback when CIMD is unavailable or unsupported.
+
+Example:
+
+```typescript
+const client = new MCPClient({
+  userId: 'user_123',
+  sessionId: 'session_123',
+  serverUrl: 'https://mcp.example.com/mcp',
+  serverId: 'example',
+  callbackUrl: 'https://app.example.com/oauth/callback',
+  clientMetadataUrl: 'https://app.example.com/oauth/client-metadata.json',
+});
+```
+
+The host application must serve `clientMetadataUrl` as a valid JSON document over HTTPS. At minimum, it must contain `client_id`, `client_name`, and `redirect_uris`; `client_id` must exactly match the document URL. The configured `callbackUrl` must appear in `redirect_uris` and stay consistent for the entire authorization and callback flow.
+
+Framework-neutral route example:
+
+```text
+GET /oauth/client-metadata.json
+Content-Type: application/json
+
+{
+  "client_id": "https://app.example.com/oauth/client-metadata.json",
+  "client_name": "Example MCP Client",
+  "redirect_uris": ["https://app.example.com/oauth/callback"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+The authorization server advertises CIMD support in its OAuth metadata. If it does not set `client_id_metadata_document_supported: true`, the client uses DCR when a registration endpoint is available.
 
 #### Common methods
 

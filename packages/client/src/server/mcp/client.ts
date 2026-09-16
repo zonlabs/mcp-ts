@@ -106,6 +106,7 @@ export interface MCPOAuthClientOptions {
   clientUri?: string;
   logoUri?: string;
   policyUri?: string;
+  clientMetadataUrl?: string;
   clientInformation?: StoredOAuthClientInformation | OAuthClientInformationMixed;
   /**
    * Credentials already loaded by the caller (e.g. via get({includeCredentials: true})).
@@ -287,6 +288,7 @@ export class McpClient {
         protocolVersion: this._negotiatedProtocolVersion ?? this.config.transport?.protocolVersion,
       },
       discoverResult: this._discoverResult ?? this.config.discoverResult ?? undefined,
+      clientMetadataUrl: this.config.clientMetadataUrl ?? this.config.serverOptions?.clientMetadataUrl ?? undefined,
     };
   }
   private getConnectOptions(): { prior: { kind: 'modern'; discover: DiscoverResult } } | undefined {
@@ -504,6 +506,7 @@ export class McpClient {
       const storedOptions = existingSession.serverOptions ?? this.config.serverOptions ?? undefined;
       this.config.transport = this.config.transport ?? storedOptions?.transport;
       this.config.discoverResult = this.config.discoverResult ?? storedOptions?.discoverResult ?? undefined;
+      this.config.clientMetadataUrl = this.config.clientMetadataUrl || storedOptions?.clientMetadataUrl;
       const previousClientOptions = this.config.client;
       this.config.client = mergeMcpSdkClientOptions(storedOptions?.client, this.config.client);
       if (!previousClientOptions && this.config.client && !this.client.transport) {
@@ -516,6 +519,8 @@ export class McpClient {
       throw new Error('Missing required connection metadata');
     }
 
+    this.config.clientMetadataUrl = this.config.clientMetadataUrl || this.config.serverOptions?.clientMetadataUrl;
+
     this.oauthProvider = this.config.oauthProvider ?? new StorageOAuthClientProvider({
       userId: this.config.userId,
       serverId: this.config.serverId!,
@@ -525,6 +530,7 @@ export class McpClient {
       clientUri: this.config.clientUri,
       logoUri: this.config.logoUri,
       policyUri: this.config.policyUri,
+      clientMetadataUrl: this.config.clientMetadataUrl,
       clientInformation: this.config.clientInformation,
       cachedTokens: this.config.cachedCredentials?.tokens,
       sessionStore: this._store,
@@ -542,6 +548,32 @@ export class McpClient {
           this.config.onRedirect(redirectUrl);
         }
       },
+    });
+
+    // Debug: emit which auth mode was selected for this session
+    const _cimdUrl = this.config.clientMetadataUrl;
+    const authMode = this.config.oauthProvider
+      ? 'custom-provider'
+      : _cimdUrl
+        ? `cimd (${_cimdUrl})`
+        : this.config.clientInformation?.client_id
+          ? `pre-registered (client_id=${this.config.clientInformation.client_id})`
+          : 'dcr (dynamic client registration)';
+    this._onObservabilityEvent.fire({
+      type: 'mcp:client:auth_mode',
+      level: 'info',
+      message: `Auth mode: ${authMode}`,
+      displayMessage: `Auth: ${authMode}`,
+      sessionId: this.config.sessionId,
+      serverId: this.config.serverId,
+      payload: {
+        authMode,
+        clientMetadataUrl: _cimdUrl,
+        hasClientInformation: !!this.config.clientInformation?.client_id,
+        hasCustomProvider: !!this.config.oauthProvider,
+      },
+      timestamp: Date.now(),
+      id: nanoid(),
     });
 
     // Create session row BEFORE persisting credentials (FK constraint on mcp_credentials)

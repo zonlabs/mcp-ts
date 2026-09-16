@@ -154,6 +154,23 @@ test.describe('StorageOAuthClientProvider OAuth state', () => {
     expect(stored?.clientId).toBe('registered-client-id');
   });
 
+  test('exposes a configured CIMD URL', () => {
+    const clientMetadataUrl = 'https://app.example.com/oauth/client-metadata.json';
+    const provider = createProvider({ clientMetadataUrl });
+
+    expect(provider.clientMetadataUrl).toBe(clientMetadataUrl);
+  });
+
+  test('rejects invalid CIMD URLs', () => {
+    for (const clientMetadataUrl of [
+      'http://app.example.com/oauth/client-metadata.json',
+      'https://app.example.com',
+      'not-a-url',
+    ]) {
+      expect(() => createProvider({ clientMetadataUrl })).toThrow(/clientMetadataUrl/);
+    }
+  });
+
   test('saves and retrieves discoveryState across storage backends', async () => {
     const provider = createProvider();
 

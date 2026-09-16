@@ -67,6 +67,7 @@ export interface ClientMetadata {
   clientUri?: string;
   logoUri?: string;
   policyUri?: string;
+  clientMetadataUrl?: string;
   oauthProvider?: OAuthClientProvider;
   client?: McpSdkClientOptions;
 }
@@ -491,6 +492,7 @@ export class SSEConnectionManager {
       sessionStore: this.observedStore,
       metadata:     params.metadata,
       ...metadata,
+      ...(params.clientMetadataUrl ? { clientMetadataUrl: params.clientMetadataUrl } : {}),
     });
 
     this.cacheClient(sessionId, client);
@@ -537,6 +539,8 @@ export class SSEConnectionManager {
       clientInformation,
       sessionStore: this.observedStore,
       ...metadata,
+      ...(existing?.serverOptions?.clientMetadataUrl ? { clientMetadataUrl: existing.serverOptions.clientMetadataUrl } : {}),
+      ...(params.clientMetadataUrl ? { clientMetadataUrl: params.clientMetadataUrl } : {}),
     });
 
     this.cacheClient(sessionId, client);

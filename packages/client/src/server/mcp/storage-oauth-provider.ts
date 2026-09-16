@@ -1,4 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import {
+    validateClientMetadataUrl,
+} from "@modelcontextprotocol/client";
 import type {
     OAuthClientProvider,
     OAuthClientMetadata,
@@ -90,6 +93,7 @@ export interface StorageOAuthClientProviderOptions {
     clientUri?: string;
     logoUri?: string;
     policyUri?: string;
+    clientMetadataUrl?: string;
     clientInformation?: StoredOAuthClientInformation | OAuthClientInformationMixed;
     cachedTokens?: OAuthTokens;
     sessionStore?: SessionStore;
@@ -110,6 +114,7 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
     private readonly clientUri?: string;
     private readonly logoUri?: string;
     private readonly policyUri?: string;
+    private readonly _clientMetadataUrl?: string;
     private readonly staticClientInformation?: StoredOAuthClientInformation;
 
     private _cachedClientInformation?: StoredOAuthClientInformation;
@@ -134,6 +139,8 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
         this.clientUri = options.clientUri;
         this.logoUri = options.logoUri;
         this.policyUri = options.policyUri;
+        validateClientMetadataUrl(options.clientMetadataUrl);
+        this._clientMetadataUrl = options.clientMetadataUrl;
         this.staticClientInformation = options.clientInformation as StoredOAuthClientInformation | undefined;
         this._cachedClientInformation = options.clientInformation as StoredOAuthClientInformation | undefined;
         if (options.clientInformation?.client_id) {
@@ -157,6 +164,10 @@ export class StorageOAuthClientProvider implements AgentsOAuthProvider {
             software_id: SOFTWARE_ID,
             software_version: SOFTWARE_VERSION,
         };
+    }
+
+    get clientMetadataUrl(): string | undefined {
+        return this._clientMetadataUrl;
     }
 
     get clientId() {

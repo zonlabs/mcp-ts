@@ -40,6 +40,7 @@ export type StoredMcpSdkClientOptions = Pick<
 >;
 
 export interface StoredMcpServerOptions {
+    clientMetadataUrl?: string;
     client?: StoredMcpSdkClientOptions;
     transport?: StoredMcpTransportOptions;
     discoverResult?: DiscoverResult;

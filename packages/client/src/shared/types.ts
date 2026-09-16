@@ -228,6 +228,7 @@ export interface ConnectParams {
   headers?: Record<string, string>;
   clientId?: string;
   clientSecret?: string;
+  clientMetadataUrl?: string;
   /**
    * Arbitrary caller-supplied key-value pairs stored alongside the session.
    * The library stores this opaquely and never reads or interprets it.

@@ -12,6 +12,9 @@ export const { GET, POST } = createNextMcpHandler({
     clientDefaults: {
         clientName: "LinkOS",
         clientUri: "https://app.linkos.in",
+        clientMetadataUrl: process.env.NEXT_PUBLIC_APP_URL
+            ? `${process.env.NEXT_PUBLIC_APP_URL}/api/mcp/client-metadata.json`
+            : "https://app.linkos.in/api/mcp/client-metadata.json",
     }
     // Optional: customize how to extract userId and auth token
     // getUserId: (request) => new URL(request.url).searchParams.get('userId'),

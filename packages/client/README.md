@@ -156,6 +156,45 @@ const { tools } = await user.listTools();
 const response = await user.callTool('tavily_search', { query: 'Model Context Protocol' });
 ```
 
+### OAuth client registration and CIMD
+
+When an MCP server requires OAuth, the client chooses a registration method in this order:
+
+1. Supplied client information, when `clientInformation` is already configured.
+2. Client ID Metadata Documents (CIMD), when `clientMetadataUrl` is configured and the authorization server advertises `client_id_metadata_document_supported: true`.
+3. Dynamic Client Registration (DCR), as a fallback when CIMD is unavailable or unsupported.
+
+Configure CIMD with a stable HTTPS URL for the metadata document:
+
+```typescript
+const client = new MCPClient({
+  userId: 'user_123',
+  sessionId: 'session_123',
+  serverUrl: 'https://mcp.example.com/mcp',
+  serverId: 'example',
+  callbackUrl: 'https://app.example.com/oauth/callback',
+  clientMetadataUrl: 'https://app.example.com/oauth/client-metadata.json',
+});
+```
+
+The host application must serve that URL over HTTPS. The document must be valid JSON and include at least `client_id`, `client_name`, and `redirect_uris`. Its `client_id` must match the metadata URL exactly, including scheme, host, path, and any other URL components. The configured `callbackUrl` must be included in `redirect_uris` and remain identical throughout the authorization and callback flow.
+
+For example, a framework-neutral GET route can return the document as JSON:
+
+```text
+GET /oauth/client-metadata.json
+Content-Type: application/json
+
+{
+  "client_id": "https://app.example.com/oauth/client-metadata.json",
+  "client_name": "Example MCP Client",
+  "redirect_uris": ["https://app.example.com/oauth/callback"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+The authorization server decides whether CIMD is available from its OAuth metadata. When it does not advertise support, `mcp-ts` falls back to DCR if the server provides a registration endpoint.
+
 ---
 
 ## 🔌 Framework Adapters
