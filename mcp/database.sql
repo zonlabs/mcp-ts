@@ -65,3 +65,9 @@ DROP POLICY IF EXISTS "mcp_tool_call_events_select_own" ON mcp_tool_call_events;
 CREATE POLICY "mcp_tool_call_events_select_own"
   ON mcp_tool_call_events FOR SELECT
   USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "mcp_tool_call_events_delete_own" ON mcp_tool_call_events;
+
+CREATE POLICY "mcp_tool_call_events_delete_own"
+  ON mcp_tool_call_events FOR DELETE
+  USING (auth.uid()::text = user_id);

@@ -27,7 +27,7 @@ export function DeleteMcpUsageEventsDialog({
 }: DeleteMcpUsageEventsDialogProps) {
   const [confirmText, setConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const isConfirmed = confirmText.trim().toUpperCase() === "DELETE";
+  const isConfirmed = confirmText.trim() === "DELETE";
 
   const handleDelete = async () => {
     if (!isConfirmed || isDeleting) return;
