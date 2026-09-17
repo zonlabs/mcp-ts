@@ -473,13 +473,14 @@ export default function Home() {
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-3.5">
                   {[
-                    { name: "VS Code", icon: "https://api.iconify.design/logos:visual-studio-code.svg", invert: false, href: "vscode:mcp/install?%7B%22name%22%3A%22linkos%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.linkos.in%2Fmcp%22%7D" },
-                    { name: "Cursor", icon: "https://api.iconify.design/simple-icons:cursor.svg", invert: true, href: "cursor://anysphere.cursor-deeplink/mcp/install?name=linkos&config=eyJ0eXBlIjoic3NlIiwidXJsIjoiaHR0cHM6Ly9tY3AubGlua29zLmluL21jcCJ9" },
-                    { name: "Claude Desktop", icon: "https://api.iconify.design/simple-icons:anthropic.svg", invert: true },
-                    { name: "ChatGPT", icon: "https://api.iconify.design/simple-icons:openai.svg", invert: true },
-                    { name: "Antigravity", icon: "https://api.iconify.design/material-symbols:antigravity.svg", invert: true },
-                    { name: "OpenCode", icon: "https://api.iconify.design/simple-icons:opencode.svg", invert: false },
-                    { name: "Cline", icon: "https://api.iconify.design/simple-icons:cline.svg", invert: false },
+                    { name: "VS Code", icon: "/clients/vscode.svg", invert: false, href: "vscode:mcp/install?%7B%22name%22%3A%22linkos%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.linkos.in%2Fmcp%22%7D" },
+                    { name: "Cursor", icon: "/clients/cursor.svg", invert: true, href: "cursor://anysphere.cursor-deeplink/mcp/install?name=linkos&config=eyJ0eXBlIjoic3NlIiwidXJsIjoiaHR0cHM6Ly9tY3AubGlua29zLmluL21jcCJ9" },
+                    { name: "Claude Desktop", icon: "/clients/claude.svg", invert: false },
+                    { name: "ChatGPT", icon: "/clients/chatgpt.svg", invert: true },
+                    { name: "Notion", icon: "/clients/notion.svg", invert: false },
+                    { name: "Antigravity", icon: "/clients/antigravity.svg", invert: true },
+                    { name: "OpenCode", icon: "/clients/opencode.svg", invert: true },
+                    { name: "Cline", icon: "/clients/cline.svg", invert: true },
                   ].map((client) => {
                     const content = (
                       <SimpleTooltip content={client.href ? `Install in ${client.name}` : client.name} side="top">
