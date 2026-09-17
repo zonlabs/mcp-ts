@@ -16,22 +16,22 @@ const MCP_CLIENT_ICONS = [
   {
     name: "VS Code",
     url: "https://code.visualstudio.com",
-    fallbackImage: "https://api.iconify.design/logos:visual-studio-code.svg",
+    fallbackImage: "/clients/vscode.svg",
   },
   {
     name: "Cursor",
     url: "https://cursor.com",
-    fallbackImage: "https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/light/cursor.png",
+    fallbackImage: "/clients/cursor.png",
   },
   {
     name: "ChatGPT",
     url: "https://chatgpt.com",
-    fallbackImage: "https://api.iconify.design/simple-icons:openai.svg",
+    fallbackImage: "/clients/chatgpt.svg",
   },
   {
     name: "Notion",
     url: "https://www.notion.so",
-    fallbackImage: "https://api.iconify.design/logos:notion-icon.svg",
+    fallbackImage: "/clients/notion.svg",
   },
 ] as const;
 

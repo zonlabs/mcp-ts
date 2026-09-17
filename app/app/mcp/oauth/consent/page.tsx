@@ -143,8 +143,9 @@ export default async function McpOAuthConsentPage({ searchParams }: PageProps) {
                 aria-hidden="true"
                 height={28}
                 priority
-                src="/logo-mark-red.svg"
+                src="/logo-light.svg"
                 width={28}
+                className="dark:invert"
               />
             </div>
 

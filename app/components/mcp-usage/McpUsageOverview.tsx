@@ -115,7 +115,7 @@ export function McpUsageOverview({
   const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
   const recentEventGroups = useMemo(() => groupRecentGroupsByDate(groups), [groups]);
 
-  const mostUsedAppName = summary.mostUsedApp?.name ?? "MCP Hub";
+  const mostUsedAppName = summary.mostUsedApp?.name ?? "None";
   const mostUsedAppEvent = summary.mostUsedApp
     ? metricsEvents.find((event) => getUsageEventKey(event) === summary.mostUsedApp?.key)
     : undefined;
@@ -245,8 +245,14 @@ export function McpUsageOverview({
               Most Used App
             </p>
             <div className="text-sm sm:text-base lg:text-lg font-medium text-foreground truncate flex items-center gap-2 pt-0.5">
-              <ServerIcon serverName={mostUsedAppName} serverUrl={mostUsedAppServerUrl} size={20} className="shrink-0 rounded-xs" />
-              <span className="truncate">{mostUsedAppName}</span>
+              {summary.mostUsedApp ? (
+                <>
+                  <ServerIcon serverName={mostUsedAppName} serverUrl={mostUsedAppServerUrl} size={20} className="shrink-0 rounded-xs" />
+                  <span className="truncate">{mostUsedAppName}</span>
+                </>
+              ) : (
+                <span className="truncate text-muted-foreground">None</span>
+              )}
             </div>
           </div>
         </div>

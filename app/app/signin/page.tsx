@@ -225,7 +225,7 @@ export default function SignInPage() {
                 <div>
                   <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">03</div>
                   <div className="text-xs font-medium text-white/85">Move with intent</div>
-                  <div className="mt-1 text-[11px] leading-5 text-white/40">Less setup. More making.</div>
+                  <div className="mt-1 text-[11px] leading-5 text-white/40">Less setup.</div>
                 </div>
               </div>
             </div>

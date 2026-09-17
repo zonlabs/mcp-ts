@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Logo">
-  <rect width="256" height="256" fill="#d30000"/>
-  <path d="M58 47 L128 77 L198 47" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect id="leftStick" x="51" y="40" width="14" height="176" rx="7" fill="#ffffff"/>
-  <rect id="middleStick" x="121" y="70" width="14" height="94" rx="7" fill="#ffffff"/>
-  <rect id="rightStick" x="191" y="40" width="14" height="96" rx="7" fill="#ffffff"/>
-</svg>
