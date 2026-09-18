@@ -292,12 +292,19 @@ export interface McpAnalyticsData {
       avgMs: number;
       p95Ms: number;
       count: number;
+      upstreamAvgMs: number;
+      upstreamCount: number;
+      downstreamAvgMs: number;
+      downstreamCount: number;
     }[];
     slowestTools: {
       toolName: string;
       appDisplayName: string;
       avgDurationMs: number;
       count: number;
+      scope: "upstream" | "downstream";
+      serverUrl?: string | null;
+      serverIcons?: ServerIcon[] | null;
     }[];
   };
   reliability: {
@@ -331,6 +338,7 @@ export interface McpAnalyticsData {
       appDisplayName: string;
       count: number;
       percentage: number;
+      scope: "upstream" | "downstream";
       serverUrl?: string | null;
       serverIcons?: ServerIcon[] | null;
     }[];
@@ -358,10 +366,25 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
 
   // 2. Latency
   const durations: number[] = [];
-  const dailyLatencyMap = new Map<string, number[]>();
-  const toolDurationMap = new Map<string, { toolName: string; appDisplayName: string; durations: number[] }>();
-
-  // 3. Distribution & Ecosystem
+  const dailyLatencyMap = new Map<
+    string,
+    {
+      all: number[];
+      upstream: number[];
+      downstream: number[];
+    }
+  >();
+  const toolDurationMap = new Map<
+    string,
+    {
+      toolName: string;
+      appDisplayName: string;
+      durations: number[];
+      scope: "upstream" | "downstream";
+      serverUrl?: string | null;
+      serverIcons?: ServerIcon[] | null;
+    }
+  >();
   const appCounts = new Map<string, { key: string; name: string; count: number; serverUrl?: string | null; serverIcons?: ServerIcon[] | null }>();
   const toolInvocationMap = new Map<
     string,
@@ -369,6 +392,7 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
       toolName: string;
       appDisplayName: string;
       count: number;
+      scope: "upstream" | "downstream";
       serverUrl?: string | null;
       serverIcons?: ServerIcon[] | null;
     }
@@ -397,6 +421,12 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
     const appName = getMcpAppDisplayName(event.app_key, event.server_name);
     const toolKey = `${appName}::${event.tool_name}`;
 
+    const isOrchestrator = isMcpAssistantOrchestratorEvent(event) || (!event.app_key && event.event_type === "top_level");
+    const scope: "upstream" | "downstream" =
+      event.event_type === "downstream_tool" || (!isOrchestrator && Boolean(event.app_key || event.server_name))
+        ? "downstream"
+        : "upstream";
+
     // Tool error tracking
     const toolErr = toolErrorMap.get(toolKey) ?? { toolName: event.tool_name, appDisplayName: appName, errorCount: 0, totalCount: 0 };
     toolErr.totalCount += 1;
@@ -411,14 +441,34 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
 
     // Daily latency
     const dateKey = getLocalDateKey(event.started_at);
-    if (!dailyLatencyMap.has(dateKey)) {
-      dailyLatencyMap.set(dateKey, []);
+    let dayEntry = dailyLatencyMap.get(dateKey);
+    if (!dayEntry) {
+      dayEntry = { all: [], upstream: [], downstream: [] };
+      dailyLatencyMap.set(dateKey, dayEntry);
     }
-    dailyLatencyMap.get(dateKey)!.push(duration);
+    dayEntry.all.push(duration);
+    if (scope === "downstream") {
+      dayEntry.downstream.push(duration);
+    } else {
+      dayEntry.upstream.push(duration);
+    }
 
     // Tool durations
-    const toolDur = toolDurationMap.get(toolKey) ?? { toolName: event.tool_name, appDisplayName: appName, durations: [] };
+    const toolDur = toolDurationMap.get(toolKey) ?? {
+      toolName: event.tool_name,
+      appDisplayName: appName,
+      durations: [],
+      scope,
+      serverUrl: event.server_url,
+      serverIcons: event.server_icons,
+    };
     toolDur.durations.push(duration);
+    if (!toolDur.serverIcons && event.server_icons) {
+      toolDur.serverIcons = event.server_icons;
+    }
+    if (!toolDur.serverUrl && event.server_url) {
+      toolDur.serverUrl = event.server_url;
+    }
     toolDurationMap.set(toolKey, toolDur);
 
     // App counts (for connected apps)
@@ -444,6 +494,7 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
       toolName: event.tool_name,
       appDisplayName: appName,
       count: 0,
+      scope,
       serverUrl: event.server_url,
       serverIcons: event.server_icons,
     };
@@ -485,9 +536,17 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
   const sortedDates = [...dailyLatencyMap.keys()].sort();
   const recentDates = sortedDates.slice(-14);
   const dailyLatency = recentDates.map((dateKey) => {
-    const list = dailyLatencyMap.get(dateKey)!.sort((a, b) => a - b);
-    const avg = Math.round(list.reduce((sum, val) => sum + val, 0) / list.length);
-    const p95 = list[Math.min(list.length - 1, Math.floor(list.length * 0.95))];
+    const entry = dailyLatencyMap.get(dateKey)!;
+    const list = [...entry.all].sort((a, b) => a - b);
+    const avg = list.length > 0 ? Math.round(list.reduce((sum, val) => sum + val, 0) / list.length) : 0;
+    const p95 = list.length > 0 ? list[Math.min(list.length - 1, Math.floor(list.length * 0.95))] : 0;
+
+    const upList = entry.upstream;
+    const upstreamAvgMs = upList.length > 0 ? Math.round(upList.reduce((s, v) => s + v, 0) / upList.length) : 0;
+
+    const downList = entry.downstream;
+    const downstreamAvgMs = downList.length > 0 ? Math.round(downList.reduce((s, v) => s + v, 0) / downList.length) : 0;
+
     const dateObj = new Date(dateKey + "T00:00:00");
     const label = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(dateObj);
     return {
@@ -496,19 +555,25 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
       avgMs: avg,
       p95Ms: p95,
       count: list.length,
+      upstreamAvgMs,
+      upstreamCount: upList.length,
+      downstreamAvgMs,
+      downstreamCount: downList.length,
     };
   });
 
-  // Slowest Tools (minimum 1 call, ranked by avgDurationMs descending, top 5)
+  // Slowest Tools (sorted by avgDurationMs descending)
   const slowestTools = [...toolDurationMap.values()]
     .map((t) => ({
       toolName: t.toolName,
       appDisplayName: t.appDisplayName,
       avgDurationMs: Math.round(t.durations.reduce((sum, d) => sum + d, 0) / t.durations.length),
       count: t.durations.length,
+      scope: t.scope,
+      serverUrl: t.serverUrl,
+      serverIcons: t.serverIcons,
     }))
-    .sort((a, b) => b.avgDurationMs - a.avgDurationMs)
-    .slice(0, 5);
+    .sort((a, b) => b.avgDurationMs - a.avgDurationMs);
 
   // Reliability
   const successRate = totalCalls > 0 ? Math.round((successCount / totalCalls) * 100) : 100;
@@ -535,14 +600,13 @@ export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalytics
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Top Tools
+  // Top Tools (sorted by count descending)
   const topTools = [...toolInvocationMap.values()]
     .map((t) => ({
       ...t,
       percentage: totalCalls > 0 ? Math.round((t.count / totalCalls) * 100) : 0,
     }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .sort((a, b) => b.count - a.count);
 
   // Orchestration ratio
   const orchestrationRatio = totalCalls > 0 ? Math.round((downstreamCount / totalCalls) * 100) : 0;

@@ -769,7 +769,7 @@ export function AppShell({
         {/* Profile */}
         <div
           className={cn(
-            "pt-2 pb-3 border-t border-sidebar-border bg-sidebar shrink-0",
+            "pt-2 pb-3 bg-sidebar shrink-0",
             isExpanded ? "px-2" : "px-0"
           )}
         >

@@ -76,7 +76,69 @@ export function McpAnalyticsDashboard({ events }: McpAnalyticsDashboardProps) {
   const analytics = useMemo(() => computeMcpAnalytics(events), [events]);
   const [hoveredHour, setHoveredHour] = useState<number | null>(null);
 
+  // Upstream vs Downstream Scopes
+  const [slowestScope, setSlowestScope] = useState<"downstream" | "upstream">("downstream");
+  const [inDemandScope, setInDemandScope] = useState<"downstream" | "upstream">("downstream");
+  const [trendView, setTrendView] = useState<"both" | "downstream" | "upstream">("both");
+
   const { latency, reliability, distribution, hourlyActivity } = analytics;
+
+  // Filtered leaderboards based on selected scope
+  const filteredSlowestTools = useMemo(() => {
+    return latency.slowestTools
+      .filter((t) => t.scope === slowestScope)
+      .slice(0, 5);
+  }, [latency.slowestTools, slowestScope]);
+
+  const filteredInDemandTools = useMemo(() => {
+    return distribution.topTools
+      .filter((t) => t.scope === inDemandScope)
+      .slice(0, 5);
+  }, [distribution.topTools, inDemandScope]);
+
+  // Multi-series Latency SVG Chart geometry
+  const chartData = latency.dailyLatency;
+  const maxMs = useMemo(() => {
+    if (chartData.length === 0) return 1000;
+    const values = chartData.flatMap((d) => [
+      d.avgMs,
+      d.p95Ms,
+      d.downstreamAvgMs,
+      d.upstreamAvgMs,
+    ]);
+    return Math.max(100, ...values);
+  }, [chartData]);
+
+  const svgPoints = useMemo(() => {
+    if (chartData.length === 0) return null;
+    const width = 520;
+    const height = 130;
+    const padX = 24;
+    const padY = 16;
+    const drawWidth = width - padX * 2;
+    const drawHeight = height - padY * 2;
+    const isSingle = chartData.length === 1;
+
+    const coords = chartData.map((d, i) => {
+      const x = isSingle ? width / 2 : padX + (i / (chartData.length - 1)) * drawWidth;
+      const yAvg = height - padY - (d.avgMs / maxMs) * drawHeight;
+      const yDown = height - padY - (d.downstreamAvgMs / maxMs) * drawHeight;
+      const yUp = height - padY - (d.upstreamAvgMs / maxMs) * drawHeight;
+      return { x, yAvg, yDown, yUp, ...d };
+    });
+
+    const downLine = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.yDown.toFixed(1)}`).join(" ");
+    const downArea = isSingle
+      ? ""
+      : `${downLine} L ${coords[coords.length - 1].x.toFixed(1)} ${(height - padY).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(height - padY).toFixed(1)} Z`;
+
+    const upLine = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.yUp.toFixed(1)}`).join(" ");
+    const upArea = isSingle
+      ? ""
+      : `${upLine} L ${coords[coords.length - 1].x.toFixed(1)} ${(height - padY).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(height - padY).toFixed(1)} Z`;
+
+    return { width, height, padX, padY, coords, downLine, downArea, upLine, upArea, isSingle };
+  }, [chartData, maxMs]);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -171,28 +233,383 @@ export function McpAnalyticsDashboard({ events }: McpAnalyticsDashboardProps) {
           </div>
         </div>
 
-        {/* 2. Middle Row: Most In-Demand Tools & Diagnostics & Health */}
+        {/* 2. Middle Row: Multi-Series Latency Trend Chart & Slowest Tools */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Most In-Demand Tools (with App Icons) */}
+          {/* Multi-Series Latency Trend Line / Area Chart */}
           <div className="bg-card border border-border rounded-md p-5 space-y-4">
-            <div>
-              <h4 className="text-xs sm:text-sm font-mono uppercase tracking-wider text-foreground font-semibold">
-                Most In-Demand Tools
-              </h4>
-              <p className="text-xs text-muted-foreground font-sans">
-                Most frequently invoked MCP functions
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs sm:text-sm font-mono uppercase tracking-wider text-foreground font-semibold">
+                  Execution Latency Trend
+                </h4>
+                <p className="text-xs text-muted-foreground font-sans">
+                  Upstream orchestrator vs. downstream tools comparison
+                </p>
+              </div>
+              {/* View Toggle */}
+              <div className="flex items-center rounded-md bg-muted/60 p-0.5 text-[11px] font-mono shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setTrendView("both")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm transition-all",
+                    trendView === "both"
+                      ? "bg-background text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Both
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTrendView("downstream")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm transition-all flex items-center gap-1.5",
+                    trendView === "downstream"
+                      ? "bg-background text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                  Downstream
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTrendView("upstream")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm transition-all flex items-center gap-1.5",
+                    trendView === "upstream"
+                      ? "bg-background text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span className="size-1.5 rounded-full bg-violet-500" />
+                  Upstream
+                </button>
+              </div>
             </div>
 
-            {distribution.topTools.length > 0 ? (
+            {svgPoints && svgPoints.coords.length > 0 ? (
+              <div className="w-full overflow-hidden space-y-2">
+                {/* Series Legend Indicators */}
+                <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground">
+                  {(trendView === "both" || trendView === "downstream") && (
+                    <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                      <span className="size-2 rounded-full bg-emerald-500 inline-block" /> Downstream Tools
+                    </span>
+                  )}
+                  {(trendView === "both" || trendView === "upstream") && (
+                    <span className="inline-flex items-center gap-1.5 text-violet-600 dark:text-violet-400">
+                      <span className="size-2 rounded-full bg-violet-500 inline-block" /> Upstream (Orchestrator)
+                    </span>
+                  )}
+                </div>
+
+                <svg
+                  viewBox={`0 0 ${svgPoints.width} ${svgPoints.height}`}
+                  className="w-full h-36 overflow-visible select-none"
+                >
+                  <defs>
+                    <linearGradient id="downstreamGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                    </linearGradient>
+                    <linearGradient id="upstreamGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.20" />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Horizontal Guide Lines */}
+                  <line
+                    x1="24"
+                    y1={svgPoints.height - 16}
+                    x2={svgPoints.width - 24}
+                    y2={svgPoints.height - 16}
+                    stroke="currentColor"
+                    className="text-border/60"
+                    strokeWidth="1"
+                  />
+                  <line
+                    x1="24"
+                    y1="16"
+                    x2={svgPoints.width - 24}
+                    y2="16"
+                    stroke="currentColor"
+                    className="text-border/40"
+                    strokeDasharray="3 3"
+                    strokeWidth="1"
+                  />
+
+                  {/* Max Y Label */}
+                  <text
+                    x="24"
+                    y="12"
+                    className="text-[9px] font-mono fill-muted-foreground/70"
+                  >
+                    {formatDuration(maxMs)}
+                  </text>
+
+                  {/* Upstream Area & Line */}
+                  {(trendView === "both" || trendView === "upstream") && !svgPoints.isSingle && (
+                    <path d={svgPoints.upArea} fill="url(#upstreamGradient)" />
+                  )}
+                  {(trendView === "both" || trendView === "upstream") && !svgPoints.isSingle && (
+                    <path
+                      d={svgPoints.upLine}
+                      fill="none"
+                      stroke="#8b5cf6"
+                      strokeWidth="2"
+                      strokeDasharray="4 3"
+                      strokeLinecap="round"
+                    />
+                  )}
+
+                  {/* Downstream Area & Line */}
+                  {(trendView === "both" || trendView === "downstream") && !svgPoints.isSingle && (
+                    <path d={svgPoints.downArea} fill="url(#downstreamGradient)" />
+                  )}
+                  {(trendView === "both" || trendView === "downstream") && !svgPoints.isSingle && (
+                    <path
+                      d={svgPoints.downLine}
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  )}
+
+                  {/* Interactive Nodes & Tooltip */}
+                  {svgPoints.coords.map((pt) => (
+                    <g key={pt.date}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <g className="cursor-pointer">
+                            {/* Transparent vertical target column for easy hover */}
+                            <rect
+                              x={pt.x - 12}
+                              y={16}
+                              width={24}
+                              height={svgPoints.height - 32}
+                              fill="transparent"
+                            />
+                            {/* Downstream Node */}
+                            {(trendView === "both" || trendView === "downstream") && (
+                              <circle
+                                cx={pt.x}
+                                cy={pt.yDown}
+                                r="3.5"
+                                className="fill-background stroke-emerald-500 stroke-2 hover:r-5 transition-all"
+                              />
+                            )}
+                            {/* Upstream Node */}
+                            {(trendView === "both" || trendView === "upstream") && (
+                              <circle
+                                cx={pt.x}
+                                cy={pt.yUp}
+                                r="3.5"
+                                className="fill-background stroke-violet-500 stroke-2 hover:r-5 transition-all"
+                              />
+                            )}
+                          </g>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs font-mono p-2.5 space-y-1.5 min-w-44">
+                          <p className="font-semibold text-foreground border-b border-border/50 pb-1">{pt.label}</p>
+                          <div className="flex items-center justify-between gap-3 text-emerald-500">
+                            <span className="flex items-center gap-1.5">
+                              <span className="size-1.5 rounded-full bg-emerald-500 inline-block" />
+                              Downstream:
+                            </span>
+                            <span className="font-semibold">
+                              {formatDuration(pt.downstreamAvgMs)}{" "}
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                ({pt.downstreamCount})
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-violet-500">
+                            <span className="flex items-center gap-1.5">
+                              <span className="size-1.5 rounded-full bg-violet-500 inline-block" />
+                              Upstream:
+                            </span>
+                            <span className="font-semibold">
+                              {formatDuration(pt.upstreamAvgMs)}{" "}
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                ({pt.upstreamCount})
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-muted-foreground pt-1 border-t border-border/40 text-[11px]">
+                            <span>Overall Avg:</span>
+                            <span>{formatDuration(pt.avgMs)} ({pt.count} calls)</span>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </g>
+                  ))}
+                </svg>
+
+                {/* X-axis date labels */}
+                <div className="flex justify-between px-2 pt-1 text-[10px] font-mono text-muted-foreground">
+                  <span>{chartData[0]?.label}</span>
+                  {chartData.length > 2 && (
+                    <span>{chartData[Math.floor(chartData.length / 2)]?.label}</span>
+                  )}
+                  <span>{chartData[chartData.length - 1]?.label}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="h-36 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border/60 rounded-sm">
+                <Clock className="size-6 mb-1 opacity-40" />
+                <p className="text-xs font-mono">No historical duration metrics recorded</p>
+              </div>
+            )}
+          </div>
+
+          {/* Slowest Tools Leaderboard with Upstream/Downstream Toggle */}
+          <div className="bg-card border border-border rounded-md p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs sm:text-sm font-mono uppercase tracking-wider text-foreground font-semibold">
+                  Slowest Tools Leaderboard
+                </h4>
+                <p className="text-xs text-muted-foreground font-sans">
+                  Tools with highest average duration
+                </p>
+              </div>
+              {/* Scope Toggle */}
+              <div className="flex items-center rounded-md bg-muted/60 p-0.5 text-[11px] font-mono shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setSlowestScope("downstream")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm transition-all",
+                    slowestScope === "downstream"
+                      ? "bg-background text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Downstream
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSlowestScope("upstream")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm transition-all",
+                    slowestScope === "upstream"
+                      ? "bg-background text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Upstream
+                </button>
+              </div>
+            </div>
+
+            {filteredSlowestTools.length > 0 ? (
+              <div className="space-y-3">
+                {filteredSlowestTools.map((t, index) => {
+                  const maxDuration = filteredSlowestTools[0]?.avgDurationMs || 1;
+                  const barWidth = Math.max(8, Math.round((t.avgDurationMs / maxDuration) * 100));
+
+                  return (
+                    <div key={`${t.scope}-${t.appDisplayName}-${t.toolName}`} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="font-mono text-[11px] text-muted-foreground w-4 shrink-0">
+                            #{index + 1}
+                          </span>
+                          <div className="size-5 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-0.5 shadow-2xs">
+                            <AnalyticsServerIcon
+                              icons={t.serverIcons}
+                              serverName={t.appDisplayName}
+                              serverUrl={t.serverUrl}
+                              size={12}
+                              className="shrink-0 object-contain rounded-xs"
+                            />
+                          </div>
+                          <span className="text-muted-foreground truncate">{t.appDisplayName}</span>
+                          <span className="text-foreground font-mono font-medium truncate">
+                            {t.toolName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 font-mono text-xs shrink-0 ml-2">
+                          <span className="text-muted-foreground text-[11px]">{t.count} calls</span>
+                          <span className="font-medium text-foreground">
+                            {formatDuration(t.avgDurationMs)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-300",
+                            t.scope === "downstream" ? "bg-amber-500/80" : "bg-violet-500/80"
+                          )}
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="h-36 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border/60 rounded-sm">
+                <Clock className="size-6 mb-1 opacity-40" />
+                <p className="text-xs font-mono">No {slowestScope} tools recorded</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 3. Third Row: Most In-Demand Tools & Diagnostics & Health */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Most In-Demand Tools (with Upstream/Downstream Toggle, App Icons, No Rank Numbers) */}
+          <div className="bg-card border border-border rounded-md p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs sm:text-sm font-mono uppercase tracking-wider text-foreground font-semibold">
+                  Most In-Demand Tools
+                </h4>
+                <p className="text-xs text-muted-foreground font-sans">
+                  Most frequently invoked MCP functions
+                </p>
+              </div>
+              {/* Scope Toggle */}
+              <div className="flex items-center rounded-md bg-muted/60 p-0.5 text-[11px] font-mono shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setInDemandScope("downstream")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm transition-all",
+                    inDemandScope === "downstream"
+                      ? "bg-background text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Downstream
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInDemandScope("upstream")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-sm transition-all",
+                    inDemandScope === "upstream"
+                      ? "bg-background text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Upstream
+                </button>
+              </div>
+            </div>
+
+            {filteredInDemandTools.length > 0 ? (
               <div className="space-y-3.5">
-                {distribution.topTools.map((t, idx) => (
-                  <div key={`${t.appDisplayName}-${t.toolName}`} className="space-y-1.5">
+                {filteredInDemandTools.map((t) => (
+                  <div key={`${t.scope}-${t.appDisplayName}-${t.toolName}`} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="font-mono text-[11px] text-muted-foreground w-3.5 shrink-0">
-                          {idx + 1}.
-                        </span>
                         <div className="size-6 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-0.5 shadow-2xs">
                           <AnalyticsServerIcon
                             icons={t.serverIcons}
@@ -216,7 +633,10 @@ export function McpAnalyticsDashboard({ events }: McpAnalyticsDashboardProps) {
                     </div>
                     <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-sky-500 rounded-full transition-all duration-300"
+                        className={cn(
+                          "h-full rounded-full transition-all duration-300",
+                          t.scope === "downstream" ? "bg-sky-500" : "bg-violet-500"
+                        )}
                         style={{ width: `${Math.max(5, t.percentage)}%` }}
                       />
                     </div>
@@ -226,7 +646,7 @@ export function McpAnalyticsDashboard({ events }: McpAnalyticsDashboardProps) {
             ) : (
               <div className="h-36 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border/60 rounded-sm">
                 <Activity className="size-6 mb-1 opacity-40" />
-                <p className="text-xs font-mono">No tool invocations recorded</p>
+                <p className="text-xs font-mono">No {inDemandScope} tools recorded</p>
               </div>
             )}
           </div>
