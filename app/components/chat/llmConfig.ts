@@ -3,6 +3,7 @@ export interface LlmConfig {
   model: string;
   apiKey?: string;
   baseUrl?: string;
+  modelName?: string;
 }
 
 const LLM_CONFIG_STORAGE_KEY = "llm_config";
@@ -10,6 +11,7 @@ const LLM_CONFIG_STORAGE_KEY = "llm_config";
 export const DEFAULT_LLM_CONFIG: LlmConfig = {
   provider: "openrouter",
   model: "openrouter/auto",
+  modelName: "Auto Router",
   apiKey: "",
 };
 
@@ -21,10 +23,13 @@ export function readLlmConfigFromStorage(): LlmConfig {
 
   try {
     const parsed = JSON.parse(stored);
+    const model = parsed.llm_name || DEFAULT_LLM_CONFIG.model;
+    const defaultName = model === "openrouter/auto" ? "Auto Router" : "";
     return {
       provider: "openrouter",
       apiKey: parsed.llm_api_key || "",
-      model: parsed.llm_name || DEFAULT_LLM_CONFIG.model,
+      model,
+      modelName: parsed.llm_model_name || defaultName,
     };
   } catch {
     return { ...DEFAULT_LLM_CONFIG };
@@ -33,20 +38,26 @@ export function readLlmConfigFromStorage(): LlmConfig {
 
 export function writeLlmConfigToStorage(config: LlmConfig) {
   if (typeof window === "undefined") return;
+  const model = (config.model || DEFAULT_LLM_CONFIG.model).trim();
+  const defaultName = model === "openrouter/auto" ? "Auto Router" : "";
   localStorage.setItem(
     LLM_CONFIG_STORAGE_KEY,
     JSON.stringify({
       llm_provider: "openrouter",
       llm_api_key: config.apiKey?.trim() || "",
-      llm_name: (config.model || DEFAULT_LLM_CONFIG.model).trim(),
+      llm_name: model,
+      llm_model_name: (config.modelName || defaultName).trim(),
     }),
   );
 }
 
 export function normalizeLlmConfig(config: LlmConfig): LlmConfig {
+  const model = (config.model || DEFAULT_LLM_CONFIG.model).trim();
+  const defaultName = model === "openrouter/auto" ? "Auto Router" : "";
   return {
     provider: "openrouter",
-    model: (config.model || DEFAULT_LLM_CONFIG.model).trim(),
+    model,
+    modelName: (config.modelName || defaultName).trim(),
     apiKey: config.apiKey?.trim() || "",
   };
 }

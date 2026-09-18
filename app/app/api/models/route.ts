@@ -35,6 +35,8 @@ function formatVendorName(rawVendor: string): string {
   return rawVendor.charAt(0).toUpperCase() + rawVendor.slice(1);
 }
 
+export const revalidate = 3600;
+
 export async function GET() {
   try {
     const apiKey = process.env.OPENROUTER_API_KEY;
@@ -44,7 +46,7 @@ export async function GET() {
         'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://app.linkos.in',
         'X-Title': 'LinkOS',
       },
-      next: { revalidate: 3600 }, // Cache on Next.js server for 1 hour
+      next: { revalidate: 3600 },
     });
 
     if (!response.ok) {
@@ -86,11 +88,18 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({
-      models,
-      source: 'openrouter',
-      total: models.length,
-    });
+    return NextResponse.json(
+      {
+        models,
+        source: 'openrouter',
+        total: models.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        },
+      }
+    );
   } catch (error) {
     console.error('[OpenRouter Models] Error fetching models:', error);
     return NextResponse.json({ models: [], error: 'Failed to load models' }, { status: 500 });

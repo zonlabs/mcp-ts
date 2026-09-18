@@ -84,6 +84,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
   };
 
   const [activeModel, setActiveModel] = useState<string>('');
+  const [activeModelName, setActiveModelName] = useState<string>('');
   const [activeProvider, setActiveProvider] = useState<string>('');
   const [modelReady, setModelReady] = useState(false);
 
@@ -99,6 +100,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     const load = () => {
       const normalizedConfig = normalizeLlmConfig(readLlmConfigFromStorage());
       setActiveModel(normalizedConfig.model || '');
+      setActiveModelName(normalizedConfig.modelName || '');
       setActiveProvider(normalizedConfig.provider || '');
       setModelReady(true);
     };
@@ -286,11 +288,14 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
               {modelReady ? (
                 <ModelSelector
                   selectedModel={activeModel}
-                  onSelect={(id) => {
+                  selectedModelName={activeModelName}
+                  onSelect={(id, model) => {
                     const current = readLlmConfigFromStorage();
-                    const next = { ...current, model: id, provider: "openrouter" };
+                    const modelName = model?.name || (id === "openrouter/auto" ? "Auto Router" : id);
+                    const next = { ...current, model: id, modelName, provider: "openrouter" };
                     writeLlmConfigToStorage(next);
                     setActiveModel(id);
+                    setActiveModelName(modelName);
                     setActiveProvider("openrouter");
                   }}
                 />

@@ -36,10 +36,18 @@ export function LlmSettingsPanel() {
             {t("model")}
           </label>
           <div className="h-9 flex items-center">
-            <ModelSelector
-              selectedModel={config.model}
-              onSelect={(id) => updateConfig({ model: id })}
-            />
+            {hasLoaded ? (
+              <ModelSelector
+                selectedModel={config.model}
+                selectedModelName={config.modelName}
+                onSelect={(id, model) =>
+                  updateConfig({
+                    model: id,
+                    modelName: model?.name || (id === "openrouter/auto" ? "Auto Router" : id),
+                  })
+                }
+              />
+            ) : null}
           </div>
         </div>
 

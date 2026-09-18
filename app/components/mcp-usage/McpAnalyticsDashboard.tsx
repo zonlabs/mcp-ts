@@ -187,8 +187,8 @@ export function McpAnalyticsDashboard({ events }: McpAnalyticsDashboardProps) {
                   reliability.successRate >= 95
                     ? "text-emerald-500"
                     : reliability.successRate >= 80
-                    ? "text-amber-500"
-                    : "text-rose-500"
+                      ? "text-amber-500"
+                      : "text-rose-500"
                 )}
               />
             </div>
@@ -663,9 +663,7 @@ export function McpAnalyticsDashboard({ events }: McpAnalyticsDashboardProps) {
             </div>
 
             {reliability.errorCount === 0 ? (
-              <div className="h-36 flex flex-col items-center justify-center text-center p-4 border border-dashed border-emerald-500/30 bg-emerald-500/5 rounded-sm space-y-1">
-                <CheckCircle2 className="size-6 text-emerald-500" />
-                <p className="text-xs font-mono font-medium text-foreground">100% Operational</p>
+              <div className="h-36 flex flex-col items-center justify-center text-center p-4 border border-dashed bg-transparent rounded-sm space-y-1">
                 <p className="text-[11px] text-muted-foreground">
                   Zero tool execution errors detected in the current telemetry window.
                 </p>
