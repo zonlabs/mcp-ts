@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
 import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
 import { getTitleModel } from '@/lib/llm';
 import type { UserPreferences } from '@/lib/user-preferences';
-import { normalizeMessagesForModel } from '@/lib/chat-message-normalization';
+import { normalizeMessagesForModel, sanitizeModelMessages } from '@/lib/chat-message-normalization';
 
 interface ChatRequestBody {
   id?: string;
@@ -180,9 +180,10 @@ export async function POST(req: Request) {
 
   const normalizedMessages = normalizeMessagesForModel(chatMessages);
   const generateId = createIdGenerator({ prefix: 'msg', size: 16 });
+  const modelMessages = sanitizeModelMessages(await convertToModelMessages(normalizedMessages));
 
   const result = await agent.stream({
-    messages: await convertToModelMessages(normalizedMessages),
+    messages: modelMessages,
     abortSignal: req.signal,
     options: { userId: user.id, llmConfig, userPreferences },
   });
@@ -198,8 +199,20 @@ export async function POST(req: Request) {
     originalMessages: normalizedMessages,
     generateMessageId: () => generateId(),
     messageMetadata: ({ part }) => {
-      const base = resolvedTitle ? { isNewChat: true, chatTitle: resolvedTitle } : undefined;
-      return part.type === 'finish-step' ? { ...base, usage: part.usage } : base;
+      const base = resolvedTitle ? { isNewChat: true, chatTitle: resolvedTitle } : {};
+      if (part.type === 'finish-step') {
+        const responseModel =
+          (part as any)?.response?.modelId ||
+          (part as any)?.modelId ||
+          llmConfig?.model ||
+          'openrouter/auto';
+        return {
+          ...base,
+          usage: part.usage,
+          model: responseModel,
+        };
+      }
+      return Object.keys(base).length > 0 ? base : undefined;
     },
     onFinish: async ({ responseMessage }) => {
       if (!chatId || !responseMessage) return;
@@ -208,6 +221,16 @@ export async function POST(req: Request) {
         if (trigger === 'regenerate-assistant-message' && messageId) {
           await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('external_id', messageId);
         }
+
+        const resolvedModel =
+          (responseMessage as any)?.metadata?.model ||
+          llmConfig?.model ||
+          'openrouter/auto';
+        (responseMessage as any).metadata = {
+          ...((responseMessage as any).metadata || {}),
+          model: resolvedModel,
+        };
+
         await saveChat(chatId, [responseMessage]);
 
         if (titlePromise) {

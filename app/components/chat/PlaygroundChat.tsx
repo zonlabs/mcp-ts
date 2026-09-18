@@ -610,6 +610,8 @@ export function PlaygroundChat({
                 parts={[]}
                 onRegenerate={handleRegenerate}
                 usage={m?.metadata?.usage}
+                model={m?.metadata?.model}
+                metadata={m?.metadata}
                 showActions={index === lastTextIndex && !isMessageInProgress}
                 isStreaming={isMessageInProgress}
               />

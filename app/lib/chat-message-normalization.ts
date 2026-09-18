@@ -158,3 +158,45 @@ export function normalizeMessagesForModel<T extends MessageWithParts>(messages: 
     return newMsg;
   });
 }
+
+/**
+ * Ensures strict validity of tool calls and tool responses for OpenAI / OpenRouter:
+ * Every message with role 'tool' MUST be immediately preceded by an 'assistant' message
+ * containing the corresponding tool-call ID. Orphaned tool messages will be dropped
+ * to avoid HTTP 400 invalid_request_error from providers.
+ */
+export function sanitizeModelMessages<T extends { role?: string; content?: any }>(messages: T[]): T[] {
+  const result: T[] = [];
+  let prevToolCallIds = new Set<string>();
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role === 'tool') {
+      if (prevToolCallIds.size === 0) {
+        // Orphaned tool response: no preceding assistant message with tool calls
+        continue;
+      }
+      if (Array.isArray(msg.content)) {
+        const validParts = msg.content.filter((part: any) =>
+          part?.toolCallId ? prevToolCallIds.has(part.toolCallId) : true
+        );
+        if (validParts.length === 0) continue;
+        result.push({ ...msg, content: validParts });
+      } else {
+        result.push(msg);
+      }
+    } else {
+      result.push(msg);
+      prevToolCallIds.clear();
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part?.type === 'tool-call' && part?.toolCallId) {
+            prevToolCallIds.add(part.toolCallId);
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}

@@ -35,7 +35,7 @@ export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, external_id, role, parts, attachments, created_at, prompt_tokens, completion_tokens, total_tokens')
+    .select('id, external_id, role, parts, attachments, created_at, metadata')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true });
 
@@ -48,21 +48,17 @@ export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
 
   if (!Array.isArray(data)) return [];
   return data.map((row) => {
-    const hasUsage = row.prompt_tokens != null || row.completion_tokens != null || row.total_tokens != null;
-    const usage = hasUsage
-      ? {
-          inputTokens: row.prompt_tokens ?? undefined,
-          outputTokens: row.completion_tokens ?? undefined,
-          totalTokens: row.total_tokens ?? undefined,
-        }
-      : undefined;
+    const meta = (row as any)?.metadata && typeof (row as any)?.metadata === 'object'
+      ? (row as any).metadata
+      : {};
+
     return {
       id: row.external_id ?? row.id,
       role: row.role,
       parts: Array.isArray(row.parts) ? row.parts : [],
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
       createdAt: row.created_at,
-      ...(usage ? { metadata: { usage } } : {}),
+      ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
     } as McpAgentUIMessage;
   });
 }
@@ -90,7 +86,7 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, external_id, role, parts, attachments, created_at, prompt_tokens, completion_tokens, total_tokens')
+    .select('id, external_id, role, parts, attachments, created_at, metadata')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true });
 
@@ -103,21 +99,17 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
 
   if (!Array.isArray(data)) return [];
   return data.map((row) => {
-    const hasUsage = row.prompt_tokens != null || row.completion_tokens != null || row.total_tokens != null;
-    const usage = hasUsage
-      ? {
-          inputTokens: row.prompt_tokens ?? undefined,
-          outputTokens: row.completion_tokens ?? undefined,
-          totalTokens: row.total_tokens ?? undefined,
-        }
-      : undefined;
+    const meta = (row as any)?.metadata && typeof (row as any)?.metadata === 'object'
+      ? (row as any).metadata
+      : {};
+
     return {
       id: row.external_id ?? row.id,
       role: row.role,
       parts: Array.isArray(row.parts) ? row.parts : [],
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
       createdAt: row.created_at,
-      ...(usage ? { metadata: { usage } } : {}),
+      ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
     } as McpAgentUIMessage;
   });
 }
@@ -181,6 +173,14 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
         : [];
         
     const usage = message?.metadata?.usage as any;
+    const meta = message?.metadata && typeof message.metadata === 'object'
+      ? { ...message.metadata }
+      : {};
+
+    if (usage) {
+      meta.usage = usage;
+    }
+
     const externalId = (message as any)?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
     
     return {
@@ -190,9 +190,7 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
       parts,
       attachments: Array.isArray((message as any)?.attachments) ? (message as any).attachments : [],
       created_at: (message as any)?.createdAt || now,
-      prompt_tokens: usage?.inputTokens ?? usage?.promptTokens ?? null,
-      completion_tokens: usage?.outputTokens ?? usage?.completionTokens ?? null,
-      total_tokens: usage?.totalTokens ?? null,
+      metadata: meta,
     };
   });
 
@@ -202,7 +200,7 @@ export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessa
   const { error: upsertError } = await supabase
     .from('chat_messages')
     .upsert(rows, { onConflict: 'chat_id,external_id' });
-  
+
   if (upsertError) {
     console.error('[chat-store] failed to upsert messages:', upsertError);
   }

@@ -1,9 +1,4 @@
-export type LlmProviderId =
-  | "openai"
-  | "anthropic"
-  | "gemini"
-  | "deepseek"
-  | "custom";
+export type LlmProviderId = "openrouter";
 
 export interface LlmProviderOption {
   id: LlmProviderId;
@@ -14,50 +9,49 @@ export interface LlmProviderOption {
 
 export const LLM_PROVIDERS: LlmProviderOption[] = [
   {
-    id: "openai",
-    name: "OpenAI",
-    iconUrl: "https://api.iconify.design/logos:openai-icon.svg",
-    description: "Official OpenAI API",
+    id: "openrouter",
+    name: "OpenRouter",
+    iconUrl: "/providers/openrouter.svg",
+    description: "Universal gateway to 300+ models (Anthropic, OpenAI, DeepSeek, Google, Meta)",
   },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    iconUrl: "https://api.iconify.design/logos:anthropic-icon.svg",
-    description: "Claude models (OpenAI-compatible only if proxied)",
-  },
-  {
-    id: "gemini",
-    name: "Gemini",
-    iconUrl: "https://api.iconify.design/logos:google-gemini.svg",
-    description: "Gemini models",
-  },
-  {
-    id: "deepseek",
-    name: "DeepSeek",
-    iconUrl: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/deepseek.svg",
-    description: "DeepSeek models (OpenAI-compatible endpoint)",
-  },
-  // {
-  //   id: "custom",
-  //   name: "Other (OpenAI-compatible)",
-  //   iconUrl: "https://api.iconify.design/mdi:link-variant.svg",
-  //   description: "Any OpenAI-compatible endpoint",
-  // },
 ];
 
 const PROVIDER_ICON_ALIASES: Record<string, string> = {
-  openai: "https://api.iconify.design/logos:openai-icon.svg",
-  anthropic: "https://api.iconify.design/logos:anthropic-icon.svg",
-  gemini: "https://api.iconify.design/logos:google-gemini.svg",
-  deepseek: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/deepseek.svg",
-  meta: "https://api.iconify.design/logos:meta-icon.svg",
-  microsoft: "https://api.iconify.design/logos:microsoft-icon.svg",
-  qwen: "https://api.iconify.design/simple-icons:alibabacloud.svg",
-  community: "https://api.iconify.design/mdi:account-group.svg",
+  openrouter: "/providers/openrouter.svg",
+  openai: "/providers/openai.svg",
+  anthropic: "/providers/anthropic.svg",
+  gemini: "/providers/gemini.svg",
+  google: "/providers/gemini.svg",
+  deepseek: "/providers/deepseek.svg",
+  meta: "/providers/meta.svg",
+  "meta-llama": "/providers/meta.svg",
+  microsoft: "/providers/microsoft.svg",
+  qwen: "/providers/qwen.svg",
+  mistral: "/providers/mistral.svg",
+  mistralai: "/providers/mistral.svg",
+  kimi: "/providers/kimi.svg",
+  moonshot: "/providers/kimi.svg",
+  moonshotai: "/providers/kimi.svg",
+  "moonshot ai": "/providers/kimi.svg",
+  "z-ai": "/providers/z-ai.svg",
+  zai: "/providers/z-ai.svg",
+  zhipu: "/providers/z-ai.svg",
+  "zhipu ai": "/providers/z-ai.svg",
+  "x-ai": "/providers/x-ai.svg",
+  xai: "/providers/x-ai.svg",
+  cohere: "/providers/cohere.svg",
+  perplexity: "/providers/perplexity.svg",
+  community: "/providers/openrouter.svg",
 };
 
 export function getProviderIconUrl(provider?: string): string | undefined {
   if (!provider) return undefined;
   const key = provider.toLowerCase().trim();
-  return PROVIDER_ICON_ALIASES[key];
+  return PROVIDER_ICON_ALIASES[key] || PROVIDER_ICON_ALIASES.openrouter;
+}
+
+export function isProviderDarkInvert(provider?: string): boolean {
+  if (!provider) return false;
+  const key = provider.toLowerCase().trim();
+  return key === "openai" || key === "x-ai" || key === "xai";
 }

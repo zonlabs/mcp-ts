@@ -37,9 +37,7 @@ export async function GET(req: Request) {
         parts,
         attachments,
         created_at,
-        prompt_tokens,
-        completion_tokens,
-        total_tokens
+        metadata
       )
     `)
     .eq("user_id", user.id)

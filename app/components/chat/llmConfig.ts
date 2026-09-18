@@ -8,10 +8,9 @@ export interface LlmConfig {
 const LLM_CONFIG_STORAGE_KEY = "llm_config";
 
 export const DEFAULT_LLM_CONFIG: LlmConfig = {
-  provider: "openai",
-  model: "gpt-4.1-mini",
+  provider: "openrouter",
+  model: "openrouter/auto",
   apiKey: "",
-  baseUrl: "",
 };
 
 export function readLlmConfigFromStorage(): LlmConfig {
@@ -23,11 +22,9 @@ export function readLlmConfigFromStorage(): LlmConfig {
   try {
     const parsed = JSON.parse(stored);
     return {
-      ...DEFAULT_LLM_CONFIG,
-      provider: parsed.llm_provider || DEFAULT_LLM_CONFIG.provider,
-      apiKey: parsed.llm_api_key || DEFAULT_LLM_CONFIG.apiKey,
+      provider: "openrouter",
+      apiKey: parsed.llm_api_key || "",
       model: parsed.llm_name || DEFAULT_LLM_CONFIG.model,
-      baseUrl: parsed.llm_base_url || DEFAULT_LLM_CONFIG.baseUrl,
     };
   } catch {
     return { ...DEFAULT_LLM_CONFIG };
@@ -36,22 +33,20 @@ export function readLlmConfigFromStorage(): LlmConfig {
 
 export function writeLlmConfigToStorage(config: LlmConfig) {
   if (typeof window === "undefined") return;
-  const normalized = normalizeLlmConfig(config);
   localStorage.setItem(
     LLM_CONFIG_STORAGE_KEY,
     JSON.stringify({
-      llm_provider: normalized.provider,
-      llm_api_key: normalized.apiKey,
-      llm_name: normalized.model,
-      llm_base_url: normalized.baseUrl,
+      llm_provider: "openrouter",
+      llm_api_key: config.apiKey?.trim() || "",
+      llm_name: (config.model || DEFAULT_LLM_CONFIG.model).trim(),
     }),
   );
 }
 
 export function normalizeLlmConfig(config: LlmConfig): LlmConfig {
   return {
-    ...config,
+    provider: "openrouter",
     model: (config.model || DEFAULT_LLM_CONFIG.model).trim(),
-    baseUrl: config.baseUrl?.trim() || "",
+    apiKey: config.apiKey?.trim() || "",
   };
 }
