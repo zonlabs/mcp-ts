@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import { McpAnalyticsDashboard } from "@/components/mcp-usage/McpAnalyticsDashboard";
 
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
@@ -126,11 +127,11 @@ export function McpUsageOverview({
   return (
     <div className="space-y-6">
       {/* 1. Main Heatmap & Telemetry Card */}
-      <div className="bg-card border border-border rounded-md p-5 sm:p-6 space-y-6">
+      <div className="bg-card border border-border rounded-md p-3.5 sm:p-4 space-y-3.5">
         {/* Full-width Heatmap Grid */}
-        <div className="overflow-x-auto pb-1 scrollbar-minimal">
+        <div className="overflow-x-auto scrollbar-minimal">
           <TooltipProvider delayDuration={100}>
-            <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[4px] sm:gap-[5px]">
+            <div className="grid min-w-max grid-flow-col grid-rows-7 w-full justify-between gap-[3px] sm:gap-[4px]">
               {heatmap.map((day) => {
                 const tooltipItems = day.apps.slice(0, 3);
                 const otherApps = day.apps.slice(tooltipItems.length);
@@ -200,8 +201,8 @@ export function McpUsageOverview({
           </TooltipProvider>
         </div>
 
-        {/* Integrated Metric Strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 sm:pt-5 border-t border-border/50">
+        {/* Integrated Metric Strip (Divider removed, tighter vertical spacing) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Tool Calls
@@ -256,7 +257,10 @@ export function McpUsageOverview({
         </div>
       </div>
 
-      {/* 2. Recent Activity Log List */}
+      {/* 2. Telemetry & Analytics Dashboard */}
+      <McpAnalyticsDashboard events={metricsEvents} />
+
+      {/* 3. Recent Activity Log List */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
           <Activity className="size-4 text-muted-foreground" />
@@ -265,43 +269,51 @@ export function McpUsageOverview({
           </h3>
         </div>
 
-        {recentEventGroups.length > 0 ? (
+        {recentEventGroups.length > 0 || currentPage > 1 ? (
           <div className="bg-card border border-border rounded-md overflow-hidden">
-            <div className="divide-y divide-border/60">
-              {recentEventGroups.map((dateGroup) => (
-                <div key={dateGroup.dateKey} className="divide-y divide-border/40">
-                  <div className="px-4 py-2.5 bg-background/50 text-[11px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
-                    {dateGroup.label}
+            {recentEventGroups.length > 0 ? (
+              <div className="divide-y divide-border/60">
+                {recentEventGroups.map((dateGroup) => (
+                  <div key={dateGroup.dateKey} className="divide-y divide-border/40">
+                    <div className="px-4 py-2.5 bg-background/50 text-[11px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
+                      {dateGroup.label}
+                    </div>
+                    {dateGroup.groups.map((eventGroup) => (
+                      <Fragment key={eventGroup.parent.id}>
+                        <RecentActivityRow
+                          event={eventGroup.parent}
+                          serverUrl={resolveMcpUsageServerUrl(eventGroup.parent) ?? undefined}
+                          childCount={eventGroup.children.length}
+                        />
+                        {eventGroup.children.length > 0 &&
+                          eventGroup.children.map((child) => (
+                            <RecentActivityRow
+                              key={child.id}
+                              event={child}
+                              serverUrl={resolveMcpUsageServerUrl(child) ?? undefined}
+                              isChild
+                            />
+                          ))}
+                      </Fragment>
+                    ))}
                   </div>
-                  {dateGroup.groups.map((eventGroup) => (
-                    <Fragment key={eventGroup.parent.id}>
-                      <RecentActivityRow
-                        event={eventGroup.parent}
-                        serverUrl={resolveMcpUsageServerUrl(eventGroup.parent) ?? undefined}
-                        childCount={eventGroup.children.length}
-                      />
-                      {eventGroup.children.length > 0 &&
-                        eventGroup.children.map((child) => (
-                          <RecentActivityRow
-                            key={child.id}
-                            event={child}
-                            serverUrl={resolveMcpUsageServerUrl(child) ?? undefined}
-                            isChild
-                          />
-                        ))}
-                    </Fragment>
-                  ))}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center space-y-1">
+                <p className="text-xs sm:text-sm font-mono text-muted-foreground">
+                  No tool executions on this page.
+                </p>
+              </div>
+            )}
 
             {/* Pagination footer */}
             <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between bg-card">
               <p className="text-xs sm:text-sm font-mono text-muted-foreground">
                 Showing {groups.length === 0 ? 0 : (currentPage - 1) * RECENT_ACTIVITY_PAGE_SIZE + 1}-{Math.min(
                   currentPage * RECENT_ACTIVITY_PAGE_SIZE,
-                  totalCount
-                )} of {totalCount}
+                  resolvedMcpAssistantCount
+                )} of {resolvedMcpAssistantCount}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -316,7 +328,7 @@ export function McpUsageOverview({
                   type="button"
                   className="inline-flex h-8 items-center justify-center rounded-sm border border-border bg-background px-3 text-xs sm:text-sm font-medium text-foreground transition-colors hover:bg-card/80 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                   onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage * RECENT_ACTIVITY_PAGE_SIZE >= totalCount || isFetching}
+                  disabled={currentPage * RECENT_ACTIVITY_PAGE_SIZE >= resolvedMcpAssistantCount || isFetching}
                 >
                   Next
                 </button>

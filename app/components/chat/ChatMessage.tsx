@@ -216,11 +216,14 @@ export const AssistantMessage = memo(function AssistantMessage({
   parts,
   onRegenerate,
   usage,
+  model,
+  metadata,
   showActions = true,
   isStreaming = false,
 }: any) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const resolvedModel = model || metadata?.model;
 
   const handleCopy = async () => {
     try {
@@ -243,7 +246,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 
           {showActions && !isStreaming && (
             <TooltipProvider>
-              <div className="flex items-center gap-1 mt-1.5">
+              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -278,6 +281,12 @@ export const AssistantMessage = memo(function AssistantMessage({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="flex flex-col gap-1.5 p-2.5 bg-card border border-border text-foreground font-mono text-[11px]">
+                      {resolvedModel && (
+                        <div className="flex items-center gap-2 border-b border-border pb-1 mb-0.5">
+                          <span className="text-muted-foreground">Model:</span>
+                          <span className="ml-auto font-semibold">{resolvedModel}</span>
+                        </div>
+                      )}
                       {usage.inputTokens !== undefined && (
                         <div className="flex items-center gap-2">
                           <ArrowDownLeft className="w-3 h-3 text-emerald-400" />
@@ -302,6 +311,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                     </TooltipContent>
                   </Tooltip>
                 )}
+
               </div>
             </TooltipProvider>
           )}

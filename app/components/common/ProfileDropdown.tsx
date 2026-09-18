@@ -18,7 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -38,9 +37,8 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
     user.email?.split("@")[0] ||
     "Account";
   const image = user.user_metadata?.avatar_url;
-  const email = user.email;
   const pathname = usePathname();
-  const menuLabel = name || email || "Account menu";
+  const menuLabel = name || "Account menu";
 
   return (
     <DropdownMenu>
@@ -78,18 +76,6 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
         sideOffset={8}
         className="w-56 p-1.5 bg-popover border-border rounded-sm shadow-md font-sans text-xs"
       >
-        {/* User Info Header */}
-        <DropdownMenuLabel className="mb-1 rounded-xs bg-card/60 border border-border/40 px-2.5 py-2 font-normal">
-          <p className="truncate text-xs font-semibold text-foreground">
-            {name}
-          </p>
-          {email ? (
-            <p className="mt-0.5 truncate text-[11px] font-mono text-muted-foreground">
-              {email}
-            </p>
-          ) : null}
-        </DropdownMenuLabel>
-
         {/* Workspace & Settings Options */}
         <DropdownMenuItem asChild className="cursor-pointer gap-2.5 rounded-xs px-2.5 py-1.5 text-xs text-foreground hover:bg-card">
           <Link

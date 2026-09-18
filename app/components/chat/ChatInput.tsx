@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/chat/llmConfig';
 import { ModelSelector } from '@/components/chat/ModelSelector';
-import { AVAILABLE_MODELS } from '@/components/chat/availableModels';
 import { useI18n } from '@/lib/web-i18n';
 
 async function convertFilesToDataURLs(files: FileList) {
@@ -85,6 +84,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
   };
 
   const [activeModel, setActiveModel] = useState<string>('');
+  const [activeModelName, setActiveModelName] = useState<string>('');
   const [activeProvider, setActiveProvider] = useState<string>('');
   const [modelReady, setModelReady] = useState(false);
 
@@ -100,6 +100,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     const load = () => {
       const normalizedConfig = normalizeLlmConfig(readLlmConfigFromStorage());
       setActiveModel(normalizedConfig.model || '');
+      setActiveModelName(normalizedConfig.modelName || '');
       setActiveProvider(normalizedConfig.provider || '');
       setModelReady(true);
     };
@@ -124,15 +125,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     };
   }, []);
 
-  const modelOptions = useMemo(() => {
-    if (activeModel && !AVAILABLE_MODELS.find((m) => m.id === activeModel)) {
-      return [
-        ...AVAILABLE_MODELS,
-        { id: activeModel, name: activeModel, provider: "Other" },
-      ];
-    }
-    return AVAILABLE_MODELS;
-  }, [activeModel]);
+
 
   const handleSend = async () => {
     const value = input.trim();
@@ -292,26 +285,18 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
               >
                 <Plus className="w-4 h-4 text-muted-foreground" />
               </Button>
-              {modelReady && modelOptions.length > 0 ? (
+              {modelReady ? (
                 <ModelSelector
-                  models={modelOptions}
                   selectedModel={activeModel}
-                  onSelect={(id) => {
+                  selectedModelName={activeModelName}
+                  onSelect={(id, model) => {
                     const current = readLlmConfigFromStorage();
-                    const selected = modelOptions.find((m) => m.id === id);
-                    const providerMap: Record<string, string> = {
-                      OpenAI: "openai",
-                      DeepSeek: "deepseek",
-                      Gemini: "gemini",
-                      Anthropic: "anthropic",
-                    };
-                    const provider = selected?.provider
-                      ? (providerMap[selected.provider] || current.provider)
-                      : current.provider;
-                    const next = { ...current, model: id, provider };
+                    const modelName = model?.name || (id === "openrouter/auto" ? "Auto Router" : id);
+                    const next = { ...current, model: id, modelName, provider: "openrouter" };
                     writeLlmConfigToStorage(next);
                     setActiveModel(id);
-                    setActiveProvider(provider || '');
+                    setActiveModelName(modelName);
+                    setActiveProvider("openrouter");
                   }}
                 />
               ) : null}

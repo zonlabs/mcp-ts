@@ -280,3 +280,374 @@ function titleCase(value: string) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+export interface McpAnalyticsData {
+  latency: {
+    avgDurationMs: number;
+    p50DurationMs: number;
+    p95DurationMs: number;
+    dailyLatency: {
+      date: string;
+      label: string;
+      avgMs: number;
+      p95Ms: number;
+      count: number;
+      upstreamAvgMs: number;
+      upstreamCount: number;
+      downstreamAvgMs: number;
+      downstreamCount: number;
+    }[];
+    slowestTools: {
+      toolName: string;
+      appDisplayName: string;
+      avgDurationMs: number;
+      count: number;
+      scope: "upstream" | "downstream";
+      serverUrl?: string | null;
+      serverIcons?: ServerIcon[] | null;
+    }[];
+  };
+  reliability: {
+    totalCalls: number;
+    successCount: number;
+    errorCount: number;
+    successRate: number;
+    topErrors: {
+      errorCode: string;
+      count: number;
+      recentPreview?: string | null;
+    }[];
+    topFailingTools: {
+      toolName: string;
+      appDisplayName: string;
+      errorCount: number;
+      totalCount: number;
+    }[];
+  };
+  distribution: {
+    apps: {
+      key: string;
+      name: string;
+      count: number;
+      percentage: number;
+      serverUrl?: string | null;
+      serverIcons?: ServerIcon[] | null;
+    }[];
+    topTools: {
+      toolName: string;
+      appDisplayName: string;
+      count: number;
+      percentage: number;
+      scope: "upstream" | "downstream";
+      serverUrl?: string | null;
+      serverIcons?: ServerIcon[] | null;
+    }[];
+    topLevelCount: number;
+    downstreamCount: number;
+    orchestrationRatio: number;
+  };
+  hourlyActivity: {
+    hour: number;
+    label: string;
+    displayLabel: string;
+    count: number;
+    percentage: number;
+  }[];
+}
+
+export function computeMcpAnalytics(events: McpToolCallEventRow[]): McpAnalyticsData {
+  const totalCalls = events.length;
+
+  // 1. Reliability & Status
+  let successCount = 0;
+  let errorCount = 0;
+  const errorMap = new Map<string, { count: number; recentPreview?: string | null }>();
+  const toolErrorMap = new Map<string, { toolName: string; appDisplayName: string; errorCount: number; totalCount: number }>();
+
+  // 2. Latency
+  const durations: number[] = [];
+  const dailyLatencyMap = new Map<
+    string,
+    {
+      all: number[];
+      upstream: number[];
+      downstream: number[];
+    }
+  >();
+  const toolDurationMap = new Map<
+    string,
+    {
+      toolName: string;
+      appDisplayName: string;
+      durations: number[];
+      scope: "upstream" | "downstream";
+      serverUrl?: string | null;
+      serverIcons?: ServerIcon[] | null;
+    }
+  >();
+  const appCounts = new Map<string, { key: string; name: string; count: number; serverUrl?: string | null; serverIcons?: ServerIcon[] | null }>();
+  const toolInvocationMap = new Map<
+    string,
+    {
+      toolName: string;
+      appDisplayName: string;
+      count: number;
+      scope: "upstream" | "downstream";
+      serverUrl?: string | null;
+      serverIcons?: ServerIcon[] | null;
+    }
+  >();
+  let topLevelCount = 0;
+  let downstreamCount = 0;
+
+  // 4. Hourly Activity (24 buckets: 0 to 23)
+  const hourlyCounts = new Array(24).fill(0);
+
+  for (const event of events) {
+    const isSuccess = event.status === "success";
+    if (isSuccess) {
+      successCount += 1;
+    } else {
+      errorCount += 1;
+      const errorCode = event.error_code || "UNKNOWN_ERROR";
+      const errEntry = errorMap.get(errorCode) ?? { count: 0, recentPreview: null };
+      errEntry.count += 1;
+      if (!errEntry.recentPreview && event.error_preview) {
+        errEntry.recentPreview = event.error_preview;
+      }
+      errorMap.set(errorCode, errEntry);
+    }
+
+    const appName = getMcpAppDisplayName(event.app_key, event.server_name);
+    const toolKey = `${appName}::${event.tool_name}`;
+
+    const isOrchestrator = isMcpAssistantOrchestratorEvent(event) || (!event.app_key && event.event_type === "top_level");
+    const scope: "upstream" | "downstream" =
+      event.event_type === "downstream_tool" || (!isOrchestrator && Boolean(event.app_key || event.server_name))
+        ? "downstream"
+        : "upstream";
+
+    // Tool error tracking
+    const toolErr = toolErrorMap.get(toolKey) ?? { toolName: event.tool_name, appDisplayName: appName, errorCount: 0, totalCount: 0 };
+    toolErr.totalCount += 1;
+    if (!isSuccess) {
+      toolErr.errorCount += 1;
+    }
+    toolErrorMap.set(toolKey, toolErr);
+
+    // Duration tracking
+    const duration = Math.max(0, event.duration_ms ?? 0);
+    durations.push(duration);
+
+    // Daily latency
+    const dateKey = getLocalDateKey(event.started_at);
+    let dayEntry = dailyLatencyMap.get(dateKey);
+    if (!dayEntry) {
+      dayEntry = { all: [], upstream: [], downstream: [] };
+      dailyLatencyMap.set(dateKey, dayEntry);
+    }
+    dayEntry.all.push(duration);
+    if (scope === "downstream") {
+      dayEntry.downstream.push(duration);
+    } else {
+      dayEntry.upstream.push(duration);
+    }
+
+    // Tool durations
+    const toolDur = toolDurationMap.get(toolKey) ?? {
+      toolName: event.tool_name,
+      appDisplayName: appName,
+      durations: [],
+      scope,
+      serverUrl: event.server_url,
+      serverIcons: event.server_icons,
+    };
+    toolDur.durations.push(duration);
+    if (!toolDur.serverIcons && event.server_icons) {
+      toolDur.serverIcons = event.server_icons;
+    }
+    if (!toolDur.serverUrl && event.server_url) {
+      toolDur.serverUrl = event.server_url;
+    }
+    toolDurationMap.set(toolKey, toolDur);
+
+    // App counts (for connected apps)
+    const appKey =
+      normalizeAppKey(event.app_key) ||
+      normalizeAppKey(event.server_id) ||
+      normalizeAppKey(event.server_name) ||
+      "mcp_server";
+    if (appKey !== "mcp_server") {
+      const currentApp = appCounts.get(appKey) ?? {
+        key: appKey,
+        name: appName,
+        count: 0,
+        serverUrl: event.server_url,
+        serverIcons: event.server_icons,
+      };
+      currentApp.count += 1;
+      appCounts.set(appKey, currentApp);
+    }
+
+    // Top tools
+    const toolInv = toolInvocationMap.get(toolKey) ?? {
+      toolName: event.tool_name,
+      appDisplayName: appName,
+      count: 0,
+      scope,
+      serverUrl: event.server_url,
+      serverIcons: event.server_icons,
+    };
+    toolInv.count += 1;
+    if (!toolInv.serverIcons && event.server_icons) {
+      toolInv.serverIcons = event.server_icons;
+    }
+    if (!toolInv.serverUrl && event.server_url) {
+      toolInv.serverUrl = event.server_url;
+    }
+    toolInvocationMap.set(toolKey, toolInv);
+
+    // Hierarchy
+    if (event.event_type === "downstream_tool") {
+      downstreamCount += 1;
+    } else {
+      topLevelCount += 1;
+    }
+
+    // Hourly
+    try {
+      const date = new Date(event.started_at);
+      const hour = date.getHours();
+      if (hour >= 0 && hour < 24) {
+        hourlyCounts[hour] += 1;
+      }
+    } catch {
+      // ignore date parse issues
+    }
+  }
+
+  // Calculate Latency Percentiles
+  durations.sort((a, b) => a - b);
+  const avgDurationMs = durations.length > 0 ? Math.round(durations.reduce((acc, d) => acc + d, 0) / durations.length) : 0;
+  const p50DurationMs = durations.length > 0 ? durations[Math.floor(durations.length * 0.5)] : 0;
+  const p95DurationMs = durations.length > 0 ? durations[Math.min(durations.length - 1, Math.floor(durations.length * 0.95))] : 0;
+
+  // Daily Latency Points (sorted chronologically, up to last 14 active days)
+  const sortedDates = [...dailyLatencyMap.keys()].sort();
+  const recentDates = sortedDates.slice(-14);
+  const dailyLatency = recentDates.map((dateKey) => {
+    const entry = dailyLatencyMap.get(dateKey)!;
+    const list = [...entry.all].sort((a, b) => a - b);
+    const avg = list.length > 0 ? Math.round(list.reduce((sum, val) => sum + val, 0) / list.length) : 0;
+    const p95 = list.length > 0 ? list[Math.min(list.length - 1, Math.floor(list.length * 0.95))] : 0;
+
+    const upList = entry.upstream;
+    const upstreamAvgMs = upList.length > 0 ? Math.round(upList.reduce((s, v) => s + v, 0) / upList.length) : 0;
+
+    const downList = entry.downstream;
+    const downstreamAvgMs = downList.length > 0 ? Math.round(downList.reduce((s, v) => s + v, 0) / downList.length) : 0;
+
+    const dateObj = new Date(dateKey + "T00:00:00");
+    const label = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(dateObj);
+    return {
+      date: dateKey,
+      label,
+      avgMs: avg,
+      p95Ms: p95,
+      count: list.length,
+      upstreamAvgMs,
+      upstreamCount: upList.length,
+      downstreamAvgMs,
+      downstreamCount: downList.length,
+    };
+  });
+
+  // Slowest Tools (sorted by avgDurationMs descending)
+  const slowestTools = [...toolDurationMap.values()]
+    .map((t) => ({
+      toolName: t.toolName,
+      appDisplayName: t.appDisplayName,
+      avgDurationMs: Math.round(t.durations.reduce((sum, d) => sum + d, 0) / t.durations.length),
+      count: t.durations.length,
+      scope: t.scope,
+      serverUrl: t.serverUrl,
+      serverIcons: t.serverIcons,
+    }))
+    .sort((a, b) => b.avgDurationMs - a.avgDurationMs);
+
+  // Reliability
+  const successRate = totalCalls > 0 ? Math.round((successCount / totalCalls) * 100) : 100;
+  const topErrors = [...errorMap.entries()]
+    .map(([errorCode, val]) => ({
+      errorCode,
+      count: val.count,
+      recentPreview: val.recentPreview,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const topFailingTools = [...toolErrorMap.values()]
+    .filter((t) => t.errorCount > 0)
+    .sort((a, b) => b.errorCount - a.errorCount)
+    .slice(0, 5);
+
+  // App Distribution
+  const totalAppCalls = [...appCounts.values()].reduce((sum, a) => sum + a.count, 0) || 1;
+  const apps = [...appCounts.values()]
+    .map((a) => ({
+      ...a,
+      percentage: Math.round((a.count / totalAppCalls) * 100),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Top Tools (sorted by count descending)
+  const topTools = [...toolInvocationMap.values()]
+    .map((t) => ({
+      ...t,
+      percentage: totalCalls > 0 ? Math.round((t.count / totalCalls) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Orchestration ratio
+  const orchestrationRatio = totalCalls > 0 ? Math.round((downstreamCount / totalCalls) * 100) : 0;
+
+  // Hourly Activity
+  const maxHourly = Math.max(1, ...hourlyCounts);
+  const hourlyActivity = hourlyCounts.map((count, hour) => {
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+    return {
+      hour,
+      label: String(hour).padStart(2, "0"),
+      displayLabel: `${displayHour} ${period}`,
+      count,
+      percentage: Math.round((count / maxHourly) * 100),
+    };
+  });
+
+  return {
+    latency: {
+      avgDurationMs,
+      p50DurationMs,
+      p95DurationMs,
+      dailyLatency,
+      slowestTools,
+    },
+    reliability: {
+      totalCalls,
+      successCount,
+      errorCount,
+      successRate,
+      topErrors,
+      topFailingTools,
+    },
+    distribution: {
+      apps,
+      topTools,
+      topLevelCount,
+      downstreamCount,
+      orchestrationRatio,
+    },
+    hourlyActivity,
+  };
+}

@@ -136,16 +136,17 @@ export default async function McpOAuthConsentPage({ searchParams }: PageProps) {
             {/* Left: LinkOS (our platform) logo */}
             <div
               aria-label="MCP Platform"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-background border-2 border-zinc-300 dark:border-zinc-600 shadow-sm"
+              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-background border-2 border-zinc-300 dark:border-zinc-600 shadow-sm"
             >
               <Image
-                alt=""
+                alt="LinkOS"
                 aria-hidden="true"
-                height={28}
+                height={26}
                 priority
-                src="/logo-light.svg"
-                width={28}
-                className="dark:invert"
+                unoptimized
+                src="/favicon.ico"
+                width={26}
+                className="dark:invert object-contain"
               />
             </div>
 

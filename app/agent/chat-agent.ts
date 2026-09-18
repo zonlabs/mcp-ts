@@ -5,7 +5,7 @@ import { AIAdapter } from "@mcp-ts/client/adapters/ai";
 import { ToolRouter } from "@mcp-ts/client/shared";
 import { z } from "zod";
 import { buildChatAgentInstructions, PINNED_REMOTE_TOOLS } from "@/agent/chat-agent-instructions";
-import { getModelFromConfig } from "@/lib/llm";
+import { getModelConfig } from "@/lib/llm";
 import {
   type UserPreferences,
   normalizeUserPreferences,
@@ -145,7 +145,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
 
   const agent = new ToolLoopAgent<McpAgentCallOptions, ToolSet>({
     instructions: buildChatAgentInstructions(new Date(), initialUserPreferences),
-    model: createOpenAI()("gpt-4o-mini"),
+    model: getModelConfig(),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
       llmConfig: z
@@ -163,7 +163,7 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
         .optional(),
     }),
     prepareCall: async ({ options: callOptions, abortSignal, messages, ...settings }) => {
-      const model = getModelFromConfig(callOptions?.llmConfig);
+      const model = getModelConfig(callOptions?.llmConfig);
 
       if (abortSignal) {
         abortSignal.addEventListener("abort", () => {
@@ -208,8 +208,10 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
 
 type AgentMessageMetadata = {
   usage?: LanguageModelUsage;
+  model?: string;
   isNewChat?: boolean;
   chatTitle?: string;
+  [key: string]: any;
 };
 export type McpAgentUIMessage = InferAgentUIMessage<
   Awaited<ReturnType<typeof createMcpAgent>>["agent"],

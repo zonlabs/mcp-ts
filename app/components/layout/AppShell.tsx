@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
   ChevronDown,
   ChevronRight,
+  ChevronsUpDown,
   Clock,
   MoreHorizontal,
   Pin,
@@ -769,7 +770,7 @@ export function AppShell({
         {/* Profile */}
         <div
           className={cn(
-            "pt-2 pb-3 border-t border-sidebar-border bg-sidebar shrink-0",
+            "pt-2 pb-3 bg-sidebar shrink-0",
             isExpanded ? "px-2" : "px-0"
           )}
         >
@@ -812,7 +813,7 @@ export function AppShell({
                     </div>
                   )}
                   {isExpanded && (
-                    <ChevronRight className="size-[18px] shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+                    <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden />
                   )}
                 </div>
               }

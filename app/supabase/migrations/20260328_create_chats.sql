@@ -28,14 +28,13 @@ create table if not exists public.chat_messages (
   role text not null,
   parts jsonb not null default '[]'::jsonb,
   attachments jsonb not null default '[]'::jsonb,
-  created_at timestamptz not null default now(),
-  prompt_tokens int,
-  completion_tokens int,
-  total_tokens int
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
 );
 
 create index if not exists chat_messages_chat_id_idx on public.chat_messages(chat_id);
 create index if not exists chat_messages_created_at_idx on public.chat_messages(created_at);
+create index if not exists chat_messages_metadata_idx on public.chat_messages using gin (metadata);
 create unique index if not exists chat_messages_external_id_idx on public.chat_messages(chat_id, external_id);
 
 create or replace function public.set_updated_at()
