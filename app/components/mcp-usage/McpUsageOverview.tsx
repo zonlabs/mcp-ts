@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, useEffect, useRef } from "react";
+import { Fragment, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Activity, CheckCircle2, Clock3, XCircle } from "lucide-react";
@@ -82,37 +82,27 @@ export function McpUsageOverview({
   currentPage,
   onPageChange,
   isFetching,
+  days,
 }: McpUsageOverviewProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState<number>(0);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  // Compute 52 weeks (364 days) or container-matched columns
-  const daysToShow = useMemo(() => {
-    if (containerWidth <= 0) return 364;
-    const availableWidth = containerWidth - 16;
-    const columns = Math.max(26, Math.floor((availableWidth + 4) / 16));
-    return Math.min(365, columns * 7);
-  }, [containerWidth]);
-
+  // Heatmap aligned to calendar weeks starting on Monday.
+  // The latest week column ends on today (1 box on Mon, 2 on Tue, ..., 7 on Sun).
+  const { heatmap } = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = (now.getDay() + 6) % 7; // Monday = 0, ..., Sunday = 6
+    const currentWeekDays = dayOfWeek + 1; // 1 on Mon, 2 on Tue, ..., 7 on Sun
+    const totalWeeks = Math.max(1, Math.floor(((days ?? 364) - 1) / 7));
+    const count = (totalWeeks * 7) + currentWeekDays;
+    return {
+      heatmap: buildMcpUsageHeatmap(metricsEvents, count, now),
+    };
+  }, [days, metricsEvents]);
+  const maxCount = useMemo(() => heatmap.reduce((m, d) => Math.max(m, d.count), 0), [heatmap]);
   const summary = summarizeMcpUsage(metricsEvents, undefined, totalCount);
   const resolvedMcpAssistantCount = mcpAssistantCount ?? summary.mcpAssistantCallsTotal;
-  const heatmap = buildMcpUsageHeatmap(metricsEvents, daysToShow, new Date());
-  const maxCount = heatmap.reduce((m, d) => Math.max(m, d.count), 0);
   const recentEventGroups = useMemo(() => groupRecentGroupsByDate(groups), [groups]);
 
   const mostUsedAppName = summary.mostUsedApp?.name ?? "None";
@@ -138,7 +128,7 @@ export function McpUsageOverview({
       {/* 1. Main Heatmap & Telemetry Card */}
       <div className="bg-card border border-border rounded-md p-5 sm:p-6 space-y-6">
         {/* Full-width Heatmap Grid */}
-        <div ref={containerRef} className="overflow-x-auto pb-1 scrollbar-minimal">
+        <div className="overflow-x-auto pb-1 scrollbar-minimal">
           <TooltipProvider delayDuration={100}>
             <div className="grid min-w-max grid-flow-col grid-rows-7 justify-start gap-[4px] sm:gap-[5px]">
               {heatmap.map((day) => {
@@ -247,7 +237,15 @@ export function McpUsageOverview({
             <div className="text-sm sm:text-base lg:text-lg font-medium text-foreground truncate flex items-center gap-2 pt-0.5">
               {summary.mostUsedApp ? (
                 <>
-                  <ServerIcon serverName={mostUsedAppName} serverUrl={mostUsedAppServerUrl} size={20} className="shrink-0 rounded-xs" />
+                  <div className="size-7 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-1 shadow-2xs">
+                    <ServerActivityIcon
+                      icons={mostUsedAppEvent?.server_icons}
+                      serverName={mostUsedAppName}
+                      serverUrl={mostUsedAppServerUrl}
+                      size={18}
+                      className="shrink-0 rounded-xs object-contain"
+                    />
+                  </div>
                   <span className="truncate">{mostUsedAppName}</span>
                 </>
               ) : (

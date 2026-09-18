@@ -279,7 +279,7 @@ export function AppsView({ userSession, onSelectApp, onAction, onDeleteApp, onAd
                 <div
                   key={app.id}
                   onClick={() => onSelectApp(app)}
-                  className="group bg-card hover:bg-card/90 border border-border hover:border-body-strong/40 rounded-md p-3.5 flex flex-col justify-between gap-3.5 cursor-pointer transition-all duration-150 relative"
+                  className="group bg-card hover:bg-card/90 border border-border hover:border-body-strong/40 rounded-md p-3.5 flex flex-col justify-between gap-3.5 cursor-pointer transition-colors duration-150 relative"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">

@@ -520,21 +520,21 @@ export function AppShell({
         {/* Brand / Top Bar */}
         <div
           className={cn(
-            "h-11 flex items-center shrink-0 border-b border-sidebar-border/40",
+            "h-11 flex items-center shrink-0 border-b border-sidebar-border/40 overflow-hidden",
             isMobile
               ? "justify-between px-3"
               : isExpanded
                 ? "justify-between px-3"
-                : "justify-center"
+                : "justify-center px-0"
           )}
         >
           {isExpanded && (
             <Link
               href="/mcp?tab=home"
               onClick={() => isMobile && setMobileDrawerOpen(false)}
-              className="flex items-center gap-1.5 select-none hover:opacity-85 transition-opacity"
+              className="flex items-center gap-1.5 select-none hover:opacity-85 transition-opacity min-w-0 overflow-hidden"
             >
-              <span className="text-[15px] font-bold tracking-tight text-foreground">
+              <span className="text-[15px] font-bold tracking-tight text-foreground whitespace-nowrap">
                 Link<span className="font-semibold text-muted-foreground">OS</span>
               </span>
             </Link>
@@ -544,7 +544,7 @@ export function AppShell({
             <SimpleTooltip content="Close menu" side="bottom">
               <button
                 onClick={() => setMobileDrawerOpen(false)}
-                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0"
                 aria-label="Close navigation menu"
               >
                 <X className="size-4" />
@@ -554,7 +554,7 @@ export function AppShell({
             <SimpleTooltip content="Toggle sidebar" side="bottom">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0"
                 aria-label="Toggle sidebar"
               >
                 {sidebarOpen ? (
@@ -570,7 +570,7 @@ export function AppShell({
         {/* Nav */}
         <div
           className={cn(
-            "flex-1 overflow-y-auto space-y-0.5 scrollbar-minimal",
+            "flex-1 overflow-y-auto space-y-0.5 scrollbar-minimal overflow-x-hidden",
             isExpanded ? "px-2 py-1.5" : "px-1 py-1.5"
           )}
         >
@@ -580,15 +580,15 @@ export function AppShell({
               href="/mcp?tab=home"
               onClick={() => isMobile && setMobileDrawerOpen(false)}
               className={cn(
-                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
-                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
+                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-colors text-left overflow-hidden",
+                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full px-0",
                 currentNav === "home"
                   ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
                   : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
               <Home className="size-4 shrink-0" />
-              {isExpanded && <span>Home</span>}
+              {isExpanded && <span className="truncate whitespace-nowrap">Home</span>}
             </Link>
           </SimpleTooltip>
 
@@ -597,15 +597,15 @@ export function AppShell({
               href="/mcp?tab=apps"
               onClick={() => isMobile && setMobileDrawerOpen(false)}
               className={cn(
-                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
-                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
+                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-colors text-left overflow-hidden",
+                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full px-0",
                 currentNav === "apps"
                   ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
                   : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
               <LayoutGrid className="size-4 shrink-0" />
-              {isExpanded && <span>Apps</span>}
+              {isExpanded && <span className="truncate whitespace-nowrap">Apps</span>}
             </Link>
           </SimpleTooltip>
 
@@ -617,15 +617,15 @@ export function AppShell({
                 if (isMobile) setMobileDrawerOpen(false);
               }}
               className={cn(
-                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-all text-left",
-                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full p-0",
+                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-colors text-left overflow-hidden",
+                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full px-0",
                 currentNav === "chat" && (pathname === "/chat" || pathname === "/chat/")
                   ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
                   : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
               <SquarePen className="size-4 shrink-0" />
-              {isExpanded && <span>New Chat</span>}
+              {isExpanded && <span className="truncate whitespace-nowrap">New Chat</span>}
             </Link>
           </SimpleTooltip>
 
@@ -802,10 +802,10 @@ export function AppShell({
                     </div>
                   )}
                   {isExpanded && (
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-foreground truncate">{userDisplayName}</p>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="text-xs font-semibold text-foreground truncate whitespace-nowrap">{userDisplayName}</p>
                       {userSession.user?.email && (
-                        <p className="text-[10px] text-muted-foreground truncate font-mono">
+                        <p className="text-[10px] text-muted-foreground truncate whitespace-nowrap font-mono">
                           {userSession.user.email}
                         </p>
                       )}
@@ -830,7 +830,7 @@ export function AppShell({
       {/* ── Desktop Sidebar (hidden on <lg) ── */}
       <aside
         className={cn(
-          "hidden lg:flex h-full bg-sidebar text-sidebar-foreground flex-col transition-all duration-150 shrink-0 z-30",
+          "hidden lg:flex h-full bg-sidebar text-sidebar-foreground flex-col transition-[width] duration-200 ease-in-out shrink-0 z-30 overflow-hidden",
           sidebarOpen ? "w-64" : "w-12"
         )}
       >

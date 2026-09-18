@@ -273,7 +273,7 @@ export function HomeView({
                 <div
                   key={server.id}
                   onClick={() => onSelectApp(server)}
-                  className="group bg-card hover:bg-card/90 border border-border hover:border-body-strong/40 rounded-md p-4 flex items-start gap-3.5 cursor-pointer transition-all duration-150"
+                  className="group bg-card hover:bg-card/90 border border-border hover:border-body-strong/40 rounded-md p-4 flex items-start gap-3.5 cursor-pointer transition-colors duration-150"
                 >
                   <div className="size-9 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-1">
                     <ServerIcon
