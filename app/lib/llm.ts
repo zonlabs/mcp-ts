@@ -11,23 +11,10 @@ export type LlmConfig = {
 const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const AUTO_MODEL = 'openrouter/auto';
 
-function resolveOpenRouterApiKey(config?: LlmConfig): string | undefined {
-  return config?.apiKey?.trim() || process.env.OPENROUTER_API_KEY || undefined;
-}
-
-function resolveBaseUrl(config?: LlmConfig): string {
-  const customUrl = config?.baseUrl?.trim();
-  if (customUrl) return customUrl;
-  return DEFAULT_OPENROUTER_BASE_URL;
-}
-
 export function createOpenRouterProvider(config?: LlmConfig) {
-  const apiKey = resolveOpenRouterApiKey(config);
-  const baseURL = resolveBaseUrl(config);
-
   return createOpenAI({
-    apiKey,
-    baseURL,
+    apiKey: config?.apiKey?.trim(),
+    baseURL: config?.baseUrl?.trim() || DEFAULT_OPENROUTER_BASE_URL,
     headers: {
       'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://app.linkos.in',
       'X-Title': 'LinkOS',
