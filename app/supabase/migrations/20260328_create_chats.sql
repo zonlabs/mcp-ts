@@ -23,7 +23,7 @@ create index if not exists chats_user_pinned_updated_at_idx on public.chats(user
 
 create table if not exists public.chat_messages (
   id uuid primary key default gen_random_uuid(),
-  external_id text not null,
+  message_id text not null,
   chat_id uuid not null references public.chats(id) on delete cascade,
   role text not null,
   parts jsonb not null default '[]'::jsonb,
@@ -35,7 +35,7 @@ create table if not exists public.chat_messages (
 create index if not exists chat_messages_chat_id_idx on public.chat_messages(chat_id);
 create index if not exists chat_messages_created_at_idx on public.chat_messages(created_at);
 create index if not exists chat_messages_metadata_idx on public.chat_messages using gin (metadata);
-create unique index if not exists chat_messages_external_id_idx on public.chat_messages(chat_id, external_id);
+create unique index if not exists chat_messages_message_id_idx on public.chat_messages(chat_id, message_id);
 
 create or replace function public.set_updated_at()
 returns trigger as $$

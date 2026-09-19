@@ -32,7 +32,7 @@ export async function GET(req: Request) {
       updated_at,
       chat_messages (
         id,
-        external_id,
+        message_id,
         role,
         parts,
         attachments,

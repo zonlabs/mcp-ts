@@ -226,7 +226,7 @@ export async function POST(req: Request) {
 
       try {
         if (trigger === 'regenerate-assistant-message' && messageId) {
-          await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('external_id', messageId);
+          await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('message_id', messageId);
         }
 
         const resolvedModel =

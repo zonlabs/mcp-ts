@@ -35,7 +35,7 @@ export async function loadChat(chatId: string): Promise<ChatUIMessage[]> {
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, external_id, role, parts, attachments, created_at, metadata')
+    .select('id, message_id, role, parts, attachments, created_at, metadata')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true });
 
@@ -53,7 +53,7 @@ export async function loadChat(chatId: string): Promise<ChatUIMessage[]> {
       : {};
 
     return {
-      id: row.external_id ?? row.id,
+      id: row.message_id ?? row.id,
       role: row.role,
       parts: Array.isArray(row.parts) ? row.parts : [],
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
@@ -86,7 +86,7 @@ export async function loadPublicChat(chatId: string): Promise<ChatUIMessage[]> {
 
   const { data, error } = await supabase
     .from('chat_messages')
-    .select('id, external_id, role, parts, attachments, created_at, metadata')
+    .select('id, message_id, role, parts, attachments, created_at, metadata')
     .eq('chat_id', chatId)
     .order('created_at', { ascending: true });
 
@@ -104,7 +104,7 @@ export async function loadPublicChat(chatId: string): Promise<ChatUIMessage[]> {
       : {};
 
     return {
-      id: row.external_id ?? row.id,
+      id: row.message_id ?? row.id,
       role: row.role,
       parts: Array.isArray(row.parts) ? row.parts : [],
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
@@ -181,10 +181,10 @@ export async function saveChat(chatId: string, incomingMessages: ChatUIMessage[]
       meta.usage = usage;
     }
 
-    const externalId = (message as any)?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+    const messageId = (message as any)?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
     
     return {
-      external_id: externalId,
+      message_id: messageId,
       chat_id: chatId,
       role: message.role,
       parts,
@@ -194,12 +194,12 @@ export async function saveChat(chatId: string, incomingMessages: ChatUIMessage[]
     };
   });
 
-  const hasAnyMessage = rows.some((row) => row.external_id || row.role || row.created_at);
+  const hasAnyMessage = rows.some((row) => row.message_id || row.role || row.created_at);
   if (!hasAnyMessage) return;
 
   const { error: upsertError } = await supabase
     .from('chat_messages')
-    .upsert(rows, { onConflict: 'chat_id,external_id' });
+    .upsert(rows, { onConflict: 'chat_id,message_id' });
 
   if (upsertError) {
     console.error('[chat-store] failed to upsert messages:', upsertError);
