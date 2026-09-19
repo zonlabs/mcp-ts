@@ -75,6 +75,22 @@ const pickNumber = (...values: Array<number | undefined>) => {
   }
   return undefined;
 };
+
+function resolveModelCandidates(rawId?: string): string[] {
+  if (!rawId) return [];
+  const candidates: string[] = [rawId];
+  const withoutProviderPrefix = rawId.replace(/^(openrouter|google|openai|anthropic):/, "");
+  if (withoutProviderPrefix !== rawId) {
+    candidates.push(withoutProviderPrefix);
+  }
+  if (withoutProviderPrefix.includes("/")) {
+    const [vendor, model] = withoutProviderPrefix.split("/");
+    candidates.push(`${vendor}:${model}`);
+    candidates.push(model);
+  }
+  return candidates;
+}
+
 export type ContextProps = ComponentProps<typeof HoverCard> & {
   maxTokens?: number;
   usedTokens?: number;
@@ -140,20 +156,19 @@ export const Context = memo(
     }, [usage, usedTokens, inputTokens, outputTokens, reasoningTokens]);
 
     const derivedMax = useMemo(() => {
-      if (maxTokens) return maxTokens;
+      if (maxTokens && maxTokens > 0) return maxTokens;
       if (!modelId) return undefined;
-      try {
-        const caps = getContext({ modelId, providers: MODEL_CATALOG });
-        return (
-          caps.maxTotal ??
-          caps.totalMax ??
-          caps.combinedMax ??
-          caps.maxInput ??
-          caps.inputMax
-        );
-      } catch {
-        return undefined;
+
+      const candidates = resolveModelCandidates(modelId);
+      for (const candidate of candidates) {
+        try {
+          const caps = getContext({ modelId: candidate, providers: MODEL_CATALOG });
+          const total = caps.maxTotal ?? caps.totalMax ?? caps.combinedMax ?? caps.maxInput ?? caps.inputMax;
+          if (total) return total;
+        } catch {}
       }
+
+      return undefined;
     }, [maxTokens, modelId]);
 
     const used = usedTokens ?? totalTokens ?? 0;
@@ -162,12 +177,14 @@ export const Context = memo(
 
     const costUsd = useMemo(() => {
       if (!modelId || !usage) return undefined;
-      try {
-        const costs = getTokenCosts({ modelId, usage, providers: MODEL_CATALOG });
-        return costs?.totalUSD;
-      } catch {
-        return undefined;
+      const candidates = resolveModelCandidates(modelId);
+      for (const candidate of candidates) {
+        try {
+          const costs = getTokenCosts({ modelId: candidate, usage, providers: MODEL_CATALOG });
+          if (costs?.totalUSD != null) return costs.totalUSD;
+        } catch {}
       }
+      return undefined;
     }, [modelId, usage]);
 
     const value: ContextData = {
@@ -207,14 +224,14 @@ export const ContextTrigger = memo(
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-1.5 h-7 sm:h-8 rounded-full px-1.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer",
+            "inline-flex items-center gap-1.5 h-7 sm:h-8 rounded-sm px-2 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer border border-border/60",
             className
           )}
           {...props}
         >
           {children ?? (
             <>
-              <div className="relative w-5 h-5 text-muted-foreground">
+              <div className="relative w-4 h-4 text-muted-foreground flex-shrink-0">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 20 20">
                   <circle
                     cx="10"
@@ -222,8 +239,8 @@ export const ContextTrigger = memo(
                     r={radius}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
-                    className="text-muted-foreground/30"
+                    strokeWidth="2.5"
+                    className="text-muted-foreground/20"
                   />
                   <circle
                     cx="10"
@@ -231,15 +248,15 @@ export const ContextTrigger = memo(
                     r={radius}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
+                    strokeWidth="2.5"
                     strokeLinecap="round"
-                    className="text-foreground"
+                    className="text-foreground transition-all duration-300"
                     strokeDasharray={`${circumference}`}
                     strokeDashoffset={`${offset}`}
                   />
                 </svg>
               </div>
-              <span className="text-[11px] font-medium tabular-nums">
+              <span className="text-[11px] font-mono tabular-nums font-medium text-foreground">
                 {percentUsed != null ? `${percentUsed}%` : "--"}
               </span>
             </>
@@ -253,7 +270,13 @@ export const ContextTrigger = memo(
 export type ContextContentProps = ComponentProps<typeof HoverCardContent>;
 
 export const ContextContent = memo(({ className, ...props }: ContextContentProps) => (
-  <HoverCardContent className={cn("w-72 p-4", className)} {...props} />
+  <HoverCardContent
+    className={cn(
+      "w-72 p-3.5 rounded-md border border-hairline bg-popover text-popover-foreground shadow-xl",
+      className
+    )}
+    {...props}
+  />
 ));
 
 export type ContextContentHeaderProps = ComponentProps<"div">;
@@ -261,20 +284,21 @@ export type ContextContentHeaderProps = ComponentProps<"div">;
 export const ContextContentHeader = memo(
   ({ className, children, ...props }: ContextContentHeaderProps) => {
     const { modelId, usedTokens, maxTokens, percentUsed } = useContextData();
+    const displayModel = modelId ? modelId.replace(/^openrouter:/, "") : "Unknown model";
 
     return (
-      <div className={cn("flex items-center justify-between", className)} {...props}>
-        <div className="space-y-0.5">
-          <div className="text-xs font-medium text-foreground">Context</div>
-          <div className="text-[11px] text-muted-foreground">
-            {modelId ?? "Unknown model"}
+      <div className={cn("flex items-center justify-between pb-2.5 border-b border-hairline/60", className)} {...props}>
+        <div className="space-y-0.5 min-w-0 pr-2">
+          <div className="text-xs font-semibold text-foreground tracking-tight">Context Window</div>
+          <div className="text-[11px] font-mono text-muted-foreground truncate" title={displayModel}>
+            {displayModel}
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-semibold text-foreground">
+        <div className="text-right shrink-0">
+          <div className="text-xs font-mono font-semibold text-foreground tabular-nums">
             {percentUsed != null ? `${percentUsed}%` : "--"}
           </div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-[10px] font-mono text-muted-foreground tabular-nums">
             {formatTokens(usedTokens)} / {formatTokens(maxTokens)}
           </div>
         </div>
@@ -288,7 +312,7 @@ export type ContextContentBodyProps = ComponentProps<"div">;
 
 export const ContextContentBody = memo(
   ({ className, ...props }: ContextContentBodyProps) => (
-    <div className={cn("mt-3 space-y-2 text-xs", className)} {...props} />
+    <div className={cn("mt-2.5 space-y-1.5 text-xs font-mono", className)} {...props} />
   )
 );
 
@@ -301,14 +325,14 @@ export const ContextContentFooter = memo(
     return (
       <div
         className={cn(
-          "mt-3 rounded-md bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground",
+          "mt-2.5 rounded-sm border border-hairline/60 bg-canvas px-2.5 py-1.5 text-[11px] text-muted-foreground",
           className
         )}
         {...props}
       >
-        <div className="flex items-center justify-between">
-          <span>Total cost</span>
-          <span className="font-medium text-foreground">{formatUsd(costUsd)}</span>
+        <div className="flex items-center justify-between font-mono">
+          <span className="font-sans text-muted-foreground">Estimated Cost</span>
+          <span className="font-medium text-foreground tabular-nums">{formatUsd(costUsd)}</span>
         </div>
         {children}
       </div>
@@ -322,9 +346,9 @@ type UsageRowProps = ComponentProps<"div"> & {
 };
 
 const UsageRow = ({ className, label, value, ...props }: UsageRowProps) => (
-  <div className={cn("flex items-center justify-between", className)} {...props}>
-    <span className="text-muted-foreground">{label}</span>
-    <span className="font-medium text-foreground">{formatTokens(value)}</span>
+  <div className={cn("flex items-center justify-between py-0.5", className)} {...props}>
+    <span className="text-xs font-sans text-muted-foreground">{label}</span>
+    <span className="text-[11px] font-mono font-medium text-foreground tabular-nums">{formatTokens(value)}</span>
   </div>
 );
 

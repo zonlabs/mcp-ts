@@ -26,7 +26,15 @@ interface ModelSelectorProps {
 let cachedModels: ModelSelectorModel[] | null = null;
 let activeFetchPromise: Promise<ModelSelectorModel[]> | null = null;
 
-async function loadModelsShared(): Promise<ModelSelectorModel[]> {
+export function getCachedModel(id: string): ModelSelectorModel | undefined {
+  if (!id || !cachedModels) return undefined;
+  const direct = cachedModels.find((m) => m.id === id);
+  if (direct) return direct;
+  const stripped = id.replace(/^(openrouter|google|anthropic|openai|deepseek):/, "");
+  return cachedModels.find((m) => m.id === stripped || m.id.endsWith(`/${stripped}`));
+}
+
+export async function fetchModels(): Promise<ModelSelectorModel[]> {
   if (cachedModels && cachedModels.length > 0) return cachedModels;
   if (activeFetchPromise) return activeFetchPromise;
 
@@ -63,7 +71,7 @@ export function ModelSelector({ selectedModel, selectedModelName, onSelect }: Mo
     }
     let isMounted = true;
     setIsLoading(true);
-    loadModelsShared()
+    fetchModels()
       .then((data) => {
         if (isMounted) {
           setModels(data);
@@ -156,7 +164,7 @@ export function ModelSelector({ selectedModel, selectedModelName, onSelect }: Mo
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-muted/60 text-xs text-muted-foreground hover:bg-muted/80 transition-colors max-w-[170px] sm:max-w-[220px] md:max-w-none min-w-0 border border-hairline"
+        className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-sm bg-muted/60 text-xs text-muted-foreground hover:bg-muted/80 transition-colors max-w-[170px] sm:max-w-[220px] md:max-w-none min-w-0 border border-hairline cursor-pointer"
       >
         {iconUrl ? (
           <img

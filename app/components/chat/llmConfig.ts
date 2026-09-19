@@ -4,6 +4,7 @@ export interface LlmConfig {
   apiKey?: string;
   baseUrl?: string;
   modelName?: string;
+  contextLength?: number;
 }
 
 const LLM_CONFIG_STORAGE_KEY = "llm_config";
@@ -30,6 +31,7 @@ export function readLlmConfigFromStorage(): LlmConfig {
       apiKey: parsed.llm_api_key || "",
       model,
       modelName: parsed.llm_model_name || defaultName,
+      contextLength: typeof parsed.llm_context_length === "number" ? parsed.llm_context_length : undefined,
     };
   } catch {
     return { ...DEFAULT_LLM_CONFIG };
@@ -47,6 +49,7 @@ export function writeLlmConfigToStorage(config: LlmConfig) {
       llm_api_key: config.apiKey?.trim() || "",
       llm_name: model,
       llm_model_name: (config.modelName || defaultName).trim(),
+      llm_context_length: config.contextLength,
     }),
   );
 }
@@ -58,6 +61,7 @@ export function normalizeLlmConfig(config: LlmConfig): LlmConfig {
     provider: "openrouter",
     model,
     modelName: (config.modelName || defaultName).trim(),
+    contextLength: config.contextLength,
     apiKey: config.apiKey?.trim() || "",
   };
 }

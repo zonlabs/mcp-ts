@@ -24,7 +24,7 @@ import {
   FileIcon,
 } from 'lucide-react';
 import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/chat/llmConfig';
-import { ModelSelector } from '@/components/chat/ModelSelector';
+import { ModelSelector, getCachedModel, fetchModels } from '@/components/chat/ModelSelector';
 import { useI18n } from '@/lib/web-i18n';
 
 async function convertFilesToDataURLs(files: FileList) {
@@ -86,6 +86,8 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
   const [activeModel, setActiveModel] = useState<string>('');
   const [activeModelName, setActiveModelName] = useState<string>('');
   const [activeProvider, setActiveProvider] = useState<string>('');
+  const [storedContextLength, setStoredContextLength] = useState<number | undefined>();
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [modelReady, setModelReady] = useState(false);
 
   const isPending = status === 'submitted' || status === 'streaming';
@@ -94,6 +96,11 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     activeProvider === "gemini" ? "google" : activeProvider;
   const modelId =
     tokenlensProvider && activeModel ? `${tokenlensProvider}:${activeModel}` : undefined;
+  const activeModelMaxTokens = useMemo(() => {
+    if (!activeModel) return undefined;
+    const model = availableModels.find((m) => m.id === activeModel) || getCachedModel(activeModel);
+    return model?.contextLength ?? storedContextLength;
+  }, [activeModel, availableModels, storedContextLength]);
   const hasUsage = Boolean(contextUsage && (contextUsage.totalTokens || contextUsage.total_tokens));
 
   useEffect(() => {
@@ -102,9 +109,14 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
       setActiveModel(normalizedConfig.model || '');
       setActiveModelName(normalizedConfig.modelName || '');
       setActiveProvider(normalizedConfig.provider || '');
+      setStoredContextLength(normalizedConfig.contextLength);
       setModelReady(true);
     };
     load();
+    fetchModels().then((models) => {
+      setAvailableModels(models);
+      setModelReady(true);
+    }).catch(() => {});
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'llm_config') load();
     };
@@ -125,7 +137,14 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     };
   }, []);
 
-
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      if (input) {
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      }
+    }
+  }, [input]);
 
   const handleSend = async () => {
     const value = input.trim();
@@ -143,6 +162,9 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
     setInput('');
     setFiles(undefined);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
   };
 
   return (
@@ -246,9 +268,8 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
               }}
               className="
                 w-full resize-none bg-transparent border-0 outline-none
-                text-gray-900 dark:text-white
-                placeholder-gray-500 dark:placeholder-gray-400
-                text-[16px]
+                text-foreground placeholder:text-muted-foreground
+                text-[15px]
                 leading-relaxed
                 focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0
                 [&:focus]:outline-none [&:focus]:ring-0 [&:focus]:border-0
@@ -292,11 +313,13 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
                   onSelect={(id, model) => {
                     const current = readLlmConfigFromStorage();
                     const modelName = model?.name || (id === "openrouter/auto" ? "Auto Router" : id);
-                    const next = { ...current, model: id, modelName, provider: "openrouter" };
+                    const contextLength = model?.contextLength;
+                    const next = { ...current, model: id, modelName, provider: "openrouter", contextLength };
                     writeLlmConfigToStorage(next);
                     setActiveModel(id);
                     setActiveModelName(modelName);
                     setActiveProvider("openrouter");
+                    setStoredContextLength(contextLength);
                   }}
                 />
               ) : null}
@@ -307,6 +330,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
               {hasUsage && (
                 <Context
                   modelId={modelId}
+                  maxTokens={activeModelMaxTokens}
                   usage={contextUsage}
                   usedTokens={contextUsage?.totalTokens ?? contextUsage?.total_tokens}
                 >
