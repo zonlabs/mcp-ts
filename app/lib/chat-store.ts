@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import type { McpAgentUIMessage } from '@/agent/chat-agent';
+import type { ChatUIMessage } from '@/agent/chat-agent';
 
 /**
  * Creates a new chat session for the current user.
@@ -28,7 +28,7 @@ export async function createChat(): Promise<string | null> {
  * Loads the complete message history for a specific chat ID.
  * Returns empty array if user is not authorized or chat is private.
  */
-export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
+export async function loadChat(chatId: string): Promise<ChatUIMessage[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -59,7 +59,7 @@ export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
       createdAt: row.created_at,
       ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
-    } as McpAgentUIMessage;
+    } as ChatUIMessage;
   });
 }
 
@@ -67,7 +67,7 @@ export async function loadChat(chatId: string): Promise<McpAgentUIMessage[]> {
  * Loads a shared chat that has PUBLIC visibility.
  * Does not require an authenticated user.
  */
-export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[]> {
+export async function loadPublicChat(chatId: string): Promise<ChatUIMessage[]> {
   const supabase = await createClient();
 
   const { data: chatRow, error: chatError } = await supabase
@@ -110,7 +110,7 @@ export async function loadPublicChat(chatId: string): Promise<McpAgentUIMessage[
       attachments: Array.isArray(row.attachments) ? row.attachments : [],
       createdAt: row.created_at,
       ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
-    } as McpAgentUIMessage;
+    } as ChatUIMessage;
   });
 }
 
@@ -135,7 +135,7 @@ export async function deleteAllChatMessages(chatId: string): Promise<void> {
  * Persists chat messages to the database.
  * Handles both own chats (upsert metadata) and shared chats (update timestamp only).
  */
-export async function saveChat(chatId: string, incomingMessages: McpAgentUIMessage[]): Promise<void> {
+export async function saveChat(chatId: string, incomingMessages: ChatUIMessage[]): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const incoming = Array.isArray(incomingMessages) ? incomingMessages : [];

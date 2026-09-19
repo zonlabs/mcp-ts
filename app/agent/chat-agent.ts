@@ -1,4 +1,3 @@
-import { createOpenAI } from "@ai-sdk/openai";
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, type LanguageModelUsage, type ToolSet } from "ai";
 import { McpManager } from "@mcp-ts/client";
 import { AIAdapter } from "@mcp-ts/client/adapters/ai";
@@ -12,12 +11,12 @@ import {
   shouldRequireMcpToolApproval,
 } from "@/lib/user-preferences";
 
-interface CreateMcpAgentOptions {
+export interface CreateChatAgentOptions {
   userId?: string;
   userPreferences?: Partial<UserPreferences>;
 }
 
-type McpAgentCallOptions = {
+export type ChatAgentCallOptions = {
   userId?: string;
   llmConfig?: {
     provider?: string;
@@ -27,84 +26,19 @@ type McpAgentCallOptions = {
   userPreferences?: Partial<UserPreferences>;
 };
 
-/** OpenAI (and several providers) cap tool/function names at 64 chars; @mcp-ts AIAdapter uses `tool_${serverId}_${name}` which often exceeds that. */
-const PROVIDER_MAX_TOOL_NAME_LEN = 64;
-const OPENAI_TOOL_NAME_RE = /^[a-zA-Z0-9_-]+$/;
+export async function createChatAgent(options: CreateChatAgentOptions = {}) {
+  const userId = options.userId?.trim() || "demo-user-123";
+  const initialUserPreferences = normalizeUserPreferences(options.userPreferences);
 
-function hashToolKeyForShortName(key: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(36).padStart(7, "0");
-}
+  const manager = new McpManager(userId);
 
-function needsToolKeyRewrite(key: string): boolean {
-  return (
-    key.length > PROVIDER_MAX_TOOL_NAME_LEN ||
-    !OPENAI_TOOL_NAME_RE.test(key) ||
-    !/^[a-zA-Z_]/.test(key)
-  );
-}
-
-/**
- * Rewrites tool object keys so provider API limits are satisfied. Original key is appended to description for transparency.
- */
-function shortenToolKeysForProvider(tools: Record<string, any>): Record<string, any> {
-  const used = new Set<string>();
-  const out: Record<string, any> = {};
-
-  for (const [key, spec] of Object.entries(tools)) {
-    if (!needsToolKeyRewrite(key) && !used.has(key)) {
-      used.add(key);
-      out[key] = spec;
-      continue;
-    }
-
-    const h = hashToolKeyForShortName(key);
-    let newKey: string;
-    let n = 0;
-    do {
-      const suffix = n === 0 ? "" : `x${n}`;
-      newKey = `mcp_${h}${suffix}`.slice(0, PROVIDER_MAX_TOOL_NAME_LEN);
-      n += 1;
-    } while (used.has(newKey));
-
-    used.add(newKey);
-    const prevDesc =
-      spec && typeof spec === "object" && typeof spec.description === "string"
-        ? spec.description
-        : "";
-    const registryNote = `[MCP tool registry key: ${key}]`;
-    out[newKey] =
-      spec && typeof spec === "object"
-        ? {
-          ...spec,
-          description: prevDesc ? `${prevDesc}\n\n${registryNote}` : registryNote,
-        }
-        : spec;
+  try {
+    await manager.connect();
+  } catch (error) {
+    console.error("[MCP] Connection failed:", error);
   }
 
-  return out;
-}
-
-async function getRemoteMcpTools(
-  userId: string,
-  client?: McpManager,
-  userPreferences: Partial<UserPreferences> = {}
-) {
-  const manager = client || new McpManager(userId);
-
-  if (!client) {
-    try {
-      await manager.connect();
-    } catch (error) {
-      console.error("[MCP] Connection failed:", error);
-    }
-  }
-
-  let mcpTools: Record<string, any> = {};
+  let tools: Record<string, any> = {};
 
   try {
     const router = new ToolRouter(manager, {
@@ -116,34 +50,15 @@ async function getRemoteMcpTools(
     if (discoveredTools.mcp_execute_tool) {
       discoveredTools.mcp_execute_tool = {
         ...discoveredTools.mcp_execute_tool,
-        needsApproval: () => shouldRequireMcpToolApproval(normalizeUserPreferences(userPreferences)),
+        needsApproval: () => shouldRequireMcpToolApproval(initialUserPreferences),
       };
     }
-    mcpTools = { ...mcpTools, ...discoveredTools };
+    tools = discoveredTools;
   } catch (error) {
     console.error("[MCP] Failed to load MCP tools:", error);
   }
 
-  mcpTools = shortenToolKeysForProvider(mcpTools);
-
-  return { manager, tools: mcpTools };
-}
-
-export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
-  const userId = options.userId?.trim() || "demo-user-123";
-  const initialUserPreferences = normalizeUserPreferences(options.userPreferences);
-
-  const { manager, tools: remoteTools } = await getRemoteMcpTools(
-    userId,
-    undefined,
-    initialUserPreferences
-  );
-
-  const combinedTools = {
-    ...remoteTools,
-  };
-
-  const agent = new ToolLoopAgent<McpAgentCallOptions, ToolSet>({
+  const agent = new ToolLoopAgent<ChatAgentCallOptions, ToolSet>({
     instructions: buildChatAgentInstructions(new Date(), initialUserPreferences),
     model: getModelConfig(),
     callOptionsSchema: z.object({
@@ -178,17 +93,14 @@ export async function createMcpAgent(options: CreateMcpAgentOptions = {}) {
       );
       const messagesToUse = messages || [];
 
-      const toolsForCall = {
-        ...combinedTools,
-      };
-
       return {
         ...settings,
         model,
-        tools: toolsForCall,
-        activeTools: Object.keys(toolsForCall),
+        tools,
+        activeTools: Object.keys(tools),
         messages: messagesToUse,
         instructions,
+        maxOutputTokens: settings.maxOutputTokens ?? 4096,
       };
     },
     tools: {},
@@ -213,7 +125,8 @@ type AgentMessageMetadata = {
   chatTitle?: string;
   [key: string]: any;
 };
-export type McpAgentUIMessage = InferAgentUIMessage<
-  Awaited<ReturnType<typeof createMcpAgent>>["agent"],
+
+export type ChatUIMessage = InferAgentUIMessage<
+  Awaited<ReturnType<typeof createChatAgent>>["agent"],
   AgentMessageMetadata
 >;

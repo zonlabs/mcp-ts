@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
-import type { McpAgentUIMessage } from '@/agent/chat-agent';
+import type { ChatUIMessage } from '@/agent/chat-agent';
 import { useI18n } from '@/lib/web-i18n';
 import { useSidebarChats } from '@/lib/hooks/use-sidebar-chats';
 
@@ -49,7 +49,7 @@ export const PENDING_CHAT_MESSAGE_STORAGE_KEY = "linkos:pending-chat-message:v1"
 
 interface PlaygroundChatProps {
   chatId?: string;
-  initialMessages?: McpAgentUIMessage[];
+  initialMessages?: ChatUIMessage[];
   initialDraft?: string;
   initialTitle?: string | null;
   chatUserId?: string | null;
@@ -57,10 +57,10 @@ interface PlaygroundChatProps {
 }
 
 interface MessageRowProps {
-  m: McpAgentUIMessage;
+  m: ChatUIMessage;
   isLastMessage: boolean;
   onEdit: (id: string, text: string) => void;
-  renderParts: (m: McpAgentUIMessage, isLast: boolean) => React.ReactNode;
+  renderParts: (m: ChatUIMessage, isLast: boolean) => React.ReactNode;
 }
 
 const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderParts }: MessageRowProps) {
@@ -324,7 +324,7 @@ export function PlaygroundChat({
     },
   ];
 
-  const { error, status, sendMessage, messages, addToolApprovalResponse, setMessages, regenerate, stop } = useChat<McpAgentUIMessage>({
+  const { error, status, sendMessage, messages, addToolApprovalResponse, setMessages, regenerate, stop } = useChat<ChatUIMessage>({
     id: chatId,
     messages: safeInitialMessages,
     transport: new DefaultChatTransport({
@@ -440,7 +440,7 @@ export function PlaygroundChat({
     [messages]
   );
 
-  const getChainOfThoughtForMessage = useCallback((message: McpAgentUIMessage, isLastMessage: boolean) => {
+  const getChainOfThoughtForMessage = useCallback((message: ChatUIMessage, isLastMessage: boolean) => {
     return buildChainOfThoughtSummary(message.parts, {
       getToolName: (part) => {
         const toolPart = part as any;
@@ -530,7 +530,7 @@ export function PlaygroundChat({
       return m;
     });
 
-    setMessages(updatedMessages as McpAgentUIMessage[]);
+    setMessages(updatedMessages as ChatUIMessage[]);
 
     const currentConfig = getCurrentLlmConfig();
     upsertChat({ id: chatId });
@@ -556,7 +556,7 @@ export function PlaygroundChat({
     return "An error occurred";
   };
 
-  const renderMessageParts = useCallback((m: McpAgentUIMessage, isLastMessage: boolean) => {
+  const renderMessageParts = useCallback((m: ChatUIMessage, isLastMessage: boolean) => {
     const lastPart = m.parts[m.parts.length - 1] as any | undefined;
     const chainOfThought = getChainOfThoughtForMessage(m, isLastMessage);
 

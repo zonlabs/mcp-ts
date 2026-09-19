@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { convertToModelMessages, createIdGenerator, generateText } from 'ai';
-import { createMcpAgent, type McpAgentUIMessage } from '@/agent/chat-agent';
+import { createChatAgent, type ChatUIMessage } from '@/agent/chat-agent';
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
@@ -17,8 +17,8 @@ interface ChatRequestBody {
   id?: string;
   trigger?: 'submit-user-message' | 'regenerate-assistant-message';
   messageId?: string;
-  message?: McpAgentUIMessage;
-  messages?: McpAgentUIMessage[];
+  message?: ChatUIMessage;
+  messages?: ChatUIMessage[];
   llmConfig?: {
     provider?: string;
     apiKey?: string;
@@ -46,7 +46,7 @@ async function assertChatPermission(
   return null;
 }
 
-function extractUserText(messages: McpAgentUIMessage[]): string {
+function extractUserText(messages: ChatUIMessage[]): string {
   for (const message of messages) {
     if (message?.role !== 'user') continue;
     if (Array.isArray((message as any)?.parts)) {
@@ -89,6 +89,7 @@ async function generateTitleFromUserMessage(
       system: TITLE_SYSTEM_PROMPT,
       model: getTitleModel(llmConfig),
       prompt: `User message: "${userText}"\n\nTitle:`,
+      maxOutputTokens: 64,
     });
     const cleaned = text
       .replace(/^[#*"\s]+/, '')
@@ -132,12 +133,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = (await req.json()) as ChatRequestBody;
-  const { trigger = 'submit-user-message', message, messageId, llmConfig, userPreferences } = body;
-  const chatId = body.id;
+  const {
+    id: chatId,
+    trigger = 'submit-user-message',
+    message,
+    messageId,
+    messages,
+    llmConfig,
+    userPreferences,
+  } = (await req.json()) as ChatRequestBody;
 
   // 1. Build messages list based on standard AI SDK trigger
-  let chatMessages = Array.isArray(body.messages) ? [...body.messages] : [];
+  let chatMessages = Array.isArray(messages) ? [...messages] : [];
   if (trigger === 'submit-user-message' && message) {
     chatMessages = [...chatMessages.filter((m) => m.id !== message.id), message];
   } else if (trigger === 'regenerate-assistant-message' && messageId) {
@@ -174,8 +181,8 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3. Stream response via MCP Agent
-  const { agent, cleanup } = await createMcpAgent({ userId: user.id, userPreferences });
+  // 3. Stream response via Chat Agent
+  const { agent, cleanup } = await createChatAgent({ userId: user.id, userPreferences });
   req.signal.addEventListener('abort', cleanup, { once: true });
 
   const normalizedMessages = normalizeMessagesForModel(chatMessages);
@@ -195,7 +202,7 @@ export async function POST(req: Request) {
     });
   }
 
-  return result.toUIMessageStreamResponse<McpAgentUIMessage>({
+  return result.toUIMessageStreamResponse<ChatUIMessage>({
     originalMessages: normalizedMessages,
     generateMessageId: () => generateId(),
     messageMetadata: ({ part }) => {
