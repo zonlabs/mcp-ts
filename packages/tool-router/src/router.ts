@@ -15,7 +15,7 @@ import type {
   PinnedToolResult,
   VisibleTools
 } from "./types.js";
-import { normalizeServerId } from "./utils.js";
+import { normalizeServerId, validateToolArgs } from "./utils.js";
 import { BM25SearchStrategy } from "./search.js";
 import { PolicyEnforcer, wildcardMatch } from "./policy.js";
 import { executeMetaTool } from "./meta-handler.js";
@@ -259,7 +259,9 @@ export class ToolRouter {
       throw new Error(`Server "${tool.serverId}" is no longer registered.`);
     }
 
-    return server.callTool(tool.toolName, request.args ?? {});
+    const args = request.args ?? {};
+    validateToolArgs(tool.inputSchema, args);
+    return server.callTool(tool.toolName, args);
   }
 
   async executeMetaTool(name: string, args: Record<string, unknown>): Promise<ToolRouterCallResult> {
