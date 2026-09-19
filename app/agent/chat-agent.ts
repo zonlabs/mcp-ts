@@ -77,14 +77,8 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
         })
         .optional(),
     }),
-    prepareCall: async ({ options: callOptions, abortSignal, messages, ...settings }) => {
+    prepareCall: async ({ options: callOptions, messages, ...settings }) => {
       const model = getModelConfig(callOptions?.llmConfig);
-
-      if (abortSignal) {
-        abortSignal.addEventListener("abort", () => {
-          manager.disconnect();
-        }, { once: true });
-      }
 
       const activePreferences = callOptions?.userPreferences || initialUserPreferences;
       const instructions = buildChatAgentInstructions(

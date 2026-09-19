@@ -1,9 +1,10 @@
 import { embed, embedMany } from 'ai';
 import { createClient } from '@/lib/supabase/server';
-import { openai } from '@ai-sdk/openai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
-// Use OpenAI's text-embedding-3-small model (1536 dimensions)
-const embeddingModel = openai.embeddingModel('text-embedding-3-small'); 
+const openrouter = createOpenRouter();
+// Use OpenAI's text-embedding-3-small model (1536 dimensions) via OpenRouter
+const embeddingModel = openrouter.textEmbeddingModel('openai/text-embedding-3-small'); 
 /**
  * Generate chunks from input text by splitting on sentences
  * Can be customized based on your use case
