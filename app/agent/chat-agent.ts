@@ -1,4 +1,4 @@
-import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, type LanguageModelUsage, type ToolSet } from "ai";
+import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, pruneMessages, type LanguageModelUsage, type ToolSet } from "ai";
 import { McpManager } from "@mcp-ts/client";
 import { AIAdapter } from "@mcp-ts/client/adapters/ai";
 import { ToolRouter } from "@mcp-ts/client/shared";
@@ -10,14 +10,21 @@ import {
   normalizeUserPreferences,
   shouldRequireMcpToolApproval,
 } from "@/lib/user-preferences";
+import { createMemoryTools } from "@/lib/memory/tools";
 
 export interface CreateChatAgentOptions {
   userId?: string;
+  runId?: string;
+  chatId?: string;
   userPreferences?: Partial<UserPreferences>;
+  memory?: string;
 }
 
 export type ChatAgentCallOptions = {
   userId?: string;
+  runId?: string;
+  chatId?: string;
+  memory?: string;
   llmConfig?: {
     provider?: string;
     apiKey?: string;
@@ -53,9 +60,15 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
         needsApproval: () => shouldRequireMcpToolApproval(initialUserPreferences),
       };
     }
-    tools = discoveredTools;
+    const memoryTools = createMemoryTools(userId, options.chatId || options.runId);
+    tools = {
+      ...discoveredTools,
+      ...memoryTools,
+    };
   } catch (error) {
     console.error("[MCP] Failed to load MCP tools:", error);
+    const memoryTools = createMemoryTools(userId, options.chatId || options.runId);
+    tools = { ...memoryTools };
   }
 
   const agent = new ToolLoopAgent<ChatAgentCallOptions, ToolSet>({
@@ -63,6 +76,9 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
     model: getModelConfig(),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
+      runId: z.string().optional(),
+      chatId: z.string().optional(),
+      memory: z.string().optional(),
       llmConfig: z
         .object({
           provider: z.string().optional(),
@@ -81,11 +97,21 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
       const model = getModelConfig(callOptions?.llmConfig);
 
       const activePreferences = callOptions?.userPreferences || initialUserPreferences;
+      const memory = callOptions?.memory || options.memory || "";
       const instructions = buildChatAgentInstructions(
         new Date(),
-        activePreferences
+        activePreferences,
+        memory
       );
-      const messagesToUse = messages || [];
+
+      // Prune historical MCP tool outputs and intermediate reasoning to keep context lean
+      const rawMessages = messages || [];
+      const messagesToUse = pruneMessages({
+        messages: rawMessages,
+        toolCalls: "before-last-2-messages",
+        reasoning: "before-last-message",
+        emptyMessages: "remove",
+      });
 
       return {
         ...settings,

@@ -7,5 +7,5 @@ export interface ModelDefinition {
   contextLength?: number;
 }
 
-// Models are dynamically fetched from OpenRouter (/api/models)
+// Models are dynamically fetched from OpenRouter (/api/llm/models)
 export const AVAILABLE_MODELS: ModelDefinition[] = [];

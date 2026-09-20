@@ -367,6 +367,7 @@ export function AppShell({
     if (pathname.startsWith("/settings/api-keys")) return "Settings > API Keys";
     if (pathname.startsWith("/settings/access")) return "Settings > Access";
     if (pathname.startsWith("/settings/preferences")) return "Settings > Preferences";
+    if (pathname.startsWith("/settings/memories")) return "Settings > Memories";
     if (pathname.startsWith("/settings/data-controls")) return "Settings > Data Controls";
     if (pathname.startsWith("/settings/account")) return "Settings > Account";
     if (pathname.startsWith("/settings/usage")) return "Settings > Usage";

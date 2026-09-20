@@ -40,7 +40,7 @@ export async function fetchModels(): Promise<ModelSelectorModel[]> {
 
   activeFetchPromise = (async () => {
     try {
-      const res = await fetch("/api/models");
+      const res = await fetch("/api/llm/models");
       if (!res.ok) throw new Error(`Failed to fetch models: ${res.statusText}`);
       const data = await res.json();
       const list = Array.isArray(data?.models) ? data.models : [];
@@ -203,7 +203,7 @@ export function ModelSelector({ selectedModel, selectedModelName, onSelect }: Mo
               <span>Configure API Key</span>
             </Link>
           </DialogHeader>
-          
+
           <div className="px-4 pt-3 pb-2">
             <div className="relative flex items-center">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
@@ -261,11 +261,10 @@ export function ModelSelector({ selectedModel, selectedModelName, onSelect }: Mo
                           onSelect(model.id, model);
                           setOpen(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
-                          selectedModel === model.id
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${selectedModel === model.id
                             ? "bg-primary/10 text-foreground font-medium"
                             : "hover:bg-muted/60 text-foreground"
-                        }`}
+                          }`}
                       >
                         <div className="h-6 w-6 flex items-center justify-center overflow-hidden rounded-full bg-background border border-hairline shrink-0">
                           {getProviderIconUrl(model.provider) ? (

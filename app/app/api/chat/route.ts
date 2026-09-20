@@ -4,7 +4,13 @@
 // Clean AI SDK streaming endpoint with trigger-based routing.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { convertToModelMessages, createIdGenerator, generateText } from 'ai';
+import {
+  convertToModelMessages,
+  createIdGenerator,
+  generateText,
+  createUIMessageStreamResponse,
+  toUIMessageStream,
+} from 'ai';
 import { createChatAgent, type ChatUIMessage } from '@/agent/chat-agent';
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
@@ -12,6 +18,7 @@ import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
 import { getTitleModel } from '@/lib/llm';
 import type { UserPreferences } from '@/lib/user-preferences';
 import { normalizeMessagesForModel, sanitizeModelMessages } from '@/lib/chat-message-normalization';
+import { retrieveMemoryContext, addMemories } from '@/lib/memory/mem0';
 
 interface ChatRequestBody {
   id?: string;
@@ -182,7 +189,18 @@ export async function POST(req: Request) {
   }
 
   // 3. Stream response via Chat Agent
-  const { agent, cleanup } = await createChatAgent({ userId: user.id, userPreferences });
+  const userText = extractUserText(chatMessages);
+  const memory = userText
+    ? await retrieveMemoryContext(userText, { userId: user.id })
+    : '';
+
+  const { agent, cleanup } = await createChatAgent({
+    userId: user.id,
+    chatId,
+    runId: chatId,
+    userPreferences,
+    memory,
+  });
   req.signal.addEventListener('abort', cleanup, { once: true });
 
   const normalizedMessages = normalizeMessagesForModel(chatMessages);
@@ -192,7 +210,7 @@ export async function POST(req: Request) {
   const result = await agent.stream({
     messages: modelMessages,
     abortSignal: req.signal,
-    options: { userId: user.id, llmConfig, userPreferences },
+    options: { userId: user.id, chatId, runId: chatId, llmConfig, userPreferences, memory },
   });
 
   let resolvedTitle: string | undefined;
@@ -202,57 +220,82 @@ export async function POST(req: Request) {
     });
   }
 
-  return result.toUIMessageStreamResponse<ChatUIMessage>({
-    originalMessages: normalizedMessages,
-    generateMessageId: () => generateId(),
-    messageMetadata: ({ part }) => {
-      const base = resolvedTitle ? { isNewChat: true, chatTitle: resolvedTitle } : {};
-      if (part.type === 'finish-step') {
-        const responseModel =
-          (part as any)?.response?.modelId ||
-          (part as any)?.modelId ||
-          llmConfig?.model ||
-          'openrouter/auto';
-        return {
-          ...base,
-          usage: part.usage,
-          model: responseModel,
-        };
-      }
-      return Object.keys(base).length > 0 ? base : undefined;
-    },
-    onFinish: async ({ responseMessage }) => {
-      if (!chatId || !responseMessage) return;
-
-      try {
-        if (trigger === 'regenerate-assistant-message' && messageId) {
-          await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('message_id', messageId);
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream<any, ChatUIMessage>({
+      stream: result.stream,
+      originalMessages: normalizedMessages,
+      generateMessageId: () => generateId(),
+      messageMetadata: ({ part }) => {
+        const base = resolvedTitle ? { isNewChat: true, chatTitle: resolvedTitle } : {};
+        if (part.type === 'finish-step') {
+          const responseModel =
+            (part as any)?.response?.modelId ||
+            (part as any)?.modelId ||
+            llmConfig?.model ||
+            'openrouter/auto';
+          return {
+            ...base,
+            usage: part.usage,
+            model: responseModel,
+          };
         }
+        return Object.keys(base).length > 0 ? base : undefined;
+      },
+      onFinish: async ({ responseMessage }) => {
+        if (!chatId || !responseMessage) return;
 
-        const resolvedModel =
-          (responseMessage as any)?.metadata?.model ||
-          llmConfig?.model ||
-          'openrouter/auto';
-        (responseMessage as any).metadata = {
-          ...((responseMessage as any).metadata || {}),
-          model: resolvedModel,
-        };
-
-        await saveChat(chatId, [responseMessage]);
-
-        if (titlePromise) {
-          try {
-            const title = await titlePromise;
-            if (title) {
-              await supabase.from('chats').upsert({ id: chatId, title, user_id: user.id, updated_at: new Date().toISOString() });
-            }
-          } catch (err) {
-            console.error('[chat:onFinish] Error saving title:', err);
+        try {
+          if (trigger === 'regenerate-assistant-message' && messageId) {
+            await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('message_id', messageId);
           }
+
+          const resolvedModel =
+            (responseMessage as any)?.metadata?.model ||
+            llmConfig?.model ||
+            'openrouter/auto';
+          (responseMessage as any).metadata = {
+            ...((responseMessage as any).metadata || {}),
+            model: resolvedModel,
+          };
+
+          await saveChat(chatId, [responseMessage]);
+
+          // Background extraction: persist conversation turn to Mem0 asynchronously
+          if (userText) {
+            const assistantParts = Array.isArray((responseMessage as any)?.parts)
+              ? (responseMessage as any).parts
+              : [];
+            const assistantText = assistantParts
+              .filter((p: any) => p?.type === 'text' && p.text)
+              .map((p: any) => p.text)
+              .join(' ')
+              .trim();
+
+            if (assistantText) {
+              void addMemories(
+                [
+                  { role: 'user', content: userText },
+                  { role: 'assistant', content: assistantText },
+                ],
+                { userId: user.id, metadata: { chatId } }
+              );
+            }
+          }
+
+          if (titlePromise) {
+            try {
+              const title = await titlePromise;
+              if (title) {
+                await supabase.from('chats').upsert({ id: chatId, title, user_id: user.id, updated_at: new Date().toISOString() });
+              }
+            } catch (err) {
+              console.error('[chat:onFinish] Error saving title:', err);
+            }
+          }
+        } catch (err) {
+          console.error('[chat:onFinish] Error saving assistant message / title:', err);
         }
-      } catch (err) {
-        console.error('[chat:onFinish] Error saving assistant message / title:', err);
-      }
-    },
+      },
+    }),
   });
 }

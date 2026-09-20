@@ -6,7 +6,8 @@ export const PINNED_REMOTE_TOOLS = ["codemode_run"] as const;
 
 export function buildChatAgentInstructions(
   now: Date = new Date(),
-  userPreferences: UserPreferencesLike = {}
+  userPreferences: UserPreferencesLike = {},
+  memory: string = ""
 ): string {
   const timezone = userPreferences.timezone || "Asia/Kolkata";
   let localizedDateTime: string;
@@ -37,6 +38,10 @@ You are LinkOS, an AI agent that completes tasks using the Model Context Protoco
   - \`mcp_execute_tool\`: Execute a tool on a connected server using schema-valid arguments.
 - If \`codemode_run\` is already available in your tools alongside the meta tools, call it directly instead of going through \`mcp_execute_tool\`.
 - Use \`codemode_run\` when a task benefits from writing code to chain multiple MCP tool calls, or to sort, filter, aggregate, or shrink large tool results before returning them.
+- Memory Tools:
+  - \`remember_fact\`: Explicitly save a durable developer preference, constraint, architectural rule, or project detail to long-term memory.
+  - \`search_memory\`: Search the user's long-term memory when a task requires recalling past details, project decisions, or credentials/configurations.
+  - \`forget_fact\`: Delete or forget a specific user fact from memory when requested.
 
 ## Default Workflow
 
@@ -52,5 +57,6 @@ You are LinkOS, an AI agent that completes tasks using the Model Context Protoco
 - Inspect a discovered remote tool with \`mcp_get_tool_schema\` before executing it unless the schema is already known in context.
 - Keep responses concise, transparent, and action-oriented.
 - Handle errors clearly and suggest the next best step.
+${memory ? `\n${memory.trim()}` : ""}
 `.trim();
 }

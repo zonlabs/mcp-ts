@@ -9,6 +9,7 @@ import {
   MessageSquare,
   KeyRound,
   SlidersHorizontal,
+  Brain,
   Database,
   FileText,
   ArrowRight,
@@ -27,6 +28,7 @@ const PAGES = [
   { label: "API Keys", href: "/settings/api-keys", icon: KeyRound, description: "Manage your API credentials" },
   { label: "Data Controls", href: "/settings/data-controls", icon: Database, description: "Export data, manage shared links, and chat privacy" },
   { label: "Settings", href: "/settings/preferences", icon: SlidersHorizontal, description: "Preferences and configuration" },
+  { label: "Memories", href: "/settings/memories", icon: Brain, description: "Manage persistent long-term AI memory" },
   { label: "Documentation", href: "https://docs.linkos.in/", icon: FileText, description: "Guides and API references", external: true },
 ];
 
