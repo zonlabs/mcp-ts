@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Globe2, Languages, Palette, ShieldCheck } from "lucide-react";
+import { Globe2, Languages, Palette, ShieldCheck, Brain } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ThemeSelector } from "@/components/chat/ThemeSelector";
 import {
   Select,
@@ -242,6 +243,23 @@ export default function PreferencesPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </PreferenceRow>
+
+          <PreferenceRow
+            icon={Brain}
+            title="Memory"
+            description="Allow LinkOS to remember facts, preferences, and personal context across conversations."
+          >
+            <div className="flex items-center justify-between min-w-0 flex-1 pt-1 sm:pt-0">
+              <span className="text-xs text-muted-foreground">
+                {preferences.enableMemory ? "Memory is active" : "Memory is paused"}
+              </span>
+              <Switch
+                checked={preferences.enableMemory}
+                onCheckedChange={(checked) => updatePreferences({ enableMemory: checked })}
+                aria-label="Toggle memory"
+              />
             </div>
           </PreferenceRow>
 

@@ -18,7 +18,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
 
   const { data: chatRow } = await supabase
     .from('chats')
-    .select('id, title, user_id')
+    .select('id, title, user_id, project_id')
     .eq('id', chatId)
     .maybeSingle();
 
@@ -34,6 +34,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
     <PlaygroundChat
       key={chatId}
       chatId={chatId}
+      projectId={chatRow?.project_id}
       initialTitle={chatRow?.title}
       chatUserId={chatRow?.user_id || user?.id}
       initialMessages={initialMessages}

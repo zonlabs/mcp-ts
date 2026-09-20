@@ -19,9 +19,11 @@ import { getTitleModel } from '@/lib/llm';
 import type { UserPreferences } from '@/lib/user-preferences';
 import { normalizeMessagesForModel, sanitizeModelMessages } from '@/lib/chat-message-normalization';
 import { retrieveMemoryContext, addMemories } from '@/lib/memory/mem0';
+import type { MemoryScope } from '@/lib/projects';
 
 interface ChatRequestBody {
   id?: string;
+  projectId?: string;
   trigger?: 'submit-user-message' | 'regenerate-assistant-message';
   messageId?: string;
   message?: ChatUIMessage;
@@ -39,18 +41,18 @@ async function assertChatPermission(
   supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
   chatId: string,
   userId: string
-): Promise<NextResponse | null> {
+): Promise<{ denied: NextResponse | null; existingProjectId?: string | null }> {
   const { data: chat, error } = await supabase
     .from('chats')
-    .select('user_id, visibility')
+    .select('user_id, visibility, project_id')
     .eq('id', chatId)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: 'Database error' }, { status: 500 });
+  if (error) return { denied: NextResponse.json({ error: 'Database error' }, { status: 500 }) };
   if (chat && chat.user_id !== userId && chat.visibility !== 'PUBLIC') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return { denied: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
-  return null;
+  return { denied: null, existingProjectId: chat?.project_id };
 }
 
 function extractUserText(messages: ChatUIMessage[]): string {
@@ -142,6 +144,7 @@ export async function POST(req: Request) {
 
   const {
     id: chatId,
+    projectId: bodyProjectId,
     trigger = 'submit-user-message',
     message,
     messageId,
@@ -163,12 +166,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No messages provided' }, { status: 400 });
   }
 
-  // 2. Permission check and pre-stream database sync
+  // 2. Permission check, project resolution, and pre-stream database sync
   let titlePromise: Promise<string | null> | null = null;
+  let activeProjectId: string | undefined = bodyProjectId;
 
   if (chatId) {
-    const denied = await assertChatPermission(supabase, chatId, user.id);
+    const { denied, existingProjectId } = await assertChatPermission(supabase, chatId, user.id);
     if (denied) return denied;
+    if (!activeProjectId && existingProjectId) {
+      activeProjectId = existingProjectId;
+    }
 
     const isEditSync = trigger === 'regenerate-assistant-message' && chatMessages[chatMessages.length - 1]?.role === 'user';
     if (isEditSync) {
@@ -176,6 +183,14 @@ export async function POST(req: Request) {
       await saveChat(chatId, chatMessages);
     } else if (trigger === 'submit-user-message' && message) {
       await saveChat(chatId, [message]);
+    }
+
+    if (activeProjectId) {
+      await supabase
+        .from('chats')
+        .update({ project_id: activeProjectId })
+        .eq('id', chatId)
+        .is('project_id', null);
     }
 
     // Auto-title generation kick-off (runs in background without blocking TTFT, matching chatbot)
@@ -188,18 +203,64 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3. Stream response via Chat Agent
-  const userText = extractUserText(chatMessages);
-  const memory = userText
-    ? await retrieveMemoryContext(userText, { userId: user.id })
-    : '';
+  // 3. Resolve project configuration (custom instructions, memory scope)
+  let projectInstructions = '';
+  let memoryScope: MemoryScope = 'global';
 
+  if (activeProjectId) {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, name, custom_instructions, memory_scope')
+      .eq('id', activeProjectId)
+      .maybeSingle();
+
+    if (project) {
+      if (project.custom_instructions) {
+        projectInstructions = project.custom_instructions;
+      }
+      if (project.memory_scope) {
+        memoryScope = project.memory_scope as MemoryScope;
+      }
+
+      // Fetch attached project files manifest for the agent
+      const { data: projectFiles } = await supabase
+        .from('project_files')
+        .select('name, size_bytes')
+        .eq('project_id', activeProjectId)
+        .limit(25);
+
+      if (projectFiles && projectFiles.length > 0) {
+        const fileList = projectFiles
+          .map((f) => `${f.name} (${Math.max(1, Math.round(f.size_bytes / 1024))}KB)`)
+          .join(', ');
+        const fileNotice = `\n\n[Project Knowledge Files: ${fileList}. Use the read_project_file tool to inspect any file's full content.]`;
+        projectInstructions = projectInstructions ? `${projectInstructions}${fileNotice}` : fileNotice.trim();
+      }
+    }
+  }
+
+  // 4. Retrieve memory context based on user preferences and project memory_scope
+  const isMemoryEnabled = userPreferences?.enableMemory !== false;
+  const userText = extractUserText(chatMessages);
+  let memory = '';
+  if (isMemoryEnabled && userText) {
+    if (memoryScope === 'project' && activeProjectId) {
+      memory = await retrieveMemoryContext(userText, { userId: user.id, runId: activeProjectId });
+    } else {
+      memory = await retrieveMemoryContext(userText, { userId: user.id });
+    }
+  }
+
+  // 5. Stream response via Chat Agent
   const { agent, cleanup } = await createChatAgent({
     userId: user.id,
     chatId,
     runId: chatId,
+    projectId: activeProjectId || undefined,
     userPreferences,
     memory,
+    projectInstructions,
+    memoryScope,
   });
   req.signal.addEventListener('abort', cleanup, { once: true });
 
@@ -210,7 +271,15 @@ export async function POST(req: Request) {
   const result = await agent.stream({
     messages: modelMessages,
     abortSignal: req.signal,
-    options: { userId: user.id, chatId, runId: chatId, llmConfig, userPreferences, memory },
+    options: {
+      userId: user.id,
+      chatId,
+      runId: chatId,
+      llmConfig,
+      userPreferences,
+      memory,
+      projectInstructions,
+    },
   });
 
   let resolvedTitle: string | undefined;
@@ -260,8 +329,8 @@ export async function POST(req: Request) {
 
           await saveChat(chatId, [responseMessage]);
 
-          // Background extraction: persist conversation turn to Mem0 asynchronously
-          if (userText) {
+          // Background extraction: persist conversation turn to Mem0 asynchronously if enabled
+          if (isMemoryEnabled && userText) {
             const assistantParts = Array.isArray((responseMessage as any)?.parts)
               ? (responseMessage as any).parts
               : [];
@@ -272,12 +341,17 @@ export async function POST(req: Request) {
               .trim();
 
             if (assistantText) {
+              const memOptions: any = { userId: user.id, metadata: { chatId } };
+              if (memoryScope === 'project' && activeProjectId) {
+                memOptions.runId = activeProjectId;
+                memOptions.metadata.projectId = activeProjectId;
+              }
               void addMemories(
                 [
                   { role: 'user', content: userText },
                   { role: 'assistant', content: assistantText },
                 ],
-                { userId: user.id, metadata: { chatId } }
+                memOptions
               );
             }
           }
@@ -286,7 +360,16 @@ export async function POST(req: Request) {
             try {
               const title = await titlePromise;
               if (title) {
-                await supabase.from('chats').upsert({ id: chatId, title, user_id: user.id, updated_at: new Date().toISOString() });
+                const upsertData: any = {
+                  id: chatId,
+                  title,
+                  user_id: user.id,
+                  updated_at: new Date().toISOString(),
+                };
+                if (activeProjectId) {
+                  upsertData.project_id = activeProjectId;
+                }
+                await supabase.from('chats').upsert(upsertData);
               }
             } catch (err) {
               console.error('[chat:onFinish] Error saving title:', err);

@@ -7,7 +7,8 @@ export const PINNED_REMOTE_TOOLS = ["codemode_run"] as const;
 export function buildChatAgentInstructions(
   now: Date = new Date(),
   userPreferences: UserPreferencesLike = {},
-  memory: string = ""
+  memory: string = "",
+  projectInstructions: string = ""
 ): string {
   const timezone = userPreferences.timezone || "Asia/Kolkata";
   let localizedDateTime: string;
@@ -57,6 +58,7 @@ You are LinkOS, an AI agent that completes tasks using the Model Context Protoco
 - Inspect a discovered remote tool with \`mcp_get_tool_schema\` before executing it unless the schema is already known in context.
 - Keep responses concise, transparent, and action-oriented.
 - Handle errors clearly and suggest the next best step.
+${projectInstructions ? `\n## Project Instructions\nFollow these project-specific instructions carefully:\n${projectInstructions.trim()}\n` : ""}
 ${memory ? `\n${memory.trim()}` : ""}
 `.trim();
 }

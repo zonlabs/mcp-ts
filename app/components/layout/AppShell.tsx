@@ -6,6 +6,7 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
   Home,
   LayoutGrid,
+  Folder,
   SquarePen,
   Search,
   PanelLeftClose,
@@ -256,7 +257,7 @@ function ChatItem({
 
 interface AppShellProps {
   children: ReactNode;
-  activeNav?: "home" | "apps" | "chat" | "settings";
+  activeNav?: "home" | "apps" | "projects" | "chat" | "settings";
   titleBreadcrumb?: string;
   headerActions?: ReactNode;
   initialChats?: SidebarChat[];
@@ -352,6 +353,7 @@ export function AppShell({
   const currentNav = useMemo(() => {
     if (activeNav) return activeNav;
     if (pathname.startsWith("/chat") || pathname.startsWith("/share")) return "chat";
+    if (pathname.startsWith("/projects")) return "projects";
     if (pathname.startsWith("/settings")) return "settings";
     if (pathname.startsWith("/mcp")) {
       if (tabParam === "apps" || searchParams.get("view") === "app" || searchParams.has("server")) return "apps";
@@ -364,6 +366,7 @@ export function AppShell({
     if (titleBreadcrumb) return titleBreadcrumb;
     if (pathname.startsWith("/share")) return "Shared Chat";
     if (pathname.startsWith("/chat")) return "Chat";
+    if (pathname.startsWith("/projects")) return "Projects";
     if (pathname.startsWith("/settings/api-keys")) return "Settings > API Keys";
     if (pathname.startsWith("/settings/access")) return "Settings > Access";
     if (pathname.startsWith("/settings/preferences")) return "Settings > Preferences";
@@ -608,6 +611,24 @@ export function AppShell({
             >
               <LayoutGrid className="size-4 shrink-0" />
               {isExpanded && <span className="truncate whitespace-nowrap">Apps</span>}
+            </Link>
+          </SimpleTooltip>
+
+          {/* Projects */}
+          <SimpleTooltip content={!isExpanded ? "Projects" : null} side="right">
+            <Link
+              href="/projects"
+              onClick={() => isMobile && setMobileDrawerOpen(false)}
+              className={cn(
+                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-colors text-left overflow-hidden",
+                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full px-0",
+                currentNav === "projects"
+                  ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                  : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+              )}
+            >
+              <Folder className="size-4 shrink-0" />
+              {isExpanded && <span className="truncate whitespace-nowrap">Projects</span>}
             </Link>
           </SimpleTooltip>
 

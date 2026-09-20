@@ -4,7 +4,8 @@ import { useChat } from '@ai-sdk/react';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { DefaultChatTransport, getToolName, type ToolUIPart, type DynamicToolUIPart, isToolUIPart } from 'ai';
 import { useRef, useEffect, useMemo, useState, useCallback, memo } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { MCPConnectionApproval } from '@/components/chat/MCPConnectionApproval';
 import { MCPToolApproval, MCPToolApprovalStatus } from '@/components/chat/MCPToolApproval';
@@ -26,6 +27,7 @@ import {
   ChevronDownIcon,
   ArrowLeft,
   Maximize2,
+  Folder,
 } from 'lucide-react';
 import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
@@ -49,6 +51,7 @@ export const PENDING_CHAT_MESSAGE_STORAGE_KEY = "linkos:pending-chat-message:v1"
 
 interface PlaygroundChatProps {
   chatId?: string;
+  projectId?: string;
   initialMessages?: ChatUIMessage[];
   initialDraft?: string;
   initialTitle?: string | null;
@@ -254,6 +257,7 @@ function getOptimisticChatTitle(promptText: string, existingMessageCount: number
 
 export function PlaygroundChat({ 
   chatId: propChatId, 
+  projectId: propProjectId,
   initialMessages = [], 
   initialDraft,
   initialTitle,
@@ -263,6 +267,25 @@ export function PlaygroundChat({
   const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeProjectId = propProjectId || searchParams?.get('projectId') || undefined;
+  const [projectInfo, setProjectInfo] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    if (!activeProjectId) {
+      setProjectInfo(null);
+      return;
+    }
+    fetch(`/api/projects/${activeProjectId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.project) {
+          setProjectInfo({ id: data.project.id, name: data.project.name });
+        }
+      })
+      .catch(() => {});
+  }, [activeProjectId]);
 
   const chatIdFromUrl = extractChatId(pathname) || propChatId;
   const isNewChat = !chatIdFromUrl;
@@ -336,10 +359,12 @@ export function PlaygroundChat({
 
         const baseBody = {
           id,
+          projectId: activeProjectId,
           llmConfig: currentConfig,
           userPreferences: {
             timezone: userPreferences.timezone,
             toolApprovalMode: userPreferences.toolApprovalMode,
+            enableMemory: userPreferences.enableMemory,
           },
           ...(body ?? {}),
         };
@@ -877,6 +902,26 @@ export function PlaygroundChat({
 
   return (
     <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-background">
+      {projectInfo && (
+        <div className="flex items-center justify-between px-4 py-1.5 bg-sidebar-accent/30 border-b border-border text-xs text-muted-foreground shrink-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Folder className="size-3.5 text-primary shrink-0" />
+            <span className="text-[11px] font-mono">Project:</span>
+            <Link
+              href={`/projects/${projectInfo.id}`}
+              className="font-medium text-foreground hover:text-primary transition-colors truncate"
+            >
+              {projectInfo.name}
+            </Link>
+          </div>
+          <Link
+            href={`/projects/${projectInfo.id}`}
+            className="text-[11px] text-muted-foreground hover:text-foreground shrink-0 pl-2"
+          >
+            Workspace &rarr;
+          </Link>
+        </div>
+      )}
       {!hasMessages ? (
         <>
           <div className="sm:hidden flex-1 min-h-0 flex flex-col">

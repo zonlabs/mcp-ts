@@ -11,13 +11,18 @@ import {
   shouldRequireMcpToolApproval,
 } from "@/lib/user-preferences";
 import { createMemoryTools } from "@/lib/memory/tools";
+import { createProjectFileTools } from "@/lib/projects/file-tools";
+import type { MemoryScope } from "@/lib/projects";
 
 export interface CreateChatAgentOptions {
   userId?: string;
   runId?: string;
   chatId?: string;
+  projectId?: string;
   userPreferences?: Partial<UserPreferences>;
   memory?: string;
+  projectInstructions?: string;
+  memoryScope?: MemoryScope;
 }
 
 export type ChatAgentCallOptions = {
@@ -25,6 +30,7 @@ export type ChatAgentCallOptions = {
   runId?: string;
   chatId?: string;
   memory?: string;
+  projectInstructions?: string;
   llmConfig?: {
     provider?: string;
     apiKey?: string;
@@ -36,18 +42,15 @@ export type ChatAgentCallOptions = {
 export async function createChatAgent(options: CreateChatAgentOptions = {}) {
   const userId = options.userId?.trim() || "demo-user-123";
   const initialUserPreferences = normalizeUserPreferences(options.userPreferences);
+  const memoryScope: MemoryScope = options.memoryScope ?? "global";
+  const projectInstructions = options.projectInstructions || "";
 
   const manager = new McpManager(userId);
-
-  try {
-    await manager.connect();
-  } catch (error) {
-    console.error("[MCP] Connection failed:", error);
-  }
 
   let tools: Record<string, any> = {};
 
   try {
+    await manager.connect();
     const router = new ToolRouter(manager, {
       strategy: "search",
       maxTools: 5,
@@ -60,25 +63,42 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
         needsApproval: () => shouldRequireMcpToolApproval(initialUserPreferences),
       };
     }
-    const memoryTools = createMemoryTools(userId, options.chatId || options.runId);
+    tools = { ...discoveredTools };
+  } catch (error) {
+    console.error("[MCP] Connection / tool discovery failed:", error);
+  }
+
+  if (initialUserPreferences.enableMemory !== false) {
+    const memoryRunId = memoryScope === "project" ? options.projectId : (options.chatId || options.runId);
+    const memoryTools = createMemoryTools(userId, memoryRunId);
     tools = {
-      ...discoveredTools,
+      ...tools,
       ...memoryTools,
     };
-  } catch (error) {
-    console.error("[MCP] Failed to load MCP tools:", error);
-    const memoryTools = createMemoryTools(userId, options.chatId || options.runId);
-    tools = { ...memoryTools };
+  }
+
+  if (options.projectId) {
+    const fileTools = createProjectFileTools(options.projectId);
+    tools = {
+      ...tools,
+      ...fileTools,
+    };
   }
 
   const agent = new ToolLoopAgent<ChatAgentCallOptions, ToolSet>({
-    instructions: buildChatAgentInstructions(new Date(), initialUserPreferences),
+    instructions: buildChatAgentInstructions(
+      new Date(),
+      initialUserPreferences,
+      options.memory || "",
+      projectInstructions
+    ),
     model: getModelConfig(),
     callOptionsSchema: z.object({
       userId: z.string().optional(),
       runId: z.string().optional(),
       chatId: z.string().optional(),
       memory: z.string().optional(),
+      projectInstructions: z.string().optional(),
       llmConfig: z
         .object({
           provider: z.string().optional(),
@@ -90,6 +110,7 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
         .object({
           timezone: z.string().optional(),
           toolApprovalMode: z.enum(["always", "risky", "never"]).optional(),
+          enableMemory: z.boolean().optional(),
         })
         .optional(),
     }),
@@ -97,11 +118,15 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
       const model = getModelConfig(callOptions?.llmConfig);
 
       const activePreferences = callOptions?.userPreferences || initialUserPreferences;
-      const memory = callOptions?.memory || options.memory || "";
+      const memory = callOptions?.memory ?? options.memory ?? "";
+      const activeProjectInstructions =
+        callOptions?.projectInstructions ?? projectInstructions;
+
       const instructions = buildChatAgentInstructions(
         new Date(),
         activePreferences,
-        memory
+        memory,
+        activeProjectInstructions
       );
 
       // Prune historical MCP tool outputs and intermediate reasoning to keep context lean

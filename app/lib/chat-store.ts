@@ -5,14 +5,22 @@ import type { ChatUIMessage } from '@/agent/chat-agent';
  * Creates a new chat session for the current user.
  * @returns The ID of the newly created chat, or null on failure.
  */
-export async function createChat(): Promise<string | null> {
+export async function createChat(options?: { projectId?: string; title?: string }): Promise<string | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
+  const insertData: Record<string, any> = {
+    user_id: user.id,
+    title: options?.title || 'New Chat',
+  };
+  if (options?.projectId) {
+    insertData.project_id = options.projectId;
+  }
+
   const { data, error } = await supabase
     .from('chats')
-    .insert({ user_id: user.id, title: 'New Chat' })
+    .insert(insertData)
     .select('id')
     .single();
 

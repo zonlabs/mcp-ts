@@ -136,6 +136,9 @@ export async function PATCH(req: Request) {
   if (typeof body.visibility === "string") {
     updates.visibility = body.visibility;
   }
+  if ("project_id" in body || "projectId" in body) {
+    updates.project_id = body.project_id ?? body.projectId ?? null;
+  }
 
   const { data: updatedRows, error } = await supabase
     .from("chats")

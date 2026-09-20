@@ -6,6 +6,7 @@ import {
   Search,
   Home,
   LayoutGrid,
+  Folder,
   MessageSquare,
   KeyRound,
   SlidersHorizontal,
@@ -24,6 +25,7 @@ interface SearchDialogProps {
 const PAGES = [
   { label: "Home", href: "/mcp?tab=home", icon: Home, description: "Activity overview and MCP telemetry" },
   { label: "Apps", href: "/mcp?tab=apps", icon: LayoutGrid, description: "Connect and manage MCP servers" },
+  { label: "Projects", href: "/projects", icon: Folder, description: "Workspaces with custom instructions, memory, and chats" },
   { label: "Playground", href: "/chat", icon: MessageSquare, description: "Chat with AI and run tools" },
   { label: "API Keys", href: "/settings/api-keys", icon: KeyRound, description: "Manage your API credentials" },
   { label: "Data Controls", href: "/settings/data-controls", icon: Database, description: "Export data, manage shared links, and chat privacy" },
