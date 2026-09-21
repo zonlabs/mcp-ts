@@ -114,7 +114,7 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
         const item = allItems[activeIdx];
         if (!item) return;
         if (item.type === "page") navigate(item.page.href, item.page.external);
-        else navigate(item.chat.project_id ? `/projects/${item.chat.project_id}?chat=${item.chat.id}` : `/chat/${item.chat.id}`);
+        else navigate(item.chat.project_id ? `/projects/${item.chat.project_id}/chat/${item.chat.id}` : `/chat/${item.chat.id}`);
       } else if (e.key === "Escape") {
         onClose();
       }
@@ -215,7 +215,7 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
                   const globalIdx = chatOffset + i;
                   const isActive = globalIdx === activeIdx;
                   const href = chat.project_id
-                    ? `/projects/${chat.project_id}?chat=${chat.id}`
+                    ? `/projects/${chat.project_id}/chat/${chat.id}`
                     : `/chat/${chat.id}`;
                   const updatedAt = chat.updated_at || chat.created_at;
                   const dateStr = updatedAt
