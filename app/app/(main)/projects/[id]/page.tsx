@@ -54,6 +54,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ProjectSettingsTab } from "@/components/projects/ProjectSettingsTab";
+import { ProjectWorkspaceSkeleton } from "@/components/projects/ProjectWorkspaceSkeleton";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { toast } from "react-hot-toast";
 import type { Project, ProjectChat, ProjectFile } from "@/lib/projects";
@@ -367,19 +368,7 @@ export default function ProjectWorkspacePage() {
 
 
   if (isLoading) {
-    return (
-      <div className="flex-1 h-full min-h-0 overflow-y-auto">
-        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 font-sans space-y-6">
-          <div className="h-6 w-36 bg-muted rounded animate-pulse" />
-          <div className="h-28 rounded-lg border border-border bg-card p-4 animate-pulse space-y-3" />
-          <div className="space-y-3 pt-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-14 rounded-md border border-border bg-card animate-pulse" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <ProjectWorkspaceSkeleton />;
   }
 
   if (!project) {

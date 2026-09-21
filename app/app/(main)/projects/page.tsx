@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
+import { ProjectsSkeleton } from "@/components/projects/ProjectsSkeleton";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { Project } from "@/lib/projects";
 import { toast } from "react-hot-toast";
@@ -174,6 +175,10 @@ export default function ProjectsPage() {
     });
   }, [projects, activeTab, searchQuery, currentUserId]);
 
+  if (isLoading) {
+    return <ProjectsSkeleton />;
+  }
+
   return (
     <div className="flex-1 h-full min-h-0 overflow-y-auto">
       <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10 font-sans space-y-6 pb-24">
@@ -249,13 +254,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Projects List */}
-        {isLoading ? (
-          <div className="space-y-3 pt-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 rounded-lg border border-border/40 bg-card/40 animate-pulse" />
-            ))}
-          </div>
-        ) : filteredProjects.length === 0 ? (
+        {filteredProjects.length === 0 ? (
           <div className="text-center py-16 text-xs text-muted-foreground/60 space-y-2">
             <p>{searchQuery ? `No projects matching "${searchQuery}"` : "No projects yet"}</p>
             {!searchQuery && (
