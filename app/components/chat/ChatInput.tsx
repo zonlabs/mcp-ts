@@ -52,6 +52,7 @@ async function convertFilesToDataURLs(files: FileList) {
 
 interface ChatInputProps {
   input?: string;
+  placeholder?: string;
   onInputChange?: (value: string) => void;
   onSend: (data: { text?: string; parts?: any[] }) => void;
   onStop?: () => void;
@@ -69,7 +70,7 @@ interface ChatInputProps {
   };
 }
 
-export function ChatInput({ input: externalInput, onInputChange, onSend, onStop, disabled, status, contextUsage }: ChatInputProps) {
+export function ChatInput({ input: externalInput, placeholder, onInputChange, onSend, onStop, disabled, status, contextUsage }: ChatInputProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -251,7 +252,7 @@ export function ChatInput({ input: externalInput, onInputChange, onSend, onStop,
             <Textarea
               ref={textareaRef}
               value={input}
-              placeholder={t("typeYourPrompt")}
+              placeholder={placeholder || t("typeYourPrompt")}
               disabled={disabled}
               rows={1}
               onChange={(e) => setInput(e.target.value)}

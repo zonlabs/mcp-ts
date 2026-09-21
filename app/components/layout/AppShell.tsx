@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, type ReactNode } from "react";
+import React, { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
@@ -26,17 +26,33 @@ import {
   Link as LinkIcon,
   Github,
   Download,
+  Settings,
+  Trash2,
+  Upload,
+  FolderPen,
 } from "lucide-react";
 import Image from "next/image";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { useAuth } from "@/components/providers/AuthProvider";
+import type { Project } from "@/lib/projects";
 import { useSidebarChats } from "@/lib/hooks/use-sidebar-chats";
 import { SearchDialog } from "@/components/layout/SearchDialog";
 import { ShareConversationDialog } from "@/components/chat/ShareConversationDialog";
+import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +64,8 @@ import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import type { SidebarChat } from "@/lib/sidebar-chats";
+import type { SidebarChat, PaginatedSidebarChats } from "@/lib/sidebar-chats";
+import { SidebarChatSkeleton } from "@/components/layout/SidebarChatSkeleton";
 
 /* ─── helpers ──────────────────────────────────────────────────────────────── */
 
@@ -56,6 +73,243 @@ function formatChatDate(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/* ─── Project context-menu ─────────────────────────────────────────────────── */
+
+function ProjectContextMenu({
+  project,
+  onProjectUpdated,
+  onProjectDeleted,
+}: {
+  project: Project;
+  onProjectUpdated: () => void;
+  onProjectDeleted: (projectId: string) => void;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [renameName, setRenameName] = useState(project.name);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleShare = async () => {
+    try {
+      const url = `${window.location.origin}/projects/${project.id}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Project link copied to clipboard");
+    } catch {
+      toast.error("Failed to copy project link");
+    }
+  };
+
+  const handleRenameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = renameName.trim();
+    if (!trimmed || renaming) return;
+    setRenaming(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to rename project");
+      toast.success("Project renamed");
+      setRenameOpen(false);
+      onProjectUpdated();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to rename project");
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const handleTogglePin = async () => {
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: !project.is_pinned }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to update project");
+      toast.success(project.is_pinned ? "Project unpinned" : "Project pinned");
+      onProjectUpdated();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update pin status");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to delete project");
+      toast.success("Project deleted");
+      setDeleteOpen(false);
+      onProjectDeleted(project.id);
+      if (pathname === `/projects/${project.id}` || pathname.startsWith(`/projects/${project.id}/`)) {
+        router.push("/");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete project");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/80 transition-colors"
+            aria-label="Project actions"
+          >
+            <MoreHorizontal className="size-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 text-xs">
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setOpen(false);
+              handleShare();
+            }}
+            className="gap-2.5 py-2 cursor-pointer"
+          >
+            <Upload className="size-4 text-muted-foreground" />
+            <span>Share project</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setOpen(false);
+              setRenameName(project.name);
+              setRenameOpen(true);
+            }}
+            className="gap-2.5 py-2 cursor-pointer"
+          >
+            <Pencil className="size-4 text-muted-foreground" />
+            <span>Rename project</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setOpen(false);
+              router.push(`/projects/${project.id}?tab=settings`);
+            }}
+            className="gap-2.5 py-2 cursor-pointer"
+          >
+            <Settings className="size-4 text-muted-foreground" />
+            <span>Project settings</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link
+              href={`/projects/${project.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="gap-2.5 py-2 cursor-pointer"
+            >
+              <Folder className="size-4 text-muted-foreground" />
+              <span>Project home</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setOpen(false);
+              handleTogglePin();
+            }}
+            className="gap-2.5 py-2 cursor-pointer"
+          >
+            {project.is_pinned ? (
+              <><PinOff className="size-4 text-muted-foreground" /><span>Unpin project</span></>
+            ) : (
+              <><Pin className="size-4 text-muted-foreground" /><span>Pin project</span></>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setOpen(false);
+              setDeleteOpen(true);
+            }}
+            className="gap-2.5 py-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+          >
+            <Trash2 className="size-4" />
+            <span>Delete project</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Rename Dialog — lives inside this component, no Radix focus race */}
+      <Dialog open={renameOpen} onOpenChange={(o) => !renaming && setRenameOpen(o)}>
+        <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Rename Project</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Enter a new name for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRenameSubmit} className="space-y-4 pt-2">
+            <input
+              type="text"
+              value={renameName}
+              disabled={renaming}
+              onChange={(e) => setRenameName(e.target.value)}
+              className="w-full h-9 px-3 text-xs bg-background border border-border rounded-sm text-foreground focus:outline-none focus:border-primary font-sans disabled:opacity-50"
+              placeholder="Enter new project name"
+              autoFocus
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" disabled={renaming}
+                onClick={() => setRenameOpen(false)} className="h-8 px-3 text-xs cursor-pointer">
+                Cancel
+              </Button>
+              <Button type="submit" size="sm"
+                disabled={!renameName.trim() || renaming} className="h-8 px-3 text-xs cursor-pointer">
+                {renaming ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteOpen} onOpenChange={(o) => !deleting && setDeleteOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{project.name}&rdquo;? Associated chats will
+              remain safe, but project files and instructions will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
+            >
+              {deleting ? "Deleting..." : "Delete project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 }
 
 /* ─── Chat context-menu ─────────────────────────────────────────────────────── */
@@ -212,9 +466,13 @@ function ChatItem({
   onRename: (id: string, title: string) => void;
   onShare: (chat: SidebarChat) => void;
 }) {
+  const href = chat.project_id
+    ? `/projects/${chat.project_id}?chat=${chat.id}`
+    : `/chat/${chat.id}`;
+
   return (
     <Link
-      href={`/chat/${chat.id}`}
+      href={href}
       className={cn(
         "group flex items-start justify-between gap-1 px-2 py-1 rounded-sm transition-colors",
         isActive
@@ -260,7 +518,7 @@ interface AppShellProps {
   activeNav?: "home" | "apps" | "projects" | "chat" | "settings";
   titleBreadcrumb?: string;
   headerActions?: ReactNode;
-  initialChats?: SidebarChat[];
+  initialChats?: SidebarChat[] | PaginatedSidebarChats;
   currentChatId?: string;
 }
 
@@ -276,16 +534,47 @@ export function AppShell({
   const searchParams = useSearchParams();
   const router = useRouter();
   const { userSession } = useAuth();
-  const { chats: allChats, removeChat, upsertChat } = useSidebarChats(initialChats, {
+  const {
+    chats: allChats,
+    removeChat,
+    upsertChat,
+    hasMore,
+    isFetchingNextPage,
+    fetchNextPage,
+    isLoading: isChatsLoading,
+  } = useSidebarChats(initialChats, {
     enabled: Boolean(userSession?.user),
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(true);
+  const [pinnedOpen, setPinnedOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
-  const [chatSearch, setChatSearch] = useState("");
+
   const [editingChat, setEditingChat] = useState<{ id: string; title: string } | null>(null);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+
+  // Sentinel ref for infinite scroll loading of older chats
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasMore || isFetchingNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isFetchingNextPage, fetchNextPage]);
 
   // Auto-close mobile drawer when route changes
   useEffect(() => {
@@ -386,9 +675,11 @@ export function AppShell({
 
   const currentChatId = useMemo(() => {
     if (explicitChatId) return explicitChatId;
+    const chatParam = searchParams.get("chat");
+    if (chatParam) return chatParam;
     const match = pathname.match(/^\/(?:chat|share)\/([^/]+)/);
     return match ? match[1] : null;
-  }, [explicitChatId, pathname]);
+  }, [explicitChatId, pathname, searchParams]);
 
   const userDisplayName =
     userSession?.user?.user_metadata?.full_name ||
@@ -451,16 +742,64 @@ export function AppShell({
     onError: (err: any) => toast.error(err?.message || "Failed to rename chat"),
   });
 
+  // User projects for sidebar
+  const { data: projectsData, refetch: refetchProjects } = useQuery<{ projects: Project[] }>({
+    queryKey: ["sidebar-projects"],
+    queryFn: async () => {
+      const res = await fetch("/api/projects");
+      if (!res.ok) return { projects: [] };
+      return res.json();
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const projects = projectsData?.projects ?? [];
+
+
+  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set());
+
+  // Auto-expand active project
+  useEffect(() => {
+    if (pathname.startsWith("/projects/")) {
+      const pid = pathname.split("/")[2];
+      if (pid) {
+        setExpandedProjectIds((prev) => new Set(prev).add(pid));
+      }
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (currentChatId && allChats.length > 0) {
+      const currentChat = allChats.find((c) => c.id === currentChatId);
+      if (currentChat?.project_id) {
+        setExpandedProjectIds((prev) => new Set(prev).add(currentChat.project_id!));
+      }
+    }
+  }, [currentChatId, allChats]);
+
+  const toggleProjectExpanded = (projectId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setExpandedProjectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  };
+
   // Filter and group chats
-  const { pinned, todayChats, yesterdayChats, olderChats, totalFiltered } = useMemo(() => {
-    const q = chatSearch.toLowerCase().trim();
-    const filtered = allChats
-      .filter((c) => !q || (c.title || "New Chat").toLowerCase().includes(q))
-      .sort((a, b) => {
-        const timeA = Date.parse(a.updated_at || a.created_at || "") || 0;
-        const timeB = Date.parse(b.updated_at || b.created_at || "") || 0;
-        return timeB - timeA;
-      });
+  const { pinned, todayChats, yesterdayChats, olderChats } = useMemo(() => {
+    const sorted = [...allChats].sort((a, b) => {
+      const timeA = Date.parse(a.updated_at || a.created_at || "") || 0;
+      const timeB = Date.parse(b.updated_at || b.created_at || "") || 0;
+      return timeB - timeA;
+    });
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -470,10 +809,12 @@ export function AppShell({
     const yesterdayChats: SidebarChat[] = [];
     const olderChats: SidebarChat[] = [];
 
-    for (const chat of filtered) {
+    for (const chat of sorted) {
       if (chat.is_pinned) {
+        // ALL pinned chats appear under pinned label regardless of project or non-project
         pinned.push(chat);
-      } else {
+      } else if (!chat.project_id) {
+        // Non-project chats appear under Chats
         const timestamp = Date.parse(chat.updated_at || chat.created_at || "") || 0;
         if (!timestamp) {
           olderChats.push(chat);
@@ -493,14 +834,8 @@ export function AppShell({
       }
     }
 
-    return {
-      pinned,
-      todayChats,
-      yesterdayChats,
-      olderChats,
-      totalFiltered: filtered.length,
-    };
-  }, [allChats, chatSearch]);
+    return { pinned, todayChats, yesterdayChats, olderChats };
+  }, [allChats]);
 
   // Global ⌘K
   useEffect(() => {
@@ -559,7 +894,10 @@ export function AppShell({
             <SimpleTooltip content="Toggle sidebar" side="bottom">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0"
+                className={cn(
+                  "rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0 flex items-center justify-center",
+                  sidebarOpen ? "p-1" : "size-8"
+                )}
                 aria-label="Toggle sidebar"
               >
                 {sidebarOpen ? (
@@ -614,24 +952,6 @@ export function AppShell({
             </Link>
           </SimpleTooltip>
 
-          {/* Projects */}
-          <SimpleTooltip content={!isExpanded ? "Projects" : null} side="right">
-            <Link
-              href="/projects"
-              onClick={() => isMobile && setMobileDrawerOpen(false)}
-              className={cn(
-                "w-full flex items-center gap-2.5 rounded-sm text-[13px] font-medium transition-colors text-left overflow-hidden",
-                isExpanded ? "px-2.5 py-1.5" : "justify-center h-8 w-full px-0",
-                currentNav === "projects"
-                  ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
-                  : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-              )}
-            >
-              <Folder className="size-4 shrink-0" />
-              {isExpanded && <span className="truncate whitespace-nowrap">Projects</span>}
-            </Link>
-          </SimpleTooltip>
-
           {/* New Chat */}
           <SimpleTooltip content={!isExpanded ? "New Chat" : null} side="right">
             <Link
@@ -652,136 +972,328 @@ export function AppShell({
             </Link>
           </SimpleTooltip>
 
-          {/* History */}
-          {isExpanded && allChats.length > 0 && (
-            <div className="pt-0.5">
-              <button
-                onClick={() => setHistoryOpen((o) => !o)}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 text-[13px] font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 rounded-sm transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Clock className="size-4 text-sidebar-foreground/60" />
-                  <span>History</span>
+          {/* Pinned Section */}
+          {pinned.length > 0 && isExpanded && (
+            <div className="pt-2">
+              <div className="w-full flex items-center justify-between px-2 py-1 group/pinned-header">
+                <button
+                  type="button"
+                  onClick={() => setPinnedOpen((o) => !o)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-sidebar-foreground/80 hover:text-sidebar-foreground transition-colors cursor-pointer"
+                >
+                  <span className="text-[13px]">Pinned</span>
+                  <span className="transition-opacity opacity-0 group-hover/pinned-header:opacity-100">
+                    {pinnedOpen ? (
+                      <ChevronDown className="size-3.5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="size-3.5 text-muted-foreground" />
+                    )}
+                  </span>
+                </button>
+              </div>
+
+              {pinnedOpen && (
+                <div className="mt-1 space-y-0.5 px-0.5">
+                  {pinned.map((chat) => (
+                    <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                      <ChatItem
+                        chat={chat}
+                        isActive={currentChatId === chat.id}
+                        onDelete={(id) => deleteMutation.mutate(id)}
+                        onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                        onRename={(id, title) => setEditingChat({ id, title })}
+                        onShare={handleOpenShare}
+                      />
+                    </div>
+                  ))}
                 </div>
-                {historyOpen ? (
-                  <ChevronDown className="size-4 text-sidebar-foreground/60" />
-                ) : (
-                  <ChevronRight className="size-4 text-sidebar-foreground/60" />
+              )}
+            </div>
+          )}
+
+          {/* Projects Section */}
+          {!isExpanded ? (
+            <SimpleTooltip content="Projects" side="right">
+              <Link
+                href="/projects"
+                onClick={() => isMobile && setMobileDrawerOpen(false)}
+                className={cn(
+                  "w-full flex items-center justify-center h-8 px-0 rounded-sm text-[13px] font-medium transition-colors text-left overflow-hidden",
+                  currentNav === "projects"
+                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold shadow-2xs"
+                    : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                 )}
-              </button>
+              >
+                <Folder className="size-4 shrink-0" />
+              </Link>
+            </SimpleTooltip>
+          ) : (
+            <div className="pt-2">
+              <div className="w-full flex items-center justify-between px-2 py-1 group/projects-header">
+                <button
+                  type="button"
+                  onClick={() => setProjectsOpen((o) => !o)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-sidebar-foreground/80 hover:text-sidebar-foreground transition-colors cursor-pointer"
+                >
+                  <span className="text-[13px]">Projects</span>
+                  <span className="transition-opacity opacity-0 group-hover/projects-header:opacity-100">
+                    {projectsOpen ? (
+                      <ChevronDown className="size-3.5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="size-3.5 text-muted-foreground" />
+                    )}
+                  </span>
+                </button>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover/projects-header:opacity-100 transition-opacity">
+                  <SimpleTooltip content="Add project" side="top">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCreateProjectOpen(true);
+                      }}
+                      className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer flex items-center justify-center"
+                      aria-label="Add project"
+                    >
+                      <FolderPen className="size-3.5" />
+                    </button>
+                  </SimpleTooltip>
+                  <SimpleTooltip content="All projects" side="top">
+                    <Link
+                      href="/projects"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isMobile) setMobileDrawerOpen(false);
+                      }}
+                      className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer flex items-center justify-center"
+                      aria-label="All projects"
+                    >
+                      <Folder className="size-3.5" />
+                    </Link>
+                  </SimpleTooltip>
+                </div>
+              </div>
+
+              {projectsOpen && (
+                <div className="mt-1 space-y-0.5 px-0.5">
+                  {projects.map((project) => {
+                    const projectChats = allChats
+                      .filter((c) => c.project_id === project.id)
+                      .sort(
+                        (a, b) =>
+                          (Date.parse(b.updated_at || b.created_at || "") || 0) -
+                          (Date.parse(a.updated_at || a.created_at || "") || 0)
+                      );
+                    const isProjectActive =
+                      !currentChatId &&
+                      (pathname === `/projects/${project.id}` || pathname.startsWith(`/projects/${project.id}/`));
+                    const isProjectExpanded = expandedProjectIds.has(project.id);
+
+                    return (
+                      <div key={project.id} className="space-y-0.5">
+                        <div
+                          className={cn(
+                            "group flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg text-[13px] transition-colors cursor-pointer",
+                            isProjectActive
+                              ? "bg-sidebar-accent text-sidebar-foreground font-medium shadow-2xs"
+                              : "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                          )}
+                          onClick={() => toggleProjectExpanded(project.id)}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <Folder className={cn("size-4 shrink-0", isProjectActive ? "text-foreground" : "text-muted-foreground")} />
+                            <Link
+                              href={`/projects/${project.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isMobile) setMobileDrawerOpen(false);
+                              }}
+                              className="truncate font-medium text-[13px] hover:underline"
+                            >
+                              {project.name}
+                            </Link>
+                            {project.is_pinned && (
+                              <Pin className="size-3 shrink-0 text-muted-foreground/80 -rotate-45" />
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <SimpleTooltip content="New chat in project">
+                              <Link
+                                href={`/projects/${project.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isMobile) setMobileDrawerOpen(false);
+                                }}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/80 transition-colors"
+                              >
+                                <SquarePen className="size-3.5" />
+                              </Link>
+                            </SimpleTooltip>
+
+                            <ProjectContextMenu
+                              project={project}
+                              onProjectUpdated={() => refetchProjects()}
+                              onProjectDeleted={() => refetchProjects()}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Indented chat threads or 'No project chats' */}
+                        {isProjectExpanded && (
+                          <div className="space-y-0.5">
+                            {projectChats.length > 0 ? (
+                              <div className="pl-6 space-y-0.5">
+                                {projectChats.map((chat) => (
+                                  <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                                    <ChatItem
+                                      chat={chat}
+                                      isActive={currentChatId === chat.id}
+                                      onDelete={(id) => deleteMutation.mutate(id)}
+                                      onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                                      onRename={(id, title) => setEditingChat({ id, title })}
+                                      onShare={handleOpenShare}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="pl-6 py-1 text-xs text-muted-foreground/60 select-none">
+                                No project chats
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Chats Section Header */}
+          {isExpanded && (
+            <div className="pt-3">
+              <div className="w-full flex items-center justify-between px-2 py-1 group/chats-header">
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen((o) => !o)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-sidebar-foreground/80 hover:text-sidebar-foreground transition-colors cursor-pointer"
+                >
+                  <span className="text-[13px]">Chats</span>
+                  <span className="transition-opacity opacity-0 group-hover/chats-header:opacity-100">
+                    {historyOpen ? (
+                      <ChevronDown className="size-3.5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="size-3.5 text-muted-foreground" />
+                    )}
+                  </span>
+                </button>
+              </div>
 
               {historyOpen && (
                 <div className="mt-1 space-y-1">
-                  <p className="px-1.5 pt-0.5 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                    Your Chats
-                  </p>
-                  <div className="relative px-0.5">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-sidebar-foreground/50" />
-                    <input
-                      type="text"
-                      placeholder="Search chats"
-                      value={chatSearch}
-                      onChange={(e) => setChatSearch(e.target.value)}
-                      className="w-full h-7.5 pl-7 pr-2.5 text-xs bg-sidebar-accent/40 border border-sidebar-border rounded-sm text-sidebar-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:border-sidebar-foreground/40 transition-colors font-sans"
-                    />
-                  </div>
-
-                  {/* Pinned */}
-                  {pinned.length > 0 && (
-                    <div>
-                      <p className="px-1.5 py-0.5 pt-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                        Pinned
-                      </p>
-                      <div className="space-y-0.5 px-0.5">
-                        {pinned.map((chat) => (
-                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
-                            <ChatItem
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
+                  {isChatsLoading && allChats.length === 0 ? (
+                    <SidebarChatSkeleton count={8} className="px-1" />
+                  ) : (
+                    <>
+                      {/* Empty state */}
+                      {pinned.length === 0 &&
+                        todayChats.length === 0 &&
+                        yesterdayChats.length === 0 &&
+                        olderChats.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-muted-foreground/60 select-none">
+                            No chats yet
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        )}
 
-                  {/* Today */}
-                  {todayChats.length > 0 && (
-                    <div>
-                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                        Today
-                      </p>
-                      <div className="space-y-0.5 px-1">
-                        {todayChats.map((chat) => (
-                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
-                            <ChatItem
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
+                      {/* Today */}
+                      {todayChats.length > 0 && (
+                        <div>
+                          <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                            Today
+                          </p>
+                          <div className="space-y-0.5 px-1">
+                            {todayChats.map((chat) => (
+                              <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                                <ChatItem
+                                  chat={chat}
+                                  isActive={currentChatId === chat.id}
+                                  onDelete={(id) => deleteMutation.mutate(id)}
+                                  onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                                  onRename={(id, title) => setEditingChat({ id, title })}
+                                  onShare={handleOpenShare}
+                                />
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </div>
+                      )}
 
-                  {/* Yesterday */}
-                  {yesterdayChats.length > 0 && (
-                    <div>
-                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                        Yesterday
-                      </p>
-                      <div className="space-y-0.5 px-1">
-                        {yesterdayChats.map((chat) => (
-                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
-                            <ChatItem
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
+                      {/* Yesterday */}
+                      {yesterdayChats.length > 0 && (
+                        <div>
+                          <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                            Yesterday
+                          </p>
+                          <div className="space-y-0.5 px-1">
+                            {yesterdayChats.map((chat) => (
+                              <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                                <ChatItem
+                                  chat={chat}
+                                  isActive={currentChatId === chat.id}
+                                  onDelete={(id) => deleteMutation.mutate(id)}
+                                  onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                                  onRename={(id, title) => setEditingChat({ id, title })}
+                                  onShare={handleOpenShare}
+                                />
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </div>
+                      )}
 
-                  {/* Older */}
-                  {olderChats.length > 0 && (
-                    <div>
-                      <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
-                        Older
-                      </p>
-                      <div className="space-y-0.5 px-1">
-                        {olderChats.slice(0, 30).map((chat) => (
-                          <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
-                            <ChatItem
-                              chat={chat}
-                              isActive={currentChatId === chat.id}
-                              onDelete={(id) => deleteMutation.mutate(id)}
-                              onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
-                              onRename={(id, title) => setEditingChat({ id, title })}
-                              onShare={handleOpenShare}
-                            />
+                      {/* Older */}
+                      {olderChats.length > 0 && (
+                        <div>
+                          <p className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-sidebar-foreground/60 font-medium">
+                            Older
+                          </p>
+                          <div className="space-y-0.5 px-1">
+                            {olderChats.map((chat) => (
+                              <div key={chat.id} onClick={() => isMobile && setMobileDrawerOpen(false)}>
+                                <ChatItem
+                                  chat={chat}
+                                  isActive={currentChatId === chat.id}
+                                  onDelete={(id) => deleteMutation.mutate(id)}
+                                  onTogglePin={(id, p) => pinMutation.mutate({ id, pinned: p })}
+                                  onRename={(id, title) => setEditingChat({ id, title })}
+                                  onShare={handleOpenShare}
+                                />
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </div>
+                      )}
 
-                  {totalFiltered === 0 && chatSearch && (
-                    <p className="px-2 py-2 text-[11px] text-sidebar-foreground/60 font-mono text-center">
-                      No chats found
-                    </p>
+                      {/* Infinite scroll sentinel & skeleton */}
+                      {hasMore && (
+                        <div ref={loadMoreSentinelRef} className="py-1 px-1">
+                          {isFetchingNextPage ? (
+                            <SidebarChatSkeleton count={4} />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => fetchNextPage()}
+                              className="w-full text-center py-1 text-[11px] text-muted-foreground/60 hover:text-foreground font-mono transition-colors cursor-pointer"
+                            >
+                              Load more
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -793,7 +1305,7 @@ export function AppShell({
         <div
           className={cn(
             "pt-2 pb-3 bg-sidebar shrink-0",
-            isExpanded ? "px-2" : "px-0"
+            isExpanded ? "px-2" : "px-1"
           )}
         >
           {userSession?.user && (
@@ -803,7 +1315,7 @@ export function AppShell({
                 <div
                   className={cn(
                     "w-full flex items-center gap-2 rounded-sm py-0.5 cursor-pointer transition-colors hover:bg-sidebar-accent",
-                    isExpanded ? "px-1" : "justify-center px-0"
+                    isExpanded ? "px-1" : "justify-center h-8 px-0"
                   )}
                   aria-label="Open profile menu"
                   aria-haspopup="menu"
@@ -847,14 +1359,14 @@ export function AppShell({
   };
 
   return (
-    <div className="flex h-screen w-full bg-sidebar text-foreground overflow-hidden font-sans select-none antialiased p-1.5 sm:p-2 gap-0 lg:gap-2">
-      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
+    <div className="flex h-screen w-full bg-sidebar text-foreground overflow-hidden font-sans select-none antialiased py-1.5 sm:py-2 pr-1.5 sm:pr-2 pl-0 gap-0">
+      <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} chats={allChats} />
 
       {/* ── Desktop Sidebar (hidden on <lg) ── */}
       <aside
         className={cn(
-          "hidden lg:flex h-full bg-sidebar text-sidebar-foreground flex-col transition-[width] duration-200 ease-in-out shrink-0 z-30 overflow-hidden",
-          sidebarOpen ? "w-64" : "w-12"
+          "hidden lg:flex h-full bg-sidebar text-sidebar-foreground flex-col transition-[width,margin] duration-200 ease-in-out shrink-0 z-30 overflow-hidden",
+          sidebarOpen ? "w-64 ml-0 mr-0" : "w-12 ml-1 sm:ml-1.5 mr-1 sm:mr-1.5"
         )}
       >
         {renderSidebarContent({ isMobile: false })}
@@ -1003,6 +1515,17 @@ export function AppShell({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Create Project Dialog */}
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={setCreateProjectOpen}
+        onProjectCreated={(newProj) => {
+          refetchProjects();
+          router.push(`/projects/${newProj.id}`);
+        }}
+      />
+
     </div>
   );
 }

@@ -135,12 +135,13 @@ async function claimTitleGeneration(
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
   const {
     id: chatId,
@@ -180,9 +181,9 @@ export async function POST(req: Request) {
     const isEditSync = trigger === 'regenerate-assistant-message' && chatMessages[chatMessages.length - 1]?.role === 'user';
     if (isEditSync) {
       await deleteAllChatMessages(chatId);
-      await saveChat(chatId, chatMessages);
+      await saveChat(chatId, chatMessages, { projectId: activeProjectId });
     } else if (trigger === 'submit-user-message' && message) {
-      await saveChat(chatId, [message]);
+      await saveChat(chatId, [message], { projectId: activeProjectId });
     }
 
     if (activeProjectId) {
@@ -327,7 +328,7 @@ export async function POST(req: Request) {
             model: resolvedModel,
           };
 
-          await saveChat(chatId, [responseMessage]);
+          await saveChat(chatId, [responseMessage], { projectId: activeProjectId });
 
           // Background extraction: persist conversation turn to Mem0 asynchronously if enabled
           if (isMemoryEnabled && userText) {
@@ -379,6 +380,17 @@ export async function POST(req: Request) {
           console.error('[chat:onFinish] Error saving assistant message / title:', err);
         }
       },
+      onError: (err) => {
+        console.error('[api/chat] toUIMessageStream error:', err);
+        return err instanceof Error ? err.message : 'Stream processing error occurred.';
+      },
     }),
   });
+  } catch (fatalError: any) {
+    console.error('[api/chat] Top-level handler fatal error:', fatalError);
+    return NextResponse.json(
+      { error: fatalError?.message || 'Internal server error', details: String(fatalError) },
+      { status: 500 }
+    );
+  }
 }

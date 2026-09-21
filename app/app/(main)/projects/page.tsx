@@ -1,22 +1,75 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Folder, Plus, Search, Pin, Sparkles, Filter } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Folder,
+  Plus,
+  Search,
+  Pin,
+  PinOff,
+  MoreHorizontal,
+  Settings,
+  Trash2,
+  Share2,
+  Globe,
+  MessageSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ProjectCard } from "@/components/projects/ProjectCard";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { Project } from "@/lib/projects";
 import { toast } from "react-hot-toast";
 
+function formatRelativeTime(isoString?: string): string {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export default function ProjectsPage() {
+  const router = useRouter();
   const { userSession } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "shared">("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Delete project state
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchProjects = async () => {
     setIsLoading(true);
@@ -41,14 +94,56 @@ export default function ProjectsPage() {
     setProjects((prev) => [newProject, ...prev]);
   };
 
-  const handleProjectUpdated = (updatedProject: Project) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === updatedProject.id ? updatedProject : p))
-    );
+  const handleTogglePin = async (e: React.MouseEvent, project: Project) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newPinned = !project.is_pinned;
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: newPinned }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update pin state");
+      toast.success(newPinned ? "Project pinned" : "Project unpinned");
+      setProjects((prev) =>
+        prev.map((p) => (p.id === project.id ? { ...p, is_pinned: newPinned } : p))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update pin state");
+    }
   };
 
-  const handleProjectDeleted = (deletedId: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== deletedId));
+  const handleCopyLink = async (e: React.MouseEvent, projectId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const url = `${window.location.origin}/projects/${projectId}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Project link copied");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!projectToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${projectToDelete.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete project");
+      }
+      toast.success("Project deleted");
+      setProjects((prev) => prev.filter((p) => p.id !== projectToDelete.id));
+      setProjectToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete project");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const currentUserId = userSession?.user?.id;
@@ -56,14 +151,12 @@ export default function ProjectsPage() {
   const filteredProjects = useMemo(() => {
     let list = [...projects];
 
-    // Tab filter
     if (activeTab === "mine" && currentUserId) {
       list = list.filter((p) => p.user_id === currentUserId);
     } else if (activeTab === "shared" && currentUserId) {
       list = list.filter((p) => p.user_id !== currentUserId || p.visibility === "PUBLIC");
     }
 
-    // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
@@ -74,192 +167,253 @@ export default function ProjectsPage() {
       );
     }
 
-    return list;
+    // Sort pinned first, then updated_at descending
+    return list.sort((a, b) => {
+      if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+      return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+    });
   }, [projects, activeTab, searchQuery, currentUserId]);
 
-  const pinnedProjects = useMemo(
-    () => filteredProjects.filter((p) => p.is_pinned),
-    [filteredProjects]
-  );
-
-  const otherProjects = useMemo(
-    () => filteredProjects.filter((p) => !p.is_pinned),
-    [filteredProjects]
-  );
-
   return (
-    <div className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 font-sans">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="size-8 rounded-md bg-primary/10 text-primary flex items-center justify-center">
-              <Folder className="size-4.5" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+    <div className="flex-1 h-full min-h-0 overflow-y-auto">
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10 font-sans space-y-6 pb-24">
+        {/* Top Header Row: 📁 Projects ... [New Project] */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Folder className="size-6 text-foreground stroke-[2] shrink-0" />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground truncate">
               Projects
             </h1>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Dedicated workspaces with custom instructions and memory scoping.
-          </p>
-        </div>
 
-        <Button
-          size="sm"
-          onClick={() => setCreateDialogOpen(true)}
-          className="gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
-        >
-          <Plus className="size-3.5" />
-          <span>New Project</span>
-        </Button>
-      </div>
-
-      {/* Search & Filter Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-6 pb-4">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 h-8 text-xs bg-card"
-          />
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-1 p-0.5 bg-sidebar-accent/50 border border-border rounded-md text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab("all")}
-            className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-              activeTab === "all"
-                ? "bg-card text-foreground font-medium shadow-2xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("mine")}
-            className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-              activeTab === "mine"
-                ? "bg-card text-foreground font-medium shadow-2xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Created by you
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("shared")}
-            className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-              activeTab === "shared"
-                ? "bg-card text-foreground font-medium shadow-2xs"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Shared
-          </button>
-        </div>
-      </div>
-
-      {/* Content Area */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-36 rounded-lg border border-border bg-card p-4 animate-pulse space-y-3"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="size-8 rounded-md bg-muted" />
-                <div className="h-4 w-32 bg-muted rounded" />
-              </div>
-              <div className="h-3 w-48 bg-muted rounded" />
-              <div className="h-3 w-20 bg-muted rounded pt-4" />
-            </div>
-          ))}
-        </div>
-      ) : filteredProjects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center p-12 mt-4 rounded-xl border border-dashed border-border bg-card/40">
-          <div className="size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
-            <Folder className="size-6" />
-          </div>
-          <h3 className="text-sm font-semibold text-foreground">
-            {searchQuery ? "No matching projects found" : "No projects yet"}
-          </h3>
-          <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-4">
-            {searchQuery
-              ? `We couldn't find any projects matching "${searchQuery}".`
-              : "Create a project to give LinkOS persistent instructions, customized memory, and organized conversations."}
-          </p>
-          {!searchQuery && (
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               size="sm"
               onClick={() => setCreateDialogOpen(true)}
-              className="text-xs gap-1.5"
+              className="h-8.5 px-3 text-xs font-medium cursor-pointer shadow-xs gap-1.5"
             >
               <Plus className="size-3.5" />
-              <span>Create Project</span>
+              <span>New Project</span>
             </Button>
-          )}
+          </div>
         </div>
-      ) : (
-        <div className="space-y-6 pt-2">
-          {/* Pinned Projects */}
-          {pinnedProjects.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                <Pin className="size-3 text-primary fill-primary/20" />
-                <span>Pinned Projects</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pinnedProjects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onProjectUpdated={handleProjectUpdated}
-                    onProjectDeleted={handleProjectDeleted}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* Other Projects */}
-          {otherProjects.length > 0 && (
-            <div className="space-y-3">
-              {pinnedProjects.length > 0 && (
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2">
-                  <Folder className="size-3" />
-                  <span>Other Projects</span>
+        {/* Pill Tabs + Search (at bottom of header, no ChatInput) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-b border-border/40 pb-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("all")}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${
+                activeTab === "all"
+                  ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              All ({projects.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("mine")}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${
+                activeTab === "mine"
+                  ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              Created by you
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("shared")}
+              className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${
+                activeTab === "shared"
+                  ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              Shared
+            </button>
+          </div>
+
+          <div className="relative w-full sm:w-52">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-xs bg-secondary/30 border-border/60"
+            />
+          </div>
+        </div>
+
+        {/* Projects List */}
+        {isLoading ? (
+          <div className="space-y-3 pt-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 rounded-lg border border-border/40 bg-card/40 animate-pulse" />
+            ))}
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="text-center py-16 text-xs text-muted-foreground/60 space-y-2">
+            <p>{searchQuery ? `No projects matching "${searchQuery}"` : "No projects yet"}</p>
+            {!searchQuery && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCreateDialogOpen(true)}
+                className="text-xs mt-2 cursor-pointer"
+              >
+                <Plus className="size-3.5 mr-1" />
+                Create your first project
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-1 pt-1">
+            <div className="space-y-0.5">
+              {filteredProjects.map((project) => (
+                <div
+                  key={project.id}
+                  className="group relative flex items-center justify-between py-3 px-3 -mx-3 rounded-sm hover:bg-secondary/30 transition-colors"
+                >
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="flex-1 min-w-0 pr-4 block"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                        {project.name}
+                      </span>
+                      {project.is_pinned && (
+                        <Pin className="size-3 text-primary fill-primary/20 shrink-0" />
+                      )}
+                      {project.visibility === "PUBLIC" && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0 font-normal gap-1 bg-primary/10 text-primary border-transparent shrink-0"
+                        >
+                          <Globe className="size-2.5" />
+                          <span>Public</span>
+                        </Badge>
+                      )}
+                    </div>
+                    {project.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5 font-normal">
+                        {project.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60 font-mono mt-1">
+                      <span>Updated {formatRelativeTime(project.updated_at || project.created_at)}</span>
+                      {(project as any).chats_count !== undefined && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="size-3" />
+                            {(project as any).chats_count} chats
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </Link>
+
+                  {/* Actions dropdown */}
+                  <div className="shrink-0 flex items-center gap-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="size-8 rounded-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer"
+                          aria-label="Project actions"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44 text-xs font-sans">
+                        <DropdownMenuItem
+                          onClick={() => router.push(`/projects/${project.id}?tab=settings`)}
+                          className="cursor-pointer"
+                        >
+                          <Settings className="size-3.5 mr-2 text-muted-foreground" />
+                          <span>Project Settings</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => handleCopyLink(e, project.id)}
+                          className="cursor-pointer"
+                        >
+                          <Share2 className="size-3.5 mr-2 text-muted-foreground" />
+                          <span>Copy Link</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => handleTogglePin(e, project)}
+                          className="cursor-pointer"
+                        >
+                          {project.is_pinned ? (
+                            <>
+                              <PinOff className="size-3.5 mr-2 text-muted-foreground" />
+                              <span>Unpin Project</span>
+                            </>
+                          ) : (
+                            <>
+                              <Pin className="size-3.5 mr-2 text-muted-foreground" />
+                              <span>Pin Project</span>
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(project);
+                          }}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="size-3.5 mr-2" />
+                          <span>Delete Project</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {otherProjects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onProjectUpdated={handleProjectUpdated}
-                    onProjectDeleted={handleProjectDeleted}
-                  />
-                ))}
-              </div>
+              ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Create Project Modal */}
-      <CreateProjectDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onProjectCreated={handleProjectCreated}
-      />
+        {/* Delete Confirmation Alert */}
+        <AlertDialog open={Boolean(projectToDelete)} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete project?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete &ldquo;{projectToDelete?.name}&rdquo;? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDeleteConfirm();
+                }}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? "Deleting..." : "Delete Project"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Create Project Modal */}
+        <CreateProjectDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onProjectCreated={handleProjectCreated}
+        />
+      </div>
     </div>
   );
 }

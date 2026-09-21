@@ -6,11 +6,18 @@ export type SidebarChat = {
   visibility?: string | null;
   is_pinned?: boolean | null;
   user_id?: string | null;
+  project_id?: string | null;
+};
+
+export type PaginatedSidebarChats = {
+  chats: SidebarChat[];
+  hasMore: boolean;
+  nextOffset: number | null;
 };
 
 export function normalizeSidebarChats(chats: SidebarChat[]): SidebarChat[] {
   return chats.map((chat) => ({
     ...chat,
-    is_pinned: chat.is_pinned ?? false,
+    is_pinned: Boolean(chat.is_pinned),
   }));
 }

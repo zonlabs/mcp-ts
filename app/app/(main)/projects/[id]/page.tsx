@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { PlaygroundChat } from "@/components/chat/PlaygroundChat";
 import {
   Folder,
   Settings,
@@ -31,6 +32,8 @@ import {
   Check,
   X,
   Loader2,
+  Share2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,9 +53,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { ProjectSettingsDialog } from "@/components/projects/ProjectSettingsDialog";
+import { ProjectSettingsTab } from "@/components/projects/ProjectSettingsTab";
+import { ChatInput } from "@/components/chat/ChatInput";
 import { toast } from "react-hot-toast";
 import type { Project, ProjectChat, ProjectFile } from "@/lib/projects";
+
+function formatChatDate(isoString?: string): string {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function formatRelativeTime(isoString?: string): string {
   if (!isoString) return "";
@@ -94,25 +104,55 @@ function getFileIcon(filename: string) {
 export default function ProjectWorkspacePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = params?.id as string;
+  const activeChatId = searchParams?.get("chat") || null;
+  const draftParam = searchParams?.get("draft") || undefined;
 
   const [project, setProject] = useState<Project | null>(null);
   const [chats, setChats] = useState<ProjectChat[]>([]);
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"chats" | "files">("chats");
+  const tabParam = searchParams?.get("tab");
+  const [activeTab, setActiveTab] = useState<"chats" | "files" | "settings">(
+    tabParam === "settings" || tabParam === "files" ? tabParam : "chats"
+  );
+
+  useEffect(() => {
+    if (tabParam === "settings" || tabParam === "files" || tabParam === "chats") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // Chat filter
   const [chatSearch, setChatSearch] = useState("");
   // File filter
   const [fileSearch, setFileSearch] = useState("");
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Chat input state
+  const [chatInput, setChatInput] = useState("");
+  const handleSendChatInput = (data: { text?: string; parts?: any[] }) => {
+    const newChatId = crypto.randomUUID();
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(`pending_draft_${newChatId}`, JSON.stringify(data));
+    }
+    const promptText = data.text || (data.parts?.find((p: any) => p?.type === 'text')?.text) || "";
+    const textParam = promptText ? `&draft=${encodeURIComponent(promptText.slice(0, 200))}` : "";
+    router.push(`/projects/${projectId}?chat=${newChatId}${textParam}`);
+  };
+
   const [instructionsExpanded, setInstructionsExpanded] = useState(true);
 
   // File upload state
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<{
+    tempId: string;
+    name: string;
+    size: number;
+    status: 'uploading' | 'error';
+    errorMessage?: string;
+  }[]>([]);
 
   // Preview state
   const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
@@ -139,8 +179,7 @@ export default function ProjectWorkspacePage() {
         setFiles(filesData.files || []);
       }
     } catch (err: any) {
-      console.error("[ProjectWorkspacePage] Load failed:", err);
-      toast.error(err.message || "Failed to load project");
+      toast.error(err.message || "Failed to load project details");
     } finally {
       setIsLoading(false);
     }
@@ -152,24 +191,47 @@ export default function ProjectWorkspacePage() {
 
   const handleTogglePin = async () => {
     if (!project) return;
-    const newPinned = !project.is_pinned;
     try {
       const res = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_pinned: newPinned }),
+        body: JSON.stringify({ is_pinned: !project.is_pinned }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update pin state");
-      setProject(data.project);
-      toast.success(newPinned ? "Project pinned" : "Project unpinned");
+      if (!res.ok) throw new Error(data.error || "Failed to update pin");
+      setProject((prev) => (prev ? { ...prev, is_pinned: !prev.is_pinned } : null));
+      toast.success(project.is_pinned ? "Project unpinned" : "Project pinned");
     } catch (err: any) {
-      toast.error(err.message || "Failed to update pin state");
+      toast.error(err.message || "Failed to pin project");
     }
   };
 
   const handleStartNewChat = () => {
-    router.push(`/chat?projectId=${projectId}`);
+    router.push(`/projects/${projectId}`);
+  };
+
+  const handleShareProject = async () => {
+    if (typeof window !== "undefined") {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success("Project link copied to clipboard");
+      } catch {
+        toast.error("Failed to copy link");
+      }
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    if (!confirm(`Are you sure you want to delete "${project.name}"? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete project");
+      toast.success("Project deleted");
+      router.push("/projects");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete project");
+    }
   };
 
   const handleDeleteChat = async (chatId: string) => {
@@ -207,12 +269,22 @@ export default function ProjectWorkspacePage() {
   // Upload handler
   const handleUploadFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
+    setActiveTab("files");
     setIsUploading(true);
 
     const uploads = Array.from(fileList);
-    let successCount = 0;
+    const newItems = uploads.map((file) => ({
+      tempId: crypto.randomUUID(),
+      name: file.name,
+      size: file.size,
+      status: "uploading" as const,
+    }));
 
-    for (const file of uploads) {
+    setUploadingFiles((prev) => [...newItems, ...prev]);
+
+    for (let i = 0; i < uploads.length; i++) {
+      const file = uploads[i];
+      const tempId = newItems[i].tempId;
       const formData = new FormData();
       formData.append("file", file);
 
@@ -223,16 +295,34 @@ export default function ProjectWorkspacePage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `Failed to upload ${file.name}`);
-        setFiles((prev) => [data.file, ...prev]);
-        successCount++;
+
+        if (data.file) {
+          setFiles((prev) => [data.file, ...prev.filter((f) => f.id !== data.file.id)]);
+        }
+        setUploadingFiles((prev) => prev.filter((item) => item.tempId !== tempId));
+        toast.success(`Uploaded ${file.name}`);
       } catch (err: any) {
+        setUploadingFiles((prev) =>
+          prev.map((item) =>
+            item.tempId === tempId
+              ? { ...item, status: "error", errorMessage: err.message || "Upload failed" }
+              : item
+          )
+        );
         toast.error(err.message || `Failed to upload ${file.name}`);
       }
     }
 
-    if (successCount > 0) {
-      toast.success(`Uploaded ${successCount} ${successCount === 1 ? "file" : "files"}`);
-    }
+    try {
+      const refreshRes = await fetch(`/api/projects/${projectId}/files`);
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        if (Array.isArray(refreshData.files)) {
+          setFiles(refreshData.files);
+        }
+      }
+    } catch {}
+
     setIsUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -285,15 +375,30 @@ export default function ProjectWorkspacePage() {
     return files.filter((f) => f.name.toLowerCase().includes(q));
   }, [files, fileSearch]);
 
+  if (activeChatId) {
+    return (
+      <div className="flex-1 h-full w-full min-h-0 flex flex-col">
+        <PlaygroundChat
+          key={activeChatId}
+          chatId={activeChatId}
+          projectId={projectId}
+          initialDraft={draftParam}
+        />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 font-sans space-y-6">
-        <div className="h-6 w-36 bg-muted rounded animate-pulse" />
-        <div className="h-28 rounded-lg border border-border bg-card p-4 animate-pulse space-y-3" />
-        <div className="space-y-3 pt-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 rounded-md border border-border bg-card animate-pulse" />
-          ))}
+      <div className="flex-1 h-full min-h-0 overflow-y-auto">
+        <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 font-sans space-y-6">
+          <div className="h-6 w-36 bg-muted rounded animate-pulse" />
+          <div className="h-28 rounded-lg border border-border bg-card p-4 animate-pulse space-y-3" />
+          <div className="space-y-3 pt-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-14 rounded-md border border-border bg-card animate-pulse" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -317,468 +422,290 @@ export default function ProjectWorkspacePage() {
   }
 
   return (
-    <div className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 font-sans space-y-6">
-      {/* Breadcrumbs & Navigation */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Link
-          href="/projects"
-          className="hover:text-foreground transition-colors flex items-center gap-1"
-        >
-          <Folder className="size-3.5" />
-          <span>Projects</span>
-        </Link>
-        <ChevronRight className="size-3 text-muted-foreground/50" />
-        <span className="text-foreground font-medium truncate max-w-xs">
-          {project.name}
-        </span>
-      </div>
+    <div className="flex-1 h-full min-h-0 overflow-y-auto">
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10 font-sans space-y-6 pb-24">
+        {/* Top Header Row: 📁 [name] ... [Share] [•••] */}
+        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Folder className="size-6 text-foreground stroke-[2] shrink-0" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground truncate">
+            {project.name}
+          </h1>
+        </div>
 
-      {/* Workspace Header Card */}
-      <div className="rounded-xl border border-border bg-card p-5 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-              <Folder className="size-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-                  {project.name}
-                </h1>
-                {project.visibility === "PUBLIC" && (
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-1 bg-primary/10 text-primary border-transparent">
-                    <Globe className="size-2.5" />
-                    <span>Public</span>
-                  </Badge>
-                )}
-                {project.is_pinned && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1 text-primary border-primary/30">
-                    <Pin className="size-2.5 fill-primary/20" />
-                    <span>Pinned</span>
-                  </Badge>
-                )}
-              </div>
-              {project.description && (
-                <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-                  {project.description}
-                </p>
-              )}
-            </div>
-          </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleShareProject}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-secondary/60 hover:bg-secondary border border-border/50 text-xs font-medium text-foreground transition-colors cursor-pointer"
+          >
+            <Share2 className="size-3.5 text-muted-foreground" />
+            <span>Share</span>
+          </button>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            <SimpleTooltip content={project.is_pinned ? "Unpin project" : "Pin project"}>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleTogglePin}
-                className="size-8 p-0 cursor-pointer"
-                aria-label={project.is_pinned ? "Unpin project" : "Pin project"}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="size-8 rounded-sm flex items-center justify-center bg-secondary/60 hover:bg-secondary border border-border/50 text-foreground transition-colors cursor-pointer"
+                aria-label="Project actions"
               >
+                <MoreHorizontal className="size-4 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44 text-xs font-sans">
+              <DropdownMenuItem onClick={() => setActiveTab("settings")} className="cursor-pointer">
+                <Settings className="size-3.5 mr-2 text-muted-foreground" />
+                <span>Project Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleTogglePin} className="cursor-pointer">
                 {project.is_pinned ? (
-                  <Pin className="size-3.5 text-primary fill-primary/20" />
+                  <>
+                    <PinOff className="size-3.5 mr-2 text-muted-foreground" />
+                    <span>Unpin Project</span>
+                  </>
                 ) : (
-                  <PinOff className="size-3.5 text-muted-foreground" />
+                  <>
+                    <Pin className="size-3.5 mr-2 text-muted-foreground" />
+                    <span>Pin Project</span>
+                  </>
                 )}
-              </Button>
-            </SimpleTooltip>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSettingsOpen(true)}
-              className="gap-1.5 text-xs cursor-pointer"
-            >
-              <Settings className="size-3.5 text-muted-foreground" />
-              <span>Settings</span>
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={handleStartNewChat}
-              className="gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
-            >
-              <Plus className="size-3.5" />
-              <span>New Chat</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Configuration Pills Bar */}
-        <div className="pt-3 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs text-muted-foreground">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-sidebar-accent/50 border border-border text-[11px]">
-              <Brain className="size-3 text-primary" />
-              <span className="font-medium text-foreground">Memory Scope:</span>
-              <span>
-                {project.memory_scope === "project"
-                  ? "Project only"
-                  : "Global (User & Project)"}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-sidebar-accent/50 border border-border text-[11px]">
-              <FileText className="size-3 text-primary" />
-              <span className="font-medium text-foreground">Knowledge:</span>
-              <span>{files.length} {files.length === 1 ? "file" : "files"}</span>
-            </div>
-          </div>
-
-          <span className="text-[11px] font-mono">
-            {chats.length} {chats.length === 1 ? "conversation" : "conversations"}
-          </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleDeleteProject}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash2 className="size-3.5 mr-2" />
+                <span>Delete Project</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* Custom Instructions Callout */}
-      {project.custom_instructions && (
-        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-xs">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex items-center gap-1.5 font-semibold text-primary">
-              <Sparkles className="size-3.5" />
-              <span>Active Project Instructions</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setInstructionsExpanded(!instructionsExpanded)}
-              className="text-[11px] text-primary hover:underline cursor-pointer"
-            >
-              {instructionsExpanded ? "Hide" : "Show"}
-            </button>
-          </div>
-          {instructionsExpanded && (
-            <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed bg-background/60 p-2.5 rounded border border-border/40 font-mono text-[11px]">
-              {project.custom_instructions}
-            </p>
-          )}
-        </div>
-      )}
+      {/* Input Bar */}
+      <div className="w-full">
+        <ChatInput
+          placeholder={`New chat in ${project.name}`}
+          input={chatInput}
+          onInputChange={setChatInput}
+          onSend={handleSendChatInput}
+          status="ready"
+        />
+      </div>
 
-      {/* Workspace Tabs: Conversations vs Files & Knowledge */}
-      <div className="border-b border-border flex items-center gap-4 text-xs font-medium">
+      {/* Pill Tabs: Chats | Sources | Settings (at bottom of chat input) */}
+      <div className="flex items-center gap-2 pt-1 border-b border-border/40 pb-3">
         <button
           type="button"
           onClick={() => setActiveTab("chats")}
-          className={`pb-2.5 border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+          className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${
             activeTab === "chats"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
           }`}
         >
-          <MessageSquare className="size-3.5" />
-          <span>Conversations</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sidebar-accent border border-border font-mono">
-            {chats.length}
-          </span>
+          Chats
         </button>
-
         <button
           type="button"
           onClick={() => setActiveTab("files")}
-          className={`pb-2.5 border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+          className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${
             activeTab === "files"
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
           }`}
         >
-          <FileText className="size-3.5" />
-          <span>Files & Knowledge</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sidebar-accent border border-border font-mono">
-            {files.length}
-          </span>
+          Sources ({files.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("settings")}
+          className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "settings"
+              ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
+        >
+          <Settings className="size-3.5" />
+          <span>Settings</span>
         </button>
       </div>
 
-      {/* ────────────────────────────────────────────────────────────────────────── */}
-      {/* Tab 1: Conversations Section */}
-      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* Tab 1: Chats List */}
       {activeTab === "chats" && (
-        <div className="space-y-4 pt-1">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-foreground">Conversations</h2>
-            </div>
-
-            {chats.length > 0 && (
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search chats in project..."
-                  value={chatSearch}
-                  onChange={(e) => setChatSearch(e.target.value)}
-                  className="pl-8 h-8 text-xs bg-card"
-                />
-              </div>
-            )}
-          </div>
-
+        <div className="space-y-3 pt-1">
           {chats.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-center p-10 rounded-xl border border-dashed border-border bg-card/30">
-              <div className="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-2.5">
-                <MessageSquare className="size-5" />
-              </div>
-              <h3 className="text-xs font-semibold text-foreground">
-                No chats in this project yet
-              </h3>
-              <p className="text-[11px] text-muted-foreground max-w-sm mt-1 mb-3">
-                Start a new chat to begin working with this project&apos;s custom instructions, memory scope, and knowledge files.
-              </p>
-              <Button
-                size="sm"
-                onClick={handleStartNewChat}
-                className="text-xs gap-1.5"
-              >
-                <Plus className="size-3.5" />
-                <span>Start New Chat</span>
-              </Button>
-            </div>
-          ) : filteredChats.length === 0 ? (
-            <div className="text-center p-8 rounded-lg border border-border bg-card text-xs text-muted-foreground">
-              No chats matching &ldquo;{chatSearch}&rdquo;
+            <div className="text-center py-12 text-xs text-muted-foreground/60">
+              No chats in this project yet
             </div>
           ) : (
-            <div className="divide-y divide-border rounded-lg border border-border bg-card overflow-hidden">
+            <div className="space-y-0.5">
               {filteredChats.map((chat) => (
-                <div
+                <Link
                   key={chat.id}
-                  className="group flex items-center justify-between p-3.5 hover:bg-sidebar-accent/30 transition-colors"
+                  href={`/projects/${projectId}?chat=${chat.id}`}
+                  className="group block py-3 px-3 -mx-3 rounded-sm hover:bg-secondary/30 transition-colors"
                 >
-                  <Link
-                    href={`/chat/${chat.id}`}
-                    className="flex-1 min-w-0 pr-4 block"
-                  >
-                    <div className="flex items-center gap-2">
-                      {chat.is_pinned && (
-                        <Pin className="size-3 text-primary fill-primary/20 shrink-0" />
-                      )}
-                      <span className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                        {chat.title || "New Chat"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono mt-0.5">
-                      <span>{formatRelativeTime(chat.updated_at || chat.created_at)}</span>
-                      {chat.visibility === "PUBLIC" && (
-                        <span className="text-primary/80">Public link</span>
-                      )}
-                    </div>
-                  </Link>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs px-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Link href={`/chat/${chat.id}`}>Open</Link>
-                    </Button>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="size-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors cursor-pointer"
-                          aria-label="Chat options"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40 text-xs font-sans">
-                        <DropdownMenuItem asChild className="cursor-pointer">
-                          <Link href={`/chat/${chat.id}`}>
-                            <MessageSquare className="size-3.5 mr-2 text-muted-foreground" />
-                            <span>Open</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            const newTitle = prompt("Rename chat:", chat.title || "New Chat");
-                            if (newTitle !== null) {
-                              handleRenameChat(chat.id, newTitle);
-                            }
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Pencil className="size-3.5 mr-2 text-muted-foreground" />
-                          <span>Rename</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteChat(chat.id)}
-                          variant="destructive"
-                          className="cursor-pointer text-destructive"
-                        >
-                          <Trash2 className="size-3.5 mr-2" />
-                          <span>Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-[14px] font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                      {chat.title || "New Chat"}
+                    </span>
+                    <span className="text-xs text-muted-foreground/60 font-mono shrink-0">
+                      {formatChatDate(chat.updated_at || chat.created_at)}
+                    </span>
                   </div>
-                </div>
+                  <p className="text-xs text-muted-foreground/80 line-clamp-1 mt-0.5 font-normal">
+                    {formatRelativeTime(chat.updated_at || chat.created_at)}
+                  </p>
+                </Link>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* ────────────────────────────────────────────────────────────────────────── */}
-      {/* Tab 2: Files & Knowledge Section */}
-      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* Tab 2: Sources / Files List */}
       {activeTab === "files" && (
         <div className="space-y-4 pt-1">
-          {/* Top toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Project Files</h2>
-              <p className="text-[11px] text-muted-foreground">
-                Knowledge files available to the agent via <code className="font-mono bg-muted px-1 rounded">read_project_file</code>.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => handleUploadFiles(e.target.files)}
-              />
-              <Button
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="gap-1.5 text-xs font-medium cursor-pointer"
-              >
-                {isUploading ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <UploadCloud className="size-3.5" />
-                )}
-                <span>{isUploading ? "Uploading..." : "Upload Files"}</span>
-              </Button>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              {files.length + uploadingFiles.filter((u) => u.status === "uploading").length}{" "}
+              {files.length + uploadingFiles.filter((u) => u.status === "uploading").length === 1
+                ? "knowledge file"
+                : "knowledge files"}
+            </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => handleUploadFiles(e.target.files)}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="h-7 text-xs gap-1.5 rounded-md cursor-pointer"
+            >
+              <UploadCloud className="size-3" />
+              <span>Upload File</span>
+            </Button>
           </div>
 
-          {/* Drag and Drop Zone if empty or small */}
-          {files.length === 0 ? (
+          {files.length === 0 && uploadingFiles.length === 0 ? (
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
                 handleUploadFiles(e.dataTransfer.files);
               }}
-              className="flex flex-col items-center justify-center text-center p-10 rounded-xl border border-dashed border-border bg-card/30 hover:border-primary/50 transition-colors"
+              className="flex flex-col items-center justify-center text-center p-8 rounded-lg border border-dashed border-border/60 bg-card/20 hover:border-primary/40 transition-colors"
             >
-              <div className="size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
-                <UploadCloud className="size-6" />
-              </div>
-              <h3 className="text-xs font-semibold text-foreground">
-                No files uploaded yet
-              </h3>
-              <p className="text-[11px] text-muted-foreground max-w-sm mt-1 mb-4 leading-relaxed">
-                Upload Markdown, code, text, CSV, JSON, or documentation files (up to 10MB). The agent can inspect and quote them in conversations.
+              <UploadCloud className="size-8 text-muted-foreground/50 mb-2" />
+              <p className="text-xs font-medium text-foreground">No source files uploaded yet</p>
+              <p className="text-[11px] text-muted-foreground mt-1 mb-3">
+                Upload knowledge files (.md, .txt, .pdf, code) for the model to reference.
               </p>
               <Button
                 size="sm"
+                variant="secondary"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="text-xs gap-1.5 cursor-pointer"
+                className="text-xs rounded-md cursor-pointer"
               >
-                <Plus className="size-3.5" />
-                <span>Select Files to Upload</span>
+                Select Files
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {/* File Search input */}
-              {files.length > 5 && (
-                <div className="relative max-w-xs">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search files..."
-                    value={fileSearch}
-                    onChange={(e) => setFileSearch(e.target.value)}
-                    className="pl-8 h-8 text-xs bg-card"
-                  />
-                </div>
-              )}
-
-              {/* Files Table / List */}
-              <div className="divide-y divide-border rounded-lg border border-border bg-card overflow-hidden">
-                {filteredFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="group flex items-center justify-between p-3 hover:bg-sidebar-accent/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="size-8 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-                        {getFileIcon(file.name)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-foreground truncate">
-                            {file.name}
-                          </span>
-                          {file.content && (
-                            <Badge
-                              variant="secondary"
-                              className="text-[9px] px-1 py-0 font-mono bg-primary/10 text-primary border-transparent"
-                            >
-                              Text Indexed
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono mt-0.5">
-                          <span>{formatBytes(file.size_bytes)}</span>
-                          <span>•</span>
-                          <span>{formatRelativeTime(file.created_at)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      {file.content && (
-                        <SimpleTooltip content="Preview content">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewFile(file)}
-                            className="size-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                            aria-label="Preview file content"
-                          >
-                            <Eye className="size-3.5" />
-                          </button>
-                        </SimpleTooltip>
-                      )}
-
-                      <SimpleTooltip content="Download file">
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadFile(file)}
-                          className="size-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                          aria-label="Download file"
-                        >
-                          <Download className="size-3.5" />
-                        </button>
-                      </SimpleTooltip>
-
-                      <SimpleTooltip content="Delete file">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteFile(file.id)}
-                          className="size-7 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                          aria-label="Delete file"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </SimpleTooltip>
-                    </div>
+            <div className="divide-y divide-border/40 rounded-lg border border-border/40 bg-card/40 overflow-hidden">
+              {/* Currently uploading files */}
+              {uploadingFiles.map((item) => (
+                <div
+                  key={item.tempId}
+                  className={`flex items-center justify-between p-3 transition-colors ${
+                    item.status === "error"
+                      ? "bg-destructive/10 border-l-2 border-destructive"
+                      : "bg-secondary/40 animate-pulse"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {getFileIcon(item.name)}
+                    <span className="text-xs font-medium text-foreground truncate">
+                      {item.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                      {formatBytes(item.size)}
+                    </span>
+                    {item.status === "uploading" ? (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-primary font-medium shrink-0 ml-1">
+                        <Loader2 className="size-3 animate-spin text-primary" />
+                        <span>Uploading...</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-destructive font-medium shrink-0 ml-1">
+                        <AlertCircle className="size-3" />
+                        <span>{item.errorMessage || "Failed"}</span>
+                      </span>
+                    )}
                   </div>
-                ))}
-              </div>
+
+                  {item.status === "error" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setUploadingFiles((prev) => prev.filter((u) => u.tempId !== item.tempId))
+                      }
+                      className="text-xs text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+                      title="Dismiss"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {/* Uploaded files */}
+              {files.map((file) => (
+                <div
+                  key={file.id}
+                  className="group flex items-center justify-between p-3 hover:bg-secondary/30 transition-colors"
+                >
+                  <div
+                    className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                    onClick={() => setPreviewFile(file)}
+                  >
+                    {getFileIcon(file.name)}
+                    <span className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                      {file.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {formatBytes(file.size_bytes)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadFile(file)}
+                      className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      title="Download"
+                    >
+                      <Download className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFile(file.id)}
+                      className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                      title="Delete"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -819,14 +746,17 @@ export default function ProjectWorkspacePage() {
         </Dialog>
       )}
 
-      {/* Settings Dialog */}
-      <ProjectSettingsDialog
-        project={project}
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        onProjectUpdated={(p) => setProject(p)}
-        onProjectDeleted={() => router.push("/projects")}
-      />
+      {/* Tab 3: Settings */}
+      {activeTab === "settings" && (
+        <div className="pt-2">
+          <ProjectSettingsTab
+            project={project}
+            onProjectUpdated={(updatedProject) => setProject(updatedProject)}
+            onProjectDeleted={() => router.push("/projects")}
+          />
+        </div>
+      )}
+      </div>
     </div>
   );
 }

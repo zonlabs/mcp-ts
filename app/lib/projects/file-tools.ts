@@ -2,6 +2,22 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
+const EXT_TO_MIME: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+};
+
+function getMediaType(filename: string, mimeType?: string | null): string {
+  if (mimeType && mimeType !== 'application/octet-stream') return mimeType;
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return EXT_TO_MIME[ext] || 'application/octet-stream';
+}
+
 /**
  * Creates AI SDK tools for inspecting files attached to a project.
  */
@@ -46,22 +62,23 @@ export function createProjectFileTools(projectId: string) {
 
     read_project_file: tool({
       description:
-        'Read the text content of a specific file attached to the current project.',
+        'Read the content of a specific file attached to the current project (text, code, documentation, PDF, or image).',
       inputSchema: z.object({
         filename: z
           .string()
-          .describe('The exact or partial name of the project file to read (e.g., "schema.sql", "api.md").'),
+          .describe('The exact or partial name of the project file to read (e.g., "schema.sql", "api.md", "invoice.pdf").'),
       }),
       execute: async ({ filename }) => {
         try {
           const supabase = await createClient();
+          const target = filename.trim();
 
-          // Try exact match first, then ilike match
-          let { data: file, error } = await supabase
+          // Try exact match first, then fuzzy match
+          let { data: file } = await supabase
             .from('project_files')
             .select('name, size_bytes, mime_type, content, storage_path')
             .eq('project_id', projectId)
-            .ilike('name', filename.trim())
+            .ilike('name', target)
             .maybeSingle();
 
           if (!file) {
@@ -69,12 +86,10 @@ export function createProjectFileTools(projectId: string) {
               .from('project_files')
               .select('name, size_bytes, mime_type, content, storage_path')
               .eq('project_id', projectId)
-              .ilike('name', `%${filename.trim()}%`)
+              .ilike('name', `%${target}%`)
               .limit(1);
 
-            if (fuzzyFiles && fuzzyFiles.length > 0) {
-              file = fuzzyFiles[0];
-            }
+            file = fuzzyFiles?.[0] ?? null;
           }
 
           if (!file) {
@@ -87,34 +102,58 @@ export function createProjectFileTools(projectId: string) {
             return {
               name: file.name,
               sizeBytes: file.size_bytes,
-              type: file.mime_type,
+              type: file.mime_type || 'text/plain',
               content: file.content,
             };
           }
 
-          // If content was not pre-extracted, download from storage and read text
+          // If content was not pre-extracted, download from storage
           const { data: downloadData, error: downloadError } = await supabase.storage
             .from('project-files')
             .download(file.storage_path);
 
           if (downloadError || !downloadData) {
             return {
-              error: `File "${file.name}" is a binary file or its content cannot be downloaded.`,
+              error: `File "${file.name}" cannot be downloaded from storage.`,
             };
           }
 
-          const text = await downloadData.text();
+          const arrayBuffer = await downloadData.arrayBuffer();
           return {
             name: file.name,
             sizeBytes: file.size_bytes,
-            type: file.mime_type,
-            content: text,
+            type: getMediaType(file.name, file.mime_type),
+            base64: Buffer.from(arrayBuffer).toString('base64'),
           };
         } catch (err: any) {
           return {
             error: err?.message || `Failed to read file "${filename}".`,
           };
         }
+      },
+      toModelOutput: ({ output }: { output: any }) => {
+        if (output?.error) {
+          return {
+            type: 'content',
+            value: [{ type: 'text', text: output.error }],
+          };
+        }
+        if (output?.base64) {
+          return {
+            type: 'content',
+            value: [
+              {
+                type: 'file',
+                mediaType: output.type || 'application/pdf',
+                data: { type: 'data', data: output.base64 },
+              },
+            ],
+          };
+        }
+        return {
+          type: 'content',
+          value: [{ type: 'text', text: output?.content || `File "${output?.name || ''}" is empty.` }],
+        };
       },
     }),
   };

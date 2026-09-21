@@ -32,6 +32,18 @@ export async function createChat(options?: { projectId?: string; title?: string 
   return data.id as string;
 }
 
+function mapRowToUIMessage(row: any): ChatUIMessage {
+  const meta = row?.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  return {
+    id: row.message_id ?? row.id,
+    role: row.role,
+    parts: Array.isArray(row.parts) ? row.parts : [],
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    createdAt: row.created_at,
+    ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
+  } as ChatUIMessage;
+}
+
 /**
  * Loads the complete message history for a specific chat ID.
  * Returns empty array if user is not authorized or chat is private.
@@ -54,21 +66,7 @@ export async function loadChat(chatId: string): Promise<ChatUIMessage[]> {
     return [];
   }
 
-  if (!Array.isArray(data)) return [];
-  return data.map((row) => {
-    const meta = (row as any)?.metadata && typeof (row as any)?.metadata === 'object'
-      ? (row as any).metadata
-      : {};
-
-    return {
-      id: row.message_id ?? row.id,
-      role: row.role,
-      parts: Array.isArray(row.parts) ? row.parts : [],
-      attachments: Array.isArray(row.attachments) ? row.attachments : [],
-      createdAt: row.created_at,
-      ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
-    } as ChatUIMessage;
-  });
+  return Array.isArray(data) ? data.map(mapRowToUIMessage) : [];
 }
 
 /**
@@ -105,21 +103,7 @@ export async function loadPublicChat(chatId: string): Promise<ChatUIMessage[]> {
     return [];
   }
 
-  if (!Array.isArray(data)) return [];
-  return data.map((row) => {
-    const meta = (row as any)?.metadata && typeof (row as any)?.metadata === 'object'
-      ? (row as any).metadata
-      : {};
-
-    return {
-      id: row.message_id ?? row.id,
-      role: row.role,
-      parts: Array.isArray(row.parts) ? row.parts : [],
-      attachments: Array.isArray(row.attachments) ? row.attachments : [],
-      createdAt: row.created_at,
-      ...(Object.keys(meta).length > 0 ? { metadata: meta } : {}),
-    } as ChatUIMessage;
-  });
+  return Array.isArray(data) ? data.map(mapRowToUIMessage) : [];
 }
 
 /**
@@ -140,10 +124,34 @@ export async function deleteAllChatMessages(chatId: string): Promise<void> {
 }
 
 /**
+ * Recursively strips null bytes (\u0000) from strings, arrays, and objects.
+ */
+export function stripNullBytes<T>(value: T): T {
+  if (typeof value === 'string') {
+    return value.replace(/\u0000/g, '') as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => stripNullBytes(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value)) {
+      cleaned[k] = stripNullBytes(v);
+    }
+    return cleaned as T;
+  }
+  return value;
+}
+
+/**
  * Persists chat messages to the database.
  * Handles both own chats (upsert metadata) and shared chats (update timestamp only).
  */
-export async function saveChat(chatId: string, incomingMessages: ChatUIMessage[]): Promise<void> {
+export async function saveChat(
+  chatId: string, 
+  incomingMessages: ChatUIMessage[], 
+  options?: { projectId?: string }
+): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const incoming = Array.isArray(incomingMessages) ? incomingMessages : [];
@@ -153,15 +161,25 @@ export async function saveChat(chatId: string, incomingMessages: ChatUIMessage[]
     // Determine chat ownership before updating metadata
     const { data: existingChat } = await supabase
       .from('chats')
-      .select('user_id')
+      .select('user_id, project_id')
       .eq('id', chatId)
       .maybeSingle();
       
     if (!existingChat || existingChat.user_id === user.id) {
+      const upsertData: Record<string, any> = {
+        id: chatId,
+        user_id: user.id,
+        updated_at: now,
+      };
+      if (options?.projectId) {
+        upsertData.project_id = options.projectId;
+      } else if (existingChat?.project_id) {
+        upsertData.project_id = existingChat.project_id;
+      }
       // Create or update full record if we are the owner
       await supabase
         .from('chats')
-        .upsert({ id: chatId, user_id: user.id, updated_at: now }, { onConflict: 'id' });
+        .upsert(upsertData, { onConflict: 'id' });
     } else {
       // If shared chat, only refresh the timestamp to keep it active in sidebar
       await supabase
@@ -205,9 +223,10 @@ export async function saveChat(chatId: string, incomingMessages: ChatUIMessage[]
   const hasAnyMessage = rows.some((row) => row.message_id || row.role || row.created_at);
   if (!hasAnyMessage) return;
 
+  const sanitizedRows = stripNullBytes(rows);
   const { error: upsertError } = await supabase
     .from('chat_messages')
-    .upsert(rows, { onConflict: 'chat_id,message_id' });
+    .upsert(sanitizedRows, { onConflict: 'chat_id,message_id' });
 
   if (upsertError) {
     console.error('[chat-store] failed to upsert messages:', upsertError);

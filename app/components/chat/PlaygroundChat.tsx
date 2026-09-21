@@ -17,6 +17,7 @@ import { SimpleTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useMcpContext } from '@/components/providers/McpProvider';
 import { findConnectionForServer } from '@/lib/mcp/connection-utils';
+import { ChatSkeleton } from '@/components/chat/ChatSkeleton';
 import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { RecipeComponent } from '@/components/chat/RecipeComponent';
 import {
@@ -27,7 +28,6 @@ import {
   ChevronDownIcon,
   ArrowLeft,
   Maximize2,
-  Folder,
 } from 'lucide-react';
 import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
@@ -269,7 +269,7 @@ export function PlaygroundChat({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const activeProjectId = propProjectId || searchParams?.get('projectId') || undefined;
+  const activeProjectId = propProjectId || searchParams?.get('projectId') || (pathname.startsWith('/projects/') ? pathname.split('/')[2] : undefined);
   const [projectInfo, setProjectInfo] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
@@ -287,8 +287,16 @@ export function PlaygroundChat({
       .catch(() => {});
   }, [activeProjectId]);
 
-  const chatIdFromUrl = extractChatId(pathname) || propChatId;
-  const isNewChat = !chatIdFromUrl;
+  const chatIdFromUrl = propChatId || searchParams?.get('chat') || extractChatId(pathname);
+  // Stable one-time check: treat as new chat if sessionStorage has a pending draft for this id.
+  // Using lazy useState so this value never changes after mount (avoids re-triggering the
+  // load-messages effect when the draft effect removes the key from sessionStorage).
+  const [hasPendingDraftOnMount] = useState(() => {
+    if (typeof window === 'undefined' || !chatIdFromUrl) return false;
+    return !!sessionStorage.getItem(`pending_draft_${chatIdFromUrl}`);
+  });
+  const isDraftChat = Boolean(initialDraft) || hasPendingDraftOnMount;
+  const isNewChat = !chatIdFromUrl || isDraftChat;
   const newChatIdRef = useRef(typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`);
   const prevPathnameRef = useRef(pathname);
 
@@ -350,6 +358,9 @@ export function PlaygroundChat({
   const { error, status, sendMessage, messages, addToolApprovalResponse, setMessages, regenerate, stop } = useChat<ChatUIMessage>({
     id: chatId,
     messages: safeInitialMessages,
+    onError: (err) => {
+      console.error('[useChat onError] Chat error:', err);
+    },
     transport: new DefaultChatTransport({
       api: '/api/chat',
       prepareSendMessagesRequest: ({ id, messages: chatMessages, trigger, messageId, body }) => {
@@ -401,15 +412,19 @@ export function PlaygroundChat({
   const sendChatInput = (data: { text?: string; parts?: any[] }) => {
     if (status !== 'ready') return;
 
-    if (typeof window !== 'undefined' && (window.location.pathname === '/chat' || window.location.pathname === '/chat/')) {
-      window.history.replaceState(null, '', `/chat/${chatId}`);
+    if (typeof window !== 'undefined') {
+      if (activeProjectId && window.location.pathname.startsWith('/projects/')) {
+        window.history.replaceState(null, '', `/projects/${activeProjectId}?chat=${chatId}`);
+      } else if (window.location.pathname === '/chat' || window.location.pathname === '/chat/') {
+        window.history.replaceState(null, '', `/chat/${chatId}`);
+      }
     }
 
     const currentConfig = getCurrentLlmConfig();
     const promptText = data.text || (data.parts?.find((p: any) => p.type === 'text')?.text) || "New Chat";
     const optimisticTitle = getOptimisticChatTitle(promptText, messages.length);
 
-    upsertChat({ id: chatId, ...(optimisticTitle ? { title: optimisticTitle } : {}), user_id: chatUserId });
+    upsertChat({ id: chatId, ...(optimisticTitle ? { title: optimisticTitle } : {}), user_id: chatUserId, project_id: activeProjectId });
     if (data.parts && data.parts.length > 0) {
       sendMessage({
         role: 'user',
@@ -424,6 +439,29 @@ export function PlaygroundChat({
     }
   };
 
+  const [isLoadingMessages, setIsLoadingMessages] = useState(!isNewChat && safeInitialMessages.length === 0);
+
+  useEffect(() => {
+    if (!chatId || safeInitialMessages.length > 0 || isNewChat || isDraftChat || hasSentInitialDraft.current) {
+      setIsLoadingMessages(false);
+      return;
+    }
+    if (messages.length > 0) {
+      setIsLoadingMessages(false);
+      return;
+    }
+    setIsLoadingMessages(true);
+    fetch(`/api/chats?id=${encodeURIComponent(chatId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+          setMessages(data.messages);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingMessages(false));
+  }, [chatId, safeInitialMessages.length, isNewChat, isDraftChat, setMessages]);
+
   const prevChatIdRef = useRef(chatId);
   useEffect(() => {
     if (prevChatIdRef.current !== chatId) {
@@ -437,9 +475,9 @@ export function PlaygroundChat({
   // Only sync initialTitle if this is an existing saved chat (has propChatId and initialTitle)
   useEffect(() => {
     if (initialTitle && propChatId) {
-      upsertChat({ id: propChatId, title: initialTitle, user_id: chatUserId });
+      upsertChat({ id: propChatId, title: initialTitle, user_id: chatUserId, project_id: activeProjectId });
     }
-  }, [initialTitle, propChatId, chatUserId, upsertChat]);
+  }, [initialTitle, propChatId, chatUserId, activeProjectId, upsertChat]);
 
   useEffect(() => {
     if (status === 'streaming') return;
@@ -449,16 +487,16 @@ export function PlaygroundChat({
       if (!title) continue;
       if (lastTitleRef.current === title) return;
       lastTitleRef.current = title;
-      upsertChat({ id: chatId, title, user_id: chatUserId });
+      upsertChat({ id: chatId, title, user_id: chatUserId, project_id: activeProjectId });
       return;
     }
-  }, [messages, status, chatId, chatUserId, upsertChat]);
+  }, [messages, status, chatId, chatUserId, activeProjectId, upsertChat]);
 
   useEffect(() => {
     if (status === 'ready' && messages.length > 0) {
-      upsertChat({ id: chatId, user_id: chatUserId });
+      upsertChat({ id: chatId, user_id: chatUserId, project_id: activeProjectId });
     }
-  }, [status, messages.length, chatId, chatUserId, upsertChat]);
+  }, [status, messages.length, chatId, chatUserId, activeProjectId, upsertChat]);
 
   const contextUsage = useMemo(
     () => [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage)?.metadata?.usage,
@@ -489,20 +527,80 @@ export function PlaygroundChat({
 
   useEffect(() => {
     if (hasSentInitialDraft.current) return;
-    if (initialDraft && initialDraft.trim()) {
+
+    // Load draft from sessionStorage or initialDraft prop
+    if (typeof window !== 'undefined' && chatId && !pendingDraftRef.current) {
+      const stored = sessionStorage.getItem(`pending_draft_${chatId}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed && (parsed.text || parsed.parts)) {
+            pendingDraftRef.current = parsed;
+          }
+        } catch {}
+      }
+    }
+    if (initialDraft && initialDraft.trim() && !pendingDraftRef.current) {
       pendingDraftRef.current = { text: initialDraft };
     }
-  }, [initialDraft]);
 
-  useEffect(() => {
-    if (hasSentInitialDraft.current) return;
-    if (status !== 'ready') return;
-    if (!pendingDraftRef.current) return;
-    hasSentInitialDraft.current = true;
-    const payload = pendingDraftRef.current;
-    pendingDraftRef.current = null;
-    sendChatInput(payload);
-  }, [status]);
+    // Send once status is ready and we have a draft
+    if (status !== 'ready' || !pendingDraftRef.current) {
+      return;
+    }
+
+    // Schedule sending after initial render/double-invoke cycle completes
+    const timer = setTimeout(() => {
+      if (hasSentInitialDraft.current || !pendingDraftRef.current) return;
+
+      hasSentInitialDraft.current = true;
+      const payload = pendingDraftRef.current;
+      pendingDraftRef.current = null;
+      if (typeof window !== 'undefined' && chatId) {
+        sessionStorage.removeItem(`pending_draft_${chatId}`);
+      }
+
+      // Update URL if on base /chat
+      if (typeof window !== 'undefined') {
+        if (window.location.pathname === '/chat' || window.location.pathname === '/chat/') {
+          window.history.replaceState(null, '', `/chat/${chatId}`);
+        }
+      }
+      const currentConfig = getCurrentLlmConfig();
+      const promptText = payload.text || (payload.parts?.find((p: any) => p.type === 'text')?.text) || 'New Chat';
+      const optimisticTitle = getOptimisticChatTitle(promptText, 0);
+      upsertChat({ id: chatId, ...(optimisticTitle ? { title: optimisticTitle } : {}), project_id: activeProjectId });
+
+      const onSendCatch = (err: any) => {
+        // If aborted by React StrictMode unmount or signal, allow re-sending
+        if (err?.name === 'AbortError') {
+          hasSentInitialDraft.current = false;
+          pendingDraftRef.current = payload;
+        }
+      };
+
+      if (payload.parts && payload.parts.length > 0) {
+        try {
+          const promise = sendMessage({ role: 'user', parts: payload.parts }, { body: { llmConfig: currentConfig } });
+          if (promise && typeof (promise as any).catch === 'function') {
+            (promise as any).catch(onSendCatch);
+          }
+        } catch {}
+      } else if (payload.text) {
+        try {
+          const promise = sendMessage({ text: payload.text }, { body: { llmConfig: currentConfig } });
+          if (promise && typeof (promise as any).catch === 'function') {
+            (promise as any).catch(onSendCatch);
+          }
+        } catch {}
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId, initialDraft, status]);
 
   useEffect(() => {
     if (!selectedThoughtMessageId) return;
@@ -900,65 +998,53 @@ export function PlaygroundChat({
     t,
   ]);
 
+  if (isLoadingMessages) {
+    return <ChatSkeleton />;
+  }
+
   return (
     <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-background">
-      {projectInfo && (
-        <div className="flex items-center justify-between px-4 py-1.5 bg-sidebar-accent/30 border-b border-border text-xs text-muted-foreground shrink-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Folder className="size-3.5 text-primary shrink-0" />
-            <span className="text-[11px] font-mono">Project:</span>
-            <Link
-              href={`/projects/${projectInfo.id}`}
-              className="font-medium text-foreground hover:text-primary transition-colors truncate"
-            >
-              {projectInfo.name}
-            </Link>
-          </div>
-          <Link
-            href={`/projects/${projectInfo.id}`}
-            className="text-[11px] text-muted-foreground hover:text-foreground shrink-0 pl-2"
-          >
-            Workspace &rarr;
-          </Link>
-        </div>
-      )}
       {!hasMessages ? (
         <>
           <div className="sm:hidden flex-1 min-h-0 flex flex-col">
             <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
-              <div className="mb-7">
-                <Image
-                  src="/logo-light.svg"
-                  alt="Assistant logo"
-                  width={46}
-                  height={46}
-                  className="opacity-90"
-                />
-              </div>
-              <div className="w-full max-w-xs">
-                <p className="mb-2 px-1 text-[10px] font-mono font-medium uppercase tracking-wider text-muted-foreground/80">
-                  {t("quickActions")}
-                </p>
-                <div className="space-y-1">
-                {mobileStarterPrompts.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => sendChatInput({ text: item.prompt })}
-                    className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-foreground/90 hover:bg-accent/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={item.icon}
-                        alt=""
-                        className="w-3.5 h-3.5 rounded-sm object-cover shrink-0 opacity-90"
-                      />
-                      <span className="line-clamp-1">{item.label}</span>
-                      <ArrowUpRight className="w-3.5 h-3.5 ml-auto text-muted-foreground" />
+              {!projectInfo && (
+                <>
+                  <div className="mb-7">
+                    <Image
+                      src="/logo-light.svg"
+                      alt="Assistant logo"
+                      width={46}
+                      height={46}
+                      className="opacity-90"
+                    />
+                  </div>
+                  <div className="w-full max-w-xs">
+                    <p className="mb-2 px-1 text-[10px] font-mono font-medium uppercase tracking-wider text-muted-foreground/80">
+                      {t("quickActions")}
+                    </p>
+                    <div className="space-y-1">
+                    {mobileStarterPrompts.map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={() => sendChatInput({ text: item.prompt })}
+                        className="w-full text-left rounded-lg px-2.5 py-2 text-sm text-foreground/90 hover:bg-accent/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={item.icon}
+                            alt=""
+                            className="w-3.5 h-3.5 rounded-sm object-cover shrink-0 opacity-90"
+                          />
+                          <span className="line-clamp-1">{item.label}</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 ml-auto text-muted-foreground" />
+                        </div>
+                      </button>
+                    ))}
                     </div>
-                  </button>
-                ))}
-                </div>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
@@ -982,11 +1068,13 @@ export function PlaygroundChat({
 
           <div className="hidden sm:flex flex-1 min-h-0 flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
             <div className="w-full max-w-2xl mx-auto space-y-7">
-              <div className="text-center">
-                <h1 className="text-4xl md:text-5xl font-sans font-normal tracking-[-1.5px] text-foreground leading-tight">
-                  {t("chatHeroTitle")}
-                </h1>
-              </div>
+              {!projectInfo && (
+                <div className="text-center">
+                  <h1 className="text-4xl md:text-5xl font-sans font-normal tracking-[-1.5px] text-foreground leading-tight">
+                    {t("chatHeroTitle")}
+                  </h1>
+                </div>
+              )}
 
               {isReadOnly ? (
                 <div className="w-full text-center p-4 text-sm text-muted-foreground bg-secondary/50 rounded-lg border border-border/50 backdrop-blur-sm">
@@ -1004,11 +1092,13 @@ export function PlaygroundChat({
                 />
               )}
 
-              <div className="w-full px-1">
-                <RecipeComponent
-                  onAction={(prompt) => setChatInput(prompt)}
-                />
-              </div>
+              {!projectInfo && (
+                <div className="w-full px-1">
+                  <RecipeComponent
+                    onAction={(prompt) => setChatInput(prompt)}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </>
@@ -1041,6 +1131,7 @@ export function PlaygroundChat({
             ) : (
               <Conversation className="flex-1 min-h-0 w-full">
                 <ConversationContent className={cn(chatContentWidthClass, "py-4 sm:py-6 flex flex-col gap-4 sm:gap-5")}>
+
                   {messages.map((m, index) => {
                     const isLastMessage = index === messages.length - 1;
                     return (

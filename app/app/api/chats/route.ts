@@ -1,14 +1,28 @@
 import { NextResponse } from "next/server";
 import { loadSidebarChats } from "@/lib/sidebar-chats.server";
+import { loadChat } from "@/lib/chat-store";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * GET /api/chats
- * Returns the authenticated user's recent chat list for the sidebar.
+ * Returns the authenticated user's recent chat list for the sidebar,
+ * or the messages for a specific chat if ?id=<chatId> is passed.
  */
-export async function GET() {
-  const chats = await loadSidebarChats();
-  return NextResponse.json({ chats });
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const chatId = searchParams.get("id");
+  if (chatId) {
+    const messages = await loadChat(chatId);
+    return NextResponse.json({ messages });
+  }
+
+  const limitParam = searchParams.get("limit");
+  const offsetParam = searchParams.get("offset");
+  const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+  const offset = offsetParam ? parseInt(offsetParam, 10) : undefined;
+
+  const result = await loadSidebarChats({ limit, offset });
+  return NextResponse.json(result);
 }
 
 /**
