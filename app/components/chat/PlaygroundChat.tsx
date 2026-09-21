@@ -28,6 +28,7 @@ import {
   ChevronDownIcon,
   ArrowLeft,
   Maximize2,
+  Folder,
 } from 'lucide-react';
 import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
@@ -53,10 +54,14 @@ interface PlaygroundChatProps {
   chatId?: string;
   projectId?: string;
   initialMessages?: ChatUIMessage[];
-  initialDraft?: string;
   initialTitle?: string | null;
   chatUserId?: string | null;
   isReadOnly?: boolean;
+  renderEmptyState?: (props: {
+    sendChatInput: (data: { text?: string; parts?: any[] }) => void;
+    status: 'ready' | 'submitted' | 'streaming' | 'error';
+    stop: () => void;
+  }) => React.ReactNode;
 }
 
 interface MessageRowProps {
@@ -259,10 +264,10 @@ export function PlaygroundChat({
   chatId: propChatId, 
   projectId: propProjectId,
   initialMessages = [], 
-  initialDraft,
   initialTitle,
   chatUserId,
-  isReadOnly = false 
+  isReadOnly = false,
+  renderEmptyState,
 }: PlaygroundChatProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -287,16 +292,8 @@ export function PlaygroundChat({
       .catch(() => {});
   }, [activeProjectId]);
 
-  const chatIdFromUrl = propChatId || searchParams?.get('chat') || extractChatId(pathname);
-  // Stable one-time check: treat as new chat if sessionStorage has a pending draft for this id.
-  // Using lazy useState so this value never changes after mount (avoids re-triggering the
-  // load-messages effect when the draft effect removes the key from sessionStorage).
-  const [hasPendingDraftOnMount] = useState(() => {
-    if (typeof window === 'undefined' || !chatIdFromUrl) return false;
-    return !!sessionStorage.getItem(`pending_draft_${chatIdFromUrl}`);
-  });
-  const isDraftChat = Boolean(initialDraft) || hasPendingDraftOnMount;
-  const isNewChat = !chatIdFromUrl || isDraftChat;
+  const chatIdFromUrl = propChatId || extractChatId(pathname);
+  const isNewChat = !chatIdFromUrl && !propChatId;
   const newChatIdRef = useRef(typeof crypto !== 'undefined' ? crypto.randomUUID() : `chat-${Date.now()}`);
   const prevPathnameRef = useRef(pathname);
 
@@ -305,7 +302,7 @@ export function PlaygroundChat({
   }
   prevPathnameRef.current = pathname;
 
-  const chatId = chatIdFromUrl ?? newChatIdRef.current;
+  const chatId = propChatId || chatIdFromUrl || newChatIdRef.current;
 
   const [chatInput, setChatInput] = useState("");
   const [activeMcpApp, setActiveMcpApp] = useState<{
@@ -317,8 +314,6 @@ export function PlaygroundChat({
 
   const [selectedThoughtMessageId, setSelectedThoughtMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const hasSentInitialDraft = useRef(false);
-  const pendingDraftRef = useRef<{ text?: string; parts?: any[] } | null>(null);
   const lastTitleRef = useRef<string | null>(null);
 
   const chatContentWidthClass = "w-full max-w-2xl mx-auto px-4 sm:px-6";
@@ -414,7 +409,7 @@ export function PlaygroundChat({
 
     if (typeof window !== 'undefined') {
       if (activeProjectId && window.location.pathname.startsWith('/projects/')) {
-        window.history.replaceState(null, '', `/projects/${activeProjectId}?chat=${chatId}`);
+        window.history.replaceState(null, '', `/projects/${activeProjectId}/chat/${chatId}`);
       } else if (window.location.pathname === '/chat' || window.location.pathname === '/chat/') {
         window.history.replaceState(null, '', `/chat/${chatId}`);
       }
@@ -442,7 +437,7 @@ export function PlaygroundChat({
   const [isLoadingMessages, setIsLoadingMessages] = useState(!isNewChat && safeInitialMessages.length === 0);
 
   useEffect(() => {
-    if (!chatId || safeInitialMessages.length > 0 || isNewChat || isDraftChat || hasSentInitialDraft.current) {
+    if (!chatId || safeInitialMessages.length > 0 || isNewChat) {
       setIsLoadingMessages(false);
       return;
     }
@@ -460,7 +455,7 @@ export function PlaygroundChat({
       })
       .catch(() => {})
       .finally(() => setIsLoadingMessages(false));
-  }, [chatId, safeInitialMessages.length, isNewChat, isDraftChat, setMessages]);
+  }, [chatId, safeInitialMessages.length, isNewChat, setMessages]);
 
   const prevChatIdRef = useRef(chatId);
   useEffect(() => {
@@ -525,82 +520,7 @@ export function PlaygroundChat({
     return summary.hasChainOfThought ? summary : null;
   }, [getChainOfThoughtForMessage, messages, selectedThoughtMessageId]);
 
-  useEffect(() => {
-    if (hasSentInitialDraft.current) return;
 
-    // Load draft from sessionStorage or initialDraft prop
-    if (typeof window !== 'undefined' && chatId && !pendingDraftRef.current) {
-      const stored = sessionStorage.getItem(`pending_draft_${chatId}`);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed && (parsed.text || parsed.parts)) {
-            pendingDraftRef.current = parsed;
-          }
-        } catch {}
-      }
-    }
-    if (initialDraft && initialDraft.trim() && !pendingDraftRef.current) {
-      pendingDraftRef.current = { text: initialDraft };
-    }
-
-    // Send once status is ready and we have a draft
-    if (status !== 'ready' || !pendingDraftRef.current) {
-      return;
-    }
-
-    // Schedule sending after initial render/double-invoke cycle completes
-    const timer = setTimeout(() => {
-      if (hasSentInitialDraft.current || !pendingDraftRef.current) return;
-
-      hasSentInitialDraft.current = true;
-      const payload = pendingDraftRef.current;
-      pendingDraftRef.current = null;
-      if (typeof window !== 'undefined' && chatId) {
-        sessionStorage.removeItem(`pending_draft_${chatId}`);
-      }
-
-      // Update URL if on base /chat
-      if (typeof window !== 'undefined') {
-        if (window.location.pathname === '/chat' || window.location.pathname === '/chat/') {
-          window.history.replaceState(null, '', `/chat/${chatId}`);
-        }
-      }
-      const currentConfig = getCurrentLlmConfig();
-      const promptText = payload.text || (payload.parts?.find((p: any) => p.type === 'text')?.text) || 'New Chat';
-      const optimisticTitle = getOptimisticChatTitle(promptText, 0);
-      upsertChat({ id: chatId, ...(optimisticTitle ? { title: optimisticTitle } : {}), project_id: activeProjectId });
-
-      const onSendCatch = (err: any) => {
-        // If aborted by React StrictMode unmount or signal, allow re-sending
-        if (err?.name === 'AbortError') {
-          hasSentInitialDraft.current = false;
-          pendingDraftRef.current = payload;
-        }
-      };
-
-      if (payload.parts && payload.parts.length > 0) {
-        try {
-          const promise = sendMessage({ role: 'user', parts: payload.parts }, { body: { llmConfig: currentConfig } });
-          if (promise && typeof (promise as any).catch === 'function') {
-            (promise as any).catch(onSendCatch);
-          }
-        } catch {}
-      } else if (payload.text) {
-        try {
-          const promise = sendMessage({ text: payload.text }, { body: { llmConfig: currentConfig } });
-          if (promise && typeof (promise as any).catch === 'function') {
-            (promise as any).catch(onSendCatch);
-          }
-        } catch {}
-      }
-    }, 150);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, initialDraft, status]);
 
   useEffect(() => {
     if (!selectedThoughtMessageId) return;
@@ -1005,7 +925,10 @@ export function PlaygroundChat({
   return (
     <div className="flex flex-col h-full w-full flex-1 min-h-0 min-w-0 bg-background">
       {!hasMessages ? (
-        <>
+        renderEmptyState ? (
+          renderEmptyState({ sendChatInput, status, stop })
+        ) : (
+          <>
           <div className="sm:hidden flex-1 min-h-0 flex flex-col">
             <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24">
               {!projectInfo && (
@@ -1102,6 +1025,7 @@ export function PlaygroundChat({
             </div>
           </div>
         </>
+        )
       ) : (
         <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
           <div className={cn(

@@ -106,8 +106,6 @@ export default function ProjectWorkspacePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params?.id as string;
-  const activeChatId = searchParams?.get("chat") || null;
-  const draftParam = searchParams?.get("draft") || undefined;
 
   const [project, setProject] = useState<Project | null>(null);
   const [chats, setChats] = useState<ProjectChat[]>([]);
@@ -131,15 +129,6 @@ export default function ProjectWorkspacePage() {
 
   // Chat input state
   const [chatInput, setChatInput] = useState("");
-  const handleSendChatInput = (data: { text?: string; parts?: any[] }) => {
-    const newChatId = crypto.randomUUID();
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(`pending_draft_${newChatId}`, JSON.stringify(data));
-    }
-    const promptText = data.text || (data.parts?.find((p: any) => p?.type === 'text')?.text) || "";
-    const textParam = promptText ? `&draft=${encodeURIComponent(promptText.slice(0, 200))}` : "";
-    router.push(`/projects/${projectId}?chat=${newChatId}${textParam}`);
-  };
 
   const [instructionsExpanded, setInstructionsExpanded] = useState(true);
 
@@ -375,18 +364,7 @@ export default function ProjectWorkspacePage() {
     return files.filter((f) => f.name.toLowerCase().includes(q));
   }, [files, fileSearch]);
 
-  if (activeChatId) {
-    return (
-      <div className="flex-1 h-full w-full min-h-0 flex flex-col">
-        <PlaygroundChat
-          key={activeChatId}
-          chatId={activeChatId}
-          projectId={projectId}
-          initialDraft={draftParam}
-        />
-      </div>
-    );
-  }
+
 
   if (isLoading) {
     return (
@@ -422,8 +400,12 @@ export default function ProjectWorkspacePage() {
   }
 
   return (
-    <div className="flex-1 h-full min-h-0 overflow-y-auto">
-      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10 font-sans space-y-6 pb-24">
+    <PlaygroundChat
+      key={projectId}
+      projectId={projectId}
+      renderEmptyState={({ sendChatInput, status }) => (
+        <div className="flex-1 h-full min-h-0 overflow-y-auto">
+          <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10 font-sans space-y-6 pb-24">
         {/* Top Header Row: 📁 [name] ... [Share] [•••] */}
         <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -490,8 +472,8 @@ export default function ProjectWorkspacePage() {
           placeholder={`New chat in ${project.name}`}
           input={chatInput}
           onInputChange={setChatInput}
-          onSend={handleSendChatInput}
-          status="ready"
+          onSend={sendChatInput}
+          status={status}
         />
       </div>
 
@@ -545,7 +527,7 @@ export default function ProjectWorkspacePage() {
               {filteredChats.map((chat) => (
                 <Link
                   key={chat.id}
-                  href={`/projects/${projectId}?chat=${chat.id}`}
+                  href={`/projects/${projectId}/chat/${chat.id}`}
                   className="group block py-3 px-3 -mx-3 rounded-sm hover:bg-secondary/30 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-4">
@@ -758,5 +740,7 @@ export default function ProjectWorkspacePage() {
       )}
       </div>
     </div>
+      )}
+    />
   );
 }

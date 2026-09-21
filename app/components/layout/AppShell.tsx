@@ -467,7 +467,7 @@ function ChatItem({
   onShare: (chat: SidebarChat) => void;
 }) {
   const href = chat.project_id
-    ? `/projects/${chat.project_id}?chat=${chat.id}`
+    ? `/projects/${chat.project_id}/chat/${chat.id}`
     : `/chat/${chat.id}`;
 
   return (
@@ -677,7 +677,7 @@ export function AppShell({
     if (explicitChatId) return explicitChatId;
     const chatParam = searchParams.get("chat");
     if (chatParam) return chatParam;
-    const match = pathname.match(/^\/(?:chat|share)\/([^/]+)/);
+    const match = pathname.match(/\/(?:chat|share)\/([^/]+)/);
     return match ? match[1] : null;
   }, [explicitChatId, pathname, searchParams]);
 
@@ -696,8 +696,8 @@ export function AppShell({
     onSuccess: (id) => {
       removeChat(id);
       toast.success("Chat deleted");
-      if (pathname === `/chat/${id}`) {
-        router.push("/chat");
+      if (pathname === `/chat/${id}` || pathname.endsWith(`/chat/${id}`)) {
+        router.push(pathname.startsWith("/projects/") ? pathname.split("/chat/")[0] : "/chat");
       }
     },
     onError: (err: any) => toast.error(err?.message || "Failed to delete chat"),

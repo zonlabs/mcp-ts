@@ -5,16 +5,19 @@ import { loadChat } from '@/lib/chat-store';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function Page(props: { params: Promise<{ chatId: string }>; searchParams?: Promise<{ draft?: string; projectId?: string }> }) {
-  const { chatId } = await props.params;
-  const searchParams = props.searchParams ? await props.searchParams : undefined;
+export default async function ProjectChatPage(props: {
+  params: Promise<{ id: string; chatId: string }>;
+}) {
+  const { id: projectId, chatId } = await props.params;
 
   if (!UUID_REGEX.test(chatId)) {
     notFound();
   }
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: chatRow } = await supabase
     .from('chats')
@@ -28,8 +31,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
   }
 
   const initialMessages = chatRow ? await loadChat(chatId) : [];
-  const projectIdParam = typeof searchParams?.projectId === 'string' ? searchParams.projectId : undefined;
-  const effectiveProjectId = chatRow?.project_id || projectIdParam;
+  const effectiveProjectId = chatRow?.project_id || projectId;
 
   return (
     <PlaygroundChat
