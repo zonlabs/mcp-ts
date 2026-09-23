@@ -18,13 +18,36 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
 
   const { data: chatRow } = await supabase
     .from('chats')
-    .select('id, title, user_id, project_id')
+    .select('id, title, user_id, project_id, visibility')
     .eq('id', chatId)
     .maybeSingle();
 
   // If the chat row doesn't exist yet and there's no authenticated user, return 404
   if (!chatRow && !user) {
     notFound();
+  }
+
+  let isReadOnly = false;
+  if (chatRow && user && chatRow.user_id !== user.id) {
+    let collaboratorRole: 'viewer' | 'editor' | null = null;
+    if (user.email) {
+      const { data: shareData } = await supabase
+        .from('chat_shares')
+        .select('role')
+        .eq('chat_id', chatId)
+        .eq('email', user.email.toLowerCase())
+        .maybeSingle();
+
+      if (shareData?.role) {
+        collaboratorRole = shareData.role as 'viewer' | 'editor';
+      }
+    }
+
+    if (collaboratorRole === 'viewer') {
+      isReadOnly = true;
+    } else if (chatRow.visibility !== 'PUBLIC' && collaboratorRole !== 'editor') {
+      notFound();
+    }
   }
 
   const initialMessages = chatRow ? await loadChat(chatId) : [];
@@ -39,6 +62,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
       initialTitle={chatRow?.title}
       chatUserId={chatRow?.user_id || user?.id}
       initialMessages={initialMessages}
+      isReadOnly={isReadOnly}
     />
   );
 }

@@ -40,7 +40,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import type { Project } from "@/lib/projects";
 import { useSidebarChats } from "@/lib/hooks/use-sidebar-chats";
 import { SearchDialog } from "@/components/layout/SearchDialog";
-import { ShareConversationDialog } from "@/components/chat/ShareConversationDialog";
+import { ShareDialog } from "@/components/chat/ShareDialog";
 import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -81,10 +81,12 @@ function ProjectContextMenu({
   project,
   onProjectUpdated,
   onProjectDeleted,
+  onShareProject,
 }: {
   project: Project;
   onProjectUpdated: () => void;
   onProjectDeleted: (projectId: string) => void;
+  onShareProject?: (project: Project) => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -182,7 +184,11 @@ function ProjectContextMenu({
             onSelect={(e) => {
               e.preventDefault();
               setOpen(false);
-              handleShare();
+              if (onShareProject) {
+                onShareProject(project);
+              } else {
+                handleShare();
+              }
             }}
             className="gap-2.5 py-2 cursor-pointer"
           >
@@ -583,6 +589,7 @@ export function AppShell({
 
   // Share Dialog state
   const [shareChat, setShareChat] = useState<SidebarChat | null>(null);
+  const [shareProject, setShareProject] = useState<Project | null>(null);
   const [shareVisibility, setShareVisibility] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
   const [shareCopyMessage, setShareCopyMessage] = useState<string | null>(null);
   const [isSavingShare, setIsSavingShare] = useState(false);
@@ -1181,6 +1188,7 @@ export function AppShell({
                               project={project}
                               onProjectUpdated={() => refetchProjects()}
                               onProjectDeleted={() => refetchProjects()}
+                              onShareProject={setShareProject}
                             />
                           </div>
                         </div>
@@ -1487,6 +1495,24 @@ export function AppShell({
           )}
 
           <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            {currentChatId && !pathname.startsWith("/share") && (
+              <SimpleTooltip content="Share chat" side="bottom">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const found = allChats.find((c) => c.id === currentChatId);
+                    handleOpenShare(
+                      found || ({ id: currentChatId, title: "Chat", visibility: "PRIVATE" } as any)
+                    );
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors cursor-pointer border border-border/60"
+                  aria-label="Share chat"
+                >
+                  <Share2 className="size-3.5" />
+                  <span className="hidden sm:inline">Share</span>
+                </button>
+              </SimpleTooltip>
+            )}
             <Link
               href="https://github.com/zonlabs/mcp-ts"
               target="_blank"
@@ -1504,8 +1530,8 @@ export function AppShell({
         </div>
       </div>
 
-      {/* Share Dialog */}
-      <ShareConversationDialog
+      {/* Chat Share Dialog */}
+      <ShareDialog
         open={Boolean(shareChat)}
         onOpenChange={(open) => {
           if (!open) {
@@ -1513,12 +1539,35 @@ export function AppShell({
             setShareCopyMessage(null);
           }
         }}
-        chatId={shareChat?.id}
-        shareVisibility={shareVisibility}
-        shareCopyMessage={shareCopyMessage}
-        onVisibilityChange={setShareVisibility}
-        onSaveShare={handleSaveShare}
-        onCopyShareLink={handleCopyShareLink}
+        type="chat"
+        id={shareChat?.id}
+        title="Share Chat"
+        initialVisibility={shareVisibility}
+        onVisibilityChange={(targetVisibility) => {
+          setShareVisibility(targetVisibility);
+          setShareChat((prev) => (prev ? { ...prev, visibility: targetVisibility } : null));
+          if (shareChat?.id) {
+            upsertChat({ id: shareChat.id, visibility: targetVisibility });
+          }
+        }}
+      />
+
+      {/* Project Share Dialog */}
+      <ShareDialog
+        open={Boolean(shareProject)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShareProject(null);
+          }
+        }}
+        type="project"
+        id={shareProject?.id}
+        title="Share Project"
+        initialVisibility={(shareProject?.visibility as "PRIVATE" | "PUBLIC") || "PRIVATE"}
+        onVisibilityChange={(targetVisibility) => {
+          setShareProject((prev) => (prev ? { ...prev, visibility: targetVisibility } : null));
+          refetchProjects();
+        }}
       />
 
       {/* Rename Dialog */}

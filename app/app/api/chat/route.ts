@@ -42,7 +42,7 @@ interface ChatRequestBody {
 async function assertChatPermission(
   supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
   chatId: string,
-  userId: string
+  user: { id: string; email?: string | null }
 ): Promise<{ denied: NextResponse | null; existingProjectId?: string | null }> {
   const { data: chat, error } = await supabase
     .from('chats')
@@ -51,9 +51,34 @@ async function assertChatPermission(
     .maybeSingle();
 
   if (error) return { denied: NextResponse.json({ error: 'Database error' }, { status: 500 }) };
-  if (chat && chat.user_id !== userId && chat.visibility !== 'PUBLIC') {
-    return { denied: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+  if (!chat) return { denied: null, existingProjectId: null };
+
+  if (chat.user_id !== user.id) {
+    const userEmail = user.email?.toLowerCase();
+    let collaboratorRole: 'viewer' | 'editor' | null = null;
+
+    if (userEmail) {
+      const { data: share } = await supabase
+        .from('chat_shares')
+        .select('role')
+        .eq('chat_id', chatId)
+        .eq('email', userEmail)
+        .maybeSingle();
+
+      if (share?.role) {
+        collaboratorRole = share.role as 'viewer' | 'editor';
+      }
+    }
+
+    if (collaboratorRole === 'viewer') {
+      return { denied: NextResponse.json({ error: 'Read-only access: Viewers cannot send messages' }, { status: 403 }) };
+    }
+
+    if (chat.visibility !== 'PUBLIC' && collaboratorRole !== 'editor') {
+      return { denied: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+    }
   }
+
   return { denied: null, existingProjectId: chat?.project_id };
 }
 
@@ -174,7 +199,7 @@ export async function POST(req: Request) {
     let activeProjectId: string | undefined = bodyProjectId;
 
     if (chatId) {
-      const { denied, existingProjectId } = await assertChatPermission(supabase, chatId, user.id);
+      const { denied, existingProjectId } = await assertChatPermission(supabase, chatId, user);
       if (denied) return denied;
       if (!activeProjectId && existingProjectId) {
         activeProjectId = existingProjectId;

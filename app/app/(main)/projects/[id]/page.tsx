@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/dialog";
 import { ProjectSettingsTab } from "@/components/projects/ProjectSettingsTab";
 import { ProjectWorkspaceSkeleton } from "@/components/projects/ProjectWorkspaceSkeleton";
+import { ShareDialog } from "@/components/chat/ShareDialog";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { toast } from "react-hot-toast";
 import type { Project, ProjectChat, ProjectFile } from "@/lib/projects";
@@ -112,6 +113,7 @@ export default function ProjectWorkspacePage() {
   const [chats, setChats] = useState<ProjectChat[]>([]);
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
   const tabParam = searchParams?.get("tab");
   const [activeTab, setActiveTab] = useState<"chats" | "files" | "settings">(
     tabParam === "settings" || tabParam === "files" ? tabParam : "chats"
@@ -200,15 +202,8 @@ export default function ProjectWorkspacePage() {
     router.push(`/projects/${projectId}`);
   };
 
-  const handleShareProject = async () => {
-    if (typeof window !== "undefined") {
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success("Project link copied to clipboard");
-      } catch {
-        toast.error("Failed to copy link");
-      }
-    }
+  const handleShareProject = () => {
+    setShareOpen(true);
   };
 
   const handleDeleteProject = async () => {
@@ -727,6 +722,19 @@ export default function ProjectWorkspacePage() {
           />
         </div>
       )}
+
+      {/* Share Project Dialog */}
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        type="project"
+        id={projectId}
+        title="Share Project"
+        initialVisibility={(project?.visibility as any) || "PRIVATE"}
+        onVisibilityChange={(v) => {
+          setProject((prev) => (prev ? { ...prev, visibility: v } : null));
+        }}
+      />
       </div>
     </div>
       )}

@@ -29,15 +29,29 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
   const isOwner = Boolean(user && chatData.user_id === user.id);
   const isPublic = chatData.visibility === 'PUBLIC';
 
-  // If the chat is not public and current user is not the owner, show 404
-  if (!isPublic && !isOwner) {
+  let collaboratorRole: 'viewer' | 'editor' | null = null;
+  if (user?.email && !isOwner) {
+    const { data: shareData } = await supabase
+      .from('chat_shares')
+      .select('role')
+      .eq('chat_id', chatId)
+      .eq('email', user.email.toLowerCase())
+      .maybeSingle();
+
+    if (shareData?.role) {
+      collaboratorRole = shareData.role as 'viewer' | 'editor';
+    }
+  }
+
+  // Access allowed if public, owner, or invited collaborator
+  if (!isPublic && !isOwner && !collaboratorRole) {
     notFound();
   }
 
   const messages = isPublic ? await loadPublicChat(chatId) : await loadChat(chatId);
 
-  // It's read-only only if no user is logged in (unauthenticated users cannot participate)
-  const isReadOnly = !user;
+  // Read-only if viewer, or unauthenticated on a public chat
+  const isReadOnly = collaboratorRole === 'viewer' || (!user && isPublic);
 
   return (
     <PlaygroundChat
