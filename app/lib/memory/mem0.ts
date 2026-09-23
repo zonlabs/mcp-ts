@@ -26,6 +26,7 @@ export const memory = new Memory({
       apiKey: process.env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
       model: 'openai/gpt-4o-mini',
+      maxTokens: 1000,
     },
   },
   disableHistory: true,
@@ -37,6 +38,30 @@ export const memory = new Memory({
     Ignore ephemeral questions, greetings, temporary error outputs, and casual chit-chat.
   `.trim(),
 });
+
+// Patch Mem0's internal OpenAI client to enforce a conservative max_tokens limit (1000).
+// OpenRouter defaults to the model's full 16,384 token output window when max_tokens is undefined.
+// If the OpenRouter key's remaining credit cannot afford 16,384 tokens, OpenRouter rejects with HTTP 402.
+try {
+  const llmInstance = (memory as any)?.llm;
+  if (llmInstance?.openai?.chat?.completions) {
+    const originalCreate = llmInstance.openai.chat.completions.create.bind(
+      llmInstance.openai.chat.completions
+    );
+    llmInstance.openai.chat.completions.create = (params: any, options: any) => {
+      return originalCreate(
+        {
+          ...params,
+          max_tokens: params.max_tokens ?? 1000,
+        },
+        options
+      );
+    };
+  }
+} catch (e) {
+  console.warn('[Mem0] Failed to patch OpenAI client max_tokens:', e);
+}
+
 
 export interface MemoryRecord {
   id: string;

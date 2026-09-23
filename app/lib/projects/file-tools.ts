@@ -26,7 +26,9 @@ export function createProjectFileTools(projectId: string) {
     list_project_files: tool({
       description:
         'List all knowledge and documentation files attached to the current project.',
-      inputSchema: z.object({}),
+      inputSchema: z.object({
+        thought: z.string().optional().describe('Brief 1-sentence action-oriented explanation of why you are listing project files.'),
+      }),
       execute: async () => {
         try {
           const supabase = await createClient();
@@ -64,6 +66,7 @@ export function createProjectFileTools(projectId: string) {
       description:
         'Read the content of a specific file attached to the current project (text, code, documentation, PDF, or image).',
       inputSchema: z.object({
+        thought: z.string().optional().describe('Brief 1-sentence action-oriented explanation of why you are reading this project file.'),
         filename: z
           .string()
           .describe('The exact or partial name of the project file to read (e.g., "schema.sql", "api.md", "invoice.pdf").'),

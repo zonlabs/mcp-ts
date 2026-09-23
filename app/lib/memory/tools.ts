@@ -12,6 +12,7 @@ export function createMemoryTools(userId: string, runId?: string) {
       description:
         'Save an important user fact, preference, or instruction to long-term memory so it is remembered in future conversations.',
       inputSchema: z.object({
+        thought: z.string().optional().describe('1-sentence explanation of what fact you are saving and why.'),
         fact: z.string().describe('The durable statement, rule, or preference to remember.'),
       }),
       execute: async ({ fact }) => {
@@ -35,6 +36,7 @@ export function createMemoryTools(userId: string, runId?: string) {
       description:
         'Search the user\'s long-term memory for past facts, preferences, project details, or configurations.',
       inputSchema: z.object({
+        thought: z.string().optional().describe('1-sentence explanation of what memories you are looking up.'),
         query: z.string().describe('The search query to find relevant memories.'),
         limit: z.number().optional().default(4).describe('Maximum number of memories to return.'),
       }),
@@ -61,6 +63,7 @@ export function createMemoryTools(userId: string, runId?: string) {
       description:
         'Delete or forget a specific user fact from long-term memory using its memory ID.',
       inputSchema: z.object({
+        thought: z.string().optional().describe('1-sentence explanation of what memory is being removed.'),
         memoryId: z.string().describe('The ID of the memory to delete.'),
       }),
       execute: async ({ memoryId }) => {

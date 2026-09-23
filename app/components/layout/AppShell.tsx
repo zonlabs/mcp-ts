@@ -755,6 +755,31 @@ export function AppShell({
   });
   const projects = projectsData?.projects ?? [];
 
+  const currentProjectId = useMemo(() => {
+    if (!pathname.startsWith("/projects/")) return null;
+    const parts = pathname.split("/").filter(Boolean);
+    return parts[1] || null;
+  }, [pathname]);
+
+  const { data: singleProjectData } = useQuery<{ project: Project }>({
+    queryKey: ["project", currentProjectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${currentProjectId}`);
+      if (!res.ok) return { project: null as any };
+      return res.json();
+    },
+    enabled: Boolean(currentProjectId && !projects.some((p) => p.id === currentProjectId)),
+    staleTime: 60_000,
+  });
+
+  const currentProject = useMemo(() => {
+    if (!currentProjectId) return null;
+    return projects.find((p) => p.id === currentProjectId) || singleProjectData?.project || null;
+  }, [currentProjectId, projects, singleProjectData]);
+
+  const isProjectChat = useMemo(() => {
+    return Boolean(currentProjectId && pathname.includes("/chat/"));
+  }, [currentProjectId, pathname]);
 
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set());
 
@@ -880,31 +905,52 @@ export function AppShell({
             </Link>
           )}
 
-          {isMobile ? (
-            <SimpleTooltip content="Close menu" side="bottom">
-              <button
-                onClick={() => setMobileDrawerOpen(false)}
-                className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0"
-                aria-label="Close navigation menu"
-              >
-                <X className="size-4" />
-              </button>
-            </SimpleTooltip>
+          {isExpanded ? (
+            <div className="flex items-center gap-1 shrink-0">
+              <SimpleTooltip content="Search (⌘K)" side="bottom">
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0"
+                  aria-label="Search"
+                >
+                  <Search className="size-4" />
+                </button>
+              </SimpleTooltip>
+
+              {isMobile ? (
+                <SimpleTooltip content="Close menu" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0"
+                    aria-label="Close navigation menu"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </SimpleTooltip>
+              ) : (
+                <SimpleTooltip content="Toggle sidebar" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    className="p-1 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0 flex items-center justify-center"
+                    aria-label="Toggle sidebar"
+                  >
+                    <PanelLeftClose className="size-4" />
+                  </button>
+                </SimpleTooltip>
+              )}
+            </div>
           ) : (
-            <SimpleTooltip content="Toggle sidebar" side="bottom">
+            <SimpleTooltip content="Toggle sidebar" side="right">
               <button
+                type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={cn(
-                  "rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0 flex items-center justify-center",
-                  sidebarOpen ? "p-1" : "size-8"
-                )}
+                className="size-8 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer shrink-0 flex items-center justify-center"
                 aria-label="Toggle sidebar"
               >
-                {sidebarOpen ? (
-                  <PanelLeftClose className="size-4" />
-                ) : (
-                  <PanelLeftOpen className="size-4" />
-                )}
+                <PanelLeftOpen className="size-4" />
               </button>
             </SimpleTooltip>
           )}
@@ -1393,37 +1439,54 @@ export function AppShell({
 
       {/* ── Main Content Area ── */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-background border border-border rounded-lg relative shadow-xs">
-        <header className="h-14 border-b border-border bg-background px-4 sm:px-6 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center shrink-0 z-20 rounded-t-lg">
-          <div className="flex items-center gap-2.5 min-w-0 justify-self-start">
+        <header className="h-11 border-b border-border bg-background px-3 sm:px-4 flex items-center justify-between shrink-0 z-20 rounded-t-lg">
+          <div className="flex items-center gap-2.5 min-w-0">
             {/* Mobile Menu Hamburger Toggle */}
             <SimpleTooltip content="Open navigation menu" side="bottom">
               <button
                 type="button"
                 onClick={() => setMobileDrawerOpen(true)}
-                className="lg:hidden p-1.5 -ml-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+                className="lg:hidden p-1.5 -ml-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer shrink-0"
                 aria-label="Open navigation menu"
               >
                 <PanelLeftOpen className="size-[18px]" />
               </button>
             </SimpleTooltip>
 
-            {computedBreadcrumb && (
-              <span className="text-xs font-mono text-muted-foreground truncate">{computedBreadcrumb}</span>
+            {currentProjectId ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Folder className="size-3.5 text-muted-foreground shrink-0" />
+                {isProjectChat ? (
+                  <>
+                    <Link
+                      href={`/projects/${currentProjectId}`}
+                      className="font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors truncate max-w-[150px] sm:max-w-[220px]"
+                    >
+                      {currentProject?.name || "Project"}
+                    </Link>
+                    <span className="text-muted-foreground/60">/</span>
+                    <span className="font-semibold text-foreground">Chat</span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-foreground truncate max-w-[200px] sm:max-w-[300px]">
+                    {currentProject?.name || "Project"}
+                  </span>
+                )}
+              </div>
+            ) : (
+              computedBreadcrumb && (
+                <span className="text-xs font-mono text-muted-foreground truncate">{computedBreadcrumb}</span>
+              )
             )}
           </div>
-          <div className="flex items-center justify-self-center min-w-0">
-            {headerActions || (
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="hidden md:flex items-center gap-2.5 h-9 text-sm font-sans text-muted-foreground hover:text-ink rounded-sm transition-colors"
-              >
-                <Search className="size-4 shrink-0" />
-                <span className="flex-1 text-left truncate">Search pages and apps...</span>
-                <kbd className="inline-flex h-5 items-center rounded border border-border bg-background px-1.5 font-mono text-[10px] select-none shrink-0">⌘K</kbd>
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0 justify-self-end">
+
+          {headerActions && (
+            <div className="flex items-center justify-center min-w-0 px-2">
+              {headerActions}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
             <Link
               href="https://github.com/zonlabs/mcp-ts"
               target="_blank"
