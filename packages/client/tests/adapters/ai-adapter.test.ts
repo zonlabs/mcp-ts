@@ -109,21 +109,63 @@ test.describe('AIAdapter', () => {
 
         const alphaClient = createRouterClient('alpha-server', 'Alpha Server', 'alpha-session');
         const betaClient = createRouterClient('beta-server', 'Beta Server', 'beta-session');
-        const router = new ToolRouter([alphaClient as any, betaClient as any], { strategy: 'all' });
+        const router = new ToolRouter([alphaClient as any, betaClient as any], { pinnedTools: ['duplicate_tool'] });
         const adapter = new AIAdapter({ getClients: () => [alphaClient as any, betaClient as any] } as any, { toolRouter: router });
 
         const tools = await adapter.getTools();
         const keys = Object.keys(tools);
+        const duplicateKeys = keys.filter((k) => k.includes('duplicate_tool'));
 
-        expect(keys).toHaveLength(2);
-        expect(new Set(keys).size).toBe(2);
+        expect(duplicateKeys).toHaveLength(2);
+        expect(new Set(duplicateKeys).size).toBe(2);
 
         const results = await Promise.all(
-            keys.map((key) => (tools[key] as any).execute({ message: key }))
+            duplicateKeys.map((key) => (tools[key] as any).execute({ message: key }))
         );
 
         const texts = results.map((result: any) => result.content[0].text);
         expect(texts).toContain('Alpha Server:duplicate_tool:{"message":"tool_alpha_session_duplicate_tool"}');
         expect(texts).toContain('Beta Server:duplicate_tool:{"message":"tool_beta_session_duplicate_tool"}');
     });
+
+    test('should support deferLoading with clean tool names', async () => {
+        const mockClient = new MockMCPClient() as unknown as McpClient;
+        const adapter = new AIAdapter(mockClient, { deferLoading: true });
+
+        const tools = await adapter.getTools();
+        const toolKeys = Object.keys(tools);
+
+        expect(toolKeys).toContain('test_tool');
+        expect((tools['test_tool'] as any).deferLoading).toBe(true);
+
+        const executionResult = await (tools['test_tool'] as any).execute({ message: 'hello' });
+        expect(executionResult.content[0].text).toContain('Called test_tool with {"message":"hello"}');
+    });
+
+    test('should support ToolRouter with deferLoading: true and direct execution', async () => {
+        const mockClient = new MockMCPClient() as unknown as McpClient;
+        const router = new ToolRouter([mockClient as any], { pinnedTools: ['test_tool'] });
+        const adapter = new AIAdapter(mockClient, { toolRouter: router, deferLoading: true });
+
+        const tools = await adapter.getTools();
+        const toolKeys = Object.keys(tools);
+
+        expect(toolKeys).toContain('test_tool');
+        expect((tools['test_tool'] as any).deferLoading).toBe(false);
+
+        const executionResult = await (tools['test_tool'] as any).execute({ message: 'hello from deferLoading' });
+        expect(executionResult.content[0].text).toContain('Called test_tool with {"message":"hello from deferLoading"}');
+    });
+
+    test('ToolRouter with deferLoading: true respects pinnedTools as non-deferred', async () => {
+        const mockClient = new MockMCPClient() as unknown as McpClient;
+        const router = new ToolRouter([mockClient as any], {
+            pinnedTools: ['test_tool'],
+        });
+        const adapter = new AIAdapter(mockClient, { toolRouter: router, deferLoading: true });
+
+        const tools = await adapter.getTools();
+        expect((tools['test_tool'] as any).deferLoading).toBe(false);
+    });
 });
+

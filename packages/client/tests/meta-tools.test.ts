@@ -381,7 +381,6 @@ test.describe('executeMetaTool', () => {
                     { name: 'web_status', description: 'Report current web search status' },
                 ]) as any,
             ], {
-                strategy: 'search',
                 pinnedTools: ['web_search'],
             });
 
@@ -431,12 +430,14 @@ test.describe('executeMetaTool', () => {
                     { name: 'db_query', description: 'Query the database' },
                 ]) as any,
             ], {
-                strategy: 'all',
+                pinnedTools: ['db_query'],
                 excludeTools: ['list_tables', 'db_admin*'],
             });
 
-            const filteredTools = await router.getFilteredTools();
-            expect(filteredTools.map((tool) => tool.name)).toEqual(['db_query']);
+            const filteredNames = (await router.getFilteredTools()).map((tool) => tool.name);
+            expect(filteredNames).toContain('db_query');
+            expect(filteredNames).not.toContain('list_tables');
+            expect(filteredNames).not.toContain('db_admin_reset');
 
             expect(router.getToolSchema('list_tables')).toBeUndefined();
             expect(router.getToolSchema('db_admin_reset')).toBeUndefined();
@@ -473,7 +474,6 @@ test.describe('executeMetaTool', () => {
                     { name: 'codemode_search_mcp_tools', description: 'Search connected MCP tools' },
                 ]) as any,
             ], {
-                strategy: 'all',
                 pinnedTools: ['codemode_search_mcp_tools'],
                 deferredTools: ['workflow_list'],
             });
@@ -506,7 +506,6 @@ test.describe('executeMetaTool', () => {
                     { name: 'codemode_run', description: 'Run codemode' },
                 ]) as any,
             ], {
-                strategy: 'all',
                 pinnedTools: ['codemode_run'],
             });
 

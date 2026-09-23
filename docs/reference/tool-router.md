@@ -16,7 +16,8 @@ import { openai } from '@ai-sdk/openai';
 
 const router = new ToolRouter(client: MCPClient | McpManager, {
   // 'all' (default), 'search' (exposes meta-tools only), or 'groups'
-  strategy: 'search',
+  // Tools always exposed directly without search lookup
+  pinnedTools: ['slack_send_message'],
   
   // Max tools to return from a search or group (default: 40)
   maxTools: 5,
@@ -36,13 +37,13 @@ const router = new ToolRouter(client: MCPClient | McpManager, {
 ```
 
 **Methods:**
-- `getFilteredTools()` - Get tools based on current strategy
+- `getFilteredTools()` - Get meta-tools plus any pinned tools
 - `searchTools(query, topK?, options?)` - Search via BM25 + embeddings, optionally scoped by exact `serverId` or fragment-based `serverName`
 - `searchToolsRegex(pattern, topK?)` - Search via regex pattern
 - `listServers(options?)` - List connected indexed servers with tool counts
 - `listTools(options?)` - Deterministically list indexed tools, optionally scoped by server and paginated with `cursor`
 - `refresh()` - Re-index tools from all connected clients
-- `setStrategy(strategy)` - Change tool selection strategy at runtime
+- `isPinned(toolName)` - Check if a tool is pinned for direct availability
 
 Use the ToolRouter with adapters like `AIAdapter`:
 
