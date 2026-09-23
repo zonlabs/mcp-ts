@@ -6,10 +6,11 @@ import {
   type LanguageModelUsage,
   type ToolSet,
   type PrepareStepFunction,
+  toolSearch,
 } from "ai";
+import { experimental_codeModeTool } from "@ai-sdk/code-mode";
 import { McpManager } from "@mcp-ts/client";
 import { AIAdapter } from "@mcp-ts/client/adapters/ai";
-import { ToolRouter } from "@mcp-ts/client/shared";
 import { buildChatAgentInstructions, PINNED_REMOTE_TOOLS } from "@/agent/chat-agent-instructions";
 import { getModelConfig } from "@/lib/llm";
 import {
@@ -55,21 +56,22 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
 
   try {
     await manager.connect();
-    const router = new ToolRouter(manager, {
-      strategy: "search",
-      maxTools: 5,
-      pinnedTools: [...PINNED_REMOTE_TOOLS],
+    const mcpTools = await AIAdapter.getTools(manager, {
+      deferLoading: true,
+      needsApproval: () => shouldRequireMcpToolApproval(userPreferences),
     });
-    const discoveredTools = await AIAdapter.getTools(manager, { toolRouter: router });
-    if (discoveredTools.mcp_execute_tool) {
-      discoveredTools.mcp_execute_tool = {
-        ...discoveredTools.mcp_execute_tool,
-        needsApproval: () => shouldRequireMcpToolApproval(userPreferences),
-      };
-    }
-    tools = { ...discoveredTools };
+    tools = {
+      ...mcpTools,
+      tool_search: toolSearch(),
+      codemode_run: experimental_codeModeTool({ toolDiscovery: "conversation" }),
+    };
   } catch (error) {
     console.error("[MCP] Connection / tool discovery failed:", error);
+    tools = {
+      ...tools,
+      tool_search: toolSearch(),
+      codemode_run: experimental_codeModeTool({ toolDiscovery: "conversation" }),
+    };
   }
 
   if (userPreferences.enableMemory !== false) {

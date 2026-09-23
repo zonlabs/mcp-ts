@@ -13,9 +13,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/code-mode": "^1.0.69",
     "@ai-sdk/react": "^4.0.110",
     "@hookform/resolvers": "^5.2.1",
-    "@mcp-ts/client": "^4.2.6",
+    "@mcp-ts/client": "^4.2.7",
     "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/core": "^2.0.0",
     "@openrouter/ai-sdk-provider": "^3.1.0",
