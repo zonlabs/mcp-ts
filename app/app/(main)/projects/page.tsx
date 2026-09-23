@@ -14,6 +14,7 @@ import {
   Trash2,
   Share2,
   Globe,
+  Users,
   MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -149,13 +150,25 @@ export default function ProjectsPage() {
 
   const currentUserId = userSession?.user?.id;
 
+  const mineCount = useMemo(() => {
+    return projects.filter((p) => p.user_id === currentUserId || p.role === "owner").length;
+  }, [projects, currentUserId]);
+
+  const sharedCount = useMemo(() => {
+    return projects.filter(
+      (p) => (p.role && p.role !== "owner") || (currentUserId && p.user_id !== currentUserId)
+    ).length;
+  }, [projects, currentUserId]);
+
   const filteredProjects = useMemo(() => {
     let list = [...projects];
 
     if (activeTab === "mine" && currentUserId) {
-      list = list.filter((p) => p.user_id === currentUserId);
+      list = list.filter((p) => p.user_id === currentUserId || p.role === "owner");
     } else if (activeTab === "shared" && currentUserId) {
-      list = list.filter((p) => p.user_id !== currentUserId || p.visibility === "PUBLIC");
+      list = list.filter(
+        (p) => (p.role && p.role !== "owner") || (currentUserId && p.user_id !== currentUserId)
+      );
     }
 
     if (searchQuery.trim()) {
@@ -226,7 +239,7 @@ export default function ProjectsPage() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
             >
-              Created by you
+              Created by you ({mineCount})
             </button>
             <button
               type="button"
@@ -237,7 +250,7 @@ export default function ProjectsPage() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
             >
-              Shared
+              Shared ({sharedCount})
             </button>
           </div>
 
@@ -288,14 +301,22 @@ export default function ProjectsPage() {
                       {project.is_pinned && (
                         <Pin className="size-3 text-primary fill-primary/20 shrink-0" />
                       )}
+                      {project.role && project.role !== "owner" ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-normal shrink-0">
+                          <Users className="size-3" />
+                          <span>Shared with you ({project.role})</span>
+                        </span>
+                      ) : project.shares_count && project.shares_count > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-normal shrink-0">
+                          <Users className="size-3" />
+                          <span>Shared ({project.shares_count})</span>
+                        </span>
+                      ) : null}
                       {project.visibility === "PUBLIC" && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] px-1.5 py-0 font-normal gap-1 bg-primary/10 text-primary border-transparent shrink-0"
-                        >
-                          <Globe className="size-2.5" />
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-normal shrink-0">
+                          <Globe className="size-3" />
                           <span>Public</span>
-                        </Badge>
+                        </span>
                       )}
                     </div>
                     {project.description && (

@@ -62,11 +62,21 @@ async function assertChatPermission(
         .from('chat_shares')
         .select('role')
         .eq('chat_id', chatId)
-        .eq('email', userEmail)
+        .ilike('email', userEmail)
         .maybeSingle();
 
       if (share?.role) {
         collaboratorRole = share.role as 'viewer' | 'editor';
+      } else if (chat.project_id) {
+        const { data: projShare } = await supabase
+          .from('project_shares')
+          .select('role')
+          .eq('project_id', chat.project_id)
+          .ilike('email', userEmail)
+          .maybeSingle();
+        if (projShare?.role) {
+          collaboratorRole = projShare.role as 'viewer' | 'editor';
+        }
       }
     }
 

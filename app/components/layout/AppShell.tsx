@@ -30,6 +30,8 @@ import {
   Trash2,
   Upload,
   FolderPen,
+  Users,
+  Globe,
 } from "lucide-react";
 import Image from "next/image";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -1168,6 +1170,25 @@ export function AppShell({
                             {project.is_pinned && (
                               <Pin className="size-3 shrink-0 text-muted-foreground/80 -rotate-45" />
                             )}
+                            {project.role && project.role !== 'owner' ? (
+                              <SimpleTooltip content={`Shared with you (${project.role})`}>
+                                <span className="inline-flex shrink-0">
+                                  <Users className="size-3 text-primary/80" />
+                                </span>
+                              </SimpleTooltip>
+                            ) : project.shares_count && project.shares_count > 0 ? (
+                              <SimpleTooltip content={`Shared with ${project.shares_count} collaborator${project.shares_count > 1 ? 's' : ''}`}>
+                                <span className="inline-flex shrink-0">
+                                  <Users className="size-3 text-muted-foreground/80" />
+                                </span>
+                              </SimpleTooltip>
+                            ) : project.visibility === "PUBLIC" ? (
+                              <SimpleTooltip content="Public project (anyone with link)">
+                                <span className="inline-flex shrink-0">
+                                  <Globe className="size-3 text-muted-foreground/80" />
+                                </span>
+                              </SimpleTooltip>
+                            ) : null}
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">

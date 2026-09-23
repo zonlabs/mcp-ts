@@ -16,6 +16,9 @@ export interface Project {
   created_at: string;
   updated_at: string;
   chat_count?: number;
+  is_shared?: boolean;
+  shares_count?: number;
+  role?: 'owner' | 'editor' | 'viewer';
 }
 
 export interface CreateProjectInput {
@@ -73,15 +76,38 @@ export async function getUserProjects(
   const supabase = await createClient();
   const filter = options?.filter || 'all';
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const userEmail = user?.email?.toLowerCase();
+
+  // Find project IDs shared directly with user's email
+  let sharedProjectIds: string[] = [];
+  if (userEmail) {
+    const { data: shares } = await supabase
+      .from('project_shares')
+      .select('project_id')
+      .ilike('email', userEmail);
+    if (shares && shares.length > 0) {
+      sharedProjectIds = shares.map((s) => s.project_id);
+    }
+  }
+
   let query = supabase.from('projects').select('*');
 
   if (filter === 'created') {
     query = query.eq('user_id', userId);
   } else if (filter === 'shared') {
-    query = query.neq('user_id', userId).eq('visibility', 'PUBLIC');
+    if (sharedProjectIds.length > 0) {
+      query = query.in('id', sharedProjectIds);
+    } else {
+      return [];
+    }
   } else {
-    // 'all' includes own projects or public projects
-    query = query.or(`user_id.eq.${userId},visibility.eq.PUBLIC`);
+    // 'all' includes own projects or projects explicitly shared directly with user (via project_shares)
+    if (sharedProjectIds.length > 0) {
+      query = query.or(`user_id.eq.${userId},id.in.(${sharedProjectIds.join(',')})`);
+    } else {
+      query = query.eq('user_id', userId);
+    }
   }
 
   if (options?.search?.trim()) {
@@ -111,10 +137,40 @@ export async function getUserProjects(
     }
   }
 
-  return projects.map((p) => ({
-    ...p,
-    chat_count: countMap[p.id] || 0,
-  }));
+  // Fetch all collaborator shares for these projects
+  const { data: sharesData } = await supabase
+    .from('project_shares')
+    .select('project_id, email, role')
+    .in('project_id', projectIds);
+
+  const sharesCountMap: Record<string, number> = {};
+  const userRoleMap: Record<string, 'editor' | 'viewer'> = {};
+
+  if (sharesData) {
+    for (const s of sharesData) {
+      sharesCountMap[s.project_id] = (sharesCountMap[s.project_id] || 0) + 1;
+      if (userEmail && s.email.toLowerCase() === userEmail) {
+        userRoleMap[s.project_id] = s.role as 'editor' | 'viewer';
+      }
+    }
+  }
+
+  return projects.map((p) => {
+    const isOwner = p.user_id === userId;
+    const sharesCount = sharesCountMap[p.id] || 0;
+    const role: 'owner' | 'editor' | 'viewer' = isOwner
+      ? 'owner'
+      : userRoleMap[p.id] || 'viewer';
+    const isShared = p.visibility === 'PUBLIC' || sharesCount > 0 || !isOwner;
+
+    return {
+      ...p,
+      chat_count: countMap[p.id] || 0,
+      shares_count: sharesCount,
+      role,
+      is_shared: isShared,
+    };
+  });
 }
 
 /**
@@ -134,9 +190,34 @@ export async function getProjectById(
 
   if (error || !project) return null;
 
-  // Check access: must be owner or public
-  if (userId && project.user_id !== userId && project.visibility !== 'PUBLIC') {
-    return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  const userEmail = user?.email?.toLowerCase();
+
+  // Fetch collaborator shares for this project
+  const { data: sharesData } = await supabase
+    .from('project_shares')
+    .select('email, role')
+    .eq('project_id', projectId);
+
+  const sharesCount = sharesData?.length || 0;
+  let userRole: 'owner' | 'editor' | 'viewer' = 'viewer';
+  const isOwner = Boolean(userId && project.user_id === userId);
+
+  if (isOwner) {
+    userRole = 'owner';
+  } else if (userEmail && sharesData) {
+    const matched = sharesData.find((s) => s.email.toLowerCase() === userEmail);
+    if (matched) {
+      userRole = matched.role as 'editor' | 'viewer';
+    }
+  }
+
+  // Check access: must be owner, collaborator, or public
+  if (!isOwner && userRole === 'viewer' && project.visibility !== 'PUBLIC') {
+    const isCollaborator = sharesData?.some((s) => userEmail && s.email.toLowerCase() === userEmail);
+    if (!isCollaborator) {
+      return null;
+    }
   }
 
   // Get chat count
@@ -145,9 +226,14 @@ export async function getProjectById(
     .select('*', { count: 'exact', head: true })
     .eq('project_id', projectId);
 
+  const isShared = project.visibility === 'PUBLIC' || sharesCount > 0 || !isOwner;
+
   return {
     ...project,
     chat_count: count || 0,
+    shares_count: sharesCount,
+    role: userRole,
+    is_shared: isShared,
   };
 }
 
@@ -235,7 +321,7 @@ export async function deleteProject(
  */
 export async function getProjectChats(
   projectId: string,
-  userId: string
+  userId?: string
 ): Promise<ProjectChat[]> {
   const supabase = await createClient();
 
@@ -243,7 +329,6 @@ export async function getProjectChats(
     .from('chats')
     .select('id, title, visibility, is_pinned, created_at, updated_at')
     .eq('project_id', projectId)
-    .eq('user_id', userId)
     .order('is_pinned', { ascending: false })
     .order('updated_at', { ascending: false });
 

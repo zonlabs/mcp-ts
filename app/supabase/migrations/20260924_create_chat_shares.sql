@@ -138,11 +138,59 @@ create trigger project_shares_set_updated_at
 
 alter table public.project_shares enable row level security;
 
--- Policies for project_shares using is_project_owner (SECURITY DEFINER, no recursion)
+-- 2. Helper functions for project sharing and messages
+create or replace function public.is_project_editor(p_project_id uuid, p_email text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.project_shares
+    where project_id = p_project_id
+      and lower(email) = lower(p_email)
+      and role = 'editor'
+  );
+$$;
+
+create or replace function public.is_chat_in_shared_project(p_chat_id uuid, p_email text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.chats c
+    join public.project_shares ps on ps.project_id = c.project_id
+    where c.id = p_chat_id and lower(ps.email) = lower(p_email)
+  );
+$$;
+
+create or replace function public.is_chat_in_editor_project(p_chat_id uuid, p_email text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.chats c
+    join public.project_shares ps on ps.project_id = c.project_id
+    where c.id = p_chat_id
+      and lower(ps.email) = lower(p_email)
+      and ps.role = 'editor'
+  );
+$$;
+
+-- Policies for project_shares (owner or invited collaborator)
 drop policy if exists "project_shares_owner_select" on public.project_shares;
-create policy "project_shares_owner_select" on public.project_shares
+drop policy if exists "project_shares_select" on public.project_shares;
+create policy "project_shares_select" on public.project_shares
   for select using (
     public.is_project_owner(project_id, auth.uid())
+    or lower(email) = lower(auth.jwt() ->> 'email')
   );
 
 drop policy if exists "project_shares_owner_insert" on public.project_shares;
@@ -165,11 +213,26 @@ create policy "project_shares_owner_delete" on public.project_shares
     public.is_project_owner(project_id, auth.uid())
   );
 
--- 4. Update chats & chat_messages RLS to use SECURITY DEFINER functions (breaks 42P17 cycle)
+-- Update chat_shares select to allow invited user
+drop policy if exists "chat_shares_owner_select" on public.chat_shares;
+drop policy if exists "chat_shares_select" on public.chat_shares;
+create policy "chat_shares_select" on public.chat_shares
+  for select using (
+    public.is_chat_owner(chat_id, auth.uid())
+    or lower(email) = lower(auth.jwt() ->> 'email')
+  );
+
+-- Update chats & chat_messages RLS
 drop policy if exists "chats_select_shared" on public.chats;
 create policy "chats_select_shared" on public.chats
   for select using (
     public.is_chat_collaborator(id, auth.jwt() ->> 'email')
+  );
+
+drop policy if exists "chats_select_project_shared" on public.chats;
+create policy "chats_select_project_shared" on public.chats
+  for select using (
+    project_id is not null and public.is_project_collaborator(project_id, auth.jwt() ->> 'email')
   );
 
 drop policy if exists "chat_messages_select_shared" on public.chat_messages;
@@ -178,15 +241,40 @@ create policy "chat_messages_select_shared" on public.chat_messages
     public.is_chat_collaborator(chat_id, auth.jwt() ->> 'email')
   );
 
+drop policy if exists "chat_messages_select_project_shared" on public.chat_messages;
+create policy "chat_messages_select_project_shared" on public.chat_messages
+  for select using (
+    public.is_chat_in_shared_project(chat_id, auth.jwt() ->> 'email')
+  );
+
 drop policy if exists "chat_messages_insert_editor" on public.chat_messages;
 create policy "chat_messages_insert_editor" on public.chat_messages
   for insert with check (
     public.is_chat_editor(chat_id, auth.jwt() ->> 'email')
   );
 
--- 5. Optional shared read policy on projects
+drop policy if exists "chat_messages_insert_project_editor" on public.chat_messages;
+create policy "chat_messages_insert_project_editor" on public.chat_messages
+  for insert with check (
+    public.is_chat_in_editor_project(chat_id, auth.jwt() ->> 'email')
+  );
+
+drop policy if exists "chats_insert_project_editor" on public.chats;
+create policy "chats_insert_project_editor" on public.chats
+  for insert with check (
+    project_id is not null and public.is_project_editor(project_id, auth.jwt() ->> 'email')
+  );
+
+-- Shared read policy on projects
 drop policy if exists "projects_select_shared" on public.projects;
 create policy "projects_select_shared" on public.projects
   for select using (
     public.is_project_collaborator(id, auth.jwt() ->> 'email')
+  );
+
+-- Shared read policy on project files
+drop policy if exists "project_files_select_shared" on public.project_files;
+create policy "project_files_select_shared" on public.project_files
+  for select using (
+    public.is_project_collaborator(project_id, auth.jwt() ->> 'email')
   );

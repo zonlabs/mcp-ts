@@ -33,6 +33,7 @@ import {
   X,
   Loader2,
   Share2,
+  Users,
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -397,6 +398,23 @@ export default function ProjectWorkspacePage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground truncate">
             {project.name}
           </h1>
+          {project.role && project.role !== "owner" ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal shrink-0">
+              <Users className="size-3.5" />
+              <span>{project.role === "editor" ? "Can Edit" : "View Only"}</span>
+            </span>
+          ) : project.shares_count && project.shares_count > 0 ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal shrink-0">
+              <Users className="size-3.5" />
+              <span>Shared ({project.shares_count})</span>
+            </span>
+          ) : null}
+          {project.visibility === "PUBLIC" && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-normal shrink-0">
+              <Globe className="size-3.5" />
+              <span>Public</span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
