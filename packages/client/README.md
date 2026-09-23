@@ -333,15 +333,23 @@ export function ToolRenderer() {
 For users with dozens or hundreds of tools, `ToolRouter` dynamically injects discovery meta-tools (`mcp_search_tools`, `mcp_execute_tool`) into the LLM context, reducing token usage by up to 95%:
 
 ```typescript
-import { mcp } from '@mcp-ts/client';
-import { AIAdapter } from '@mcp-ts/client/adapters/ai';
+import { mcp, ToolRouter } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai-adapter';
 
 const user = mcp.user('user_123');
 
-// LLM only receives lightweight discovery tools until execution
+// 1. Dynamic discovery via ToolRouter (BM25 search + pinned tools):
+const router = new ToolRouter(user, {
+  pinnedTools: ['slack_send_message'],
+});
+
 const tools = await AIAdapter.getTools(user, {
-  strategy: 'all',
-  enableSmartRouting: true,
+  toolRouter: router,
+});
+
+// 2. OR zero-token dynamic context via AI SDK v7 deferLoading:
+const deferredTools = await AIAdapter.getTools(user, {
+  deferLoading: true,
 });
 ```
 

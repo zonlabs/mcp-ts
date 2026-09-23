@@ -144,11 +144,10 @@ export class AguiAdapter {
 
         if (this.isProvider()) {
             const clients = (this.client as BaseClientProvider).getClients();
-            const allTools: AguiTool[] = [];
-            for (const client of clients) {
-                allTools.push(...await this.transformTools(client));
-            }
-            return allTools;
+            const results = await Promise.all(
+                clients.map((client) => this.transformTools(client))
+            );
+            return results.flat();
         }
         return this.transformTools(this.client as BaseClient);
     }
@@ -163,11 +162,10 @@ export class AguiAdapter {
 
         if (this.isProvider()) {
             const clients = (this.client as BaseClientProvider).getClients();
-            const allTools: AguiToolDefinition[] = [];
-            for (const client of clients) {
-                allTools.push(...await this.transformToolDefinitions(client));
-            }
-            return allTools;
+            const results = await Promise.all(
+                clients.map((client) => this.transformToolDefinitions(client))
+            );
+            return results.flat();
         }
         return this.transformToolDefinitions(this.client as BaseClient);
     }
@@ -237,9 +235,9 @@ export class AguiAdapter {
     /**
      * Build AG-UI tools from a ToolRouter's filtered output.
      *
-     * In `search` strategy, only meta-tools are registered with the framework.
-     * Real tool execution is proxied through `mcp_execute_tool` which uses
-     * `router.callTool()` to route to the correct MCP client.
+     * Meta-tools and pinned tools are registered with the framework.
+     * Meta-tools use `executeMetaTool` and real tool execution is routed
+     * to the correct MCP client via `router.callTool()`.
      */
     private async getToolsViaRouter(router: ToolRouter): Promise<AguiTool[]> {
         const filteredTools = await router.getFilteredTools();
@@ -267,8 +265,7 @@ export class AguiAdapter {
                         return "Failed to execute meta-tool";
                     }
 
-                    // For non-meta tools in 'all' or 'groups' strategy,
-                    // route directly to the correct MCP client
+                    // Route tool execution directly to the correct MCP client
                     return await router.callTool(tool.name, args, namespace);
                 }
             };

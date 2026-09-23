@@ -198,12 +198,8 @@ export class McpUser implements BaseClientProvider {
   /**
    * Lists all aggregated tools available across all connected servers for this user.
    */
-  async listTools(): Promise<{ tools: import('@modelcontextprotocol/client').Tool[] }> {
-    const clients = this.getClients();
-    const results = await Promise.all(
-      clients.map(client => client.listTools().catch(() => ({ tools: [] })))
-    );
-    return { tools: results.flatMap(r => r.tools) };
+  async listTools(options?: { filtered?: boolean }): Promise<{ tools: import('@modelcontextprotocol/client').Tool[] }> {
+    return this.manager.listTools(options);
   }
 
   /**
@@ -214,18 +210,7 @@ export class McpUser implements BaseClientProvider {
    * @param args - Key-value map of tool arguments
    */
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-    const clients = this.getClients();
-    for (const client of clients) {
-      try {
-        const { tools } = await client.listTools();
-        if (tools.some(t => t.name === name)) {
-          return await client.callTool(name, args);
-        }
-      } catch {
-        // Continue searching other clients
-      }
-    }
-    throw new Error(`Tool "${name}" was not found across any connected MCP servers for user "${this.userId}".`);
+    return this.manager.callTool(name, args);
   }
 
   /**

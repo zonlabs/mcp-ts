@@ -1,6 +1,6 @@
 {
   "name": "@mcp-ts/client",
-  "version": "4.2.6",
+  "version": "4.2.7",
   "publishConfig": {
     "access": "public"
   },
@@ -35,6 +35,11 @@
       "require": "./dist/shared.js"
     },
     "./adapters/ai": {
+      "types": "./dist/adapters/ai-adapter.d.ts",
+      "import": "./dist/adapters/ai-adapter.mjs",
+      "require": "./dist/adapters/ai-adapter.js"
+    },
+    "./adapters/ai-adapter": {
       "types": "./dist/adapters/ai-adapter.d.ts",
       "import": "./dist/adapters/ai-adapter.mjs",
       "require": "./dist/adapters/ai-adapter.js"

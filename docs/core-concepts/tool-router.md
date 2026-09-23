@@ -50,7 +50,7 @@ export async function createMcpAgent(userId: string = "user-123") {
   const { ToolRouter } = await import("@mcp-ts/client/shared");
   
   // Configure the router for high scalability (discovery strategy)
-  const router = new ToolRouter(client, { strategy: "search" });
+  const router = new ToolRouter(client, { pinnedTools: ["slack_send_message"] });
   
   // Initialize the adapter with the router
   const adapter = new AIAdapter(client, { toolRouter: router });
@@ -66,7 +66,7 @@ export async function createMcpAgent(userId: string = "user-123") {
 
 | Property | Type | Default | Description |
 | :-- | :-- | :-- | :-- |
-| `strategy` | `all` \| `search` \| `groups` | `all` | The filtering strategy to use. |
+| `pinnedTools` | `string[]` | `[]` | Tools to expose directly alongside meta-tools. |
 | `maxTools` | `number` | `40` | Max tools to return in search results or groups. |
 | `groups` | `Record<string, string[]>` | `null` | Custom tool group definitions. |
 | `activeGroups`| `string[]` | `[]` | Groups to expose when using `groups` strategy. |
@@ -80,7 +80,7 @@ By default, the `search` strategy uses keyword-based BM25 matching. For even bet
 
 ```typescript
 const router = new ToolRouter(client, {
-  strategy: 'search',
+  pinnedTools: ['slack_send_message'],
   embedFn: async (text) => {
     // Return embeddings from OpenAI, Voyage, etc.
     return await getEmbeddings(text);

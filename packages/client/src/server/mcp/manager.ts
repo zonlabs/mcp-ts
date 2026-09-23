@@ -1,3 +1,4 @@
+import type { Tool } from '@modelcontextprotocol/client';
 import { McpClient, type McpListChangedEvent } from './client.js';
 import { sessions, withDbObservability, type Session, type SessionStore } from '../storage/index.js';
 import type { BaseClient, BaseClientProvider, ToolClient, ToolClientProvider } from '../../shared/types.js';
@@ -102,6 +103,7 @@ type McpObservabilityEventHandler = (event: import('../../shared/events.js').Mcp
 export class McpManager implements BaseClientProvider {
     private clients: McpClient[] = [];
     private connectionPromises = new Map<string, Promise<void>>();
+    private toolSessionMap = new Map<string, string>();
     private userId: string;
     private options: Required<Pick<McpManagerOptions, 'timeout' | 'maxRetries' | 'retryDelay'>> &
         Pick<McpManagerOptions, 'sessionProvider' | 'onObservabilityEvent' | 'onSessionConnected' | 'onSessionEvicted' | 'onSessionFailed' | 'onListChanged'>;
@@ -179,6 +181,82 @@ export class McpManager implements BaseClientProvider {
     }
 
     /**
+     * Lists all aggregated tools available across all connected servers for this user.
+     */
+    async listTools(options?: { filtered?: boolean }): Promise<{ tools: Tool[] }> {
+        const clients = this.getClients();
+        const results = await Promise.all(
+            clients.map(async (client) => {
+                try {
+                    const res = await client.listTools(options);
+                    const sessionId = client.getSessionId?.();
+                    if (sessionId) {
+                        for (const tool of res.tools) {
+                            this.toolSessionMap.set(tool.name, sessionId);
+                        }
+                    }
+                    return res.tools;
+                } catch {
+                    return [];
+                }
+            })
+        );
+        return { tools: results.flat() };
+    }
+
+    /**
+     * Executes a tool across the user's connected MCP servers.
+     * Automatically routes the call to the owning server using O(1) cache lookup
+     * or parallel scan across all connected clients.
+     *
+     * @param name - The tool name
+     * @param args - Key-value map of tool arguments
+     */
+    async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+        const clients = this.getClients();
+
+        // 1. Fast O(1) path: check if session ownership is already known
+        const cachedSessionId = this.toolSessionMap.get(name);
+        if (cachedSessionId) {
+            const cachedClient = clients.find((c) => c.getSessionId?.() === cachedSessionId);
+            if (cachedClient) {
+                try {
+                    return await cachedClient.callTool(name, args);
+                } catch {
+                    // Stale cache mapping, fall through to full parallel discovery
+                    this.toolSessionMap.delete(name);
+                }
+            }
+        }
+
+        // 2. Parallel scan across all clients simultaneously
+        const clientMatches = await Promise.all(
+            clients.map(async (client) => {
+                try {
+                    const { tools } = await client.listTools();
+                    if (tools.some((t) => t.name === name)) {
+                        const sessionId = client.getSessionId?.();
+                        if (sessionId) {
+                            this.toolSessionMap.set(name, sessionId);
+                        }
+                        return client;
+                    }
+                    return null;
+                } catch {
+                    return null;
+                }
+            })
+        );
+
+        const owningClient = clientMatches.find((c): c is BaseClient => c !== null);
+        if (owningClient) {
+            return await owningClient.callTool(name, args);
+        }
+
+        throw new Error(`Tool "${name}" was not found across any connected MCP servers for user "${this.userId}".`);
+    }
+
+    /**
      * Removes and disconnects a single session by ID.
      *
      * @returns `true` if the session was found and removed, `false` if not found.
@@ -204,6 +282,7 @@ export class McpManager implements BaseClientProvider {
     async disconnect(): Promise<void> {
         await Promise.all(this.clients.map((client) => client.disconnect()));
         this.clients = [];
+        this.toolSessionMap.clear();
     }
 
     // -----------------------------------------------------------------------

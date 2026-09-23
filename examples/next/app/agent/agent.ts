@@ -95,7 +95,7 @@ export async function createMcpAgent(userId: string = process.env.NEXT_PUBLIC_MC
   }
 
   // Set up Tool Router and Adapter
-  const router = new ToolRouter(connection, { strategy: "search", maxTools: 5 });
+  const router = new ToolRouter(connection, { maxTools: 5 });
   const adapter = new AIAdapter(connection, {
     toolRouter: router,
     needsApproval: (tool, args) => requiresApproval(tool, args, router),

@@ -50,23 +50,10 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type ToolRouterStrategy = 'all' | 'search' | 'groups';
-
 export interface ToolRouterOptions {
   /**
-   * Strategy for tool selection.
-   *
-   *  • `all`    — Expose all tools (default, backward-compatible)
-   *  • `search` — Expose only meta-tools; LLM discovers real tools via search
-   *  • `groups` — Expose only tools from active groups
-   *
-   * @default 'all'
-   */
-  strategy?: ToolRouterStrategy;
-
-  /**
    * Maximum tools to expose to the LLM at once.
-   * Only applies to `groups` strategy and search results.
+   * Only applies to `groups` and search results.
    * @default 40
    */
   maxTools?: number;
@@ -156,7 +143,6 @@ export class ToolRouter {
   private deferredTools: IndexedTool[] = [];
   private discoverableTools: IndexedTool[] = [];
   private groupsMap = new Map<string, ToolGroupInfo>();
-  private strategy: ToolRouterStrategy;
   private maxTools: number;
   private compactSchemas: boolean;
   private activeGroups: Set<string>;
@@ -170,7 +156,6 @@ export class ToolRouter {
     private client: ToolRouterClientInput,
     private options: ToolRouterOptions = {}
   ) {
-    this.strategy = options.strategy ?? 'all';
     this.maxTools = options.maxTools ?? 40;
     this.compactSchemas = options.compactSchemas ?? false;
     this.activeGroups = new Set(options.activeGroups ?? []);
@@ -192,41 +177,20 @@ export class ToolRouter {
   // -----------------------------------------------------------------------
 
   /**
-   * Get tools filtered by the current strategy.
-   * This is the main method adapters should call.
-   *
-   * - `all`    → returns all tools (unchanged behavior)
-   * - `search` → returns only meta-tools (mcp_search_tools, mcp_get_tool_schema, mcp_execute_tool)
-   * - `groups` → returns tools from active groups only
+   * Get tools exposed by the router.
+   * By default, exposes the meta-tools (for dynamic discovery & execution)
+   * plus any explicitly pinned tools or active groups.
    */
   async getFilteredTools(): Promise<Tool[]> {
     await this.ensureInitialized();
 
-    switch (this.strategy) {
-      case 'search':
-        return [...this.getMetaToolDefinitions(), ...this.pinnedTools];
+    const metaTools = this.getMetaToolDefinitions();
 
-      case 'groups':
-        return this.getGroupFilteredTools();
-
-      case 'all':
-      default:
-        const directlyVisibleTools = this.getDirectlyVisibleTools();
-        if (this.compactSchemas) {
-          // Return tools with inputSchema stripped
-          return directlyVisibleTools.map((t) => {
-            const compact = SchemaCompressor.toCompact(t);
-            return {
-              name: compact.name,
-              description:
-                (compact.description ?? '') +
-                (compact.parameterHint ? ` Parameters: ${compact.parameterHint}` : ''),
-              inputSchema: { type: 'object' as const, properties: {} },
-            };
-          });
-        }
-        return [...directlyVisibleTools];
+    if (this.activeGroups.size > 0) {
+      return [...metaTools, ...this.getGroupFilteredTools()];
     }
+
+    return [...metaTools, ...this.pinnedTools];
   }
 
   /**
@@ -336,9 +300,9 @@ export class ToolRouter {
     return this.allTools.length;
   }
 
-  /** Change strategy at runtime. */
-  setStrategy(strategy: ToolRouterStrategy): void {
-    this.strategy = strategy;
+  /** Check if a tool is pinned. */
+  isPinned(toolName: string): boolean {
+    return this.matchesPinnedTool(toolName);
   }
 
   /**
@@ -405,38 +369,36 @@ export class ToolRouter {
     this.initialized = true;
   }
 
-  /** Fetch tools from all connected MCP clients. */
+  /** Fetch tools from all connected MCP clients in parallel. */
   private async fetchAllTools(): Promise<IndexedTool[]> {
-    const clients = this.getClients();
-    const result: IndexedTool[] = [];
+    const clients = this.getClients().filter((client) => client.isConnected());
 
-    for (const client of clients) {
-      if (!client.isConnected()) continue;
+    const results = await Promise.all(
+      clients.map(async (client) => {
+        try {
+          const { tools } = await client.listTools();
+          const serverId =
+            typeof client.getServerId === 'function' ? client.getServerId() ?? 'unknown' : 'unknown';
+          const serverName =
+            (typeof client.getServerName === 'function' ? client.getServerName() : undefined) ??
+            serverId;
+          const sessionId =
+            typeof client.getSessionId === 'function' ? client.getSessionId() ?? 'unknown' : 'unknown';
 
-      try {
-        const { tools } = await client.listTools();
-        const serverId =
-          typeof client.getServerId === 'function' ? client.getServerId() ?? 'unknown' : 'unknown';
-        const serverName =
-          (typeof client.getServerName === 'function' ? client.getServerName() : undefined) ??
-          serverId;
-        const sessionId =
-          typeof client.getSessionId === 'function' ? client.getSessionId() ?? 'unknown' : 'unknown';
-
-        for (const tool of tools) {
-          result.push({
+          return tools.map((tool) => ({
             ...tool,
             serverId,
-            serverName: serverName,
+            serverName,
             sessionId,
-          });
+          }));
+        } catch (err) {
+          console.warn('[ToolRouter] Failed to fetch tools from client:', err);
+          return [];
         }
-      } catch (err) {
-        console.warn('[ToolRouter] Failed to fetch tools from client:', err);
-      }
-    }
+      })
+    );
 
-    return result;
+    return results.flat();
   }
 
   /** Resolve the client input to a flat array of ToolClient instances. */
@@ -512,7 +474,7 @@ export class ToolRouter {
     return filtered.slice(0, this.maxTools);
   }
 
-  /** The 4 meta-tool definitions exposed in `search` strategy. */
+  /** The 5 meta-tool definitions (mcp_search_tools, mcp_get_tool_schema, etc.). */
   private getMetaToolDefinitions(): Tool[] {
     return [
       createSearchToolDefinition(),

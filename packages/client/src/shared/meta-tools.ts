@@ -327,10 +327,16 @@ export async function executeMetaTool(
         
         const namespace = serverId ?? serverName;
 
-        for (const requestedToolName of requested) {
-          const { tool, error } = await resolveToolSchema(requestedToolName, namespace, {
-            allowServerNameFragment: Boolean(serverName && !serverId),
-          });
+        const resolutionResults = await Promise.all(
+          requested.map(async (requestedToolName) => {
+            const { tool, error } = await resolveToolSchema(requestedToolName, namespace, {
+              allowServerNameFragment: Boolean(serverName && !serverId),
+            });
+            return { requestedToolName, tool, error };
+          })
+        );
+
+        for (const { requestedToolName, tool, error } of resolutionResults) {
           if (error) {
             const errorMsg = error.content[0]?.type === 'text' ? error.content[0].text : 'Unknown error';
             errors.push(`- **${requestedToolName}**: ${errorMsg}`);
