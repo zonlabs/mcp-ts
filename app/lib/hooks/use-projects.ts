@@ -113,8 +113,13 @@ export function useSidebarProjects(options?: { enabled?: boolean }) {
         }
       );
 
-      queryClient.removeQueries({ queryKey: ["project", projectId] });
-      queryClient.removeQueries({ queryKey: ["project-files", projectId] });
+      // Cancel in-flight queries first so no pending requests complete after delete
+      void queryClient.cancelQueries({ queryKey: ["project", projectId] });
+      void queryClient.cancelQueries({ queryKey: ["project-files", projectId] });
+
+      // Provide null/empty data to active observers so they don't trigger an immediate 404 cache-miss refetch
+      queryClient.setQueryData(["project", projectId], { project: null, chats: [] });
+      queryClient.setQueryData(["project-files", projectId], { files: [] });
     },
     [queryClient]
   );
@@ -222,6 +227,10 @@ export function useDeleteProject() {
       return { previousProjects, previousProject };
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["storageUsage"],
+        refetchType: "none",
+      });
       toast.success("Project deleted");
     },
     onError: (err: any, projectId, context) => {
@@ -312,6 +321,8 @@ export function useUploadProjectFile() {
           return { files: [uploadedFile, ...list.filter((f) => f.id !== uploadedFile.id)] };
         }
       );
+      // Invalidate storage usage so Data Controls reflects the new file size
+      void queryClient.invalidateQueries({ queryKey: ["storageUsage"] });
     },
   });
 }
@@ -351,6 +362,8 @@ export function useDeleteProjectFile() {
       toast.error(err.message || "Failed to delete file");
     },
     onSuccess: () => {
+      // Invalidate storage usage so Data Controls reflects the freed space
+      void queryClient.invalidateQueries({ queryKey: ["storageUsage"] });
       toast.success("File deleted");
     },
   });

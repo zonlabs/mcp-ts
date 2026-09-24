@@ -1435,14 +1435,14 @@ export function AppShell({
 
       {/* ── Main Content Area ── */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-background border border-border rounded-lg relative shadow-xs">
-        <header className="h-11 border-b border-border bg-background px-3 sm:px-4 flex items-center justify-between shrink-0 z-20 rounded-t-lg">
+        <header className="h-10 border-border bg-background px-3 sm:px-4 flex items-center justify-between shrink-0 z-20 rounded-t-lg">
           <div className="flex items-center gap-2.5 min-w-0">
             {/* Mobile Menu Hamburger Toggle */}
             <SimpleTooltip content="Open navigation menu" side="bottom">
               <button
                 type="button"
                 onClick={() => setMobileDrawerOpen(true)}
-                className="lg:hidden p-1.5 -ml-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer shrink-0"
+                className="lg:hidden p-1 -ml-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer shrink-0"
                 aria-label="Open navigation menu"
               >
                 <PanelLeftOpen className="size-[18px]" />
@@ -1482,7 +1482,7 @@ export function AppShell({
             </div>
           )}
 
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <div className="flex items-center gap-1 shrink-0 ml-auto">
             {currentChatId && !pathname.startsWith("/share") && (
               <SimpleTooltip content="Share chat" side="bottom">
                 <button
@@ -1493,11 +1493,10 @@ export function AppShell({
                       found || ({ id: currentChatId, title: "Chat", visibility: "PRIVATE" } as any)
                     );
                   }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors cursor-pointer border border-border/60"
+                  className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-sm hover:bg-muted/50 flex items-center justify-center cursor-pointer"
                   aria-label="Share chat"
                 >
-                  <Share2 className="size-3.5" />
-                  <span className="hidden sm:inline">Share</span>
+                  <Share2 className="size-4" />
                 </button>
               </SimpleTooltip>
             )}
