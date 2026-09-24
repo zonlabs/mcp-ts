@@ -34,7 +34,7 @@ import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { ChatUIMessage } from '@/agent/chat-agent';
 import { useI18n } from '@/lib/web-i18n';
-import { useSidebarChats } from '@/lib/hooks/use-sidebar-chats';
+import { useSidebarChats, useStoredChat } from '@/lib/hooks/use-sidebar-chats';
 import { useProject } from '@/lib/hooks/use-sidebar-projects';
 
 import {
@@ -424,28 +424,18 @@ export function PlaygroundChat({
     }
   };
 
-  const [isLoadingMessages, setIsLoadingMessages] = useState(!isNewChat && safeInitialMessages.length === 0);
+  const shouldFetchChat = Boolean(chatId && !isNewChat && safeInitialMessages.length === 0 && messages.length === 0);
+  const { data: chatData, isLoading: isChatLoading } = useStoredChat(chatId, {
+    enabled: shouldFetchChat,
+  });
 
   useEffect(() => {
-    if (!chatId || safeInitialMessages.length > 0 || isNewChat) {
-      setIsLoadingMessages(false);
-      return;
+    if (chatData?.messages && Array.isArray(chatData.messages) && chatData.messages.length > 0 && messages.length === 0) {
+      setMessages(chatData.messages);
     }
-    if (messages.length > 0) {
-      setIsLoadingMessages(false);
-      return;
-    }
-    setIsLoadingMessages(true);
-    fetch(`/api/chats?id=${encodeURIComponent(chatId)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.messages && Array.isArray(data.messages) && data.messages.length > 0) {
-          setMessages(data.messages);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setIsLoadingMessages(false));
-  }, [chatId, safeInitialMessages.length, isNewChat, setMessages]);
+  }, [chatData, messages.length, setMessages]);
+
+  const isLoadingMessages = shouldFetchChat && isChatLoading;
 
   const prevChatIdRef = useRef(chatId);
   useEffect(() => {

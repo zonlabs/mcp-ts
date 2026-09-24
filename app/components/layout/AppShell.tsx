@@ -40,7 +40,7 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { Project } from "@/lib/projects";
-import { useSidebarChats } from "@/lib/hooks/use-sidebar-chats";
+import { useSidebarChats, useUpdateChat, useDeleteChat } from "@/lib/hooks/use-sidebar-chats";
 import { useSidebarProjects, useUpdateProject, useDeleteProject, useProject } from "@/lib/hooks/use-sidebar-projects";
 import { SearchDialog } from "@/components/layout/SearchDialog";
 import { ShareDialog } from "@/components/chat/ShareDialog";
@@ -675,61 +675,50 @@ export function AppShell({
     userSession?.user?.email?.split("@")[0] ||
     "Developer";
 
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
-      return id;
-    },
-    onSuccess: (id) => {
-      removeChat(id);
-      toast.success("Chat deleted");
-      if (pathname === `/chat/${id}` || pathname.endsWith(`/chat/${id}`)) {
-        router.push(pathname.startsWith("/projects/") ? pathname.split("/chat/")[0] : "/chat");
-      }
-    },
-    onError: (err: any) => toast.error(err?.message || "Failed to delete chat"),
-  });
+  // Chat mutations (centralized TanStack Query hooks with optimistic updates)
+  const deleteChatHook = useDeleteChat();
+  const updateChatHook = useUpdateChat();
 
-  // Pin/unpin mutation
-  const pinMutation = useMutation({
-    mutationFn: async ({ id, pinned }: { id: string; pinned: boolean }) => {
-      const res = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_pinned: pinned }),
+  const deleteMutation = {
+    isPending: deleteChatHook.isPending,
+    mutate: (id: string) => {
+      deleteChatHook.mutate(id, {
+        onSuccess: () => {
+          toast.success("Chat deleted");
+          if (pathname === `/chat/${id}` || pathname.endsWith(`/chat/${id}`)) {
+            router.push(pathname.startsWith("/projects/") ? pathname.split("/chat/")[0] : "/chat");
+          }
+        },
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to update");
-      return { id, pinned };
     },
-    onSuccess: ({ id, pinned }) => {
-      upsertChat({ id, is_pinned: pinned });
-      toast.success(pinned ? "Chat pinned" : "Chat unpinned");
-    },
-    onError: (err: any) => toast.error(err?.message || "Failed to update chat"),
-  });
+  };
 
-  // Rename mutation
-  const renameMutation = useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const res = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to rename");
-      return { id, title };
+  const pinMutation = {
+    isPending: updateChatHook.isPending,
+    mutate: ({ id, pinned }: { id: string; pinned: boolean }) => {
+      updateChatHook.mutate(
+        { id, is_pinned: pinned },
+        {
+          onSuccess: () => toast.success(pinned ? "Chat pinned" : "Chat unpinned"),
+        }
+      );
     },
-    onSuccess: ({ id, title }) => {
-      upsertChat({ id, title });
-      toast.success("Chat renamed");
-      setEditingChat(null);
+  };
+
+  const renameMutation = {
+    isPending: updateChatHook.isPending,
+    mutate: ({ id, title }: { id: string; title: string }) => {
+      updateChatHook.mutate(
+        { id, title },
+        {
+          onSuccess: () => {
+            toast.success("Chat renamed");
+            setEditingChat(null);
+          },
+        }
+      );
     },
-    onError: (err: any) => toast.error(err?.message || "Failed to rename chat"),
-  });
+  };
 
   // User projects for sidebar (centralized in-memory state via useSidebarProjects)
   const {

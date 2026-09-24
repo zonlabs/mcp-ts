@@ -1,67 +1,30 @@
 import { createClient } from '@/lib/supabase/server';
 
-export type MemoryScope = 'global' | 'project';
-export type ProjectVisibility = 'PRIVATE' | 'PUBLIC';
+import type {
+  MemoryScope,
+  ProjectVisibility,
+  ProjectRole,
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+  ProjectChat,
+  ProjectFile,
+  ProjectShare,
+  UploadingFileItem,
+} from '@/types/projects';
 
-export interface Project {
-  id: string;
-  user_id: string;
-  name: string;
-  description: string | null;
-  custom_instructions: string | null;
-  is_pinned: boolean;
-  visibility: ProjectVisibility;
-  memory_scope: MemoryScope;
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  chat_count?: number;
-  is_shared?: boolean;
-  shares_count?: number;
-  role?: 'owner' | 'editor' | 'viewer';
-}
-
-export interface CreateProjectInput {
-  name: string;
-  description?: string | null;
-  custom_instructions?: string | null;
-  memory_scope?: MemoryScope;
-  is_pinned?: boolean;
-  visibility?: ProjectVisibility;
-  metadata?: Record<string, any>;
-}
-
-export interface UpdateProjectInput {
-  name?: string;
-  description?: string | null;
-  custom_instructions?: string | null;
-  memory_scope?: MemoryScope;
-  is_pinned?: boolean;
-  visibility?: ProjectVisibility;
-  metadata?: Record<string, any>;
-}
-
-export interface ProjectChat {
-  id: string;
-  title: string | null;
-  visibility: string;
-  is_pinned: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProjectFile {
-  id: string;
-  project_id: string;
-  user_id: string;
-  name: string;
-  size_bytes: number;
-  mime_type: string;
-  storage_path: string;
-  content: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export type {
+  MemoryScope,
+  ProjectVisibility,
+  ProjectRole,
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+  ProjectChat,
+  ProjectFile,
+  ProjectShare,
+  UploadingFileItem,
+};
 
 /**
  * Lists projects accessible to the user with optional search and tab filtering.

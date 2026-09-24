@@ -1,10 +1,31 @@
 import { useCallback, useMemo } from "react";
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import type { SidebarChat, PaginatedSidebarChats } from "@/lib/sidebar-chats";
 
+/**
+ * React Query cache key for user sidebar chats with infinite pagination.
+ */
 export const SIDEBAR_CHATS_QUERY_KEY = ["sidebar-chats"] as const;
+
+/**
+ * Standard page size for fetching paginated sidebar chats.
+ */
 export const SIDEBAR_CHATS_PAGE_SIZE = 20;
 
+/**
+ * Custom hook to manage sidebar chats with infinite pagination and in-memory cache operations.
+ *
+ * @param initialData - Optional preloaded chats from server-side rendering.
+ * @param options - Configuration options, including whether the query is enabled.
+ * @returns Object containing the flattened chats list, pagination controls, loading states, and cache helper functions.
+ */
 export function useSidebarChats(
   initialData?: PaginatedSidebarChats | SidebarChat[],
   options?: { enabled?: boolean }
@@ -73,6 +94,8 @@ export function useSidebarChats(
 
   /**
    * Deterministically upserts a chat into the local React Query cache.
+   *
+   * @param chat - Partial chat object containing at least the unique chat `id`.
    */
   const upsertChat = useCallback(
     (chat: Partial<SidebarChat> & { id: string }) => {
@@ -133,6 +156,8 @@ export function useSidebarChats(
 
   /**
    * Removes a chat from the local React Query cache.
+   *
+   * @param chatId - The unique identifier of the chat to remove.
    */
   const removeChat = useCallback(
     (chatId: string) => {
@@ -163,3 +188,217 @@ export function useSidebarChats(
     removeChat,
   };
 }
+
+/**
+ * Custom TanStack Query hook to fetch a single chat's messages and metadata by ID.
+ * Automatically deduplicates concurrent requests, shares cache across components, and eliminates race conditions.
+ *
+ * @param chatId - The unique identifier of the chat, or null/undefined if no chat is active.
+ * @param options - Optional query configuration such as `enabled`.
+ * @returns The query result including chat data ({ messages }), loading state, and refetch handler.
+ */
+export function useStoredChat(
+  chatId: string | null | undefined,
+  options?: { enabled?: boolean }
+) {
+  return useQuery<{ messages: any[] }, Error>({
+    queryKey: ["chat", chatId],
+    queryFn: async () => {
+      if (!chatId) return { messages: [] };
+      const res = await fetch(`/api/chats?id=${encodeURIComponent(chatId)}`);
+      if (!res.ok) {
+        throw new Error(`Failed to load chat: ${res.statusText}`);
+      }
+      return res.json();
+    },
+    enabled: Boolean(chatId) && (options?.enabled ?? true),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Parameters for updating an existing chat.
+ */
+export interface UpdateChatParams {
+  id: string;
+  title?: string;
+  is_pinned?: boolean;
+  visibility?: "PRIVATE" | "PUBLIC";
+  project_id?: string | null;
+}
+
+/**
+ * Mutation hook for updating chat properties (e.g. title, pinned status, visibility).
+ * Optimistically updates:
+ * 1. The sidebar chats infinite query cache (`SIDEBAR_CHATS_QUERY_KEY`).
+ * 2. Any active project query cache containing the chat (`["project"]`).
+ * 3. The single chat query cache (`["chat", id]`).
+ * Automatically rolls back optimistic changes if the mutation fails.
+ *
+ * @returns TanStack Query mutation object for updating chats.
+ */
+export function useUpdateChat() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { id: string; [key: string]: any },
+    Error,
+    UpdateChatParams,
+    { previousSidebar: any; previousProjects: [any, any][] }
+  >({
+    mutationFn: async ({ id, ...updates }) => {
+      const res = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to update chat");
+      return { id, ...updates };
+    },
+    onMutate: async ({ id, ...updates }) => {
+      await queryClient.cancelQueries({ queryKey: SIDEBAR_CHATS_QUERY_KEY });
+      await queryClient.cancelQueries({ queryKey: ["project"] });
+
+      const previousSidebar = queryClient.getQueryData(SIDEBAR_CHATS_QUERY_KEY);
+      const previousProjects = queryClient.getQueriesData({ queryKey: ["project"] });
+
+      // Optimistically update sidebar
+      queryClient.setQueryData<InfiniteData<PaginatedSidebarChats>>(
+        SIDEBAR_CHATS_QUERY_KEY,
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              chats: page.chats.map((c) =>
+                c.id === id
+                  ? {
+                      ...c,
+                      ...updates,
+                      updated_at: new Date().toISOString(),
+                    }
+                  : c
+              ),
+            })),
+          };
+        }
+      );
+
+      // Optimistically update any project query containing this chat
+      queryClient.setQueriesData({ queryKey: ["project"] }, (old: any) => {
+        if (!old || !Array.isArray(old.chats)) return old;
+        return {
+          ...old,
+          chats: old.chats.map((c: any) =>
+            c.id === id
+              ? {
+                  ...c,
+                  ...updates,
+                  updated_at: new Date().toISOString(),
+                }
+              : c
+          ),
+        };
+      });
+
+      return { previousSidebar, previousProjects };
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previousSidebar) {
+        queryClient.setQueryData(SIDEBAR_CHATS_QUERY_KEY, context.previousSidebar);
+      }
+      if (context?.previousProjects) {
+        for (const [key, data] of context.previousProjects) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      toast.error(err.message || "Failed to update chat");
+    },
+    onSettled: (_data, _err, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["chat", id] });
+    },
+  });
+}
+
+/**
+ * Mutation hook for deleting a chat by ID.
+ * Optimistically removes the chat from:
+ * 1. The sidebar chats infinite query cache (`SIDEBAR_CHATS_QUERY_KEY`).
+ * 2. Any active project query cache containing the chat (`["project"]`).
+ * Automatically rolls back optimistic changes if the mutation fails.
+ *
+ * @returns TanStack Query mutation object for deleting chats.
+ */
+export function useDeleteChat() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    string,
+    Error,
+    string,
+    { previousSidebar: any; previousProjects: [any, any][] }
+  >({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to delete chat");
+      return id;
+    },
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: SIDEBAR_CHATS_QUERY_KEY });
+      await queryClient.cancelQueries({ queryKey: ["project"] });
+
+      const previousSidebar = queryClient.getQueryData(SIDEBAR_CHATS_QUERY_KEY);
+      const previousProjects = queryClient.getQueriesData({ queryKey: ["project"] });
+
+      // Optimistically remove from sidebar
+      queryClient.setQueryData<InfiniteData<PaginatedSidebarChats>>(
+        SIDEBAR_CHATS_QUERY_KEY,
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              chats: page.chats.filter((c) => c.id !== id),
+            })),
+          };
+        }
+      );
+
+      // Optimistically remove from project queries
+      queryClient.setQueriesData({ queryKey: ["project"] }, (old: any) => {
+        if (!old || !Array.isArray(old.chats)) return old;
+        return {
+          ...old,
+          chats: old.chats.filter((c: any) => c.id !== id),
+        };
+      });
+
+      return { previousSidebar, previousProjects };
+    },
+    onError: (err, _id, context) => {
+      if (context?.previousSidebar) {
+        queryClient.setQueryData(SIDEBAR_CHATS_QUERY_KEY, context.previousSidebar);
+      }
+      if (context?.previousProjects) {
+        for (const [key, data] of context.previousProjects) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+      toast.error(err.message || "Failed to delete chat");
+    },
+    onSettled: (id) => {
+      if (id) {
+        queryClient.removeQueries({ queryKey: ["chat", id] });
+      }
+    },
+  });
+}
+
+export { useStoredChat as useChatData };

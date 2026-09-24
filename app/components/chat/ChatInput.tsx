@@ -24,7 +24,7 @@ import {
   FileIcon,
 } from 'lucide-react';
 import { normalizeLlmConfig, readLlmConfigFromStorage, writeLlmConfigToStorage } from '@/components/chat/llmConfig';
-import { ModelSelector, getCachedModel, fetchModels } from '@/components/chat/ModelSelector';
+import { ModelSelector, getCachedModel, useModels } from '@/components/chat/ModelSelector';
 import { useI18n } from '@/lib/web-i18n';
 
 async function convertFilesToDataURLs(files: FileList) {
@@ -88,7 +88,7 @@ export function ChatInput({ input: externalInput, placeholder, onInputChange, on
   const [activeModelName, setActiveModelName] = useState<string>('');
   const [activeProvider, setActiveProvider] = useState<string>('');
   const [storedContextLength, setStoredContextLength] = useState<number | undefined>();
-  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const { data: availableModels = [] } = useModels();
   const [modelReady, setModelReady] = useState(false);
 
   const isPending = status === 'submitted' || status === 'streaming';
@@ -114,10 +114,6 @@ export function ChatInput({ input: externalInput, placeholder, onInputChange, on
       setModelReady(true);
     };
     load();
-    fetchModels().then((models) => {
-      setAvailableModels(models);
-      setModelReady(true);
-    }).catch(() => {});
     const handleStorage = (event: StorageEvent) => {
       if (event.key === 'llm_config') load();
     };
