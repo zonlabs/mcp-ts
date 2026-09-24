@@ -66,6 +66,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // CIMD (Client ID Metadata Document) must be fetchable cross-origin
+        // by authorization servers (e.g. auth.exa.ai) during OAuth validation.
+        source: '/api/mcp/client-metadata.json',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           {
