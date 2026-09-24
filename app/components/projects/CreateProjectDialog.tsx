@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Folder } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useCreateProject } from "@/lib/hooks/use-sidebar-projects";
 import type { Project } from "@/lib/projects";
 
 interface CreateProjectDialogProps {
@@ -29,11 +30,11 @@ export function CreateProjectDialog({
   onProjectCreated,
 }: CreateProjectDialogProps) {
   const router = useRouter();
+  const createProject = useCreateProject();
   const [name, setName] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!createProject.isPending) {
       onOpenChange(false);
       setName("");
     }
@@ -47,32 +48,18 @@ export function CreateProjectDialog({
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmedName }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create project");
-      }
-
-      toast.success("Project created successfully");
-      handleClose();
+      const project = await createProject.mutateAsync({ name: trimmedName });
+      setName("");
+      onOpenChange(false);
 
       if (onProjectCreated) {
-        onProjectCreated(data.project);
+        onProjectCreated(project);
       } else {
-        router.push(`/projects/${data.project.id}`);
+        router.push(`/projects/${project.id}`);
       }
-    } catch (err: any) {
-      console.error("[CreateProjectDialog] Error:", err);
-      toast.error(err.message || "Failed to create project");
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // Handled by useCreateProject onError toast
     }
   };
 
@@ -120,7 +107,7 @@ export function CreateProjectDialog({
               variant="outline"
               size="sm"
               onClick={handleClose}
-              disabled={isSubmitting}
+              disabled={createProject.isPending}
               className="text-xs cursor-pointer"
             >
               Cancel
@@ -128,10 +115,10 @@ export function CreateProjectDialog({
             <Button
               type="submit"
               size="sm"
-              disabled={isSubmitting || !name.trim()}
+              disabled={createProject.isPending || !name.trim()}
               className="text-xs cursor-pointer"
             >
-              {isSubmitting ? "Creating..." : "Create Project"}
+              {createProject.isPending ? "Creating..." : "Create Project"}
             </Button>
           </DialogFooter>
         </form>

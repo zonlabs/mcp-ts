@@ -40,6 +40,7 @@ import {
 import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
 import { ProjectsSkeleton } from "@/components/projects/ProjectsSkeleton";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useSidebarProjects, useUpdateProject, useDeleteProject } from "@/lib/hooks/use-sidebar-projects";
 import type { Project } from "@/lib/projects";
 import { toast } from "react-hot-toast";
 
@@ -63,57 +64,26 @@ function formatRelativeTime(isoString?: string): string {
 export default function ProjectsPage() {
   const router = useRouter();
   const { userSession } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { projects, isLoading } = useSidebarProjects();
+  const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "mine" | "shared">("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // Delete project state
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const fetchProjects = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/projects");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load projects");
-      setProjects(data.projects || []);
-    } catch (err: any) {
-      console.error("[ProjectsPage] Load failed:", err);
-      toast.error(err.message || "Failed to load projects");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const handleProjectCreated = (newProject: Project) => {
-    setProjects((prev) => [newProject, ...prev]);
-  };
 
   const handleTogglePin = async (e: React.MouseEvent, project: Project) => {
     e.preventDefault();
     e.stopPropagation();
     const newPinned = !project.is_pinned;
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_pinned: newPinned }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update pin state");
+      await updateProject.mutateAsync({ id: project.id, is_pinned: newPinned });
       toast.success(newPinned ? "Project pinned" : "Project unpinned");
-      setProjects((prev) =>
-        prev.map((p) => (p.id === project.id ? { ...p, is_pinned: newPinned } : p))
-      );
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update pin state");
+    } catch {
+      // Handled by mutation toast
     }
   };
 
@@ -130,21 +100,13 @@ export default function ProjectsPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!projectToDelete) return;
-    setIsDeleting(true);
+    if (!projectToDelete || deleteProject.isPending) return;
+    const toDeleteId = projectToDelete.id;
+    setProjectToDelete(null);
     try {
-      const res = await fetch(`/api/projects/${projectToDelete.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete project");
-      }
-      toast.success("Project deleted");
-      setProjects((prev) => prev.filter((p) => p.id !== projectToDelete.id));
-      setProjectToDelete(null);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete project");
-    } finally {
-      setIsDeleting(false);
+      await deleteProject.mutateAsync(toDeleteId);
+    } catch {
+      // Handled by mutation toast
     }
   };
 
@@ -314,7 +276,7 @@ export default function ProjectsPage() {
                       ) : null}
                       {project.visibility === "PUBLIC" && (
                         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-normal shrink-0">
-                          <Globe className="size-3" />
+                          <Share2 className="size-3" />
                           <span>Public</span>
                         </span>
                       )}
@@ -412,16 +374,16 @@ export default function ProjectsPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleteProject.isPending}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={(e) => {
                   e.preventDefault();
                   handleDeleteConfirm();
                 }}
-                disabled={isDeleting}
+                disabled={deleteProject.isPending}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {isDeleting ? "Deleting..." : "Delete Project"}
+                {deleteProject.isPending ? "Deleting..." : "Delete Project"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -431,7 +393,6 @@ export default function ProjectsPage() {
         <CreateProjectDialog
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
-          onProjectCreated={handleProjectCreated}
         />
       </div>
     </div>

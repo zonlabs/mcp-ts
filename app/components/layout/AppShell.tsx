@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
@@ -34,13 +34,14 @@ import {
   Globe,
 } from "lucide-react";
 import Image from "next/image";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { ProfileDropdown } from "@/components/common/ProfileDropdown";
 import { useAuth } from "@/components/providers/AuthProvider";
 import type { Project } from "@/lib/projects";
 import { useSidebarChats } from "@/lib/hooks/use-sidebar-chats";
+import { useSidebarProjects, useUpdateProject, useDeleteProject, useProject } from "@/lib/hooks/use-sidebar-projects";
 import { SearchDialog } from "@/components/layout/SearchDialog";
 import { ShareDialog } from "@/components/chat/ShareDialog";
 import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
@@ -86,18 +87,19 @@ function ProjectContextMenu({
   onShareProject,
 }: {
   project: Project;
-  onProjectUpdated: () => void;
-  onProjectDeleted: (projectId: string) => void;
+  onProjectUpdated?: () => void;
+  onProjectDeleted?: (projectId: string) => void;
   onShareProject?: (project: Project) => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
+
   const [open, setOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [renameName, setRenameName] = useState(project.name);
-  const [renaming, setRenaming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const handleShare = async () => {
     try {
@@ -112,59 +114,39 @@ function ProjectContextMenu({
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = renameName.trim();
-    if (!trimmed || renaming) return;
-    setRenaming(true);
+    if (!trimmed || updateProject.isPending) return;
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to rename project");
+      await updateProject.mutateAsync({ id: project.id, name: trimmed });
       toast.success("Project renamed");
       setRenameOpen(false);
-      onProjectUpdated();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to rename project");
-    } finally {
-      setRenaming(false);
+      onProjectUpdated?.();
+    } catch {
+      // Handled by mutation toast
     }
   };
 
   const handleTogglePin = async () => {
+    const nextPinned = !project.is_pinned;
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_pinned: !project.is_pinned }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to update project");
-      toast.success(project.is_pinned ? "Project unpinned" : "Project pinned");
-      onProjectUpdated();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to update pin status");
+      await updateProject.mutateAsync({ id: project.id, is_pinned: nextPinned });
+      toast.success(nextPinned ? "Project pinned" : "Project unpinned");
+      onProjectUpdated?.();
+    } catch {
+      // Handled by mutation toast
     }
   };
 
   const handleDelete = async () => {
-    if (deleting) return;
-    setDeleting(true);
+    if (deleteProject.isPending) return;
     try {
-      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to delete project");
-      toast.success("Project deleted");
+      await deleteProject.mutateAsync(project.id);
       setDeleteOpen(false);
-      onProjectDeleted(project.id);
+      onProjectDeleted?.(project.id);
       if (pathname === `/projects/${project.id}` || pathname.startsWith(`/projects/${project.id}/`)) {
         router.push("/");
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to delete project");
-    } finally {
-      setDeleting(false);
+    } catch {
+      // Handled by mutation toast
     }
   };
 
@@ -194,7 +176,7 @@ function ProjectContextMenu({
             }}
             className="gap-2.5 py-2 cursor-pointer"
           >
-            <Upload className="size-4 text-muted-foreground" />
+            <Share2 className="size-4 text-muted-foreground" />
             <span>Share project</span>
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -260,7 +242,7 @@ function ProjectContextMenu({
       </DropdownMenu>
 
       {/* Rename Dialog — lives inside this component, no Radix focus race */}
-      <Dialog open={renameOpen} onOpenChange={(o) => !renaming && setRenameOpen(o)}>
+      <Dialog open={renameOpen} onOpenChange={(o) => !updateProject.isPending && setRenameOpen(o)}>
         <DialogContent className="sm:max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold">Rename Project</DialogTitle>
@@ -272,30 +254,28 @@ function ProjectContextMenu({
             <input
               type="text"
               value={renameName}
-              disabled={renaming}
+              disabled={updateProject.isPending}
               onChange={(e) => setRenameName(e.target.value)}
               className="w-full h-9 px-3 text-xs bg-background border border-border rounded-sm text-foreground focus:outline-none focus:border-primary font-sans disabled:opacity-50"
               placeholder="Enter new project name"
               autoFocus
             />
             <div className="flex items-center justify-end gap-2">
-              <Button type="button" variant="ghost" size="sm" disabled={renaming}
+              <Button type="button" variant="ghost" size="sm" disabled={updateProject.isPending}
                 onClick={() => setRenameOpen(false)} className="h-8 px-3 text-xs cursor-pointer">
                 Cancel
               </Button>
               <Button type="submit" size="sm"
-                disabled={!renameName.trim() || renaming} className="h-8 px-3 text-xs cursor-pointer">
-                {renaming ? "Saving..." : "Save"}
+                disabled={!renameName.trim() || updateProject.isPending} className="h-8 px-3 text-xs cursor-pointer">
+                {updateProject.isPending ? "Saving..." : "Save"}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-
-
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteOpen} onOpenChange={(o) => !deleting && setDeleteOpen(o)}>
+      <AlertDialog open={deleteOpen} onOpenChange={(o) => !deleteProject.isPending && setDeleteOpen(o)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Project</AlertDialogTitle>
@@ -305,13 +285,13 @@ function ProjectContextMenu({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteProject.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); handleDelete(); }}
-              disabled={deleting}
+              disabled={deleteProject.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
             >
-              {deleting ? "Deleting..." : "Delete project"}
+              {deleteProject.isPending ? "Deleting..." : "Delete project"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -751,18 +731,15 @@ export function AppShell({
     onError: (err: any) => toast.error(err?.message || "Failed to rename chat"),
   });
 
-  // User projects for sidebar
-  const { data: projectsData, refetch: refetchProjects } = useQuery<{ projects: Project[] }>({
-    queryKey: ["sidebar-projects"],
-    queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) return { projects: [] };
-      return res.json();
-    },
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+  // User projects for sidebar (centralized in-memory state via useSidebarProjects)
+  const {
+    projects,
+    upsertProject,
+    removeProject,
+    refetch: refetchProjects,
+  } = useSidebarProjects({
+    enabled: Boolean(userSession?.user),
   });
-  const projects = projectsData?.projects ?? [];
 
   const currentProjectId = useMemo(() => {
     if (!pathname.startsWith("/projects/")) return null;
@@ -770,21 +747,12 @@ export function AppShell({
     return parts[1] || null;
   }, [pathname]);
 
-  const { data: singleProjectData } = useQuery<{ project: Project }>({
-    queryKey: ["project", currentProjectId],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${currentProjectId}`);
-      if (!res.ok) return { project: null as any };
-      return res.json();
-    },
-    enabled: Boolean(currentProjectId && !projects.some((p) => p.id === currentProjectId)),
-    staleTime: 60_000,
-  });
+  const { project: singleProject } = useProject(currentProjectId);
 
   const currentProject = useMemo(() => {
     if (!currentProjectId) return null;
-    return projects.find((p) => p.id === currentProjectId) || singleProjectData?.project || null;
-  }, [currentProjectId, projects, singleProjectData]);
+    return projects.find((p) => p.id === currentProjectId) || singleProject || null;
+  }, [currentProjectId, projects, singleProject]);
 
   const isProjectChat = useMemo(() => {
     return Boolean(currentProjectId && pathname.includes("/chat/"));
@@ -1170,25 +1138,37 @@ export function AppShell({
                             {project.is_pinned && (
                               <Pin className="size-3 shrink-0 text-muted-foreground/80 -rotate-45" />
                             )}
+                            {/* Sharing indicator icons */}
                             {project.role && project.role !== 'owner' ? (
                               <SimpleTooltip content={`Shared with you (${project.role})`}>
-                                <span className="inline-flex shrink-0">
-                                  <Users className="size-3 text-primary/80" />
+                                <span className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label={`Shared with you (${project.role})`}>
+                                  <Users className="size-3.5 shrink-0 text-primary/70" />
                                 </span>
                               </SimpleTooltip>
-                            ) : project.shares_count && project.shares_count > 0 ? (
-                              <SimpleTooltip content={`Shared with ${project.shares_count} collaborator${project.shares_count > 1 ? 's' : ''}`}>
-                                <span className="inline-flex shrink-0">
-                                  <Users className="size-3 text-muted-foreground/80" />
-                                </span>
-                              </SimpleTooltip>
-                            ) : project.visibility === "PUBLIC" ? (
-                              <SimpleTooltip content="Public project (anyone with link)">
-                                <span className="inline-flex shrink-0">
-                                  <Globe className="size-3 text-muted-foreground/80" />
-                                </span>
-                              </SimpleTooltip>
-                            ) : null}
+                            ) : (
+                              <>
+                                {project.shares_count && project.shares_count > 0 ? (
+                                  <SimpleTooltip content={`Shared with ${project.shares_count} collaborator${project.shares_count > 1 ? 's' : ''}`}>
+                                    <span className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label={`Shared with ${project.shares_count} collaborators`}>
+                                      <Users className="size-3.5 shrink-0 text-primary/70" />
+                                    </span>
+                                  </SimpleTooltip>
+                                ) : null}
+                                {project.visibility === "PUBLIC" ? (
+                                  <SimpleTooltip content="Publicly shared project">
+                                    <span className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label="Publicly shared project">
+                                      <Share2 className="size-3.5 shrink-0 text-primary/70" />
+                                    </span>
+                                  </SimpleTooltip>
+                                ) : project.is_shared && (!project.shares_count || project.shares_count === 0) ? (
+                                  <SimpleTooltip content="Shared project">
+                                    <span className="shrink-0 flex items-center text-foreground/75 hover:text-foreground" aria-label="Shared project">
+                                      <Share2 className="size-3.5 shrink-0 text-primary/70" />
+                                    </span>
+                                  </SimpleTooltip>
+                                ) : null}
+                              </>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1207,8 +1187,6 @@ export function AppShell({
 
                             <ProjectContextMenu
                               project={project}
-                              onProjectUpdated={() => refetchProjects()}
-                              onProjectDeleted={() => refetchProjects()}
                               onShareProject={setShareProject}
                             />
                           </div>
@@ -1586,8 +1564,23 @@ export function AppShell({
         title="Share Project"
         initialVisibility={(shareProject?.visibility as "PRIVATE" | "PUBLIC") || "PRIVATE"}
         onVisibilityChange={(targetVisibility) => {
+          if (shareProject?.id) {
+            upsertProject({
+              id: shareProject.id,
+              visibility: targetVisibility,
+              is_shared: targetVisibility === "PUBLIC" || (shareProject.shares_count || 0) > 0,
+            });
+          }
           setShareProject((prev) => (prev ? { ...prev, visibility: targetVisibility } : null));
-          refetchProjects();
+        }}
+        onSharesChange={(updatedShares) => {
+          if (shareProject?.id) {
+            upsertProject({
+              id: shareProject.id,
+              shares_count: updatedShares.length,
+              is_shared: shareProject.visibility === "PUBLIC" || updatedShares.length > 0,
+            });
+          }
         }}
       />
 
@@ -1654,7 +1647,6 @@ export function AppShell({
         open={createProjectOpen}
         onOpenChange={setCreateProjectOpen}
         onProjectCreated={(newProj) => {
-          refetchProjects();
           router.push(`/projects/${newProj.id}`);
         }}
       />

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Brain, Lock, Globe, Sparkles, Trash2, Pin, PinOff } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useUpdateProject, useDeleteProject } from "@/lib/hooks/use-sidebar-projects";
 import type { Project, MemoryScope } from "@/lib/projects";
 
 interface ProjectSettingsTabProps {
@@ -39,6 +40,9 @@ export function ProjectSettingsTab({
   onProjectDeleted,
 }: ProjectSettingsTabProps) {
   const router = useRouter();
+  const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
+
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description || "");
   const [customInstructions, setCustomInstructions] = useState(project.custom_instructions || "");
@@ -46,8 +50,6 @@ export function ProjectSettingsTab({
   const [visibility, setVisibility] = useState<"PRIVATE" | "PUBLIC">(project.visibility || "PRIVATE");
   const [isPinned, setIsPinned] = useState<boolean>(project.is_pinned || false);
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -67,61 +69,35 @@ export function ProjectSettingsTab({
       return;
     }
 
-    setIsSaving(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmedName,
-          description: description.trim() || null,
-          custom_instructions: customInstructions.trim() || null,
-          memory_scope: memoryScope,
-          visibility,
-          is_pinned: isPinned,
-        }),
+      const updated = await updateProject.mutateAsync({
+        id: project.id,
+        name: trimmedName,
+        description: description.trim() || null,
+        custom_instructions: customInstructions.trim() || null,
+        memory_scope: memoryScope,
+        visibility,
+        is_pinned: isPinned,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update project");
-      }
-
       toast.success("Settings saved successfully");
-      onProjectUpdated?.(data.project);
-    } catch (err: any) {
-      console.error("[ProjectSettingsTab] Update failed:", err);
-      toast.error(err.message || "Failed to update project");
-    } finally {
-      setIsSaving(false);
+      onProjectUpdated?.(updated);
+    } catch {
+      // Handled by mutation toast
     }
   };
 
   const handleDelete = async () => {
-    setIsDeleting(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: "DELETE",
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to delete project");
-      }
-
-      toast.success("Project deleted");
+      await deleteProject.mutateAsync(project.id);
       setShowDeleteConfirm(false);
-
       if (onProjectDeleted) {
         onProjectDeleted(project.id);
       } else {
         router.push("/projects");
       }
-    } catch (err: any) {
-      console.error("[ProjectSettingsTab] Delete failed:", err);
-      toast.error(err.message || "Failed to delete project");
-    } finally {
-      setIsDeleting(false);
+    } catch {
+      // Handled by mutation toast
     }
   };
 
@@ -273,10 +249,10 @@ export function ProjectSettingsTab({
           <Button
             type="submit"
             size="sm"
-            disabled={isSaving || !name.trim()}
+            disabled={updateProject.isPending || !name.trim()}
             className="text-xs px-5 h-8.5 cursor-pointer font-medium"
           >
-            {isSaving ? "Saving..." : "Save Changes"}
+            {updateProject.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </form>
@@ -313,16 +289,16 @@ export function ProjectSettingsTab({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteProject.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
                 handleDelete();
               }}
-              disabled={isDeleting}
+              disabled={deleteProject.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete Project"}
+              {deleteProject.isPending ? "Deleting..." : "Delete Project"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -57,6 +57,8 @@ import {
 import { ProjectSettingsTab } from "@/components/projects/ProjectSettingsTab";
 import { ProjectWorkspaceSkeleton } from "@/components/projects/ProjectWorkspaceSkeleton";
 import { ShareDialog } from "@/components/chat/ShareDialog";
+import { useSidebarProjects, useUpdateProject, useDeleteProject, useProject, useProjectFiles } from "@/lib/hooks/use-sidebar-projects";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { toast } from "react-hot-toast";
 import type { Project, ProjectChat, ProjectFile } from "@/lib/projects";
@@ -109,93 +111,100 @@ export default function ProjectWorkspacePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params?.id as string;
+  const queryClient = useQueryClient();
+  const { upsertProject } = useSidebarProjects({ enabled: false });
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [chats, setChats] = useState<ProjectChat[]>([]);
-  const [files, setFiles] = useState<ProjectFile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use the shared TanStack Query hooks so AppShell, page.tsx, and PlaygroundChat share 1 deduplicated request
+  const {
+    project: projectData,
+    chats: projectChats,
+    isLoading: isProjectLoading,
+  } = useProject(projectId);
+
+  const {
+    files: projectFiles,
+    isLoading: isFilesLoading,
+    refetch: refetchFiles,
+  } = useProjectFiles(projectId);
+
+  const [localProject, setLocalProject] = useState<Project | null>(null);
+  const [localChats, setLocalChats] = useState<ProjectChat[] | null>(null);
+  const [localFiles, setLocalFiles] = useState<ProjectFile[] | null>(null);
+
+  const project = localProject || projectData;
+  const chats = localChats !== null ? localChats : projectChats;
+  const files = localFiles !== null ? localFiles : projectFiles;
+  const isLoading = (isProjectLoading || isFilesLoading) && !project;
+
   const [shareOpen, setShareOpen] = useState(false);
   const tabParam = searchParams?.get("tab");
   const [activeTab, setActiveTab] = useState<"chats" | "files" | "settings">(
     tabParam === "settings" || tabParam === "files" ? tabParam : "chats"
   );
-
   useEffect(() => {
     if (tabParam === "settings" || tabParam === "files" || tabParam === "chats") {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
 
-  // Chat filter
   const [chatSearch, setChatSearch] = useState("");
-  // File filter
   const [fileSearch, setFileSearch] = useState("");
-
-  // Chat input state
   const [chatInput, setChatInput] = useState("");
-
   const [instructionsExpanded, setInstructionsExpanded] = useState(true);
-
-  // File upload state
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingFiles, setUploadingFiles] = useState<{
     tempId: string;
     name: string;
     size: number;
-    status: 'uploading' | 'error';
+    status: "uploading" | "error";
     errorMessage?: string;
   }[]>([]);
-
-  // Preview state
   const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchProjectData = async () => {
-    if (!projectId) return;
-    setIsLoading(true);
-    try {
-      const [projRes, filesRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}`),
-        fetch(`/api/projects/${projectId}/files`),
-      ]);
-
-      const projData = await projRes.json();
-      if (!projRes.ok) {
-        throw new Error(projData.error || "Failed to load project");
-      }
-      setProject(projData.project);
-      setChats(projData.chats || []);
-
-      if (filesRes.ok) {
-        const filesData = await filesRes.json();
-        setFiles(filesData.files || []);
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load project details");
-    } finally {
-      setIsLoading(false);
-    }
+  const setProject = (updater: React.SetStateAction<Project | null>) => {
+    setLocalProject(updater);
+    queryClient.setQueryData(["project", projectId], (old: any) => {
+      const nextProj = typeof updater === "function" ? (updater as any)(old?.project ?? null) : updater;
+      return old ? { ...old, project: nextProj } : { project: nextProj, chats: [] };
+    });
   };
 
-  useEffect(() => {
-    fetchProjectData();
-  }, [projectId]);
+  const setChats = (updater: React.SetStateAction<ProjectChat[]>) => {
+    setLocalChats((prev) => {
+      const base = prev !== null ? prev : projectChats;
+      return typeof updater === "function" ? (updater as any)(base) : updater;
+    });
+    queryClient.setQueryData(["project", projectId], (old: any) => {
+      const nextChats = typeof updater === "function" ? (updater as any)(old?.chats ?? []) : updater;
+      return old ? { ...old, chats: nextChats } : { project: null, chats: nextChats };
+    });
+  };
+
+  const setFiles = (updater: React.SetStateAction<ProjectFile[]>) => {
+    setLocalFiles((prev) => {
+      const base = prev !== null ? prev : projectFiles;
+      return typeof updater === "function" ? (updater as any)(base) : updater;
+    });
+    queryClient.setQueryData(["project-files", projectId], (old: any) => {
+      const nextFiles = typeof updater === "function" ? (updater as any)(old?.files ?? []) : updater;
+      return { files: nextFiles };
+    });
+  };
+
+  const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
 
   const handleTogglePin = async () => {
     if (!project) return;
+    const nextPinned = !project.is_pinned;
+    setProject((prev) => (prev ? { ...prev, is_pinned: nextPinned } : null));
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_pinned: !project.is_pinned }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update pin");
-      setProject((prev) => (prev ? { ...prev, is_pinned: !prev.is_pinned } : null));
-      toast.success(project.is_pinned ? "Project unpinned" : "Project pinned");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to pin project");
+      await updateProject.mutateAsync({ id: project.id, is_pinned: nextPinned });
+      toast.success(nextPinned ? "Project pinned" : "Project unpinned");
+    } catch {
+      setProject((prev) => (prev ? { ...prev, is_pinned: !nextPinned } : null));
     }
   };
 
@@ -208,15 +217,13 @@ export default function ProjectWorkspacePage() {
   };
 
   const handleDeleteProject = async () => {
-    if (!project) return;
+    if (!project || deleteProject.isPending) return;
     if (!confirm(`Are you sure you want to delete "${project.name}"? This action cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete project");
-      toast.success("Project deleted");
+      await deleteProject.mutateAsync(project.id);
       router.push("/projects");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete project");
+    } catch {
+      // Handled by mutation toast
     }
   };
 
@@ -299,15 +306,7 @@ export default function ProjectWorkspacePage() {
       }
     }
 
-    try {
-      const refreshRes = await fetch(`/api/projects/${projectId}/files`);
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json();
-        if (Array.isArray(refreshData.files)) {
-          setFiles(refreshData.files);
-        }
-      }
-    } catch {}
+    await refetchFiles();
 
     setIsUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -750,7 +749,12 @@ export default function ProjectWorkspacePage() {
         title="Share Project"
         initialVisibility={(project?.visibility as any) || "PRIVATE"}
         onVisibilityChange={(v) => {
-          setProject((prev) => (prev ? { ...prev, visibility: v } : null));
+          setProject((prev) => (prev ? { ...prev, visibility: v, is_shared: v === "PUBLIC" || (prev.shares_count || 0) > 0 } : null));
+          upsertProject({ id: projectId, visibility: v, is_shared: v === "PUBLIC" || (project?.shares_count || 0) > 0 });
+        }}
+        onSharesChange={(updatedShares) => {
+          setProject((prev) => (prev ? { ...prev, shares_count: updatedShares.length, is_shared: prev.visibility === "PUBLIC" || updatedShares.length > 0 } : null));
+          upsertProject({ id: projectId, shares_count: updatedShares.length, is_shared: project?.visibility === "PUBLIC" || updatedShares.length > 0 });
         }}
       />
       </div>

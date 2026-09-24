@@ -35,6 +35,7 @@ import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/
 import type { ChatUIMessage } from '@/agent/chat-agent';
 import { useI18n } from '@/lib/web-i18n';
 import { useSidebarChats } from '@/lib/hooks/use-sidebar-chats';
+import { useProject } from '@/lib/hooks/use-sidebar-projects';
 
 import {
   Conversation,
@@ -275,22 +276,11 @@ export function PlaygroundChat({
   const searchParams = useSearchParams();
 
   const activeProjectId = propProjectId || searchParams?.get('projectId') || (pathname.startsWith('/projects/') ? pathname.split('/')[2] : undefined);
-  const [projectInfo, setProjectInfo] = useState<{ id: string; name: string } | null>(null);
-
-  useEffect(() => {
-    if (!activeProjectId) {
-      setProjectInfo(null);
-      return;
-    }
-    fetch(`/api/projects/${activeProjectId}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.project) {
-          setProjectInfo({ id: data.project.id, name: data.project.name });
-        }
-      })
-      .catch(() => {});
-  }, [activeProjectId]);
+  const { project: activeProject } = useProject(activeProjectId);
+  const projectInfo = useMemo(() => {
+    if (!activeProject) return null;
+    return { id: activeProject.id, name: activeProject.name };
+  }, [activeProject]);
 
   const chatIdFromUrl = propChatId || extractChatId(pathname);
   const isNewChat = !chatIdFromUrl && !propChatId;

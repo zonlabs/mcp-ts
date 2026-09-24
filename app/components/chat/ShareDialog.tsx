@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link2, ChevronDown, Check, Loader2, Trash2 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export interface CollaboratorShare {
@@ -37,6 +38,7 @@ export interface ShareDialogProps {
   title?: string;
   initialVisibility?: "PRIVATE" | "PUBLIC";
   onVisibilityChange?: (visibility: "PRIVATE" | "PUBLIC") => void;
+  onSharesChange?: (shares: CollaboratorShare[]) => void;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,6 +51,7 @@ export function ShareDialog({
   title,
   initialVisibility = "PRIVATE",
   onVisibilityChange,
+  onSharesChange,
 }: ShareDialogProps) {
   const [visibility, setVisibility] = useState<"PRIVATE" | "PUBLIC">(initialVisibility);
   const [shares, setShares] = useState<CollaboratorShare[]>([]);
@@ -93,11 +96,13 @@ export function ShareDialog({
   useEffect(() => {
     if (open && id) {
       setVisibility(initialVisibility);
+      setIsLoading(true);
       fetchShares();
       setEmailInput("");
       setCopied(false);
     }
-  }, [open, id, initialVisibility, fetchShares]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, id]);
 
   // Toggle "Anyone with the link" switch
   const handleToggleVisibility = async (checked: boolean) => {
@@ -105,7 +110,6 @@ export function ShareDialog({
     const nextVisibility = checked ? "PUBLIC" : "PRIVATE";
     const prevVisibility = visibility;
     setVisibility(nextVisibility);
-    onVisibilityChange?.(nextVisibility);
 
     try {
       const res = await fetch(apiBasePath, {
@@ -117,6 +121,9 @@ export function ShareDialog({
       if (!res.ok) {
         throw new Error("Failed to update access setting");
       }
+
+      onVisibilityChange?.(nextVisibility);
+
       toast.success(
         nextVisibility === "PUBLIC"
           ? "Public link access enabled"
@@ -167,8 +174,10 @@ export function ShareDialog({
         role: "viewer",
       };
 
-      setShares((prev) => [...prev.filter((s) => s.email !== trimmed), newShare]);
+      const updatedShares = [...shares.filter((s) => s.email !== trimmed), newShare];
+      setShares(updatedShares);
       setEmailInput("");
+      onSharesChange?.(updatedShares);
       toast.success(`Access granted to ${trimmed}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to invite collaborator");
@@ -183,9 +192,10 @@ export function ShareDialog({
     setUpdatingEmail(email);
 
     // Optimistic update
-    setShares((prev) =>
-      prev.map((s) => (s.email.toLowerCase() === email.toLowerCase() ? { ...s, role } : s))
+    const updatedShares = shares.map((s) =>
+      s.email.toLowerCase() === email.toLowerCase() ? { ...s, role } : s
     );
+    setShares(updatedShares);
 
     try {
       const res = await fetch(apiBasePath, {
@@ -197,6 +207,7 @@ export function ShareDialog({
       if (!res.ok) {
         throw new Error("Failed to update role");
       }
+      onSharesChange?.(updatedShares);
       toast.success(`Updated permission for ${email}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to update role");
@@ -212,7 +223,8 @@ export function ShareDialog({
     setUpdatingEmail(email);
 
     // Optimistic removal
-    setShares((prev) => prev.filter((s) => s.email.toLowerCase() !== email.toLowerCase()));
+    const updatedShares = shares.filter((s) => s.email.toLowerCase() !== email.toLowerCase());
+    setShares(updatedShares);
 
     try {
       const res = await fetch(`${apiBasePath}?email=${encodeURIComponent(email)}`, {
@@ -222,6 +234,7 @@ export function ShareDialog({
       if (!res.ok) {
         throw new Error("Failed to remove collaborator");
       }
+      onSharesChange?.(updatedShares);
       toast.success(`Removed ${email}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to remove collaborator");
@@ -268,7 +281,45 @@ export function ShareDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 pt-1">
+        {isLoading ? (
+          <div className="space-y-5 pt-1">
+            {/* Row 1: Anyone with the link */}
+            <div className="flex items-center justify-between gap-4 py-1">
+              <div className="space-y-1.5 flex-1">
+                <Skeleton className="h-4 w-36 rounded-xs" />
+                <Skeleton className="h-3 w-5/6 max-w-[300px] rounded-xs" />
+              </div>
+              <Skeleton className="h-5 w-9 rounded-full shrink-0" />
+            </div>
+
+            {/* Row 2: Specific emails */}
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-24 rounded-xs" />
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-9 flex-1 rounded-md" />
+                <Skeleton className="h-9 w-14 rounded-md shrink-0" />
+              </div>
+            </div>
+
+            {/* Row 3: Collaborators List placeholder */}
+            <div className="space-y-2 p-2 rounded-md border border-border/40 bg-muted/10">
+              <div className="flex items-center justify-between py-1">
+                <Skeleton className="h-3.5 w-44 rounded-xs" />
+                <Skeleton className="h-3.5 w-14 rounded-xs" />
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <Skeleton className="h-3.5 w-36 rounded-xs" />
+                <Skeleton className="h-3.5 w-14 rounded-xs" />
+              </div>
+            </div>
+
+            {/* Row 4: Footer */}
+            <div className="pt-2 border-t border-border flex items-center justify-between">
+              <Skeleton className="h-4 w-20 rounded-xs" />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5 pt-1">
           {/* Row 1: Anyone with the link */}
           <div className="flex items-center justify-between gap-4 py-1">
             <div className="space-y-0.5">
@@ -389,21 +440,22 @@ export function ShareDialog({
             </div>
           )}
 
-          {/* Row 4: Footer - Copy Link */}
-          <div className="pt-2 border-t border-border flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className={cn(
-                "inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground",
-                "transition-colors cursor-pointer py-1 px-1 -ml-1 rounded-sm hover:bg-muted/40 focus:outline-none"
-              )}
-            >
-              <Link2 className="size-3.5 -rotate-45" />
-              <span>{copied ? "Link copied!" : "Copy Link"}</span>
-            </button>
+            {/* Row 4: Footer - Copy Link */}
+            <div className="pt-2 border-t border-border flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className={cn(
+                  "inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground",
+                  "transition-colors cursor-pointer py-1 px-1 -ml-1 rounded-sm hover:bg-muted/40 focus:outline-none"
+                )}
+              >
+                <Link2 className="size-3.5 -rotate-45" />
+                <span>{copied ? "Link copied!" : "Copy Link"}</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );
