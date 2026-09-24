@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
 import { createClient } from '@/lib/supabase/server';
-import { loadChat } from '@/lib/chat-store';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,7 +49,6 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
     }
   }
 
-  const initialMessages = chatRow ? await loadChat(chatId) : [];
   const projectIdParam = typeof searchParams?.projectId === 'string' ? searchParams.projectId : undefined;
   const effectiveProjectId = chatRow?.project_id || projectIdParam;
 
@@ -61,7 +59,6 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
       projectId={effectiveProjectId}
       initialTitle={chatRow?.title}
       chatUserId={chatRow?.user_id || user?.id}
-      initialMessages={initialMessages}
       isReadOnly={isReadOnly}
     />
   );

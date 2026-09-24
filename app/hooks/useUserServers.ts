@@ -7,7 +7,21 @@ import { McpServer } from "@/types/mcp";
 import { useMcpContext } from "@/components/providers/McpProvider";
 import { findConnectionForServer } from "@/lib/mcp/connection-utils";
 
-export function useUserServers() {
+export interface UseUserServersOptions {
+  enabled?: boolean;
+}
+
+/**
+ * Hook to manage custom user-configured MCP servers.
+ *
+ * - Fetches user servers with TanStack Query (2m fresh in-memory cache)
+ * - Merges live runtime connection state from McpProvider
+ * - Provides add, update, and delete mutations with automatic cache invalidation
+ *
+ * @param options Optional configuration (e.g. `enabled` to avoid fetching when tab is not active).
+ */
+export function useUserServers(options: UseUserServersOptions = {}) {
+  const { enabled = true } = options;
   const queryClient = useQueryClient();
   const { connections } = useMcpContext();
 
@@ -23,6 +37,7 @@ export function useUserServers() {
       const data = await res.json();
       return Array.isArray(data.servers) ? data.servers : [];
     },
+    enabled,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 

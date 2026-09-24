@@ -212,7 +212,7 @@ export function useStoredChat(
       return res.json();
     },
     enabled: Boolean(chatId) && (options?.enabled ?? true),
-    staleTime: 30_000,
+    staleTime: 1000 * 60 * 5, // 5 minutes fresh cache
     refetchOnWindowFocus: false,
   });
 }

@@ -69,6 +69,7 @@ interface McpUsageOverviewProps {
   mcpAssistantCount?: number;
   currentPage: number;
   onPageChange?: (newPage: number) => void;
+  isLoading?: boolean;
   isFetching?: boolean;
   days?: number;
   healthStatus?: string;
@@ -82,6 +83,7 @@ export function McpUsageOverview({
   mcpAssistantCount,
   currentPage,
   onPageChange,
+  isLoading,
   isFetching,
   days,
 }: McpUsageOverviewProps) {
@@ -127,7 +129,7 @@ export function McpUsageOverview({
   return (
     <div className="space-y-6">
       {/* 1. Main Heatmap & Telemetry Card */}
-      <div className="bg-card border border-border rounded-md p-3.5 sm:p-4 space-y-3.5">
+      <div className="bg-card border border-border rounded-md p-3 sm:p-3.5 space-y-2.5">
         {/* Full-width Heatmap Grid */}
         <div className="overflow-x-auto scrollbar-minimal">
           <TooltipProvider delayDuration={100}>
@@ -202,57 +204,73 @@ export function McpUsageOverview({
         </div>
 
         {/* Integrated Metric Strip (Divider removed, tighter vertical spacing) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-0.5">
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Tool Calls
             </p>
-            <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground tracking-tight">
-              {summary.toolCallsTotal.toLocaleString()}
-            </p>
+            {isLoading ? (
+              <div className="h-4 sm:h-5 w-20 bg-muted/60 animate-pulse rounded-sm mt-1" />
+            ) : (
+              <p className="text-lg sm:text-xl lg:text-2xl font-semibold font-mono text-foreground tracking-tight">
+                {summary.toolCallsTotal.toLocaleString()}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               LinkOS
             </p>
-            <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground tracking-tight">
-              {resolvedMcpAssistantCount.toLocaleString()}
-            </p>
+            {isLoading ? (
+              <div className="h-4 sm:h-5 w-20 bg-muted/60 animate-pulse rounded-sm mt-1" />
+            ) : (
+              <p className="text-lg sm:text-xl lg:text-2xl font-semibold font-mono text-foreground tracking-tight">
+                {resolvedMcpAssistantCount.toLocaleString()}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Streak
             </p>
-            <p className="text-xl sm:text-2xl lg:text-3xl font-semibold font-mono text-foreground flex items-baseline gap-1.5">
-              <span>{summary.streakDays}</span>
-              <span className="text-xs sm:text-sm font-normal font-sans text-muted-foreground">Days</span>
-            </p>
+            {isLoading ? (
+              <div className="h-4 sm:h-5 w-20 bg-muted/60 animate-pulse rounded-sm mt-1" />
+            ) : (
+              <p className="text-lg sm:text-xl lg:text-2xl font-semibold font-mono text-foreground flex items-baseline gap-1.5">
+                <span>{summary.streakDays}</span>
+                <span className="text-xs sm:text-sm font-normal font-sans text-muted-foreground">Days</span>
+              </p>
+            )}
           </div>
 
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] sm:text-xs font-mono uppercase tracking-wider text-muted-foreground/80 font-semibold">
               Most Used App
             </p>
-            <div className="text-sm sm:text-base lg:text-lg font-medium text-foreground truncate flex items-center gap-2 pt-0.5">
-              {summary.mostUsedApp ? (
-                <>
-                  <div className="size-7 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-1 shadow-2xs">
-                    <ServerActivityIcon
-                      icons={mostUsedAppEvent?.server_icons}
-                      serverName={mostUsedAppName}
-                      serverUrl={mostUsedAppServerUrl}
-                      size={18}
-                      className="shrink-0 rounded-xs object-contain"
-                    />
-                  </div>
-                  <span className="truncate">{mostUsedAppName}</span>
-                </>
-              ) : (
-                <span className="truncate text-muted-foreground">None</span>
-              )}
-            </div>
+            {isLoading ? (
+              <div className="h-4 sm:h-5 w-28 bg-muted/60 animate-pulse rounded-sm mt-1" />
+            ) : (
+              <div className="text-sm sm:text-base lg:text-lg font-medium text-foreground truncate flex items-center gap-2 pt-0.5">
+                {summary.mostUsedApp ? (
+                  <>
+                    <div className="size-7 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-1 shadow-2xs">
+                      <ServerActivityIcon
+                        icons={mostUsedAppEvent?.server_icons}
+                        serverName={mostUsedAppName}
+                        serverUrl={mostUsedAppServerUrl}
+                        size={18}
+                        className="shrink-0 rounded-xs object-contain"
+                      />
+                    </div>
+                    <span className="truncate">{mostUsedAppName}</span>
+                  </>
+                ) : (
+                  <span className="truncate text-muted-foreground">None</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -269,7 +287,20 @@ export function McpUsageOverview({
           </h3>
         </div>
 
-        {recentEventGroups.length > 0 || currentPage > 1 ? (
+        {isLoading ? (
+          <div className="bg-card border border-border rounded-md overflow-hidden p-4 space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between gap-4 animate-pulse py-2">
+                <div className="flex items-center gap-3">
+                  <div className="size-4 bg-muted/60 rounded-xs" />
+                  <div className="h-3.5 w-16 bg-muted/60 rounded-xs" />
+                  <div className="h-3.5 w-32 bg-muted/60 rounded-xs" />
+                </div>
+                <div className="h-3.5 w-20 bg-muted/60 rounded-xs" />
+              </div>
+            ))}
+          </div>
+        ) : recentEventGroups.length > 0 || currentPage > 1 ? (
           <div className="bg-card border border-border rounded-md overflow-hidden">
             {recentEventGroups.length > 0 ? (
               <div className="divide-y divide-border/60">

@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
 import { createClient } from '@/lib/supabase/server';
-import { loadChat } from '@/lib/chat-store';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,7 +29,6 @@ export default async function ProjectChatPage(props: {
     notFound();
   }
 
-  const initialMessages = chatRow ? await loadChat(chatId) : [];
   const effectiveProjectId = chatRow?.project_id || projectId;
 
   return (
@@ -40,7 +38,6 @@ export default async function ProjectChatPage(props: {
       projectId={effectiveProjectId}
       initialTitle={chatRow?.title}
       chatUserId={chatRow?.user_id || user?.id}
-      initialMessages={initialMessages}
     />
   );
 }

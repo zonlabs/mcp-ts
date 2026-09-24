@@ -34,6 +34,7 @@ import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { ChatUIMessage } from '@/agent/chat-agent';
 import { useI18n } from '@/lib/web-i18n';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSidebarChats, useStoredChat } from '@/lib/hooks/use-chats';
 import { useProject } from '@/lib/hooks/use-projects';
 
@@ -307,7 +308,16 @@ export function PlaygroundChat({
   const lastTitleRef = useRef<string | null>(null);
 
   const chatContentWidthClass = "w-full max-w-2xl mx-auto px-4 sm:px-6";
-  const safeInitialMessages = Array.isArray(initialMessages) ? initialMessages : [];
+  const queryClient = useQueryClient();
+  const cachedMessages = useMemo(() => {
+    if (!chatId || isNewChat) return undefined;
+    const cached = queryClient.getQueryData<{ messages: any[] }>(["chat", chatId]);
+    return Array.isArray(cached?.messages) && cached.messages.length > 0 ? cached.messages : undefined;
+  }, [chatId, isNewChat, queryClient]);
+
+  const safeInitialMessages = Array.isArray(initialMessages) && initialMessages.length > 0
+    ? initialMessages
+    : (cachedMessages ?? []);
 
   const getCurrentLlmConfig = () => {
     const normalized = normalizeLlmConfig(readLlmConfigFromStorage());
@@ -435,7 +445,9 @@ export function PlaygroundChat({
     }
   }, [chatData, messages.length, setMessages]);
 
-  const isLoadingMessages = shouldFetchChat && isChatLoading;
+  const isLoadingMessages =
+    shouldFetchChat &&
+    (isChatLoading || (Boolean(chatData?.messages && chatData.messages.length > 0) && messages.length === 0));
 
   const prevChatIdRef = useRef(chatId);
   useEffect(() => {
@@ -470,8 +482,9 @@ export function PlaygroundChat({
   useEffect(() => {
     if (status === 'ready' && messages.length > 0) {
       upsertChat({ id: chatId, user_id: chatUserId, project_id: activeProjectId });
+      queryClient.setQueryData(["chat", chatId], { messages });
     }
-  }, [status, messages.length, chatId, chatUserId, activeProjectId, upsertChat]);
+  }, [status, messages, chatId, chatUserId, activeProjectId, upsertChat, queryClient]);
 
   const contextUsage = useMemo(
     () => [...messages].reverse().find((m: any) => m?.role === 'assistant' && m?.metadata?.usage)?.metadata?.usage,
