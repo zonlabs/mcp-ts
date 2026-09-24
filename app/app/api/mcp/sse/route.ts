@@ -12,6 +12,9 @@ export const { GET, POST } = createNextMcpHandler({
     clientDefaults: {
         clientName: "LinkOS",
         clientUri: "https://app.linkos.in",
+        logoUri: process.env.NEXT_PUBLIC_APP_URL
+            ? `${process.env.NEXT_PUBLIC_APP_URL}/logo-light.svg`
+            : "https://app.linkos.in/logo-light.svg",
         clientMetadataUrl: process.env.NEXT_PUBLIC_APP_URL
             ? `${process.env.NEXT_PUBLIC_APP_URL}/api/mcp/client-metadata.json`
             : "https://app.linkos.in/api/mcp/client-metadata.json",

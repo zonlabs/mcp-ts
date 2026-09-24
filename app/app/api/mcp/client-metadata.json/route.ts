@@ -17,18 +17,22 @@ export async function GET(request: Request) {
 
   const clientId = `${origin}/api/mcp/client-metadata.json`;
 
+  const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
+  const redirectUris = [
+    `${origin}/auth/callback/success`,
+    ...(isLocal ? ['http://localhost:3000/auth/callback/success'] : []),
+  ].filter((uri, index, self) => self.indexOf(uri) === index);
+
   const metadata = {
     client_id: clientId,
     client_name: 'LinkOS',
     client_uri: origin,
-    redirect_uris: [
-      `${origin}/auth/callback/success`,
-      'http://localhost:3000/auth/callback/success',
-    ].filter((uri, index, self) => self.indexOf(uri) === index),
+    logo_uri: `${origin}/logo-light.svg`,
+    redirect_uris: redirectUris,
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
     token_endpoint_auth_method: 'none',
-    application_type: 'native',
+    token_endpoint_auth_methods_supported: ['none'],
   };
 
   return NextResponse.json(metadata, {
