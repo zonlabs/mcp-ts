@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Download,
   Trash2,
@@ -15,27 +15,67 @@ import {
   Lock,
   Globe,
   FileJson,
+  HardDrive,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
-import { useSidebarChats, SIDEBAR_CHATS_QUERY_KEY } from "@/lib/hooks/use-chats";
+import { useSidebarChats } from "@/lib/hooks/use-chats";
+import { useSidebarProjects } from "@/lib/hooks/use-projects";
 import { DeleteAllChatsDialog } from "@/components/settings/DeleteAllChatsDialog";
 import { DeleteMcpUsageEventsDialog } from "@/components/settings/DeleteMcpUsageEventsDialog";
+import { DeleteAllProjectsDialog } from "@/components/settings/DeleteAllProjectsDialog";
+import { DeleteAllFilesDialog } from "@/components/settings/DeleteAllFilesDialog";
 import type { SidebarChat } from "@/lib/sidebar-chats";
+import {
+  useStorageUsage,
+  useExportChatsMutation,
+  useUpdateChatVisibilityMutation,
+  useRevokeAllSharedMutation,
+  useDeleteAllChatsMutation,
+  useDeleteMcpUsageEventsMutation,
+  useDeleteAllProjectsMutation,
+  useDeleteAllFilesMutation,
+} from "@/lib/hooks/use-data-controls";
+
+const FREE_TIER_LIMIT_BYTES = 500 * 1024 * 1024; // 500 MB (Supabase free tier)
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes === 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(2)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return Number.isInteger(mb) ? `${mb} MB` : `${mb.toFixed(1)} MB`;
+  const gb = mb / 1024;
+  return Number.isInteger(gb) ? `${gb} GB` : `${gb.toFixed(2)} GB`;
+}
 
 export default function DataControlsPage() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { chats, upsertChat, removeChat } = useSidebarChats();
+  const { chats } = useSidebarChats();
+  const { projects } = useSidebarProjects();
 
-  const [isExporting, setIsExporting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteUsageEventsDialogOpen, setDeleteUsageEventsDialogOpen] = useState(false);
+  const [deleteProjectsDialogOpen, setDeleteProjectsDialogOpen] = useState(false);
+  const [deleteFilesDialogOpen, setDeleteFilesDialogOpen] = useState(false);
   const [copiedChatId, setCopiedChatId] = useState<string | null>(null);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [isRevokingAll, setIsRevokingAll] = useState(false);
+
+  // Centralized TanStack Query hooks & mutations
+  const { data: storage } = useStorageUsage();
+  const exportMutation = useExportChatsMutation();
+  const updateVisibilityMutation = useUpdateChatVisibilityMutation();
+  const revokeAllMutation = useRevokeAllSharedMutation((chats || []).map((c) => c.id));
+  const deleteAllChatsMutation = useDeleteAllChatsMutation();
+  const deleteMcpUsageMutation = useDeleteMcpUsageEventsMutation();
+  const deleteAllProjectsMutation = useDeleteAllProjectsMutation();
+  const deleteAllFilesMutation = useDeleteAllFilesMutation();
+
+  const usedBytes = storage?.used_bytes ?? 0;
+  const limitBytes = storage?.limit_bytes ?? FREE_TIER_LIMIT_BYTES;
+  const percentageUsed =
+    usedBytes > 0 ? Math.min(100, Math.max(0.5, (usedBytes / limitBytes) * 100)) : 0;
 
   // Filter public shared chats
   const sharedChats = (chats || []).filter((chat) => chat.visibility === "PUBLIC");
@@ -48,32 +88,6 @@ export default function DataControlsPage() {
       day: "numeric",
       year: "numeric",
     });
-  };
-
-  // Export Data Handler
-  const handleExportData = async () => {
-    setIsExporting(true);
-    try {
-      const res = await fetch("/api/chats/export");
-      if (!res.ok) {
-        throw new Error("Failed to export chat data");
-      }
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `linkos-chats-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success("Chat export downloaded");
-    } catch (err) {
-      console.error("Export error:", err);
-      toast.error("Failed to download chat export");
-    } finally {
-      setIsExporting(false);
-    }
   };
 
   // Copy share link helper
@@ -91,78 +105,29 @@ export default function DataControlsPage() {
     }
   };
 
-  // Revoke single shared link (set visibility to PRIVATE)
-  const handleRevokeShare = async (chat: SidebarChat) => {
-    setRevokingId(chat.id);
-    try {
-      const res = await fetch(`/api/chats?id=${chat.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visibility: "PRIVATE" }),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to revoke share link");
-      }
-      upsertChat({ id: chat.id, visibility: "PRIVATE" });
-      await queryClient.invalidateQueries({ queryKey: SIDEBAR_CHATS_QUERY_KEY });
-      toast.success(`Share link revoked for "${chat.title || "Untitled"}"`);
-    } catch (err) {
-      console.error("Revoke error:", err);
-      toast.error("Failed to revoke share link");
-    } finally {
-      setRevokingId(null);
-    }
+  // Revoke single shared link
+  const handleRevokeShare = (chat: SidebarChat) => {
+    updateVisibilityMutation.mutate({
+      chatId: chat.id,
+      visibility: "PRIVATE",
+      chatTitle: chat.title,
+    });
   };
 
   // Revoke all shared links
-  const handleRevokeAll = async () => {
-    if (sharedChats.length === 0 || isRevokingAll) return;
-    setIsRevokingAll(true);
-    try {
-      const res = await fetch("/api/chats?revokeAll=true", {
-        method: "PATCH",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to revoke all share links");
-      }
-      sharedChats.forEach((chat) => {
-        upsertChat({ id: chat.id, visibility: "PRIVATE" });
-      });
-      await queryClient.invalidateQueries({ queryKey: SIDEBAR_CHATS_QUERY_KEY });
-      toast.success("All shared links revoked");
-    } catch (err) {
-      console.error("Revoke all error:", err);
-      toast.error("Failed to revoke all share links");
-    } finally {
-      setIsRevokingAll(false);
-    }
+  const handleRevokeAll = () => {
+    if (sharedChats.length === 0 || revokeAllMutation.isPending) return;
+    revokeAllMutation.mutate();
   };
 
   // Bulk Delete All Chats Handler
   const handleDeleteAllChats = async () => {
-    const res = await fetch("/api/chats?all=true", {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to delete all conversations");
-    }
-    // Clear sidebar chats cache immediately and invalidate
-    queryClient.setQueryData(SIDEBAR_CHATS_QUERY_KEY, { chats: [] });
-    await queryClient.invalidateQueries({ queryKey: SIDEBAR_CHATS_QUERY_KEY });
-    toast.success("All conversations permanently deleted");
-    router.push("/chat");
+    await deleteAllChatsMutation.mutateAsync();
   };
 
+  // Delete MCP Usage Events Handler
   const handleDeleteMcpUsageEvents = async () => {
-    const res = await fetch("/api/remote-mcp/usage", { method: "DELETE" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to delete MCP usage events");
-    }
-
-    await queryClient.invalidateQueries({ queryKey: ["mcpUsage"] });
-    toast.success("MCP usage events permanently deleted");
+    await deleteMcpUsageMutation.mutateAsync();
   };
 
   return (
@@ -174,13 +139,53 @@ export default function DataControlsPage() {
             Data Controls
           </h1>
           <p className="text-xs text-muted-foreground">
-            Manage your chat data, shared links, and exports.
+            Manage your chat data, file storage, and shared links.
           </p>
         </div>
 
         <div className="space-y-6">
-          {/* Section 1: Export Data */}
+          {/* Section 1: File Storage */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border first:pt-0 first:border-t-0">
+            <div className="space-y-1">
+              <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <HardDrive className="size-3.5 text-muted-foreground" />
+                File Storage
+              </h3>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Workspace knowledge files and attachment storage.
+              </p>
+            </div>
+
+            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3.5">
+              <div className="flex items-baseline justify-between gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-medium text-foreground">Storage Allocation</p>
+                  <p className="text-xs font-mono text-muted-foreground">
+                    <span className="text-foreground font-medium">
+                      {formatBytes(usedBytes)}
+                    </span>{" "}
+                    used of {formatBytes(limitBytes)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Minimal Monochrome Progress Bar with clear dark mode contrast */}
+              <div className="h-1.5 w-full bg-secondary border border-border/60 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-foreground rounded-full transition-all duration-300"
+                  style={{ width: `${percentageUsed}%` }}
+                />
+              </div>
+
+              <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                <span>Quota: 500 MB</span>
+                <span>Max upload: 10 MB/file</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Export Data */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
             <div className="space-y-1">
               <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <FileJson className="size-3.5 text-muted-foreground" />
@@ -191,7 +196,7 @@ export default function DataControlsPage() {
               </p>
             </div>
 
-            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3 shadow-xs">
+            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-0.5 min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground">Export conversations</p>
@@ -203,11 +208,11 @@ export default function DataControlsPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={handleExportData}
-                  disabled={isExporting}
+                  onClick={() => exportMutation.mutate()}
+                  disabled={exportMutation.isPending}
                   className="h-8 px-3 text-xs font-medium rounded-sm border-border hover:bg-muted shrink-0 transition-all"
                 >
-                  {isExporting ? (
+                  {exportMutation.isPending ? (
                     <>
                       <Loader2 className="size-3.5 mr-1.5 animate-spin" />
                       Exporting...
@@ -228,7 +233,7 @@ export default function DataControlsPage() {
             </div>
           </div>
 
-          {/* Section 2: Shared Links Management */}
+          {/* Section 3: Shared Links Management */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
             <div className="space-y-1">
               <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -240,11 +245,11 @@ export default function DataControlsPage() {
               </p>
             </div>
 
-            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-4 shadow-xs">
+            <div className="md:col-span-2 bg-card border border-border rounded-md p-4 space-y-4">
               <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-foreground">Active Shared Links</span>
-                  <span className="px-1.5 py-0.2 text-[10px] font-mono rounded-xs bg-muted border border-border text-muted-foreground">
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono rounded-xs bg-muted text-muted-foreground">
                     {sharedChats.length}
                   </span>
                 </div>
@@ -254,10 +259,10 @@ export default function DataControlsPage() {
                     variant="ghost"
                     size="sm"
                     onClick={handleRevokeAll}
-                    disabled={isRevokingAll}
+                    disabled={revokeAllMutation.isPending}
                     className="h-6 px-2 text-[11px] font-medium text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xs"
                   >
-                    {isRevokingAll ? (
+                    {revokeAllMutation.isPending ? (
                       <>
                         <Loader2 className="size-3 mr-1 animate-spin" />
                         Revoking...
@@ -271,7 +276,7 @@ export default function DataControlsPage() {
 
               {sharedChats.length === 0 ? (
                 <div className="py-6 text-center space-y-1.5">
-                  <div className="size-8 mx-auto rounded-sm bg-muted/60 border border-border/60 flex items-center justify-center">
+                  <div className="size-8 mx-auto rounded-sm bg-muted/60 flex items-center justify-center">
                     <Globe className="size-4 text-muted-foreground" />
                   </div>
                   <p className="text-xs font-medium text-foreground">No shared links</p>
@@ -282,7 +287,9 @@ export default function DataControlsPage() {
               ) : (
                 <div className="divide-y divide-border/40 -mx-1">
                   {sharedChats.map((chat) => {
-                    const isRevoking = revokingId === chat.id;
+                    const isRevoking =
+                      updateVisibilityMutation.isPending &&
+                      updateVisibilityMutation.variables?.chatId === chat.id;
                     const isCopied = copiedChatId === chat.id;
                     return (
                       <div
@@ -296,7 +303,7 @@ export default function DataControlsPage() {
                           <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
                             <span>Updated {formatDate(chat.updated_at)}</span>
                             <span>·</span>
-                            <span className="text-emerald-500 font-medium">Public</span>
+                            <span className="text-muted-foreground font-medium">Public</span>
                           </div>
                         </div>
 
@@ -310,7 +317,7 @@ export default function DataControlsPage() {
                               className="h-7 w-7 p-0 rounded-xs text-muted-foreground hover:text-foreground"
                             >
                               {isCopied ? (
-                                <Check className="size-3.5 text-emerald-500" />
+                                <Check className="size-3.5 text-foreground" />
                               ) : (
                                 <Copy className="size-3.5" />
                               )}
@@ -342,7 +349,7 @@ export default function DataControlsPage() {
                               size="sm"
                               onClick={() => handleRevokeShare(chat)}
                               disabled={isRevoking}
-                              className="h-7 px-2 text-[11px] rounded-xs border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 text-muted-foreground transition-all ml-1"
+                              className="h-7 px-2 text-[11px] rounded-xs border-border hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-all ml-1"
                             >
                               {isRevoking ? (
                                 <Loader2 className="size-3 animate-spin" />
@@ -363,24 +370,71 @@ export default function DataControlsPage() {
             </div>
           </div>
 
-          {/* Section 3: Danger Zone */}
+          {/* Section 4: Danger Zone */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4 border-t border-border">
             <div className="space-y-1">
               <h3 className="text-xs font-semibold text-destructive flex items-center gap-1.5">
-                <ShieldAlert className="size-3.5" />
+                <ShieldAlert className="size-3.5 text-destructive" />
                 Danger Zone
               </h3>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Permanent actions for your data.
+                Irreversible actions for your stored data.
               </p>
             </div>
 
-            <div className="md:col-span-2 bg-card border border-destructive/20 rounded-md p-4 space-y-4 shadow-xs">
+            <div className="md:col-span-2 bg-card border border-destructive/20 rounded-md p-4 space-y-4">
+              {/* 1. Delete All Files */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-medium text-foreground">Delete all files</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Permanently delete all workspace knowledge files and clear storage quota.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteFilesDialogOpen(true)}
+                  disabled={usedBytes === 0}
+                  className="h-8 px-3 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 rounded-sm shrink-0 transition-all disabled:opacity-40"
+                >
+                  <Trash2 className="size-3.5 mr-1.5" />
+                  Delete all files
+                </Button>
+              </div>
+
+              <div className="border-t border-destructive/20" />
+
+              {/* 2. Delete All Projects */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-medium text-foreground">Delete all projects</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Permanently remove all projects, custom instructions, and attached files.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteProjectsDialogOpen(true)}
+                  disabled={!projects || projects.length === 0}
+                  className="h-8 px-3 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 rounded-sm shrink-0 transition-all disabled:opacity-40"
+                >
+                  <Trash2 className="size-3.5 mr-1.5" />
+                  Delete all projects
+                </Button>
+              </div>
+
+              <div className="border-t border-destructive/20" />
+
+              {/* 3. Delete MCP Usage Events */}
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-0.5 min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground">Delete MCP usage events</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Permanently remove MCP dashboard activity and usage metrics without deleting conversations.
+                    Permanently remove MCP dashboard activity and usage metrics.
                   </p>
                 </div>
                 <Button
@@ -397,6 +451,7 @@ export default function DataControlsPage() {
 
               <div className="border-t border-destructive/20" />
 
+              {/* 4. Delete All Conversations */}
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-0.5 min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground">Delete all conversations</p>
@@ -421,7 +476,7 @@ export default function DataControlsPage() {
         </div>
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialogs */}
       <DeleteAllChatsDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -432,6 +487,22 @@ export default function DataControlsPage() {
         open={deleteUsageEventsDialogOpen}
         onOpenChange={setDeleteUsageEventsDialogOpen}
         onConfirm={handleDeleteMcpUsageEvents}
+      />
+      <DeleteAllProjectsDialog
+        open={deleteProjectsDialogOpen}
+        onOpenChange={setDeleteProjectsDialogOpen}
+        onConfirm={async () => {
+          await deleteAllProjectsMutation.mutateAsync();
+        }}
+        projectCount={projects?.length}
+      />
+      <DeleteAllFilesDialog
+        open={deleteFilesDialogOpen}
+        onOpenChange={setDeleteFilesDialogOpen}
+        onConfirm={async () => {
+          await deleteAllFilesMutation.mutateAsync();
+        }}
+        fileCount={storage?.file_count}
       />
     </div>
   );

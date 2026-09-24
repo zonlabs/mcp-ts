@@ -8,6 +8,7 @@ import type {
   ProjectChat,
   ProjectFile,
 } from "@/types/projects";
+import { projectsApi } from "@/lib/api";
 
 /**
  * Cache key for the sidebar projects list query.
@@ -27,9 +28,11 @@ export function useSidebarProjects(options?: { enabled?: boolean }) {
   const query = useQuery<{ projects: Project[] }>({
     queryKey: SIDEBAR_PROJECTS_QUERY_KEY,
     queryFn: async () => {
-      const res = await fetch("/api/projects");
-      if (!res.ok) return { projects: [] };
-      return res.json();
+      try {
+        return await projectsApi.list();
+      } catch {
+        return { projects: [] };
+      }
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,
@@ -102,13 +105,14 @@ export function useSidebarProjects(options?: { enabled?: boolean }) {
       queryClient.setQueryData<{ projects: Project[] }>(
         SIDEBAR_PROJECTS_QUERY_KEY,
         (old) => {
-          if (!old) return old;
+          const list = old?.projects ?? [];
           return {
             ...old,
-            projects: old.projects.filter((p) => p.id !== projectId),
+            projects: list.filter((p) => p.id !== projectId),
           };
         }
       );
+
       queryClient.removeQueries({ queryKey: ["project", projectId] });
       queryClient.removeQueries({ queryKey: ["project-files", projectId] });
     },
@@ -134,16 +138,8 @@ export function useCreateProject() {
 
   return useMutation<Project, Error, CreateProjectInput>({
     mutationFn: async (input: CreateProjectInput) => {
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create project");
-      }
-      return data.project as Project;
+      const data = await projectsApi.create(input);
+      return data.project;
     },
     onSuccess: (project) => {
       upsertProject(project, { isNew: true });
@@ -174,15 +170,7 @@ export function useUpdateProject() {
     { previousProjects?: { projects: Project[] }; previousProject?: any }
   >({
     mutationFn: async ({ id, ...patch }: UpdateProjectInput & { id: string }) => {
-      const res = await fetch(`/api/projects/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update project");
-      }
+      const data = await projectsApi.update(id, patch);
       return (data.project || { id, ...patch }) as Project;
     },
     onMutate: async (updated) => {
@@ -224,11 +212,7 @@ export function useDeleteProject() {
     { previousProjects?: { projects: Project[] }; previousProject?: any }
   >({
     mutationFn: async (projectId: string) => {
-      const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to delete project");
-      }
+      await projectsApi.delete(projectId);
       return projectId;
     },
     onMutate: async (projectId) => {
@@ -266,12 +250,7 @@ export function useProject(projectId: string | null | undefined, options?: { ena
     queryKey: ["project", projectId],
     queryFn: async () => {
       if (!projectId) return { project: null as any, chats: [] };
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to load project");
-      }
-      return res.json();
+      return await projectsApi.getById(projectId);
     },
     enabled: Boolean(projectId) && (options?.enabled ?? true),
     staleTime: 60_000,
@@ -298,12 +277,7 @@ export function useProjectFiles(projectId: string | null | undefined, options?: 
     queryKey: ["project-files", projectId],
     queryFn: async () => {
       if (!projectId) return { files: [] };
-      const res = await fetch(`/api/projects/${projectId}/files`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to load project files");
-      }
-      return res.json();
+      return await projectsApi.listFiles(projectId);
     },
     enabled: Boolean(projectId) && (options?.enabled ?? true),
     staleTime: 60_000,
@@ -327,18 +301,8 @@ export function useUploadProjectFile() {
 
   return useMutation<ProjectFile, Error, { projectId: string; file: File }>({
     mutationFn: async ({ projectId, file }) => {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch(`/api/projects/${projectId}/files`, {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || `Failed to upload ${file.name}`);
-      }
-      return data.file as ProjectFile;
+      const data = await projectsApi.uploadFile(projectId, file);
+      return data.file;
     },
     onSuccess: (uploadedFile, { projectId }) => {
       queryClient.setQueryData<{ files: ProjectFile[] }>(
@@ -363,13 +327,7 @@ export function useDeleteProjectFile() {
 
   return useMutation<string, Error, { projectId: string; fileId: string }, { previousFiles: any }>({
     mutationFn: async ({ projectId, fileId }) => {
-      const res = await fetch(`/api/projects/${projectId}/files/${fileId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to delete file");
-      }
+      await projectsApi.deleteFile(projectId, fileId);
       return fileId;
     },
     onMutate: async ({ projectId, fileId }) => {
@@ -406,12 +364,7 @@ export function useDeleteProjectFile() {
 export function useDownloadProjectFile() {
   return useMutation<string, Error, { projectId: string; fileId: string }>({
     mutationFn: async ({ projectId, fileId }) => {
-      const res = await fetch(`/api/projects/${projectId}/files/${fileId}`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.download_url) {
-        throw new Error(data.error || "Failed to generate download URL");
-      }
-      return data.download_url as string;
+      return await projectsApi.getDownloadUrl(projectId, fileId);
     },
     onSuccess: (url) => {
       window.open(url, "_blank");
@@ -437,6 +390,10 @@ export function useRenameProject() {
     },
     onSuccess: () => {
       toast.success("Project renamed");
+    },
+    onError: (err: any) => {
+      console.error("[useRenameProject] Error:", err);
+      toast.error(err?.message || "Failed to rename project");
     },
   });
 }

@@ -37,12 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-
-interface MemoryItem {
-  id: string;
-  memory: string;
-  created_at?: string;
-}
+import { memoriesApi, type MemoryItem } from "@/lib/api";
 
 export default function MemoriesPage() {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
@@ -61,14 +56,10 @@ export default function MemoriesPage() {
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [isClearingAll, setIsClearingAll] = useState(false);
 
-  // Fetch memories
+  // Fetch memories via centralized API client
   const fetchMemories = async () => {
     try {
-      const res = await fetch("/api/memories");
-      if (!res.ok) {
-        throw new Error("Failed to load memories");
-      }
-      const data = await res.json();
+      const data = await memoriesApi.list();
       setMemories(Array.isArray(data?.memories) ? data.memories : []);
     } catch (err: any) {
       console.error("[MemoriesPage] fetch error:", err);
@@ -95,16 +86,7 @@ export default function MemoriesPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/memories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fact: newFact.trim() }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to save memory");
-      }
-
+      await memoriesApi.create(newFact.trim());
       toast.success("Memory saved successfully!");
       setNewFact("");
       setAddDialogOpen(false);
@@ -122,14 +104,7 @@ export default function MemoriesPage() {
 
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/memories?id=${encodeURIComponent(deleteTargetId)}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to delete memory");
-      }
-
+      await memoriesApi.delete(deleteTargetId);
       setMemories((prev) => prev.filter((m) => m.id !== deleteTargetId));
       toast.success("Memory removed.");
       setDeleteTargetId(null);
@@ -144,14 +119,7 @@ export default function MemoriesPage() {
   const handleClearAll = async () => {
     setIsClearingAll(true);
     try {
-      const res = await fetch("/api/memories?all=true", {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to clear memories");
-      }
-
+      await memoriesApi.deleteAll();
       setMemories([]);
       toast.success("All memories have been cleared.");
       setClearAllOpen(false);

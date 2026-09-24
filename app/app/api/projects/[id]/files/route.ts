@@ -87,6 +87,21 @@ export async function POST(req: Request, context: RouteContext) {
       );
     }
 
+    // Check cumulative user storage quota (500 MB free tier limit)
+    const MAX_STORAGE_QUOTA_BYTES = 500 * 1024 * 1024;
+    const { data: userFiles } = await supabase
+      .from('project_files')
+      .select('size_bytes')
+      .eq('user_id', user.id);
+
+    const currentTotalBytes = (userFiles || []).reduce((acc, f) => acc + (f.size_bytes || 0), 0);
+    if (currentTotalBytes + file.size > MAX_STORAGE_QUOTA_BYTES) {
+      return NextResponse.json(
+        { error: 'Storage quota exceeded (500 MB limit). Please delete files to free up space.' },
+        { status: 403 }
+      );
+    }
+
     // 2. Read content if readable text
     let content: string | null = null;
     const isText = isTextFile(file.name, file.type);

@@ -262,7 +262,8 @@ export async function updateProject(
 }
 
 /**
- * Deletes a project. Associated chats will have their project_id set to null.
+ * Deletes a project. Purges attached files from Supabase Storage and database.
+ * Associated chats will have their project_id set to null.
  */
 export async function deleteProject(
   projectId: string,
@@ -270,10 +271,80 @@ export async function deleteProject(
 ): Promise<void> {
   const supabase = await createClient();
 
+  // 1. Purge attached files from storage bucket
+  const { data: files } = await supabase
+    .from('project_files')
+    .select('storage_path')
+    .eq('project_id', projectId);
+
+  if (files && files.length > 0) {
+    const paths = files.map((f) => f.storage_path).filter(Boolean);
+    if (paths.length > 0) {
+      await supabase.storage.from('project-files').remove(paths);
+    }
+  }
+
+  // 2. Delete project (Postgres CASCADE deletes project_files records)
   const { error } = await supabase
     .from('projects')
     .delete()
     .eq('id', projectId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+/**
+ * Deletes all projects for a user, purging all their files from Supabase Storage.
+ */
+export async function deleteAllProjects(userId: string): Promise<void> {
+  const supabase = await createClient();
+
+  // 1. Purge all user's project files from storage bucket
+  const { data: files } = await supabase
+    .from('project_files')
+    .select('storage_path')
+    .eq('user_id', userId);
+
+  if (files && files.length > 0) {
+    const paths = files.map((f) => f.storage_path).filter(Boolean);
+    if (paths.length > 0) {
+      await supabase.storage.from('project-files').remove(paths);
+    }
+  }
+
+  // 2. Delete all projects for user
+  const { error } = await supabase
+    .from('projects')
+    .delete()
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+/**
+ * Deletes all attached project files across all user projects without deleting projects.
+ */
+export async function deleteAllProjectFiles(userId: string): Promise<void> {
+  const supabase = await createClient();
+
+  // 1. Purge all user's files from storage bucket
+  const { data: files } = await supabase
+    .from('project_files')
+    .select('storage_path')
+    .eq('user_id', userId);
+
+  if (files && files.length > 0) {
+    const paths = files.map((f) => f.storage_path).filter(Boolean);
+    if (paths.length > 0) {
+      await supabase.storage.from('project-files').remove(paths);
+    }
+  }
+
+  // 2. Delete all database records in project_files
+  const { error } = await supabase
+    .from('project_files')
+    .delete()
     .eq('user_id', userId);
 
   if (error) throw error;

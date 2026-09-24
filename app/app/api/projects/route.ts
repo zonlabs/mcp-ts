@@ -62,3 +62,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error?.message || 'Failed to create project' }, { status: 500 });
   }
 }
+
+/**
+ * DELETE /api/projects?all=true
+ * Bulk delete all projects for the authenticated user, purging attached storage files.
+ */
+export async function DELETE(req: Request) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const all = searchParams.get('all') === 'true';
+
+  if (!all) {
+    return NextResponse.json({ error: 'Missing all=true parameter' }, { status: 400 });
+  }
+
+  try {
+    const { deleteAllProjects } = await import('@/lib/projects');
+    await deleteAllProjects(user.id);
+    return NextResponse.json({ success: true, message: 'All projects deleted' });
+  } catch (error: any) {
+    console.error('[API /api/projects] DELETE all error:', error);
+    return NextResponse.json({ error: error?.message || 'Failed to delete projects' }, { status: 500 });
+  }
+}

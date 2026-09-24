@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import type { SidebarChat, PaginatedSidebarChats } from "@/lib/sidebar-chats";
+import { chatsApi } from "@/lib/api";
 
 /**
  * React Query cache key for user sidebar chats with infinite pagination.
@@ -55,11 +56,11 @@ export function useSidebarChats(
   >({
     queryKey: SIDEBAR_CHATS_QUERY_KEY,
     queryFn: async ({ pageParam = 0 }) => {
-      const res = await fetch(
-        `/api/chats?limit=${SIDEBAR_CHATS_PAGE_SIZE}&offset=${pageParam}`
-      );
-      if (!res.ok) return { chats: [], hasMore: false, nextOffset: null };
-      return res.json();
+      try {
+        return await chatsApi.list(SIDEBAR_CHATS_PAGE_SIZE, pageParam);
+      } catch {
+        return { chats: [], hasMore: false, nextOffset: null };
+      }
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
@@ -205,11 +206,7 @@ export function useStoredChat(
     queryKey: ["chat", chatId],
     queryFn: async () => {
       if (!chatId) return { messages: [] };
-      const res = await fetch(`/api/chats?id=${encodeURIComponent(chatId)}`);
-      if (!res.ok) {
-        throw new Error(`Failed to load chat: ${res.statusText}`);
-      }
-      return res.json();
+      return await chatsApi.getById(chatId);
     },
     enabled: Boolean(chatId) && (options?.enabled ?? true),
     staleTime: 1000 * 60 * 5, // 5 minutes fresh cache
@@ -248,13 +245,7 @@ export function useUpdateChat() {
     { previousSidebar: any; previousProjects: [any, any][] }
   >({
     mutationFn: async ({ id, ...updates }) => {
-      const res = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to update chat");
+      await chatsApi.update(id, updates);
       return { id, ...updates };
     },
     onMutate: async ({ id, ...updates }) => {
@@ -342,11 +333,7 @@ export function useDeleteChat() {
     { previousSidebar: any; previousProjects: [any, any][] }
   >({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to delete chat");
+      await chatsApi.delete(id);
       return id;
     },
     onMutate: async (id: string) => {
