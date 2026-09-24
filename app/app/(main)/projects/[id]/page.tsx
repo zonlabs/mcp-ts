@@ -54,7 +54,7 @@ import {
   useUploadProjectFile,
   useDeleteProjectFile,
   useDownloadProjectFile,
-} from "@/lib/hooks/use-sidebar-projects";
+} from "@/lib/hooks/use-projects";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { toast } from "react-hot-toast";

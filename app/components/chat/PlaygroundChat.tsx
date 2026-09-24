@@ -34,8 +34,8 @@ import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { ChatUIMessage } from '@/agent/chat-agent';
 import { useI18n } from '@/lib/web-i18n';
-import { useSidebarChats, useStoredChat } from '@/lib/hooks/use-sidebar-chats';
-import { useProject } from '@/lib/hooks/use-sidebar-projects';
+import { useSidebarChats, useStoredChat } from '@/lib/hooks/use-chats';
+import { useProject } from '@/lib/hooks/use-projects';
 
 import {
   Conversation,

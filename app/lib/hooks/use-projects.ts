@@ -1,10 +1,26 @@
 import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import type { Project, CreateProjectInput, UpdateProjectInput, ProjectChat, ProjectFile } from "@/types/projects";
+import type {
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+  ProjectChat,
+  ProjectFile,
+} from "@/types/projects";
 
+/**
+ * Cache key for the sidebar projects list query.
+ */
 export const SIDEBAR_PROJECTS_QUERY_KEY = ["sidebar-projects"] as const;
 
+/**
+ * Custom hook to fetch and manage the user's projects list for the sidebar and workspace.
+ * Provides in-memory cache helpers to optimistically add, update, and remove projects.
+ *
+ * @param options - Optional query configuration such as `enabled`.
+ * @returns Query result containing the projects list and helper functions (`upsertProject`, `removeProject`).
+ */
 export function useSidebarProjects(options?: { enabled?: boolean }) {
   const queryClient = useQueryClient();
 
@@ -24,6 +40,10 @@ export function useSidebarProjects(options?: { enabled?: boolean }) {
 
   /**
    * Deterministically upserts a project into the local React Query cache.
+   * Updates both the sidebar projects list and the individual project cache entry.
+   *
+   * @param project - Partial project object containing at least the project `id`.
+   * @param options - Additional options, such as flagging the project as newly created (`isNew`).
    */
   const upsertProject = useCallback(
     (project: Partial<Project> & { id: string }, options?: { isNew?: boolean }) => {
@@ -73,7 +93,9 @@ export function useSidebarProjects(options?: { enabled?: boolean }) {
   );
 
   /**
-   * Removes a project from the local React Query cache.
+   * Removes a project and its associated files from the local React Query cache.
+   *
+   * @param projectId - The unique identifier of the project to remove.
    */
   const removeProject = useCallback(
     (projectId: string) => {
@@ -101,10 +123,16 @@ export function useSidebarProjects(options?: { enabled?: boolean }) {
   };
 }
 
+/**
+ * Mutation hook to create a new project.
+ * Automatically inserts the newly created project into the sidebar query cache.
+ *
+ * @returns TanStack Query mutation object for project creation.
+ */
 export function useCreateProject() {
   const { upsertProject } = useSidebarProjects({ enabled: false });
 
-  return useMutation({
+  return useMutation<Project, Error, CreateProjectInput>({
     mutationFn: async (input: CreateProjectInput) => {
       const res = await fetch("/api/projects", {
         method: "POST",
@@ -128,11 +156,23 @@ export function useCreateProject() {
   });
 }
 
+/**
+ * Mutation hook to update project metadata (e.g. name, instructions, visibility).
+ * Optimistically updates both the sidebar projects cache and the individual project cache.
+ * Automatically rolls back optimistic changes if the mutation fails.
+ *
+ * @returns TanStack Query mutation object for project updates.
+ */
 export function useUpdateProject() {
   const queryClient = useQueryClient();
   const { upsertProject } = useSidebarProjects({ enabled: false });
 
-  return useMutation({
+  return useMutation<
+    Project,
+    Error,
+    UpdateProjectInput & { id: string },
+    { previousProjects?: { projects: Project[] }; previousProject?: any }
+  >({
     mutationFn: async ({ id, ...patch }: UpdateProjectInput & { id: string }) => {
       const res = await fetch(`/api/projects/${id}`, {
         method: "PATCH",
@@ -167,11 +207,22 @@ export function useUpdateProject() {
   });
 }
 
+/**
+ * Mutation hook to delete a project by ID.
+ * Optimistically removes the project from the sidebar and detail cache with automatic rollback.
+ *
+ * @returns TanStack Query mutation object for project deletion.
+ */
 export function useDeleteProject() {
   const queryClient = useQueryClient();
   const { removeProject } = useSidebarProjects({ enabled: false });
 
-  return useMutation({
+  return useMutation<
+    string,
+    Error,
+    string,
+    { previousProjects?: { projects: Project[] }; previousProject?: any }
+  >({
     mutationFn: async (projectId: string) => {
       const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
@@ -202,6 +253,14 @@ export function useDeleteProject() {
   });
 }
 
+/**
+ * Custom TanStack Query hook to fetch a single project's details and associated chat threads.
+ * Automatically deduplicates in-flight calls across AppShell, workspace pages, and PlaygroundChat.
+ *
+ * @param projectId - The unique identifier of the project, or null/undefined if none is selected.
+ * @param options - Optional query configuration such as `enabled`.
+ * @returns Query result containing `project` metadata, `chats` array, loading state, and refetch handler.
+ */
 export function useProject(projectId: string | null | undefined, options?: { enabled?: boolean }) {
   const query = useQuery<{ project: Project; chats: ProjectChat[] }>({
     queryKey: ["project", projectId],
@@ -226,6 +285,14 @@ export function useProject(projectId: string | null | undefined, options?: { ena
   };
 }
 
+/**
+ * Custom TanStack Query hook to fetch all files attached to a project workspace.
+ * Caches files in memory with automatic deduplication across views.
+ *
+ * @param projectId - The unique identifier of the project, or null/undefined if none is selected.
+ * @param options - Optional query configuration such as `enabled`.
+ * @returns Query result containing the `files` array, loading state, and refetch handler.
+ */
 export function useProjectFiles(projectId: string | null | undefined, options?: { enabled?: boolean }) {
   const query = useQuery<{ files: ProjectFile[] }>({
     queryKey: ["project-files", projectId],
@@ -373,4 +440,3 @@ export function useRenameProject() {
     },
   });
 }
-

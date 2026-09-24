@@ -20,7 +20,7 @@ import toast from "react-hot-toast";
 
 import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
-import { useSidebarChats, SIDEBAR_CHATS_QUERY_KEY } from "@/lib/hooks/use-sidebar-chats";
+import { useSidebarChats, SIDEBAR_CHATS_QUERY_KEY } from "@/lib/hooks/use-chats";
 import { DeleteAllChatsDialog } from "@/components/settings/DeleteAllChatsDialog";
 import { DeleteMcpUsageEventsDialog } from "@/components/settings/DeleteMcpUsageEventsDialog";
 import type { SidebarChat } from "@/lib/sidebar-chats";

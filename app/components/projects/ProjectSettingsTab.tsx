@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Brain, Lock, Globe, Sparkles, Trash2, Pin, PinOff } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useUpdateProject, useDeleteProject } from "@/lib/hooks/use-sidebar-projects";
+import { useUpdateProject, useDeleteProject } from "@/lib/hooks/use-projects";
 import type { Project, MemoryScope } from "@/lib/projects";
 
 interface ProjectSettingsTabProps {

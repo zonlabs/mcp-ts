@@ -21,7 +21,7 @@ export default function AccountSettingsPage() {
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/");
+    window.location.href = "/signin";
   };
 
   const formatDate = (dateString?: string) => {

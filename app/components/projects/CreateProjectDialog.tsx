@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Folder } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useCreateProject } from "@/lib/hooks/use-sidebar-projects";
+import { useCreateProject } from "@/lib/hooks/use-projects";
 import type { Project } from "@/lib/projects";
 
 interface CreateProjectDialogProps {

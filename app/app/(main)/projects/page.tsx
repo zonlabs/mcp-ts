@@ -40,7 +40,7 @@ import {
 import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
 import { ProjectsSkeleton } from "@/components/projects/ProjectsSkeleton";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { useSidebarProjects, useUpdateProject, useDeleteProject } from "@/lib/hooks/use-sidebar-projects";
+import { useSidebarProjects, useUpdateProject, useDeleteProject } from "@/lib/hooks/use-projects";
 import type { Project } from "@/lib/projects";
 import { toast } from "react-hot-toast";
 
