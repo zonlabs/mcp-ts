@@ -6,3 +6,4 @@
 
 export * from './projects';
 export * from './mcp';
+export * from './chats';

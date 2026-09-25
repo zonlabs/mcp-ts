@@ -12,8 +12,13 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const chatId = searchParams.get("id");
   if (chatId) {
-    const messages = await loadChat(chatId);
-    return NextResponse.json({ messages });
+    const limitParam = searchParams.get("limit");
+    const beforeParam = searchParams.get("before");
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const before = beforeParam || undefined;
+
+    const result = await loadChat(chatId, { limit, before });
+    return NextResponse.json(result);
   }
 
   const limitParam = searchParams.get("limit");

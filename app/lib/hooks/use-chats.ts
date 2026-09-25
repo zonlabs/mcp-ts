@@ -7,8 +7,15 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import type { SidebarChat, PaginatedSidebarChats } from "@/lib/sidebar-chats";
+import type {
+  SidebarChat,
+  PaginatedSidebarChats,
+  StoredChatData,
+  UpdateChatParams,
+} from "@/types";
 import { chatsApi } from "@/lib/api";
+
+export type { StoredChatData, UpdateChatParams };
 
 /**
  * React Query cache key for user sidebar chats with infinite pagination.
@@ -195,34 +202,23 @@ export function useSidebarChats(
  * Automatically deduplicates concurrent requests, shares cache across components, and eliminates race conditions.
  *
  * @param chatId - The unique identifier of the chat, or null/undefined if no chat is active.
- * @param options - Optional query configuration such as `enabled`.
- * @returns The query result including chat data ({ messages }), loading state, and refetch handler.
+ * @param options - Optional query configuration such as `enabled` and `limit`.
+ * @returns The query result including chat data ({ messages, hasMore, oldestCursor }), loading state, and refetch handler.
  */
 export function useStoredChat(
   chatId: string | null | undefined,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; limit?: number }
 ) {
-  return useQuery<{ messages: any[] }, Error>({
+  return useQuery<StoredChatData, Error>({
     queryKey: ["chat", chatId],
     queryFn: async () => {
-      if (!chatId) return { messages: [] };
-      return await chatsApi.getById(chatId);
+      if (!chatId) return { messages: [], hasMore: false, oldestCursor: null };
+      return await chatsApi.getById(chatId, { limit: options?.limit ?? 30 });
     },
     enabled: Boolean(chatId) && (options?.enabled ?? true),
     staleTime: 1000 * 60 * 5, // 5 minutes fresh cache
     refetchOnWindowFocus: false,
   });
-}
-
-/**
- * Parameters for updating an existing chat.
- */
-export interface UpdateChatParams {
-  id: string;
-  title?: string;
-  is_pinned?: boolean;
-  visibility?: "PRIVATE" | "PUBLIC";
-  project_id?: string | null;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { ChatUIMessage } from '@/agent/chat-agent';
+import type { PaginatedChatResult, ChatPaginationOptions } from '@/types';
 
 /**
  * Creates a new chat session for the current user.
@@ -45,35 +46,66 @@ function mapRowToUIMessage(row: any): ChatUIMessage {
 }
 
 /**
- * Loads the complete message history for a specific chat ID.
- * Returns empty array if user is not authorized or chat is private.
+ * Loads message history for a specific chat ID with optional cursor pagination.
+ * If limit is provided, loads the latest `limit` messages (or latest before `before` cursor).
+ * If limit is not provided, loads all messages in chronological order.
  */
-export async function loadChat(chatId: string): Promise<ChatUIMessage[]> {
+export async function loadChat(
+  chatId: string,
+  options?: ChatPaginationOptions
+): Promise<PaginatedChatResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  if (!user) return { messages: [], hasMore: false, oldestCursor: null };
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('chat_messages')
     .select('id, message_id, role, parts, attachments, created_at, metadata')
-    .eq('chat_id', chatId)
-    .order('created_at', { ascending: true });
+    .eq('chat_id', chatId);
+
+  if (options?.before) {
+    query = query.lt('created_at', options.before);
+  }
+
+  if (options?.limit) {
+    query = query.order('created_at', { ascending: false }).limit(options.limit + 1);
+  } else {
+    query = query.order('created_at', { ascending: true });
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     if (error.code !== 'PGRST116') {
       console.error('[chat-store] loadChat failed:', error);
     }
-    return [];
+    return { messages: [], hasMore: false, oldestCursor: null };
   }
 
-  return Array.isArray(data) ? data.map(mapRowToUIMessage) : [];
+  const rows = Array.isArray(data) ? [...data] : [];
+  let hasMore = false;
+  let pageRows = rows;
+
+  if (options?.limit) {
+    hasMore = rows.length > options.limit;
+    pageRows = hasMore ? rows.slice(0, options.limit) : rows;
+    pageRows.reverse(); // Chronological order
+  }
+
+  const messages = pageRows.map(mapRowToUIMessage);
+  const oldestCursor = pageRows.length > 0 ? (pageRows[0].created_at || (pageRows[0] as any).createdAt || null) : null;
+
+  return { messages, hasMore, oldestCursor };
 }
 
 /**
- * Loads a shared chat that has PUBLIC visibility.
+ * Loads a shared chat that has PUBLIC visibility with optional cursor pagination.
  * Does not require an authenticated user.
  */
-export async function loadPublicChat(chatId: string): Promise<ChatUIMessage[]> {
+export async function loadPublicChat(
+  chatId: string,
+  options?: ChatPaginationOptions
+): Promise<PaginatedChatResult> {
   const supabase = await createClient();
 
   const { data: chatRow, error: chatError } = await supabase
@@ -87,36 +119,65 @@ export async function loadPublicChat(chatId: string): Promise<ChatUIMessage[]> {
     if (chatError && chatError.code !== 'PGRST116') {
       console.error('[chat-store] loadPublicChat failed:', chatError);
     }
-    return [];
+    return { messages: [], hasMore: false, oldestCursor: null };
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('chat_messages')
     .select('id, message_id, role, parts, attachments, created_at, metadata')
-    .eq('chat_id', chatId)
-    .order('created_at', { ascending: true });
+    .eq('chat_id', chatId);
+
+  if (options?.before) {
+    query = query.lt('created_at', options.before);
+  }
+
+  if (options?.limit) {
+    query = query.order('created_at', { ascending: false }).limit(options.limit + 1);
+  } else {
+    query = query.order('created_at', { ascending: true });
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     if (error.code !== 'PGRST116') {
       console.error('[chat-store] loadPublicChat failed:', error);
     }
-    return [];
+    return { messages: [], hasMore: false, oldestCursor: null };
   }
 
-  return Array.isArray(data) ? data.map(mapRowToUIMessage) : [];
+  const rows = Array.isArray(data) ? [...data] : [];
+  let hasMore = false;
+  let pageRows = rows;
+
+  if (options?.limit) {
+    hasMore = rows.length > options.limit;
+    pageRows = hasMore ? rows.slice(0, options.limit) : rows;
+    pageRows.reverse(); // Chronological order
+  }
+
+  const messages = pageRows.map(mapRowToUIMessage);
+  const oldestCursor = pageRows.length > 0 ? (pageRows[0].created_at || (pageRows[0] as any).createdAt || null) : null;
+
+  return { messages, hasMore, oldestCursor };
 }
 
 /**
- * Deletes ALL messages for a given chatId.
- * Used when a user edits a message, so the entire history can be
- * replaced with the truncated version from the client.
+ * Deletes messages for a given chatId, optionally starting from a given timestamp onwards.
+ * Used when a user edits a message, so truncated messages can be replaced without wiping older history.
  */
-export async function deleteAllChatMessages(chatId: string): Promise<void> {
+export async function deleteAllChatMessages(chatId: string, fromTimestamp?: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase
+  let query = supabase
     .from('chat_messages')
     .delete()
     .eq('chat_id', chatId);
+
+  if (fromTimestamp) {
+    query = query.gte('created_at', fromTimestamp);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error('[chat-store] deleteAllChatMessages failed:', error);

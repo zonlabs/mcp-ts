@@ -1,5 +1,11 @@
 import { apiClient } from "./client";
-import type { PaginatedSidebarChats, SidebarChat } from "@/lib/sidebar-chats";
+import type {
+  PaginatedSidebarChats,
+  SidebarChat,
+  PaginatedChatResult,
+  ChatPaginationOptions,
+  ChatVisibility,
+} from "@/types";
 
 export const chatsApi = {
   /**
@@ -11,11 +17,15 @@ export const chatsApi = {
     }),
 
   /**
-   * Fetch a single chat's messages and metadata by ID.
+   * Fetch a single chat's messages and metadata by ID, with optional pagination options.
    */
-  getById: (chatId: string) =>
-    apiClient<{ messages: any[] }>(`/api/chats`, {
-      params: { id: chatId },
+  getById: (chatId: string, options?: ChatPaginationOptions) =>
+    apiClient<PaginatedChatResult>(`/api/chats`, {
+      params: {
+        id: chatId,
+        ...(options?.limit ? { limit: options.limit } : {}),
+        ...(options?.before ? { before: options.before } : {}),
+      },
     }),
 
   /**

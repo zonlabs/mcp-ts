@@ -48,7 +48,8 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
     notFound();
   }
 
-  const messages = isPublic ? await loadPublicChat(chatId) : await loadChat(chatId);
+  const result = isPublic ? await loadPublicChat(chatId) : await loadChat(chatId);
+  const messages = result.messages;
 
   // Read-only if viewer, or unauthenticated on a public chat
   const isReadOnly = collaboratorRole === 'viewer' || (!user && isPublic);

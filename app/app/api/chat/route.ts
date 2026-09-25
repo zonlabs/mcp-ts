@@ -217,7 +217,9 @@ export async function POST(req: Request) {
 
       const isEditSync = trigger === 'regenerate-assistant-message' && chatMessages[chatMessages.length - 1]?.role === 'user';
       if (isEditSync) {
-        await deleteAllChatMessages(chatId);
+        const lastMsg = chatMessages[chatMessages.length - 1];
+        const editTimestamp = (lastMsg as any)?.createdAt || (lastMsg as any)?.created_at;
+        await deleteAllChatMessages(chatId, editTimestamp);
         await saveChat(chatId, chatMessages, { projectId: activeProjectId });
       } else if (trigger === 'submit-user-message' && message) {
         await saveChat(chatId, [message], { projectId: activeProjectId });
