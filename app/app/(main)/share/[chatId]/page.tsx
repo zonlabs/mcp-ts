@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { loadPublicChat, loadChat } from '@/lib/chat-store';
-import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
+import { Chat } from '@/components/chat/Chat';
 import { createClient } from '@/lib/supabase/server';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -55,7 +55,7 @@ export default async function Page(props: { params: Promise<{ chatId: string }> 
   const isReadOnly = collaboratorRole === 'viewer' || (!user && isPublic);
 
   return (
-    <PlaygroundChat
+    <Chat
       key={chatId}
       chatId={chatId}
       initialTitle={chatData.title}

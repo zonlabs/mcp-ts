@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { PlaygroundChat } from "@/components/chat/PlaygroundChat";
+import { Chat } from "@/components/chat/Chat";
 import {
   Folder,
   Settings,
@@ -111,7 +111,7 @@ export default function ProjectWorkspacePage() {
   const queryClient = useQueryClient();
   const { upsertProject } = useSidebarProjects({ enabled: false });
 
-  // Use the shared TanStack Query hooks so AppShell, page.tsx, and PlaygroundChat share 1 deduplicated request
+  // Use the shared TanStack Query hooks so AppShell, page.tsx, and Chat share 1 deduplicated request
   const {
     project: projectData,
     chats: projectChats,
@@ -303,7 +303,7 @@ export default function ProjectWorkspacePage() {
   }
 
   return (
-    <PlaygroundChat
+    <Chat
       key={projectId}
       projectId={projectId}
       renderEmptyState={({ sendChatInput, status }) => (
@@ -403,8 +403,8 @@ export default function ProjectWorkspacePage() {
                 type="button"
                 onClick={() => setActiveTab("chats")}
                 className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${activeTab === "chats"
-                    ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                   }`}
               >
                 Chats
@@ -413,8 +413,8 @@ export default function ProjectWorkspacePage() {
                 type="button"
                 onClick={() => setActiveTab("files")}
                 className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${activeTab === "files"
-                    ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                   }`}
               >
                 Sources ({files.length})
@@ -423,8 +423,8 @@ export default function ProjectWorkspacePage() {
                 type="button"
                 onClick={() => setActiveTab("settings")}
                 className={`px-3.5 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === "settings"
-                    ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  ? "bg-muted text-foreground border border-border shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                   }`}
               >
                 <Settings className="size-3.5" />
@@ -525,8 +525,8 @@ export default function ProjectWorkspacePage() {
                       <div
                         key={item.tempId}
                         className={`flex items-center justify-between p-3 transition-colors ${item.status === "error"
-                            ? "bg-destructive/10 border-l-2 border-destructive"
-                            : "bg-secondary/40 animate-pulse"
+                          ? "bg-destructive/10 border-l-2 border-destructive"
+                          : "bg-secondary/40 animate-pulse"
                           }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">

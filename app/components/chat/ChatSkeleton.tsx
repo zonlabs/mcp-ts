@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /**
- * Chat skeleton reflecting the actual PlaygroundChat layout:
+ * Chat skeleton reflecting the actual Chat layout:
  * - Conversational message stream with user bubbles and assistant response blocks
  * - Chain-of-thought indicator and code artifact blocks
  * - ChatInput footer skeleton mirroring model selector, plus button, and send action

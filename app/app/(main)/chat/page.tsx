@@ -1,5 +1,5 @@
-import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
+import { Chat } from '@/components/chat/Chat';
 
 export default function Page() {
-  return <PlaygroundChat />;
+  return <Chat />;
 }

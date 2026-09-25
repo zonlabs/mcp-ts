@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { PlaygroundChat } from '@/components/chat/PlaygroundChat';
+import { Chat } from '@/components/chat/Chat';
 import { createClient } from '@/lib/supabase/server';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -32,7 +32,7 @@ export default async function ProjectChatPage(props: {
   const effectiveProjectId = chatRow?.project_id || projectId;
 
   return (
-    <PlaygroundChat
+    <Chat
       key={chatId}
       chatId={chatId}
       projectId={effectiveProjectId}

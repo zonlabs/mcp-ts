@@ -248,7 +248,7 @@ export function useDeleteProject() {
 
 /**
  * Custom TanStack Query hook to fetch a single project's details and associated chat threads.
- * Automatically deduplicates in-flight calls across AppShell, workspace pages, and PlaygroundChat.
+ * Automatically deduplicates in-flight calls across AppShell, workspace pages, and Chat.
  *
  * @param projectId - The unique identifier of the project, or null/undefined if none is selected.
  * @param options - Optional query configuration such as `enabled`.
