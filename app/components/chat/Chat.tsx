@@ -26,11 +26,7 @@ import {
   Conversation,
   ConversationContent,
 } from '@/components/ai-elements/conversation';
-import { ToolCallSidebar } from '@/components/chat/ToolCallSidebar';
-import {
-  buildChainOfThoughtSummary,
-  getNextSelectedThoughtMessageId,
-} from '@/components/chat/chain-of-thought-utils';
+import { getNextSelectedThoughtMessageId } from '@/components/chat/chain-of-thought-utils';
 
 export const PENDING_CHAT_MESSAGE_STORAGE_KEY = "linkos:pending-chat-message:v1";
 
@@ -314,27 +310,7 @@ export function Chat({
     [messages]
   );
 
-  const getChainOfThoughtForMessage = useCallback((message: ChatUIMessage, isLastMessage: boolean) => {
-    return buildChainOfThoughtSummary(message.parts, {
-      getToolName: (part) => {
-        const toolPart = part as any;
-        if (!isToolUIPart(toolPart)) return undefined;
-        return getToolName(toolPart as ToolUIPart<any> | DynamicToolUIPart);
-      },
-      isLastMessage,
-      status,
-    });
-  }, [status]);
 
-  const selectedThoughtSummary = useMemo(() => {
-    if (!selectedThoughtMessageId) return null;
-    const messageIndex = messages.findIndex((message) => message.id === selectedThoughtMessageId);
-    if (messageIndex === -1) return null;
-
-    const message = messages[messageIndex];
-    const summary = getChainOfThoughtForMessage(message, messageIndex === messages.length - 1);
-    return summary.hasChainOfThought ? summary : null;
-  }, [getChainOfThoughtForMessage, messages, selectedThoughtMessageId]);
 
 
 
@@ -478,10 +454,7 @@ export function Chat({
         )
       ) : (
         <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
-          <div className={cn(
-            "flex min-h-0 min-w-0 flex-1 flex-col relative",
-            selectedThoughtSummary && "lg:basis-0"
-          )}>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col relative">
             {activeMcpApp ? (
               <ActiveMcpAppOverlay
                 app={activeMcpApp}
@@ -552,30 +525,6 @@ export function Chat({
               </div>
             </div>
           </div>
-          {selectedThoughtSummary && (
-            <div className="hidden h-full w-[380px] shrink-0 lg:block">
-              <ToolCallSidebar
-                toolSteps={selectedThoughtSummary.toolSteps}
-                onClose={() => setSelectedThoughtMessageId(null)}
-              />
-            </div>
-          )}
-          {selectedThoughtSummary && (
-            <div className="absolute inset-y-0 right-0 z-20 flex w-full justify-end bg-background/60 backdrop-blur-sm lg:hidden">
-              <button
-                type="button"
-                aria-label="Close thoughts panel"
-                className="flex-1"
-                onClick={() => setSelectedThoughtMessageId(null)}
-              />
-              <div className="w-full max-w-sm border-l border-border/70 shadow-2xl">
-                <ToolCallSidebar
-                  toolSteps={selectedThoughtSummary.toolSteps}
-                  onClose={() => setSelectedThoughtMessageId(null)}
-                />
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

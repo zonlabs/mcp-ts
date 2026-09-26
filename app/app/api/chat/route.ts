@@ -329,14 +329,30 @@ export async function POST(req: Request) {
       });
     }
 
+    const streamStartTime = Date.now();
+
     return createUIMessageStreamResponse({
       stream: toUIMessageStream<any, ChatUIMessage>({
         stream: result.stream,
+        sendSources: true,
         originalMessages: normalizedMessages,
         generateMessageId: () => generateId(),
         messageMetadata: ({ part }) => {
           const base = resolvedTitle ? { isNewChat: true, chatTitle: resolvedTitle } : {};
+
+          if (part.type === 'tool-call') {
+            const mcpInfo = (agent as any).tools?.[part.toolName]?.mcp;
+            if (mcpInfo) {
+              return {
+                ...base,
+                mcp: { [part.toolName]: mcpInfo },
+              };
+            }
+          }
+
           if (part.type === 'finish-step') {
+            const streamEndTime = Date.now();
+            const durationSeconds = Math.max(1, Math.round((streamEndTime - streamStartTime) / 1000));
             const responseModel =
               (part as any)?.response?.modelId ||
               (part as any)?.modelId ||
@@ -344,7 +360,10 @@ export async function POST(req: Request) {
               'openrouter/auto';
             return {
               ...base,
-              usage: part.usage,
+              durationSeconds,
+              thinkingStartTimeMs: streamStartTime,
+              thinkingEndTimeMs: streamEndTime,
+              usage: (part as any)?.usage,
               model: responseModel,
             };
           }
@@ -358,12 +377,17 @@ export async function POST(req: Request) {
               await supabase.from('chat_messages').delete().eq('chat_id', chatId).eq('message_id', messageId);
             }
 
+            const streamEndTime = Date.now();
+            const durationSeconds = Math.max(1, Math.round((streamEndTime - streamStartTime) / 1000));
             const resolvedModel =
               (responseMessage as any)?.metadata?.model ||
               llmConfig?.model ||
               'openrouter/auto';
             (responseMessage as any).metadata = {
               ...((responseMessage as any).metadata || {}),
+              durationSeconds,
+              thinkingStartTimeMs: streamStartTime,
+              thinkingEndTimeMs: streamEndTime,
               model: resolvedModel,
             };
 

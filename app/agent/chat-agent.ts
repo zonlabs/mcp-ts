@@ -137,12 +137,31 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
 
 export type ChatAgent = Awaited<ReturnType<typeof createChatAgent>>;
 
+export type McpServerMetadata = {
+  serverId?: string;
+  serverName?: string;
+  serverUrl?: string;
+  serverInfo?: {
+    name?: string;
+    version?: string;
+    icons?: Array<{ src: string; mimeType?: string; sizes?: string }>;
+    [key: string]: unknown;
+  };
+  sessionId?: string;
+  metadata?: unknown;
+};
+
 export type AgentMessageMetadata = {
   usage?: LanguageModelUsage;
   model?: string;
   isNewChat?: boolean;
   chatTitle?: string;
-  [key: string]: any;
+  /** MCP server info keyed by tool name, populated server-side during tool call streaming */
+  mcp?: Record<string, McpServerMetadata>;
+  durationSeconds?: number;
+  thinkingStartTimeMs?: number;
+  thinkingEndTimeMs?: number;
+  [key: string]: unknown;
 };
 
 export type ChatUIMessage = InferAgentUIMessage<

@@ -42,21 +42,7 @@ export function AppHeader({
           aria-label="Open navigation menu"
         >
           <PanelLeftOpen className="size-4" />
-        </button>
-
-        {/* Desktop: show open button when sidebar is collapsed */}
-        {!sidebarOpen && (
-          <SimpleTooltip content="Open sidebar" side="bottom">
-            <button
-              type="button"
-              onClick={onToggleSidebar}
-              className="hidden md:flex p-1.5 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer items-center justify-center"
-              aria-label="Open sidebar"
-            >
-              <PanelLeftOpen className="size-4" />
-            </button>
-          </SimpleTooltip>
-        )}
+        </button>       
 
         {/* New chat icon */}
         <SimpleTooltip content="New chat" side="bottom">

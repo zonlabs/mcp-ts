@@ -3,10 +3,10 @@
 import { XCircle, Wrench, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ai-elements/code-block";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useI18n } from "@/lib/web-i18n";
-import { useMcpContext } from "@/components/providers/McpProvider";
 import { ServerIcon } from "@/components/common/ServerIcon";
+import type { McpServerMetadata } from "@/agent/chat-agent";
 
 function stringifyValue(value: unknown): string {
   try {
@@ -17,43 +17,32 @@ function stringifyValue(value: unknown): string {
 }
 
 export function MCPToolApproval({
+  toolName,
   input,
+  mcp,
   onApprove,
   onDeny,
 }: {
+  toolName?: string;
   input: Record<string, unknown>;
+  mcp?: McpServerMetadata;
   onApprove: () => void;
   onDeny: () => void;
 }) {
   const { t, format } = useI18n();
-  const { connections } = useMcpContext();
   const [isArgsExpanded, setIsArgsExpanded] = useState(false);
 
-  const toolName = typeof input.toolName === "string" ? input.toolName : t("mcpTool");
-  const rawServerId = typeof input.serverId === "string" && input.serverId ? input.serverId : "";
-  const serverId = rawServerId || t("selectedMcpServer");
-  const args = input.args && typeof input.args === "object" ? input.args : {};
+  const displayName = toolName || t("mcpTool");
+  const serverId = mcp?.serverId || t("selectedMcpServer");
+  const serverName = mcp?.serverName || null;
+  const serverUrl = mcp?.serverUrl || null;
+
+
+  const args = (input.args && typeof input.args === "object" ? input.args : input) as Record<string, unknown>;
   const hasArgs = Object.keys(args).length > 0;
 
-  const conn = useMemo(() => {
-    if (!rawServerId) return null;
-    return (
-      connections.find(
-        (c) =>
-          c.serverId === rawServerId ||
-          c.sessionId === rawServerId ||
-          c.metadata?.catalogServerId === rawServerId ||
-          c.serverName?.toLowerCase() === rawServerId.toLowerCase()
-      ) ?? null
-    );
-  }, [connections, rawServerId]);
-
-  const serverName = (typeof input.serverName === "string" && input.serverName) || conn?.serverName || null;
-  const serverUrl = (typeof input.serverUrl === "string" && input.serverUrl) || conn?.serverUrl || null;
-  const serverIcon = (typeof input.serverIcon === "string" && input.serverIcon) || (conn?.metadata as any)?.icon || null;
-
   const rawMessage = format("requestingToolExecution", {
-    toolName,
+    toolName: displayName,
     serverId: "__SERVER_TOKEN__",
   });
   const [prefix, suffix] = rawMessage.includes("__SERVER_TOKEN__")
@@ -65,15 +54,14 @@ export function MCPToolApproval({
       <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-2">
           <Wrench className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="text-[14px] font-semibold text-foreground truncate">{toolName}</span>
+          <span className="text-[14px] font-semibold text-foreground truncate">{displayName}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
           {prefix && <span>{prefix}</span>}
           <span className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm bg-muted/60 text-foreground font-medium border border-hairline text-[11px] align-middle">
             <ServerIcon
               serverName={serverName || serverId}
-              serverUrl={serverUrl}
-              icon={serverIcon}
+              serverUrl={serverUrl || undefined}
               size={13}
               className="flex-shrink-0 rounded-sm"
             />
@@ -83,7 +71,7 @@ export function MCPToolApproval({
                 <span className="text-muted-foreground font-mono text-[10px]">({serverId})</span>
               </>
             ) : (
-              <span className="font-mono text-[11px]">{serverId}</span>
+              <span className="font-mono text-[11px]">{serverName || serverId}</span>
             )}
           </span>
           {suffix && <span>{suffix}</span>}
