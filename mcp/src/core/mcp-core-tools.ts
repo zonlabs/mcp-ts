@@ -179,7 +179,7 @@ export function registerMcpCoreTools(server: McpServer): void {
         const toolSchema = router.getToolSchemas({ toolIds: [toolId] })[0];
         const [serverId] = toolId.split("::");
         const connectedClient = manager.getClients().find(
-          (client) => client.getServerId?.() === (toolSchema?.serverId ?? serverId)
+          (client) => client.session?.serverId === (toolSchema?.serverId ?? serverId)
         );
         const localServer = localServers.find(
           (server) => server.serverId === (toolSchema?.serverId ?? serverId)
@@ -191,8 +191,8 @@ export function registerMcpCoreTools(server: McpServer): void {
             serverName:
               toolSchema?.serverName ??
               localServer?.serverName ??
-              connectedClient?.getServerName?.(),
-            serverUrl: connectedClient?.getServerUrl?.(),
+              connectedClient?.session?.serverName,
+            serverUrl: connectedClient?.session?.serverUrl,
             toolName,
           },
           () => router.callTool({ toolId, args: toolArgs }),

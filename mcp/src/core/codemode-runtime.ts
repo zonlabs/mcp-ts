@@ -42,9 +42,12 @@ type ToolServer = {
   serverId?: string;
   serverName?: string;
   serverUrl?: string;
-  getServerId?: () => string | undefined;
-  getServerName?: () => string | undefined;
-  getServerInfo?: () => { icons?: { src: string; mimeType?: string; sizes?: string[]; theme?: string }[] } | undefined;
+  session?: {
+    serverId?: string;
+    serverName?: string;
+    serverUrl?: string;
+    serverInfo?: { icons?: { src: string; mimeType?: string; sizes?: string[]; theme?: string }[] };
+  };
   callTool?: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   callToolRaw?: (name: string, args: Record<string, unknown>) => Promise<unknown>;
 };
@@ -138,10 +141,10 @@ async function recordToolCall<T>(
 ): Promise<T> {
   return withDownstreamToolAnalytics(
     {
-      serverId: server.serverId ?? server.getServerId?.(),
-      serverName: server.serverName ?? server.getServerName?.(),
-      serverUrl: server.serverUrl,
-      serverIcons: server.getServerInfo?.()?.icons,
+      serverId: server.session?.serverId ?? server.serverId,
+      serverName: server.session?.serverName ?? server.serverName,
+      serverUrl: server.session?.serverUrl ?? server.serverUrl,
+      serverIcons: (server.session?.serverInfo as any)?.icons,
       toolName,
     },
     call,

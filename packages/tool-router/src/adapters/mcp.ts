@@ -10,9 +10,11 @@ export interface ToolClient {
         options?: unknown;
       }) => Promise<unknown>);
   tools?(): Promise<Record<string, unknown>>;
-  getServerId?(): string | undefined;
-  getServerName?(): string | undefined;
-  getServerUrl?(): string | undefined;
+  session?: {
+    serverId?: string;
+    serverName?: string;
+    serverUrl?: string;
+  };
 }
 
 export interface ToolClientProvider {
@@ -24,7 +26,7 @@ export function mcpServer(id: string, client: ToolClient, name?: string): ToolSe
 
   return {
     id,
-    name: name ?? client.getServerName?.() ?? client.getServerId?.() ?? id,
+    name: name ?? client.session?.serverName ?? client.session?.serverId ?? id,
     listTools: () => client.listTools(),
     callTool: async (toolName, args) => {
       if (client.callTool) {
@@ -78,9 +80,9 @@ function callClientTool(
 export function mcpServers(provider: ToolClientProvider): ToolServer[] {
   return provider.getClients().map((client, index) =>
     mcpServer(
-      client.getServerId?.() ?? `mcp_${index + 1}`,
+      client.session?.serverId ?? `mcp_${index + 1}`,
       client,
-      client.getServerName?.()
+      client.session?.serverName ?? client.session?.serverId
     )
   );
 }

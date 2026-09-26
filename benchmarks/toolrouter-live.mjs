@@ -85,11 +85,13 @@ export async function collectToolsFromClients(clients) {
     }
 
     const serverName =
+      client.session?.serverName ??
+      client.session?.serverId ??
       callIfFunction(client, client.getServerName, undefined) ??
       callIfFunction(client, client.getServerId, undefined) ??
       'unknown';
-    const serverId = callIfFunction(client, client.getServerId, undefined) ?? serverName;
-    const sessionId = callIfFunction(client, client.getSessionId, undefined) ?? 'unknown';
+    const serverId = client.session?.serverId ?? callIfFunction(client, client.getServerId, undefined) ?? serverName;
+    const sessionId = client.session?.sessionId ?? callIfFunction(client, client.getSessionId, undefined) ?? 'unknown';
 
     try {
       const result = await client.listTools();

@@ -82,7 +82,6 @@ export {
   ToolRouter,
   type ToolRouterOptions,
   type ToolRouterClientInput,
-  type ToolGroupInfo,
 } from './tool-router.js';
 
 export {

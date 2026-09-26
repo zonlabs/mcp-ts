@@ -380,8 +380,8 @@ export function useMcp(options: UseMcpOptions): McpClient {
                     serverUrl: s.serverUrl,
                     transport: s.transport,
                     state: getInitialConnectionState(s.status),
-                    createdAt: new Date(s.createdAt),
-                    updatedAt: new Date(s.updatedAt ?? s.createdAt),
+                    createdAt: new Date(s.createdAt ?? Date.now()),
+                    updatedAt: new Date(s.updatedAt ?? s.createdAt ?? Date.now()),
                     tools: [],
                 }));
             }

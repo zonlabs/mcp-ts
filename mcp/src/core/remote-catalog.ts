@@ -13,14 +13,12 @@ import type {
  */
 export type CatalogClient = {
   /**
-   * Retrieves the unique identifier of the remote server.
+   * Session information containing serverId and serverName.
    */
-  getServerId?(): string | undefined;
-
-  /**
-   * Retrieves the display name of the remote server.
-   */
-  getServerName?(): string | undefined;
+  session?: {
+    serverId?: string;
+    serverName?: string;
+    serverUrl?: string;};
 
   /**
    * Fetches the tool listing from the upstream MCP server.
@@ -80,12 +78,12 @@ export async function buildRemoteCatalogFromClients(
   clients: CatalogClient[],
 ): Promise<CatalogSnapshot> {
   const validClients = clients.filter(
-    (client) => Boolean(client.getServerId?.() ?? client.getServerName?.()),
+    (client) => Boolean(client.session?.serverId ?? client.session?.serverName),
   );
 
   const results = await Promise.allSettled(
     validClients.map(async (client) => {
-      const serverId = client.getServerId?.() ?? client.getServerName?.() ?? "";
+      const serverId = client.session?.serverId ?? client.session?.serverName ?? "";
       let listed: Awaited<ReturnType<CatalogClient["listTools"]>> = { tools: [] };
       try {
         listed = await withTimeout(client.listTools());
@@ -94,7 +92,7 @@ export async function buildRemoteCatalogFromClients(
       }
       return {
         serverId,
-        serverName: client.getServerName?.() ?? serverId,
+        serverName: client.session?.serverName ?? serverId,
         tools: (listed.tools ?? []).map((tool) => ({
           name: tool.name,
           ...(typeof tool.description === "string" ? { description: tool.description } : {}),

@@ -2,7 +2,7 @@
  * Type definitions for MCP operations
  */
 import { Tool, CallToolResult } from "@modelcontextprotocol/client";
-import type { DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
+import type { DiscoverResult, ProtocolEra, Implementation } from "@modelcontextprotocol/client";
 
 // ---------------------------------------------------------------------------
 // Core Capability Interfaces
@@ -19,10 +19,7 @@ export interface BaseClient {
   isConnected(): boolean;
   listTools(options?: { filtered?: boolean }): Promise<{ tools: Tool[] }>;
   callTool(name: string, args: Record<string, unknown>): Promise<any>;
-  getServerId?(): string | undefined;
-  getServerName?(): string | undefined;
-  getServerUrl?(): string | undefined;
-  getSessionId?(): string;
+  readonly session?: SessionInfo;
 }
 
 /** Alias for `BaseClient` */
@@ -306,20 +303,20 @@ export interface SessionInfo {
   sessionId: string;
   serverId?: string;
   serverName?: string;
-  serverUrl: string;
+  serverUrl?: string;
   transport?: TransportType;
   serverOptions?: {
     client?: unknown;
     transport?: { type?: TransportType; protocolVersion?: string };
     discoverResult?: DiscoverResult;
   } | null;
-  createdAt: number;
+  createdAt?: number;
   updatedAt?: number;
   /**
    * Session readiness for auto-restore.
    * `pending` means auth is in progress and should be resumed explicitly by user action.
    */
-  status: SessionStatus;
+  status?: SessionStatus;
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
   protocolEra?: ProtocolEra | null;
@@ -327,6 +324,8 @@ export interface SessionInfo {
   discoverResult?: DiscoverResult | null;
   /** Caller-supplied metadata, stored and returned opaquely. */
   metadata?: Record<string, string>;
+  /** Server implementation metadata returned during MCP initialize (name, version, icons, etc.) */
+  serverInfo?: Implementation;
 }
 
 export interface SessionListResult {

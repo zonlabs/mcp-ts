@@ -36,7 +36,7 @@ export async function callRemoteTool(userId: string, call: ToolCallParams): Prom
   const client = manager
     .getClients()
     .find((candidate) =>
-      [candidate.getServerId?.(), candidate.getServerName?.()].includes(call.serverId),
+      [candidate.session?.serverId, candidate.session?.serverName].includes(call.serverId),
     );
   if (!client) {
     throw new BridgeProtocolError(

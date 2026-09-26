@@ -30,31 +30,40 @@ test.describe('SSEConnectionManager connect duplicate handling', () => {
       () => { }
     );
 
+    const originalConnect = (McpClient.prototype as any).connect;
+    const originalDiscoverCapabilities = (McpClient.prototype as any).discoverCapabilities;
     let resumedSessionId: string | null = null;
-    (manager as any).getSession = async ({ sessionId }: { sessionId: string }) => {
-      resumedSessionId = sessionId;
-      return { success: true, toolCount: 0 };
+
+    (McpClient.prototype as any).connect = async function () {
+      resumedSessionId = (this as any).config.sessionId;
+    };
+    (McpClient.prototype as any).discoverCapabilities = async function () {
+      return { tools: [], prompts: [], resources: [], resourceTemplates: [] };
     };
 
-    const response = await manager.handleRequest({
-      id: '1',
-      method: 'connect',
-      params: {
-        serverId: 'srv-1',
-        serverName: 'Server One',
-        serverUrl: 'https://example.com/mcp',
-        callbackUrl: 'https://app.local/oauth/callback',
-      },
-    } as any);
+    try {
+      const response = await manager.handleRequest({
+        id: '1',
+        method: 'connect',
+        params: {
+          serverId: 'srv-1',
+          serverName: 'Server One',
+          serverUrl: 'https://example.com/mcp',
+          callbackUrl: 'https://app.local/oauth/callback',
+        },
+      } as any);
 
-    expect((response as any).error).toBeUndefined();
-    expect((response as any).result).toEqual({
-      sessionId: 'existing-session',
-      success: true,
-    });
-    expect(resumedSessionId).toBe('existing-session');
-
-    manager.dispose();
+      expect((response as any).error).toBeUndefined();
+      expect((response as any).result).toEqual({
+        sessionId: 'existing-session',
+        success: true,
+      });
+      expect(resumedSessionId).toBe('existing-session');
+    } finally {
+      (McpClient.prototype as any).connect = originalConnect;
+      (McpClient.prototype as any).discoverCapabilities = originalDiscoverCapabilities;
+      manager.dispose();
+    }
   });
 
   test('still throws duplicate error for already active sessions', async () => {

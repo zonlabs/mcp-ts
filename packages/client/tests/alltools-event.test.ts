@@ -40,10 +40,12 @@ function activeSession(overrides: Record<string, unknown> = {}) {
 function fakeClient(overrides: Record<string, unknown> = {}) {
   return {
     isConnected: () => true,
-    getSessionId: () => 'alltools-session',
-    getServerId: () => 'fs-server',
-    getServerName: () => 'Filesystem',
-    getServerUrl: () => 'https://example.com/mcp',
+    session: {
+      sessionId: 'alltools-session',
+      serverId: 'fs-server',
+      serverName: 'Filesystem',
+      serverUrl: 'https://example.com/mcp',
+    },
     fetchTools: async () => ALL_REMOTE_TOOLS,
     listTools: async () => ({ tools: ALL_REMOTE_TOOLS }),
     callTool: async () => ({ content: [{ type: 'text', text: 'ok' }] }),

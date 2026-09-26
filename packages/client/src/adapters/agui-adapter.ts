@@ -185,9 +185,7 @@ export class AguiAdapter {
         if (!client.isConnected()) return [];
 
         const result = await client.listTools();
-        const serverId = (typeof (client as any).getServerId === 'function'
-            ? (client as any).getServerId()
-            : undefined) as string | undefined;
+        const serverId = client.session?.serverId;
         const normalizedPrefix = this.options.prefix?.replace(/-/g, '') ?? serverId?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
         const prefix = `tool_${normalizedPrefix}`;
 
@@ -199,7 +197,7 @@ export class AguiAdapter {
                 name: `${prefix}_${tool.name}`,
                 description: tool.description || `Execute ${tool.name}`,
                 parameters: cleanSchema(tool.inputSchema),
-                _meta: { ...mcpTool._meta, sessionId: (client as any).getSessionId?.() },
+                _meta: { ...mcpTool._meta, sessionId: client.session?.sessionId },
                 handler: async (args: any) => {
                     // Call the actual MCP tool
                     const callResult = await (client as any).callTool(mcpToolName, args ?? {});
@@ -215,9 +213,7 @@ export class AguiAdapter {
         if (!client.isConnected()) return [];
 
         const result = await client.listTools();
-        const serverId = (typeof (client as any).getServerId === 'function'
-            ? (client as any).getServerId()
-            : undefined) as string | undefined;
+        const serverId = client.session?.serverId;
         const normalizedPrefix = this.options.prefix?.replace(/-/g, '') ?? serverId?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
         const prefix = `tool_${normalizedPrefix}`;
 
@@ -227,7 +223,7 @@ export class AguiAdapter {
                 name: `${prefix}_${tool.name}`,
                 description: tool.description || `Execute ${tool.name}`,
                 parameters: cleanSchema(tool.inputSchema),
-                _meta: { ...mcpTool._meta, sessionId: (client as any).getSessionId?.() },
+                _meta: { ...mcpTool._meta, sessionId: client.session?.sessionId },
             };
         });
     }

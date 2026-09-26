@@ -139,10 +139,12 @@ describe("mcp-core-tools", () => {
       {
         isConnected: () => true,
         listTools: mockClientListTools,
-        getServerId: mockClientGetServerId,
-        getServerName: mockClientGetServerName,
-        getSessionId: mockClientGetSessionId,
-        getServerUrl: mockClientGetServerUrl,
+        session: {
+          serverId: "docs-server",
+          serverName: "Docs",
+          sessionId: "sess-docs",
+          serverUrl: "https://docs.example.com",
+        },
       },
     ]);
   });

@@ -41,9 +41,10 @@ export function parseToolRef(reference: string): { serverId?: string; toolName: 
 const routerServerIds = new WeakMap<ToolRouter, string>();
 
 export async function createRouter(client: ToolClient): Promise<ToolRouter> {
-  const serverId = client.getServerId?.() ?? "remote";
+  const serverId = client.session?.serverId ?? "remote";
+  const serverName = client.session?.serverName ?? serverId;
   const router = await createToolRouter({
-    servers: [mcpServer(serverId, client, client.getServerName?.())],
+    servers: [mcpServer(serverId, client, serverName)],
   });
   routerServerIds.set(router, serverId);
   return router;

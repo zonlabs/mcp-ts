@@ -53,30 +53,10 @@ import {
 export interface ToolRouterOptions {
   /**
    * Maximum tools to expose to the LLM at once.
-   * Only applies to `groups` and search results.
+   * Only applies to search results.
    * @default 40
    */
   maxTools?: number;
-
-  /**
-   * Tool groups configuration — map of group name to tool names.
-   * When not provided, groups are auto-generated from server names.
-   *
-   * @example
-   * ```ts
-   * groups: {
-   *   database: ['query_db', 'list_tables', 'describe_table'],
-   *   github: ['create_pr', 'list_issues', 'search_code'],
-   * }
-   * ```
-   */
-  groups?: Record<string, string[]>;
-
-  /**
-   * Active groups (when `strategy='groups'`).
-   * Only tools in these groups are exposed. Empty = all groups active.
-   */
-  activeGroups?: string[];
 
   /**
    * Whether to use compact schemas (name + description + parameterHint only, no inputSchema).
@@ -116,11 +96,7 @@ export interface ToolRouterOptions {
   keywordWeight?: number;
 }
 
-/** Information about a tool group. */
-export interface ToolGroupInfo {
-  tools: string[];
-  active: boolean;
-}
+
 
 // ---------------------------------------------------------------------------
 // Client Input Types
@@ -142,11 +118,8 @@ export class ToolRouter {
   private pinnedTools: IndexedTool[] = [];
   private deferredTools: IndexedTool[] = [];
   private discoverableTools: IndexedTool[] = [];
-  private groupsMap = new Map<string, ToolGroupInfo>();
   private maxTools: number;
   private compactSchemas: boolean;
-  private activeGroups: Set<string>;
-  private customGroups?: Record<string, string[]>;
   private pinnedToolNames: Set<string>;
   private deferredToolNames: Set<string>;
   private excludeToolMatchers: RegExp[];
@@ -158,8 +131,6 @@ export class ToolRouter {
   ) {
     this.maxTools = options.maxTools ?? 40;
     this.compactSchemas = options.compactSchemas ?? false;
-    this.activeGroups = new Set(options.activeGroups ?? []);
-    this.customGroups = options.groups;
     this.pinnedToolNames = new Set(options.pinnedTools ?? []);
     this.deferredToolNames = new Set(options.deferredTools ?? []);
     this.excludeToolMatchers = (options.excludeTools ?? []).map((pattern) =>
@@ -179,17 +150,12 @@ export class ToolRouter {
   /**
    * Get tools exposed by the router.
    * By default, exposes the meta-tools (for dynamic discovery & execution)
-   * plus any explicitly pinned tools or active groups.
+   * plus any explicitly pinned tools.
    */
   async getFilteredTools(): Promise<Tool[]> {
     await this.ensureInitialized();
 
     const metaTools = this.getMetaToolDefinitions();
-
-    if (this.activeGroups.size > 0) {
-      return [...metaTools, ...this.getGroupFilteredTools()];
-    }
-
     return [...metaTools, ...this.pinnedTools];
   }
 
@@ -272,28 +238,7 @@ export class ToolRouter {
     return SchemaCompressor.compactAll(this.allTools);
   }
 
-  // -----------------------------------------------------------------------
-  // Group Management
-  // -----------------------------------------------------------------------
 
-  /** Get all available groups with their tool lists and active status. */
-  getGroups(): Map<string, ToolGroupInfo> {
-    return new Map(this.groupsMap);
-  }
-
-  /** Activate specific groups. Pass empty array to activate all. */
-  setActiveGroups(groups: string[]): void {
-    this.activeGroups = new Set(groups);
-    // Update groupsMap active flags
-    for (const [name, info] of this.groupsMap) {
-      info.active = this.activeGroups.size === 0 || this.activeGroups.has(name);
-    }
-  }
-
-  /** Get the names of currently active groups. */
-  getActiveGroups(): string[] {
-    return [...this.activeGroups];
-  }
 
   /** Number of total indexed tools. */
   get totalToolCount(): number {
@@ -338,8 +283,7 @@ export class ToolRouter {
     const targetClient =
       clients.find(
         (c) =>
-          typeof c.getSessionId === 'function' &&
-          c.getSessionId() === indexedTool.sessionId
+          c.session?.sessionId === indexedTool.sessionId
       ) ?? clients.find((c) => c.isConnected());
 
     if (!targetClient) {
@@ -365,7 +309,6 @@ export class ToolRouter {
     );
     this.discoverableTools = this.allTools.filter((tool) => !this.matchesPinnedTool(tool.name));
     await this.index.buildIndex(this.discoverableTools);
-    this.buildGroups();
     this.initialized = true;
   }
 
@@ -378,13 +321,10 @@ export class ToolRouter {
         try {
           const { tools } = await client.listTools();
           const serverId =
-            typeof client.getServerId === 'function' ? client.getServerId() ?? 'unknown' : 'unknown';
-          const serverName =
-            (typeof client.getServerName === 'function' ? client.getServerName() : undefined) ??
-            serverId;
+            client.session?.serverId ?? 'unknown';
+          const serverName = client.session?.serverName ?? client.session?.serverId ?? serverId;
           const sessionId =
-            typeof client.getSessionId === 'function' ? client.getSessionId() ?? 'unknown' : 'unknown';
-
+            client.session?.sessionId ?? 'unknown';
           return tools.map((tool) => ({
             ...tool,
             serverId,
@@ -413,66 +353,7 @@ export class ToolRouter {
     return [this.client as unknown as ToolClient];
   }
 
-  /** Build group map from custom config or auto-detect from server names. */
-  private buildGroups(): void {
-    this.groupsMap.clear();
 
-    if (this.customGroups) {
-      // Explicit groups
-      for (const [name, tools] of Object.entries(this.customGroups)) {
-        this.groupsMap.set(name, {
-          tools,
-          active: this.activeGroups.size === 0 || this.activeGroups.has(name),
-        });
-      }
-    } else {
-      // Auto-group by server ID
-      const serverTools = new Map<string, string[]>();
-      for (const tool of this.allTools) {
-        const group = tool.serverId;
-        if (!serverTools.has(group)) {
-          serverTools.set(group, []);
-        }
-        serverTools.get(group)!.push(tool.name);
-      }
-
-      for (const [serverId, tools] of serverTools) {
-        this.groupsMap.set(serverId, {
-          tools,
-          active: this.activeGroups.size === 0 || this.activeGroups.has(serverId),
-        });
-      }
-    }
-  }
-
-  /** Return only tools belonging to currently active groups. */
-  private getGroupFilteredTools(): Tool[] {
-    const activeToolNames = new Set<string>();
-    for (const [, info] of this.groupsMap) {
-      if (info.active) {
-        for (const name of info.tools) {
-          activeToolNames.add(name);
-        }
-      }
-    }
-
-    const filtered = this.getDirectlyVisibleTools().filter((t) => activeToolNames.has(t.name));
-
-    if (this.compactSchemas) {
-      return filtered.slice(0, this.maxTools).map((t) => {
-        const compact = SchemaCompressor.toCompact(t);
-        return {
-          name: compact.name,
-          description:
-            (compact.description ?? '') +
-            (compact.parameterHint ? ` Parameters: ${compact.parameterHint}` : ''),
-          inputSchema: { type: 'object' as const, properties: {} },
-        };
-      });
-    }
-
-    return filtered.slice(0, this.maxTools);
-  }
 
   /** The 5 meta-tool definitions (mcp_search_tools, mcp_get_tool_schema, etc.). */
   private getMetaToolDefinitions(): Tool[] {
