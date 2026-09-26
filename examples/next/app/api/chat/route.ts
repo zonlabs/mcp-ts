@@ -11,5 +11,17 @@ export async function POST(request: Request) {
   return createAgentUIStreamResponse({
     agent,
     uiMessages: messages,
+    messageMetadata: ({ part }: any) => {
+      if (part.type === 'tool-call') {
+        console.log('[DEBUG examples/next] tool-call part keys:', Object.keys(part));
+        console.log('[DEBUG examples/next] tool-call part:', JSON.stringify(part, null, 2));
+        console.log('[DEBUG examples/next] (part as any).mcp:', (part as any).mcp);
+        console.log(
+          '[DEBUG examples/next] (agent as any).tools?.[part.toolName]?.mcp:',
+          (agent as any).tools?.[part.toolName]?.mcp
+        );
+      }
+      return undefined;
+    },
   });
 }

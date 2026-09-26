@@ -4,8 +4,6 @@ import { ToolRouter } from '../shared/tool-router.js';
 import type { BaseClient, BaseClientProvider, ToolClient, SessionInfo } from '../shared/types.js';
 import { executeMetaTool, isMetaTool } from '../shared/meta-tools.js';
 
-export type { SessionInfo };
-
 export interface AIAdapterOptions {
     /** 
      * Prefix for tool names to avoid collision with other tools.
