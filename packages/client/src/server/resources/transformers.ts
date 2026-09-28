@@ -25,19 +25,26 @@ export function deriveStatus(session: Session): McpServerConnectionStatus {
     };
   }
 
-  const isOAuth =
-    session.metadata?.authType !== 'none' &&
-    (session.metadata?.authType === 'oauth' ||
-      Boolean(session.tokens) ||
-      Boolean(session.discoveryState) ||
-      Boolean(session.authUrl));
+  const isOAuth = Boolean(
+    session.tokens ||
+    session.discoveryState ||
+    session.authUrl ||
+    session.serverOptions?.clientMetadataUrl
+  );
 
   if (isOAuth) {
     const isConnected = session.status === 'active' && Boolean(session.tokens);
     if (!isConnected) {
+      let validAuthUrl: string | undefined;
+      if (session.authUrl) {
+        const isExpired = session.expiresAt ? session.expiresAt <= Date.now() : false;
+        if (!isExpired) {
+          validAuthUrl = session.authUrl;
+        }
+      }
       return {
         state: 'auth_required',
-        ...(session.authUrl ? { authorizationUrl: session.authUrl } : {}),
+        ...(validAuthUrl ? { authorizationUrl: validAuthUrl } : {}),
       };
     }
     return { state: 'connected' };
@@ -51,12 +58,24 @@ export function deriveStatus(session: Session): McpServerConnectionStatus {
  * Secrets (tokens and header values) are redacted from public responses.
  */
 export function deriveAuth(session: Session): McpServerAuth {
-  const isOAuth =
-    session.metadata?.authType !== 'none' &&
-    (session.metadata?.authType === 'oauth' ||
-      Boolean(session.tokens) ||
-      Boolean(session.discoveryState) ||
-      Boolean(session.authUrl));
+  const headers = session.headers || {};
+  const authHeader = Object.entries(headers).find(([k]) => k.toLowerCase() === 'authorization')?.[1];
+
+  // 1. Bearer authorization header
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    return {
+      type: 'bearer',
+      // Secret token redacted for security
+    };
+  }
+
+  // 2. OAuth artifacts
+  const isOAuth = Boolean(
+    session.tokens ||
+    session.discoveryState ||
+    session.authUrl ||
+    session.serverOptions?.clientMetadataUrl
+  );
 
   if (isOAuth) {
     let existingConfig: any = {};
@@ -87,20 +106,10 @@ export function deriveAuth(session: Session): McpServerAuth {
     };
   }
 
-  const headers = session.headers || {};
-  const authHeader = Object.entries(headers).find(([k]) => k.toLowerCase() === 'authorization')?.[1];
-
-  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
-    return {
-      type: 'bearer',
-      // Secret token redacted for security
-    };
-  }
-
-  const headerKeys = Object.keys(headers);
-  if (headerKeys.length > 0) {
+  // 3. Custom headers (non-empty, non-bearer)
+  if (Object.keys(headers).length > 0) {
     const redactedHeaders: Record<string, string> = {};
-    for (const key of headerKeys) {
+    for (const key of Object.keys(headers)) {
       redactedHeaders[key] = '';
     }
     return {
@@ -189,15 +198,12 @@ export function toSession(params: McpServersCreateParameters): Session {
 
   let clientId: string | undefined = undefined;
 
-  if (params.auth?.type) {
-    metadata.authType = params.auth.type;
-    if (params.auth.type === 'oauth') {
-      const oauthConfig = params.auth.config;
-      if (oauthConfig) {
-        const { clientSecret: _omitSecret, ...publicOAuthConfig } = oauthConfig;
-        metadata.oauthConfig = JSON.stringify(publicOAuthConfig);
-        if (oauthConfig.clientId) clientId = oauthConfig.clientId;
-      }
+  if (params.auth?.type === 'oauth') {
+    const oauthConfig = params.auth.config;
+    if (oauthConfig) {
+      const { clientSecret: _omitSecret, ...publicOAuthConfig } = oauthConfig;
+      metadata.oauthConfig = JSON.stringify(publicOAuthConfig);
+      if (oauthConfig.clientId) clientId = oauthConfig.clientId;
     }
   }
 
@@ -270,15 +276,19 @@ export function toSessionPatch(
       }
     }
 
-    metadata.authType = params.auth.type;
-
+    delete metadata.authType;
     if (params.auth.type === 'bearer' && params.auth.token) {
-      headers['Authorization'] = `Bearer ${params.auth.token.trim()}`;
-      patch.headers = headers;
+      patch.headers = { Authorization: `Bearer ${params.auth.token.trim()}` };
       delete metadata.oauthConfig;
+      patch.tokens = null;
+      patch.discoveryState = null;
+      patch.authUrl = null;
     } else if (params.auth.type === 'custom-headers' && params.auth.headers) {
       patch.headers = { ...params.auth.headers };
       delete metadata.oauthConfig;
+      patch.tokens = null;
+      patch.discoveryState = null;
+      patch.authUrl = null;
     } else if (params.auth.type === 'oauth') {
       const oauthConfig = params.auth.config;
       if (oauthConfig) {
@@ -292,10 +302,15 @@ export function toSessionPatch(
           };
         }
       }
-      patch.headers = Object.keys(headers).length > 0 ? headers : undefined;
+      patch.headers = undefined;
     } else if (params.auth.type === 'none') {
       delete metadata.oauthConfig;
-      patch.headers = Object.keys(headers).length > 0 ? headers : undefined;
+      patch.headers = undefined;
+      patch.tokens = null;
+      patch.discoveryState = null;
+      patch.authUrl = null;
+      patch.clientId = null;
+      patch.clientInformation = null;
     }
   }
 

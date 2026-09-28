@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS public.mcp_sessions (
 CREATE INDEX IF NOT EXISTS idx_mcp_sessions_user_id ON public.mcp_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_mcp_sessions_expires_at ON public.mcp_sessions(expires_at);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_sessions_user_server_unique
+  ON public.mcp_sessions(user_id, server_id) WHERE server_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_mcp_sessions_user_url
+  ON public.mcp_sessions(user_id, server_url);
+
 CREATE OR REPLACE FUNCTION public.set_current_timestamp_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

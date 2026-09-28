@@ -362,7 +362,7 @@ test.describe('client.mcpServers API (v0-style)', () => {
         serverId: 'calc_server',
         uri: 'file:///workspace/readme.md',
       });
-      expect(readRes.contents[0].text).toBe('# Sample Readme');
+      expect((readRes.contents[0] as { uri: string; text: string }).text).toBe('# Sample Readme');
 
       // 7. listResourceTemplates
       const templatesRes = await testClient.mcpServers.listResourceTemplates({

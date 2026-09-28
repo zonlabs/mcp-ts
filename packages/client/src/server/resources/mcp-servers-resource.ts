@@ -40,6 +40,8 @@ import {
   toSession,
   toSessionPatch,
 } from './transformers.js';
+import { assertToolAllowed, filterToolsByPolicy } from '../storage/tool-policy.js';
+
 
 export interface McpServersResourceOptions {
   storage?: SessionStore;
@@ -102,20 +104,28 @@ export class McpServersResource {
 
   /**
    * Helper to resolve a storage session by serverId or sessionId.
+   * Uses findOne for an O(1) secondary index lookup when available.
    */
   private async findSession(userId: string, targetId: string): Promise<Session | null> {
+    // Fast-path 1: direct sessionId lookup
     const direct = await this.storage.get(userId, targetId);
     if (direct) return direct;
 
-    const all = await this.storage.list(userId);
-    return all.find((s) => s.serverId === targetId || s.sessionId === targetId) ?? null;
+    // Fast-path 2: indexed serverId lookup (O(1) on SQL/Supabase/Neon)
+    if (this.storage.findOne) {
+      return (await this.storage.findOne(userId, { serverId: targetId })) ?? null;
+    }
+    const [byServerId] = await this.storage.list(userId, { serverId: targetId });
+    return byServerId ?? null;
   }
 
   /**
    * Find MCP servers for a given user with optional filtering.
    */
   async find(params: McpServersFindParameters): Promise<McpServersFindResponse> {
-    const rawSessions = await this.storage.list(params.userId);
+    const rawSessions = await this.storage.list(params.userId, {
+      enabled: params.enabled,
+    });
 
     let filtered = rawSessions;
 
@@ -213,13 +223,9 @@ export class McpServersResource {
         await mcpClient.connect();
         const hasAuthUrl = Boolean(authRedirectUrl || (mcpClient.oauthProvider as any)?.authUrl);
         if (hasAuthUrl) {
-          session.metadata = { ...(session.metadata || {}), authType: 'oauth' };
           session.status = 'pending';
         } else {
           session.status = 'active';
-          if (session.metadata?.authType === 'oauth') {
-            session.metadata.authType = 'none';
-          }
           if (session.metadata?.lastError) {
             const { lastError, ...restMeta } = session.metadata;
             session.metadata = Object.keys(restMeta).length > 0 ? restMeta : undefined;
@@ -228,7 +234,6 @@ export class McpServersResource {
       } catch (err: any) {
         const hasAuthUrl = Boolean(authRedirectUrl || (mcpClient.oauthProvider as any)?.authUrl);
         if (hasAuthUrl) {
-          session.metadata = { ...(session.metadata || {}), authType: 'oauth' };
           session.status = 'pending';
         } else {
           const isAuthError =
@@ -243,6 +248,9 @@ export class McpServersResource {
           };
           session.status = 'pending';
         }
+      } finally {
+        // Always disconnect the temporary probe client — it is not pooled
+        await mcpClient.disconnect().catch(() => {});
       }
     }
 
@@ -252,6 +260,15 @@ export class McpServersResource {
     } else {
       await this.storage.create(session);
     }
+
+    // Persist OAuth clientInformation (clientId + clientSecret) to the credentials
+    // partition of durable storage backends (Supabase, Neon, SQLite, Redis).
+    if (session.clientInformation) {
+      await this.storage.patchCredentials(session.userId, session.sessionId, {
+        clientInformation: session.clientInformation,
+      }).catch(() => {});
+    }
+
     const result = toMcpServer(session);
     if (authRedirectUrl && result.status.state === 'auth_required') {
       result.status.authorizationUrl = authRedirectUrl;
@@ -292,6 +309,13 @@ export class McpServersResource {
 
     const patch = toSessionPatch(params, existing);
     await this.storage.update(params.userId, existing.sessionId, patch);
+
+    // Persist updated OAuth clientInformation to the credentials partition
+    if (patch.clientInformation) {
+      await this.storage.patchCredentials(params.userId, existing.sessionId, {
+        clientInformation: patch.clientInformation,
+      }).catch(() => {});
+    }
 
     const key = this.getClientKey(params.userId, existing.sessionId);
     const existingClient = this.clientPool.get(key);
@@ -438,31 +462,59 @@ export class McpServersResource {
 
   /**
    * Lists available tools from an MCP server.
+   *
+   * By default returns all tools so management UIs can inspect and configure
+   * allow/denylists. Pass `{ filtered: true }` to apply the server's toolPolicy.
    */
-  async listTools(params: McpServersListToolsParameters): Promise<McpServersListToolsResponse> {
+  async listTools(
+    params: McpServersListToolsParameters & { filtered?: boolean }
+  ): Promise<McpServersListToolsResponse> {
     if (!params.userId || !params.serverId) {
       throw new Error('userId and serverId are required');
     }
+    const session = await this.findSession(params.userId, params.serverId);
+    if (!session) {
+      throw new Error(`MCP server "${params.serverId}" not found for user "${params.userId}"`);
+    }
+    if (session.enabled === false) {
+      throw new Error(`MCP server "${params.serverId}" is disabled`);
+    }
     const client = await this.getClient(params.userId, params.serverId);
     const result = await client.listTools();
-    return { tools: result.tools };
+    const tools = params.filtered && session.toolPolicy
+      ? filterToolsByPolicy(result.tools, session.toolPolicy, session.serverId)
+      : result.tools;
+    return { tools };
   }
 
   /**
    * Executes a tool on an MCP server.
+   *
+   * Enforces the server's toolPolicy by default. Pass `{ bypassPolicy: true }`
+   * only for administrative diagnostics.
    */
-  async callTool(params: McpServersCallToolParameters): Promise<CallToolResult> {
+  async callTool(
+    params: McpServersCallToolParameters & { bypassPolicy?: boolean }
+  ): Promise<CallToolResult> {
     if (!params.userId || !params.serverId || !params.toolName) {
       throw new Error('userId, serverId, and toolName are required');
+    }
+    const session = await this.findSession(params.userId, params.serverId);
+    if (!session) {
+      throw new Error(`MCP server "${params.serverId}" not found for user "${params.userId}"`);
+    }
+    if (session.enabled === false) {
+      throw new Error(`MCP server "${params.serverId}" is disabled`);
+    }
+    if (!params.bypassPolicy && session.toolPolicy) {
+      assertToolAllowed(session.toolPolicy, params.toolName, session.serverId);
     }
     const client = await this.getClient(params.userId, params.serverId);
     try {
       return await client.callTool(params.toolName, params.args ?? {});
     } catch (err) {
-      const session = await this.findSession(params.userId, params.serverId);
-      if (session) {
-        this.clientPool.delete(this.getClientKey(params.userId, session.sessionId));
-      }
+      // On error, evict the pooled client so next call reconnects cleanly
+      this.clientPool.delete(this.getClientKey(params.userId, session.sessionId));
       throw err;
     }
   }

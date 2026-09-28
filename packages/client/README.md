@@ -373,8 +373,7 @@ The library supports multiple durable storage backends out of the box. You can e
 ### Programmatic Configuration
 
 ```typescript
-import { createClient } from '@mcp-ts/client';
-import { RedisStorageBackend } from '@mcp-ts/client/storage';
+import { createClient, RedisStorageBackend } from '@mcp-ts/client';
 import { Redis } from 'ioredis';
 
 // Custom Redis client

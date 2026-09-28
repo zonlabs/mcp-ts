@@ -138,6 +138,21 @@ export type GetOptions = {
     includeCredentials?: boolean;
 };
 
+export interface SessionFilter {
+    /** Filter by server identifier */
+    serverId?: string;
+    /** Filter by server endpoint URL */
+    serverUrl?: string;
+    /** Filter by session status */
+    status?: SessionStatus;
+    /** Filter by enabled/disabled state */
+    enabled?: boolean;
+    /** Maximum number of sessions to return */
+    limit?: number;
+    /** Number of sessions to skip */
+    offset?: number;
+}
+
 export type SessionResult = Session;
 
 export interface SessionStore {
@@ -180,6 +195,11 @@ export interface SessionStore {
     get(userId: string, sessionId: string, options?: GetOptions): Promise<SessionResult | null>;
 
     /**
+     * Finds a single session matching the filter.
+     */
+    findOne?(userId: string, filter: SessionFilter, options?: GetOptions): Promise<SessionResult | null>;
+
+    /**
      * Retrieves runtime credentials for a session.
      */
     getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null>;
@@ -190,9 +210,9 @@ export interface SessionStore {
     clearCredentials(userId: string, sessionId: string): Promise<void>;
 
     /**
-     * Gets full session data for all sessions owned by a user
+     * Gets full session data for sessions owned by a user, with optional filtering.
      */
-    list(userId: string): Promise<Session[]>;
+    list(userId: string, filter?: SessionFilter): Promise<Session[]>;
 
     /**
      * Removes a session

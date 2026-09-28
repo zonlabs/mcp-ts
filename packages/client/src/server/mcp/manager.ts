@@ -305,17 +305,19 @@ export class McpManager implements BaseClientProvider {
      * to querying the storage backend via `sessions.list(userId)`.
      */
     private async fetchActiveSessions(): Promise<Session[]> {
-        const sessionList = this.options.sessionProvider
-            ? await this.options.sessionProvider()
-            : await this._store.list(this.userId);
+        if (this.options.sessionProvider) {
+            const externalList = await this.options.sessionProvider();
+            return externalList.filter(s =>
+                s.serverId &&
+                s.serverUrl &&
+                s.callbackUrl &&
+                s.status === 'active' &&
+                s.enabled !== false
+            );
+        }
 
-        return sessionList.filter(s =>
-            s.serverId &&
-            s.serverUrl &&
-            s.callbackUrl &&
-            s.status === 'active' &&
-            s.enabled !== false
-        );
+        const sessionList = await this._store.list(this.userId, { status: 'active', enabled: true });
+        return sessionList.filter(s => s.serverId && s.serverUrl && s.callbackUrl);
     }
 
     /**

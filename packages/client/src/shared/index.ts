@@ -73,6 +73,19 @@ export type {
   McpServersCreateOAuthUrlResponse,
   McpServerOAuthAuthorization,
   McpServersFinishAuthParameters,
+  McpServersDiscoverOAuthParameters,
+  McpServersDiscoverOAuthResponse,
+  McpServersListToolsParameters,
+  McpServersListToolsResponse,
+  McpServersCallToolParameters,
+  McpServersListPromptsParameters,
+  McpServersListPromptsResponse,
+  McpServersGetPromptParameters,
+  McpServersListResourcesParameters,
+  McpServersListResourcesResponse,
+  McpServersReadResourceParameters,
+  McpServersListResourceTemplatesParameters,
+  McpServersListResourceTemplatesResponse,
 } from './types';
 
 export {
