@@ -59,6 +59,20 @@ export type {
   ListToolsRpcResult,
   ListPromptsResult,
   ListResourcesResult,
+  McpServer,
+  McpServerAuth,
+  McpServerAuthRequest,
+  McpServersFindParameters,
+  McpServersFindResponse,
+  McpServersCreateParameters,
+  McpServersGetByIdParameters,
+  McpServersUpdateParameters,
+  McpServersDeleteParameters,
+  McpServersDeleteResponse,
+  McpServersCreateOAuthUrlParameters,
+  McpServersCreateOAuthUrlResponse,
+  McpServerOAuthAuthorization,
+  McpServersFinishAuthParameters,
 } from './types';
 
 export {

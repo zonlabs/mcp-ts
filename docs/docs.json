@@ -158,6 +158,7 @@
           {
             "group": "Server-Side",
             "pages": [
+              "reference/mcp-servers",
               "reference/server",
               "reference/storage",
               "reference/tool-router",

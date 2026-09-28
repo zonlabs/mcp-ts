@@ -10,6 +10,7 @@ import type { McpObservabilityEvent } from '../../shared/events.js';
 
 // Re-export types
 export * from './types.js';
+export * from './tool-policy.js';
 export { generateSessionId, generateServerId } from '../../shared/utils.js';
 export { RedisStorageBackend, MemoryStorageBackend, FileStorageBackend, SqliteStorage, SupabaseStorageBackend, NeonStorageBackend };
 

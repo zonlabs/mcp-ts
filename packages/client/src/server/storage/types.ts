@@ -48,7 +48,7 @@ export interface StoredMcpServerOptions {
 export interface ToolPolicy {
     mode: ToolPolicyMode;
     toolIds: string[];
-    updatedAt: number;
+    updatedAt?: number;
 }
 
 export interface Session {
