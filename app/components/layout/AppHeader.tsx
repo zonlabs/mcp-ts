@@ -2,7 +2,7 @@
 
 import React, { type ReactNode } from "react";
 import Link from "next/link";
-import { PanelLeftOpen, SquarePen, Folder, Share2, Github } from "lucide-react";
+import { PanelLeftOpen, Folder, Share2, Github } from "lucide-react";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 
@@ -32,7 +32,7 @@ export function AppHeader({
   onShareChat,
 }: AppHeaderProps) {
   return (
-    <header className="h-11 border-b border-border/40 flex items-center justify-between px-3 shrink-0 bg-background/95 backdrop-blur-xs select-none">
+    <header className="h-10 flex items-center justify-between px-3 shrink-0 bg-background/95 backdrop-blur-xs select-none">
       <div className="flex items-center gap-2 min-w-0">
         {/* Mobile menu trigger */}
         <button
@@ -43,17 +43,6 @@ export function AppHeader({
         >
           <PanelLeftOpen className="size-4" />
         </button>       
-
-        {/* New chat icon */}
-        <SimpleTooltip content="New chat" side="bottom">
-          <Link
-            href="/chat"
-            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-sm hover:bg-muted/50 flex items-center justify-center"
-            aria-label="New chat"
-          >
-            <SquarePen className="size-4" />
-          </Link>
-        </SimpleTooltip>
 
         {currentProjectId ? (
           <div className="flex items-center gap-1.5 text-xs">

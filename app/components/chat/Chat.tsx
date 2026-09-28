@@ -47,11 +47,12 @@ export interface ChatProps {
 interface MessageRowProps {
   m: ChatUIMessage;
   isLastMessage: boolean;
+  thoughtOpen: boolean;
   onEdit: (id: string, text: string) => void;
-  renderParts: (m: ChatUIMessage, isLast: boolean) => React.ReactNode;
+  renderParts: (m: ChatUIMessage, isLast: boolean, thoughtOpen: boolean) => React.ReactNode;
 }
 
-const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderParts }: MessageRowProps) {
+const MessageRow = memo(function MessageRow({ m, isLastMessage, thoughtOpen, onEdit, renderParts }: MessageRowProps) {
   const text = m.parts
     .filter((p: any) => p.type === 'text')
     .map((p: any) => p.text)
@@ -65,14 +66,14 @@ const MessageRow = memo(function MessageRow({ m, isLastMessage, onEdit, renderPa
           onEdit={(newText) => onEdit(m.id, newText)}
         />
       ) : (
-        renderParts(m, isLastMessage)
+        renderParts(m, isLastMessage, thoughtOpen)
       )}
     </div>
   );
 }, (prev, next) => {
   if (prev.isLastMessage !== next.isLastMessage) return false;
   if (next.isLastMessage) return false;
-  return prev.m === next.m && prev.onEdit === next.onEdit;
+  return prev.m === next.m && prev.onEdit === next.onEdit && prev.thoughtOpen === next.thoughtOpen;
 });
 
 function extractChatId(pathname: string): string | null {
@@ -408,13 +409,13 @@ export function Chat({
     });
   }, [upsertChat, chatId, addToolApprovalResponse]);
 
-  const renderMessageParts = useCallback((m: ChatUIMessage, isLastMessage: boolean) => (
+  const renderMessageParts = useCallback((m: ChatUIMessage, isLastMessage: boolean, isThoughtOpen: boolean) => (
     <MessagePartsRenderer
       message={m}
       isLastMessage={isLastMessage}
       status={status}
       allMessages={messages}
-      isThoughtOpen={selectedThoughtMessageId === m.id}
+      isThoughtOpen={isThoughtOpen}
       onToggleThought={() => setSelectedThoughtMessageId((current) => getNextSelectedThoughtMessageId(current, m.id))}
       onRegenerate={handleRegenerate}
       onApproveTool={handleApproveTool}
@@ -424,7 +425,6 @@ export function Chat({
   ), [
     status,
     messages,
-    selectedThoughtMessageId,
     handleRegenerate,
     handleApproveTool,
     handleDenyTool,
@@ -483,6 +483,7 @@ export function Chat({
                         key={m.id || index}
                         m={m}
                         isLastMessage={isLastMessage}
+                        thoughtOpen={selectedThoughtMessageId === m.id}
                         onEdit={handleEditMessage}
                         renderParts={renderMessageParts}
                       />

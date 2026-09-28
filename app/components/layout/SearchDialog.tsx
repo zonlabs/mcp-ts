@@ -17,12 +17,8 @@ import {
   Pin,
   Clock,
   Wrench,
-  ExternalLink,
-  Copy,
-  Check,
   X,
   Server,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SidebarChat } from "@/lib/sidebar-chats";
@@ -100,7 +96,6 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<FilterCategory>("all");
   const [activeIdx, setActiveIdx] = useState(0);
-  const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -116,7 +111,6 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
       setQuery("");
       setCategory("all");
       setActiveIdx(0);
-      setCopied(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
@@ -267,18 +261,6 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
     [router, onClose]
   );
 
-  const handleCopyLink = useCallback(
-    (href: string) => {
-      const fullUrl = href.startsWith("http")
-        ? href
-        : `${typeof window !== "undefined" ? window.location.origin : ""}${href}`;
-      void navigator.clipboard.writeText(fullUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    },
-    []
-  );
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
@@ -320,9 +302,9 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
         aria-hidden="true"
       />
 
-      {/* Two-Pane Raycast/Linear Command Palette Modal */}
+      {/* Command Palette Modal */}
       <div
-        className="fixed left-1/2 top-[12%] sm:top-[14%] z-50 -translate-x-1/2 w-full max-w-4xl px-3 sm:px-4"
+        className="fixed left-1/2 top-[12%] sm:top-[14%] z-50 -translate-x-1/2 w-full max-w-2xl px-3 sm:px-4"
         role="dialog"
         aria-modal="true"
         aria-label="Global Command Palette"
@@ -403,8 +385,8 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
             })}
           </div>
 
-          {/* 3. Main Body: Split into Left Result List + Right Live Preview Inspector */}
-          <div className="flex-1 flex min-h-0 overflow-hidden bg-background">
+          {/* 3. Main Body: Result List */}
+          <div className="flex-1 min-h-0 overflow-hidden bg-background">
             {/* Left Result List */}
             <div
               ref={listRef}
@@ -524,178 +506,6 @@ export function SearchDialog({ open, onClose, chats = [] }: SearchDialogProps) {
               )}
             </div>
 
-            {/* Right Live Preview Inspector Pane (Clean, professional, no redundant borders) */}
-            <div className="hidden md:flex flex-col w-[320px] lg:w-[350px] border-l border-border bg-card p-5 overflow-y-auto scrollbar-minimal justify-between shrink-0">
-              {activeItem ? (
-                <div className="space-y-4 min-w-0">
-                  {/* Category Chip & ID */}
-                  <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-muted text-foreground">
-                      {activeItem.type === "chat" && <MessageSquare className="size-3 text-muted-foreground" />}
-                      {activeItem.type === "project" && <Folder className="size-3 text-muted-foreground" />}
-                      {activeItem.type === "tool" && <Wrench className="size-3 text-muted-foreground" />}
-                      {activeItem.type === "page" && <Sparkles className="size-3 text-muted-foreground" />}
-                      {activeItem.type}
-                    </span>
-                    <span className="text-[10px] font-mono text-muted-foreground/60 truncate max-w-[140px]">
-                      {activeItem.id}
-                    </span>
-                  </div>
-
-                  {/* Header Title */}
-                  <div className="space-y-1">
-                    <h3 className="text-base font-semibold text-foreground tracking-tight break-words">
-                      {activeItem.label}
-                    </h3>
-                    {"description" in activeItem && activeItem.description && (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {activeItem.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Context Information - Clean, Simple layout without redundant borders */}
-                  {activeItem.type === "chat" && (
-                    <div className="rounded-md bg-muted/30 p-3 space-y-2 text-xs">
-                      <div className="flex justify-between items-center text-muted-foreground">
-                        <span>Updated</span>
-                        <span className="font-mono text-foreground">
-                          {new Date(
-                            activeItem.chat.updated_at || activeItem.chat.created_at || ""
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      {activeItem.chat.project_id && (
-                        <div className="flex justify-between items-center text-muted-foreground pt-1.5 border-t border-border/40">
-                          <span>Workspace</span>
-                          <span className="font-mono text-foreground font-medium">Project Chat</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center text-muted-foreground pt-1.5 border-t border-border/40">
-                        <span>Status</span>
-                        <span className="font-mono text-foreground">
-                          {activeItem.chat.is_pinned ? "Pinned Conversation" : "Active"}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeItem.type === "project" && (
-                    <div className="space-y-2.5">
-                      {activeItem.project.custom_instructions ? (
-                        <div className="rounded-md bg-muted/30 p-3 space-y-1.5">
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">
-                            Instructions
-                          </span>
-                          <p className="text-xs text-foreground/90 italic line-clamp-4 leading-relaxed">
-                            &quot;{activeItem.project.custom_instructions}&quot;
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="rounded-md bg-muted/20 p-3 text-xs text-muted-foreground font-mono">
-                          No custom instructions set
-                        </div>
-                      )}
-
-                      <div className="rounded-md bg-muted/30 p-3 space-y-1.5 text-xs">
-                        <div className="flex justify-between items-center text-muted-foreground">
-                          <span>Memory Scope</span>
-                          <span className="font-mono text-foreground capitalize">
-                            {activeItem.project.memory_scope || "Global"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeItem.type === "tool" && (
-                    <div className="rounded-md bg-muted/30 p-3 space-y-2 text-xs">
-                      <div className="flex justify-between items-center text-muted-foreground">
-                        <span>Server</span>
-                        <span className="font-mono text-foreground font-medium">
-                          {activeItem.serverName}
-                        </span>
-                      </div>
-                      {activeItem.serverUrl && (
-                        <div className="flex justify-between items-center text-muted-foreground pt-1.5 border-t border-border/40">
-                          <span>Endpoint</span>
-                          <span className="font-mono text-muted-foreground/80 truncate max-w-[150px]">
-                            {activeItem.serverUrl}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center text-muted-foreground pt-1.5 border-t border-border/40">
-                        <span>Capability</span>
-                        <span className="font-mono text-foreground">Callable Tool</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeItem.type === "page" && (
-                    <div className="rounded-md bg-muted/30 p-3 space-y-2 text-xs">
-                      <div className="flex justify-between items-center text-muted-foreground">
-                        <span>Section</span>
-                        <span className="font-mono text-foreground">{activeItem.category}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-muted-foreground pt-1.5 border-t border-border/40">
-                        <span>Destination</span>
-                        <span className="font-mono text-foreground truncate max-w-[160px]">
-                          {activeItem.href}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-10">
-                  <Sparkles className="size-5 mb-2 opacity-30" />
-                  <p className="text-xs font-mono">Select an item to preview</p>
-                </div>
-              )}
-
-              {/* Bottom Quick Action Bar in Preview */}
-              {activeItem && (
-                <div className="pt-3 border-t border-border/50 space-y-2">
-                  <button
-                    onClick={() =>
-                      navigateTo(activeItem.href, "external" in activeItem ? activeItem.external : false)
-                    }
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity"
-                  >
-                    <span>Open</span>
-                    {"external" in activeItem && activeItem.external ? (
-                      <ExternalLink className="size-3.5" />
-                    ) : (
-                      <kbd className="inline-flex h-4 items-center rounded bg-background/20 px-1 font-mono text-[10px]">
-                        ↵
-                      </kbd>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => handleCopyLink(activeItem.href)}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border border-border hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="size-3.5 text-foreground" />
-                        <span className="text-foreground">Link Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="size-3.5" />
-                        <span>Copy Link</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* 4. Footer Legend */}

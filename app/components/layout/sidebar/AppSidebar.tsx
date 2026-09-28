@@ -176,6 +176,19 @@ export function AppSidebar({
           )}
         >
           {/* Main Links */}
+          {!isExpanded && (
+            <SimpleTooltip content="Search (⌘K)" side="right">
+              <button
+                type="button"
+                onClick={onOpenSearch}
+                className="w-full flex items-center justify-center h-8 px-0 rounded-sm text-[13px] font-medium text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors cursor-pointer"
+                aria-label="Search"
+              >
+                <Search className="size-4 shrink-0" />
+              </button>
+            </SimpleTooltip>
+          )}
+
           <SimpleTooltip content={!isExpanded ? "Home" : null} side="right">
             <Link
               href="/mcp?tab=home"

@@ -32,15 +32,13 @@ export function MCPToolApproval({
   const { t, format } = useI18n();
   const [isArgsExpanded, setIsArgsExpanded] = useState(false);
 
-  const displayName = toolName || t("mcpTool");
-  const serverId = mcp?.serverId || t("selectedMcpServer");
-  const serverName = mcp?.serverName || null;
-  const serverUrl = mcp?.serverUrl || null;
-
+  const displayName = toolName || (typeof input.toolName === "string" ? input.toolName : null) || t("mcpTool");
+  const serverId = mcp?.serverId || (typeof input.serverId === "string" ? input.serverId : null) || t("selectedMcpServer");
+  const serverName = mcp?.serverName || (typeof input.serverName === "string" ? input.serverName : null);
+  const serverUrl = mcp?.serverUrl || (typeof input.serverUrl === "string" ? input.serverUrl : null);
 
   const args = (input.args && typeof input.args === "object" ? input.args : input) as Record<string, unknown>;
   const hasArgs = Object.keys(args).length > 0;
-
   const rawMessage = format("requestingToolExecution", {
     toolName: displayName,
     serverId: "__SERVER_TOKEN__",
