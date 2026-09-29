@@ -39,57 +39,36 @@ interface ChatRequestBody {
   userPreferences?: Partial<UserPreferences>;
 }
 
+import { resolveChatAccess, hasProjectEditAccess } from '@/lib/chat-auth.server';
+
 async function assertChatPermission(
   supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
   chatId: string,
   user: { id: string; email?: string | null }
 ): Promise<{ denied: NextResponse | null; existingProjectId?: string | null }> {
-  const { data: chat, error } = await supabase
-    .from('chats')
-    .select('user_id, visibility, project_id')
-    .eq('id', chatId)
-    .maybeSingle();
+  const access = await resolveChatAccess(supabase, chatId, user);
+  if (!access.chat) return { denied: null, existingProjectId: null };
 
-  if (error) return { denied: NextResponse.json({ error: 'Database error' }, { status: 500 }) };
-  if (!chat) return { denied: null, existingProjectId: null };
-
-  if (chat.user_id !== user.id) {
-    const userEmail = user.email?.toLowerCase();
-    let collaboratorRole: 'viewer' | 'editor' | null = null;
-
-    if (userEmail) {
-      const { data: share } = await supabase
-        .from('chat_shares')
-        .select('role')
-        .eq('chat_id', chatId)
-        .ilike('email', userEmail)
-        .maybeSingle();
-
-      if (share?.role) {
-        collaboratorRole = share.role as 'viewer' | 'editor';
-      } else if (chat.project_id) {
-        const { data: projShare } = await supabase
-          .from('project_shares')
-          .select('role')
-          .eq('project_id', chat.project_id)
-          .ilike('email', userEmail)
-          .maybeSingle();
-        if (projShare?.role) {
-          collaboratorRole = projShare.role as 'viewer' | 'editor';
-        }
-      }
-    }
-
-    if (collaboratorRole === 'viewer') {
-      return { denied: NextResponse.json({ error: 'Read-only access: Viewers cannot send messages' }, { status: 403 }) };
-    }
-
-    if (chat.visibility !== 'PUBLIC' && collaboratorRole !== 'editor') {
-      return { denied: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
-    }
+  if (!access.canEdit) {
+    const message = access.collaboratorRole === 'viewer'
+      ? 'Read-only access: Viewers cannot send messages'
+      : 'Forbidden: Chat is read-only for non-collaborators';
+    return { denied: NextResponse.json({ error: message }, { status: 403 }) };
   }
 
-  return { denied: null, existingProjectId: chat?.project_id };
+  return { denied: null, existingProjectId: access.chat.project_id };
+}
+
+async function assertProjectEditPermission(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  projectId: string,
+  user: { id: string; email?: string | null }
+): Promise<NextResponse | null> {
+  const canEdit = await hasProjectEditAccess(supabase, projectId, user.id, user.email);
+  if (!canEdit) {
+    return NextResponse.json({ error: 'Forbidden: No edit access to this project' }, { status: 403 });
+  }
+  return null;
 }
 
 function extractUserText(messages: ChatUIMessage[]): string {
@@ -182,7 +161,7 @@ export async function POST(req: Request) {
 
     const {
       id: chatId,
-      projectId: bodyProjectId,
+      projectId,
       trigger = 'submit-user-message',
       message,
       messageId,
@@ -206,7 +185,12 @@ export async function POST(req: Request) {
 
     // 2. Permission check, project resolution, and pre-stream database sync
     let titlePromise: Promise<string | null> | null = null;
-    let activeProjectId: string | undefined = bodyProjectId;
+    let activeProjectId: string | undefined = projectId;
+
+    if (projectId) {
+      const projectDenied = await assertProjectEditPermission(supabase, projectId, user);
+      if (projectDenied) return projectDenied;
+    }
 
     if (chatId) {
       const { denied, existingProjectId } = await assertChatPermission(supabase, chatId, user);

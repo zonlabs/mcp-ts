@@ -1,10 +1,16 @@
 import { notFound } from 'next/navigation';
 import { Chat } from '@/components/chat/Chat';
 import { createClient } from '@/lib/supabase/server';
+import {
+  UUID_REGEX,
+  resolveChatAccess,
+  resolveEffectiveProjectId,
+} from '@/lib/chat-auth.server';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export default async function Page(props: { params: Promise<{ chatId: string }>; searchParams?: Promise<{ draft?: string; projectId?: string }> }) {
+export default async function Page(props: {
+  params: Promise<{ chatId: string }>;
+  searchParams?: Promise<{ draft?: string; projectId?: string }>;
+}) {
   const { chatId } = await props.params;
   const searchParams = props.searchParams ? await props.searchParams : undefined;
 
@@ -15,51 +21,30 @@ export default async function Page(props: { params: Promise<{ chatId: string }>;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: chatRow } = await supabase
-    .from('chats')
-    .select('id, title, user_id, project_id, visibility')
-    .eq('id', chatId)
-    .maybeSingle();
+  const access = await resolveChatAccess(supabase, chatId, user);
 
-  // If the chat row doesn't exist yet and there's no authenticated user, return 404
-  if (!chatRow && !user) {
+  // New draft chat requires an authenticated user; existing chat must be accessible
+  if (!access.chat) {
+    if (!user) notFound();
+  } else if (!access.canView) {
     notFound();
   }
 
-  let isReadOnly = false;
-  if (chatRow && user && chatRow.user_id !== user.id) {
-    let collaboratorRole: 'viewer' | 'editor' | null = null;
-    if (user.email) {
-      const { data: shareData } = await supabase
-        .from('chat_shares')
-        .select('role')
-        .eq('chat_id', chatId)
-        .eq('email', user.email.toLowerCase())
-        .maybeSingle();
-
-      if (shareData?.role) {
-        collaboratorRole = shareData.role as 'viewer' | 'editor';
-      }
-    }
-
-    if (collaboratorRole === 'viewer') {
-      isReadOnly = true;
-    } else if (chatRow.visibility !== 'PUBLIC' && collaboratorRole !== 'editor') {
-      notFound();
-    }
-  }
-
-  const projectIdParam = typeof searchParams?.projectId === 'string' ? searchParams.projectId : undefined;
-  const effectiveProjectId = chatRow?.project_id || projectIdParam;
+  const effectiveProjectId = await resolveEffectiveProjectId(
+    supabase,
+    access.chat?.project_id,
+    searchParams?.projectId,
+    user
+  );
 
   return (
     <Chat
       key={chatId}
       chatId={chatId}
       projectId={effectiveProjectId}
-      initialTitle={chatRow?.title}
-      chatUserId={chatRow?.user_id || user?.id}
-      isReadOnly={isReadOnly}
+      initialTitle={access.chat?.title ?? undefined}
+      chatUserId={access.chat?.user_id || user?.id}
+      isReadOnly={access.isReadOnly}
     />
   );
 }

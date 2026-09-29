@@ -119,7 +119,7 @@ export function formatToolOutput(output: unknown): { jsonString: string; lineCou
  * Builds the timeline list directly from message parts with MCP tool metadata.
  */
 export function buildExecutionTimeline(
-  parts: UIMessagePart[],
+  parts: UIMessagePart<any, any>[],
   mcpMetadata?: Record<string, McpServerMetadata>
 ): ExecutionTimelineItem[] {
   const items: ExecutionTimelineItem[] = [];

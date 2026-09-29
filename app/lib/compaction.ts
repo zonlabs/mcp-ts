@@ -9,6 +9,12 @@ export type CompactableMessage = {
   [key: string]: any;
 };
 
+export interface CompactionResult {
+  compactedCount: number;
+  preservedCount: number;
+  summary: string;
+}
+
 const COMPACTION_THRESHOLD_MESSAGES = 14;
 const PRESERVE_RECENT_MESSAGES = 6;
 
