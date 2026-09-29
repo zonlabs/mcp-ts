@@ -59,11 +59,11 @@ export function DeleteMcpUsageEventsDialog({
               <AlertTriangle className="size-4 text-destructive" />
             </div>
             <AlertDialogTitle className="text-sm font-semibold tracking-tight text-foreground font-sans">
-              Delete MCP Usage Events?
+              Delete Activity Data?
             </AlertDialogTitle>
           </div>
           <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed">
-            This permanently deletes your MCP tool-call usage events, including dashboard activity and usage metrics. It does not delete conversations, connections, or undo completed tool actions.
+            This permanently deletes your activity logs, metrics, and tool execution history. It does not delete conversations, connections, or undo completed tool actions.
             <span className="block mt-1 font-semibold text-destructive/90">
               This action cannot be undone.
             </span>
@@ -106,7 +106,7 @@ export function DeleteMcpUsageEventsDialog({
             ) : (
               <>
                 <Trash2 className="size-3.5 mr-1.5" />
-                Delete Usage Events
+                Delete Activity Data
               </>
             )}
           </Button>

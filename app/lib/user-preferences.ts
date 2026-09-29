@@ -3,6 +3,7 @@ export type ToolApprovalMode = "always" | "risky" | "never";
 export interface UserPreferences {
   timezone: string;
   toolApprovalMode: ToolApprovalMode;
+  enableMemory: boolean;
 }
 
 export const USER_PREFERENCES_STORAGE_KEY = "linkos:user-preferences:v1";
@@ -10,6 +11,7 @@ export const USER_PREFERENCES_STORAGE_KEY = "linkos:user-preferences:v1";
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   timezone: "Asia/Kolkata",
   toolApprovalMode: "always",
+  enableMemory: true,
 };
 
 const TOOL_APPROVAL_MODES = new Set<ToolApprovalMode>(["always", "risky", "never"]);
@@ -28,6 +30,7 @@ export function normalizeUserPreferences(input: Partial<UserPreferences> | null 
   return {
     timezone: input?.timezone?.trim() || defaults.timezone,
     toolApprovalMode,
+    enableMemory: input?.enableMemory !== undefined ? Boolean(input.enableMemory) : defaults.enableMemory,
   };
 }
 

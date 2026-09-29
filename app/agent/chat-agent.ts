@@ -1,8 +1,16 @@
-import { ToolLoopAgent, InferAgentUIMessage, stepCountIs, type LanguageModelUsage, type ToolSet } from "ai";
+import {
+  ToolLoopAgent,
+  InferAgentUIMessage,
+  stepCountIs,
+  pruneMessages,
+  type LanguageModelUsage,
+  type ToolSet,
+  type PrepareStepFunction,
+  toolSearch,
+} from "ai";
+import { experimental_codeModeTool } from "@ai-sdk/code-mode";
 import { McpManager } from "@mcp-ts/client";
 import { AIAdapter } from "@mcp-ts/client/adapters/ai";
-import { ToolRouter } from "@mcp-ts/client/shared";
-import { z } from "zod";
 import { buildChatAgentInstructions, PINNED_REMOTE_TOOLS } from "@/agent/chat-agent-instructions";
 import { getModelConfig } from "@/lib/llm";
 import {
@@ -10,117 +18,153 @@ import {
   normalizeUserPreferences,
   shouldRequireMcpToolApproval,
 } from "@/lib/user-preferences";
+import { createMemoryTools } from "@/lib/memory/tools";
+import { createFileAnalystTool } from "@/agent/subagents/file-analyst-agent";
+import type { MemoryScope } from "@/lib/projects";
 
 export interface CreateChatAgentOptions {
   userId?: string;
+  runId?: string;
+  chatId?: string;
+  projectId?: string;
   userPreferences?: Partial<UserPreferences>;
-}
-
-export type ChatAgentCallOptions = {
-  userId?: string;
+  memory?: string;
+  projectInstructions?: string;
+  memoryScope?: MemoryScope;
   llmConfig?: {
     provider?: string;
     apiKey?: string;
     model?: string;
+    baseUrl?: string;
   };
-  userPreferences?: Partial<UserPreferences>;
-};
+  abortSignal?: AbortSignal;
+}
 
 export async function createChatAgent(options: CreateChatAgentOptions = {}) {
   const userId = options.userId?.trim() || "demo-user-123";
-  const initialUserPreferences = normalizeUserPreferences(options.userPreferences);
+  const userPreferences = normalizeUserPreferences(options.userPreferences);
+  const memoryScope: MemoryScope = options.memoryScope ?? "global";
+  const projectInstructions = options.projectInstructions || "";
 
   const manager = new McpManager(userId);
 
-  try {
-    await manager.connect();
-  } catch (error) {
-    console.error("[MCP] Connection failed:", error);
+  if (options.abortSignal) {
+    options.abortSignal.addEventListener("abort", () => manager.disconnect(), { once: true });
   }
 
   let tools: Record<string, any> = {};
 
   try {
-    const router = new ToolRouter(manager, {
-      strategy: "search",
-      maxTools: 5,
-      pinnedTools: [...PINNED_REMOTE_TOOLS],
+    await manager.connect();
+    const mcpTools = await AIAdapter.getTools(manager, {
+      deferLoading: true,
+      needsApproval: () => shouldRequireMcpToolApproval(userPreferences),
     });
-    const discoveredTools = await AIAdapter.getTools(manager, { toolRouter: router });
-    if (discoveredTools.mcp_execute_tool) {
-      discoveredTools.mcp_execute_tool = {
-        ...discoveredTools.mcp_execute_tool,
-        needsApproval: () => shouldRequireMcpToolApproval(initialUserPreferences),
-      };
-    }
-    tools = discoveredTools;
+    tools = {
+      ...mcpTools,
+      tool_search: toolSearch(),
+      codemode_run: experimental_codeModeTool({ toolDiscovery: "conversation" }),
+    };
   } catch (error) {
-    console.error("[MCP] Failed to load MCP tools:", error);
+    console.error("[MCP] Connection / tool discovery failed:", error);
+    tools = {
+      ...tools,
+      tool_search: toolSearch(),
+      codemode_run: experimental_codeModeTool({ toolDiscovery: "conversation" }),
+    };
   }
 
-  const agent = new ToolLoopAgent<ChatAgentCallOptions, ToolSet>({
-    instructions: buildChatAgentInstructions(new Date(), initialUserPreferences),
-    model: getModelConfig(),
-    callOptionsSchema: z.object({
-      userId: z.string().optional(),
-      llmConfig: z
-        .object({
-          provider: z.string().optional(),
-          apiKey: z.string().optional(),
-          model: z.string().optional(),
-        })
-        .optional(),
-      userPreferences: z
-        .object({
-          timezone: z.string().optional(),
-          toolApprovalMode: z.enum(["always", "risky", "never"]).optional(),
-        })
-        .optional(),
-    }),
-    prepareCall: async ({ options: callOptions, messages, ...settings }) => {
-      const model = getModelConfig(callOptions?.llmConfig);
+  if (userPreferences.enableMemory !== false) {
+    const memoryRunId = memoryScope === "project" ? options.projectId : (options.chatId || options.runId);
+    const memoryTools = createMemoryTools(userId, memoryRunId);
+    tools = {
+      ...tools,
+      ...memoryTools,
+    };
+  }
 
-      const activePreferences = callOptions?.userPreferences || initialUserPreferences;
-      const instructions = buildChatAgentInstructions(
-        new Date(),
-        activePreferences
-      );
-      const messagesToUse = messages || [];
+  if (options.projectId) {
+    const fileAnalystTool = createFileAnalystTool({
+      projectId: options.projectId,
+      llmConfig: options.llmConfig,
+    });
+    tools = {
+      ...tools,
+      ...fileAnalystTool,
+    };
+  }
 
+  const model = getModelConfig(options.llmConfig);
+
+  const instructions = buildChatAgentInstructions(
+    new Date(),
+    userPreferences,
+    options.memory || "",
+    projectInstructions
+  );
+
+  const COMPACTION_THRESHOLD_CHARS = 32000; // ~8,000 tokens
+
+  const compactStepMessages: PrepareStepFunction<any> = ({ messages, stepNumber }) => {
+    // Only compact on subsequent steps when tool result payloads accumulate
+    if (stepNumber <= 1) return undefined;
+
+    const approxLength = JSON.stringify(messages).length;
+    if (approxLength > COMPACTION_THRESHOLD_CHARS) {
       return {
-        ...settings,
-        model,
-        tools,
-        activeTools: Object.keys(tools),
-        messages: messagesToUse,
-        instructions,
-        maxOutputTokens: settings.maxOutputTokens ?? 4096,
+        messages: pruneMessages({
+          messages,
+          reasoning: "before-last-message",
+          toolCalls: "before-last-2-messages",
+          emptyMessages: "remove",
+        }),
       };
-    },
-    tools: {},
+    }
+    return undefined;
+  };
+
+  return new ToolLoopAgent({
+    model,
+    instructions,
+    tools: tools as ToolSet,
+    prepareStep: compactStepMessages,
     stopWhen: stepCountIs(30),
     onFinish: () => {
       manager.disconnect();
     },
   });
-
-  return {
-    agent,
-    cleanup: () => {
-      manager.disconnect();
-    },
-  };
 }
 
-type AgentMessageMetadata = {
+export type ChatAgent = Awaited<ReturnType<typeof createChatAgent>>;
+
+export type McpServerMetadata = {
+  serverId?: string;
+  serverName?: string;
+  serverUrl?: string;
+  serverInfo?: {
+    name?: string;
+    version?: string;
+    icons?: Array<{ src: string; mimeType?: string; sizes?: string }>;
+    [key: string]: unknown;
+  };
+  sessionId?: string;
+  metadata?: unknown;
+};
+
+export type AgentMessageMetadata = {
   usage?: LanguageModelUsage;
   model?: string;
   isNewChat?: boolean;
   chatTitle?: string;
-  [key: string]: any;
+  /** MCP server info keyed by tool name, populated server-side during tool call streaming */
+  mcp?: Record<string, McpServerMetadata>;
+  durationSeconds?: number;
+  thinkingStartTimeMs?: number;
+  thinkingEndTimeMs?: number;
+  [key: string]: unknown;
 };
 
 export type ChatUIMessage = InferAgentUIMessage<
-  Awaited<ReturnType<typeof createChatAgent>>["agent"],
+  ChatAgent,
   AgentMessageMetadata
 >;

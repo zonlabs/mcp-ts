@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 export async function signOutAndRedirect() {
   const supabase = createClient();
   await supabase.auth.signOut();
-  window.location.href = "/";
+  window.location.href = "/signin";
 }
 
 export function SignOutButton() {

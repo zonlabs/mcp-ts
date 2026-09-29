@@ -38,7 +38,7 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes that require authentication
-  const protectedRoutes = ["/chat", "/mcp", "/settings"];
+  const protectedRoutes = ["/chat", "/projects", "/mcp", "/settings"];
   const isProtectedRoute = protectedRoutes.some((route) =>
     request.nextUrl.pathname.startsWith(route)
   );
@@ -46,13 +46,19 @@ export async function proxy(request: NextRequest) {
   // If unauthorized and trying to access protected routes, redirect to signin
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL("/signin", request.url);
-    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    const destination = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+    redirectUrl.searchParams.set("redirect", destination);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If authorized and trying to access /signin, redirect to home
+  // If authorized and trying to access /signin, redirect to destination or home
   if (user && request.nextUrl.pathname.startsWith("/signin")) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const redirectParam = request.nextUrl.searchParams.get("redirect");
+    const safeRedirect =
+      redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")
+        ? redirectParam
+        : "/";
+    return NextResponse.redirect(new URL(safeRedirect, request.url));
   }
 
   return response;
@@ -61,6 +67,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/chat/:path*",
+    "/projects/:path*",
     "/mcp/:path*",
     "/settings/:path*",
     "/signin",

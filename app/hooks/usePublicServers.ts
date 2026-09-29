@@ -15,6 +15,7 @@ export interface UsePublicServersOptions {
   categorySlug?: string;
   pageSize?: number;
   featured?: boolean;
+  enabled?: boolean;
 }
 
 export interface PublicServersPage {
@@ -24,17 +25,19 @@ export interface PublicServersPage {
 }
 
 /**
- * Single unified hook for the public MCP server catalog.
+ * Unified hook for the public MCP server catalog.
  *
- * - Uses TanStack `useInfiniteQuery` for cursor-based pagination
+ * - Uses TanStack `useInfiniteQuery` with cursor-based pagination
  * - Debounces `search` (350ms) and sends it to GET /api/mcp?search=
  * - Merges live connection state from McpProvider
+ * - Caches catalog queries in-memory for 5 minutes (`staleTime: 5m`)
  */
 export function usePublicServers({
   search = "",
   categorySlug,
   pageSize = PUBLIC_SERVERS_PAGE_SIZE,
   featured,
+  enabled = true,
 }: UsePublicServersOptions = {}) {
   const debouncedSearch = useDebounce(search, PUBLIC_SERVERS_SEARCH_DEBOUNCE_MS).trim();
   const { connections } = useMcpContext();
@@ -75,6 +78,8 @@ export function usePublicServers({
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) =>
       lastPage.pageInfo.hasNextPage ? lastPage.pageInfo.endCursor : undefined,
+    enabled,
+    staleTime: 1000 * 60 * 5, // 5 minutes fresh cache
   });
 
   /** Flat list of all loaded servers, merged with live connection state */

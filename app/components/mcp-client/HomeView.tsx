@@ -10,6 +10,7 @@ import { useMcpUsage } from "@/hooks/useMcpUsage";
 import { usePublicServers } from "@/hooks/usePublicServers";
 import { SimpleTooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { McpHomeSkeleton } from "./McpHomeSkeleton";
 
 const LINKOS_URL = "https://mcp.linkos.in/mcp";
 const MCP_CLIENT_ICONS = [
@@ -36,7 +37,6 @@ const MCP_CLIENT_ICONS = [
 ] as const;
 
 interface HomeViewProps {
-  initialUsageData?: any;
   userSession: UserSession | null;
   onSelectApp: (server: McpServer) => void;
   onNavigateToApps: () => void;
@@ -44,14 +44,13 @@ interface HomeViewProps {
 }
 
 export function HomeView({
-  initialUsageData = null,
   userSession,
   onSelectApp,
   onNavigateToApps,
 }: HomeViewProps) {
   const [page, setPage] = useState(1);
   const [urlCopied, setUrlCopied] = useState(false);
-  const { data: usageData, isFetching } = useMcpUsage(page, initialUsageData);
+  const { data: usageData, isLoading: isUsageLoading, isFetching } = useMcpUsage(page);
 
   const [healthStatus, setHealthStatus] = useState<"loading" | "healthy" | "unhealthy">("loading");
   const [healthData, setHealthData] = useState<{
@@ -121,6 +120,10 @@ export function HomeView({
       .trim();
   };
 
+  if (isUsageLoading && !usageData) {
+    return <McpHomeSkeleton />;
+  }
+
   return (
     <div className="flex-1 overflow-y-auto bg-background text-foreground scrollbar-minimal w-full">
       <div className="p-6 sm:p-8 space-y-8 max-w-6xl mx-auto w-full">
@@ -142,6 +145,7 @@ export function HomeView({
           mcpAssistantCount={usageData?.mcpAssistantCount}
           currentPage={page}
           onPageChange={setPage}
+          isLoading={isUsageLoading}
           isFetching={isFetching}
         />
 

@@ -17,13 +17,11 @@ function getSignInRedirectHref(redirect: string): string {
 interface McpPageClientProps {
   userSession: UserSession | null;
   initialSelectedServer?: McpServer | null;
-  initialUsageData?: any;
 }
 
 export default function McpPageClient({
   userSession,
   initialSelectedServer = null,
-  initialUsageData = null,
 }: McpPageClientProps) {
   const router = useRouter();
   const { connect, disconnect } = useMcpConnection();
@@ -99,7 +97,6 @@ export default function McpPageClient({
       onServerUpdate={handleServerUpdate}
       onServerDelete={handleServerDelete}
       initialSelectedServer={initialSelectedServer}
-      initialUsageData={initialUsageData}
     />
   );
 }

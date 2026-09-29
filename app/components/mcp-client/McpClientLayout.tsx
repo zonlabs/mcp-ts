@@ -34,7 +34,6 @@ interface McpClientLayoutProps {
   onServerDelete: (serverId: string) => Promise<void>;
   onServerAction: (server: McpServer, action: "activate" | "deactivate") => Promise<unknown>;
   initialSelectedServer?: McpServer | null;
-  initialUsageData?: any;
 }
 
 export default function McpClientLayout({
@@ -45,7 +44,6 @@ export default function McpClientLayout({
   onServerUpdate,
   onServerDelete,
   initialSelectedServer,
-  initialUsageData,
 }: McpClientLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -58,10 +56,6 @@ export default function McpClientLayout({
 
   const { connect, disconnect } = useMcpConnection();
   const { connections } = useMcpContext();
-  const { userServers, refetch: refetchUserServers } = useUserServers();
-
-  // Only fetch the default page size — no need to over-fetch for resolution
-  const { servers: catalogServers } = usePublicServers();
 
   const activeTabParam = searchParams.get("tab") || "home";
   const serverParamFromUrl = searchParams.get("server");
@@ -70,6 +64,16 @@ export default function McpClientLayout({
   const [activeTab, setActiveTab] = useState<string>(activeTabParam);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(serverParamFromUrl);
   const [selectedAppObj, setSelectedAppObj] = useState<McpServer | null>(null);
+
+  const isAppsViewOrSelected = activeTab === "apps" || Boolean(selectedServerId);
+  const { userServers, refetch: refetchUserServers } = useUserServers({
+    enabled: isAppsViewOrSelected,
+  });
+
+  // Only fetch the catalog if on apps view or resolving an app
+  const { servers: catalogServers } = usePublicServers({
+    enabled: isAppsViewOrSelected,
+  });
 
   // Synchronize when browser history back/forward buttons are clicked
   useEffect(() => {
@@ -346,7 +350,6 @@ export default function McpClientLayout({
               onSelectApp={handleSelectApp}
               onNavigateToApps={handleNavigateToApps}
               onAction={onServerAction}
-              initialUsageData={initialUsageData}
             />
           )}
         </div>

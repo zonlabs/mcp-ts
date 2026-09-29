@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     '@modelcontextprotocol/client',
     '@modelcontextprotocol/core',
+    'mem0ai',
+    'pg',
   ],
   poweredByHeader: false,
   reactStrictMode: true,

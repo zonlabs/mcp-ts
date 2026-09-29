@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Check, ChevronDown, Search, Info, Loader2 } from "lucide-react";
@@ -34,13 +35,16 @@ export function getCachedModel(id: string): ModelSelectorModel | undefined {
   return cachedModels.find((m) => m.id === stripped || m.id.endsWith(`/${stripped}`));
 }
 
+/**
+ * Fallback procedural fetch for non-React callers.
+ */
 export async function fetchModels(): Promise<ModelSelectorModel[]> {
   if (cachedModels && cachedModels.length > 0) return cachedModels;
   if (activeFetchPromise) return activeFetchPromise;
 
   activeFetchPromise = (async () => {
     try {
-      const res = await fetch("/api/models");
+      const res = await fetch("/api/llm/models");
       if (!res.ok) throw new Error(`Failed to fetch models: ${res.statusText}`);
       const data = await res.json();
       const list = Array.isArray(data?.models) ? data.models : [];
@@ -56,38 +60,36 @@ export async function fetchModels(): Promise<ModelSelectorModel[]> {
   return activeFetchPromise;
 }
 
+/**
+ * Cache key for the LLM models query.
+ */
+export const MODELS_QUERY_KEY = ["llm-models"] as const;
+
+/**
+ * TanStack Query hook to fetch and cache LLM models list.
+ * Deduplicates in-flight calls and caches responses in memory with a 1-hour stale time.
+ *
+ * @param options - Optional query configuration such as `enabled`.
+ * @returns Query result containing models list, loading, and error states.
+ */
+export function useModels(options?: { enabled?: boolean }) {
+  return useQuery<ModelSelectorModel[], Error>({
+    queryKey: MODELS_QUERY_KEY,
+    queryFn: fetchModels,
+    enabled: options?.enabled ?? true,
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 2, // 2 hours
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function ModelSelector({ selectedModel, selectedModelName, onSelect }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [models, setModels] = useState<ModelSelectorModel[]>(() => cachedModels || []);
-  const [isLoading, setIsLoading] = useState(() => !cachedModels);
-  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (cachedModels && cachedModels.length > 0) {
-      setModels(cachedModels);
-      setIsLoading(false);
-      return;
-    }
-    let isMounted = true;
-    setIsLoading(true);
-    fetchModels()
-      .then((data) => {
-        if (isMounted) {
-          setModels(data);
-          setIsLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setFetchError(err.message || "Failed to load models");
-          setIsLoading(false);
-        }
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { data: queryModels, isLoading, error } = useModels();
+  const models = queryModels && queryModels.length > 0 ? queryModels : (cachedModels || []);
+  const fetchError = error ? error.message : null;
 
   const filtered = useMemo(() => {
     if (!open) return [];
@@ -203,7 +205,7 @@ export function ModelSelector({ selectedModel, selectedModelName, onSelect }: Mo
               <span>Configure API Key</span>
             </Link>
           </DialogHeader>
-          
+
           <div className="px-4 pt-3 pb-2">
             <div className="relative flex items-center">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
@@ -261,11 +263,10 @@ export function ModelSelector({ selectedModel, selectedModelName, onSelect }: Mo
                           onSelect(model.id, model);
                           setOpen(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
-                          selectedModel === model.id
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${selectedModel === model.id
                             ? "bg-primary/10 text-foreground font-medium"
                             : "hover:bg-muted/60 text-foreground"
-                        }`}
+                          }`}
                       >
                         <div className="h-6 w-6 flex items-center justify-center overflow-hidden rounded-full bg-background border border-hairline shrink-0">
                           {getProviderIconUrl(model.provider) ? (

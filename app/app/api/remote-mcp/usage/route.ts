@@ -1,6 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getStoredMcpConnectionsForIdentity } from "@/lib/mcp-connections";
 
 const SELECT_COLUMNS = [
   "id",
@@ -24,31 +23,29 @@ const SELECT_COLUMNS = [
   "created_at",
 ].join(",");
 
-const METRICS_PAGE_SIZE = 1000;
+/**
+ * Fetches metrics events bounded to the last 365 days (max 3,000 recent events)
+ * to compute heatmap and analytics metrics quickly in a single indexed query.
+ */
+async function fetchMetricsEvents(supabase: any, userId: string) {
+  const oneYearAgo = new Date();
+  oneYearAgo.setDate(oneYearAgo.getDate() - 365);
 
-async function fetchAllMetricsEvents(supabase: any, userId: string) {
-  const allEvents: any[] = [];
-  let page = 0;
+  const { data, error } = await supabase
+    .from("mcp_tool_call_events")
+    .select(
+      "id,started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type,duration_ms,tool_name,error_code,error_preview"
+    )
+    .eq("user_id", userId)
+    .gte("created_at", oneYearAgo.toISOString())
+    .order("created_at", { ascending: false })
+    .limit(3000);
 
-  while (true) {
-    const from = page * METRICS_PAGE_SIZE;
-    const to = from + METRICS_PAGE_SIZE - 1;
-    const { data, error } = await supabase
-      .from("mcp_tool_call_events")
-      .select("id,started_at,status,app_key,server_id,server_name,server_url,server_icons,event_type,duration_ms,tool_name,error_code,error_preview")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .range(from, to);
-
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    allEvents.push(...data);
-    if (data.length < METRICS_PAGE_SIZE) break;
-    page++;
+  if (error) {
+    console.error("Failed to fetch metrics events:", error);
+    return [];
   }
-
-  return allEvents;
+  return data ?? [];
 }
 
 export const dynamic = "force-dynamic";
@@ -76,9 +73,7 @@ export async function GET(request: NextRequest) {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const [connections, oauthGrantsResult, paginatedResult, metricsResult, totalCountResult] = await Promise.all([
-      getStoredMcpConnectionsForIdentity(user.id),
-      supabase.auth.oauth.listGrants(),
+    const [paginatedResult, metricsResult, totalCountResult] = await Promise.all([
       supabase
         .from("mcp_tool_call_events")
         .select(SELECT_COLUMNS, { count: "exact" })
@@ -86,21 +81,17 @@ export async function GET(request: NextRequest) {
         .eq("event_type", "top_level")
         .order("completed_at", { ascending: false })
         .range(from, to),
-      fetchAllMetricsEvents(supabase, user.id),
+      fetchMetricsEvents(supabase, user.id),
       supabase
         .from("mcp_tool_call_events")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id),
     ]);
 
-    const { data: grantsData, error: grantsError } = oauthGrantsResult;
     const { data: rawParentEvents, count, error: eventsError } = paginatedResult;
-    const metricsData = metricsResult;
-    const metricsError = null;
 
-    if (grantsError || eventsError) {
-      const errorMsg = grantsError?.message || eventsError?.message;
-      return NextResponse.json({ error: errorMsg }, { status: 500 });
+    if (eventsError) {
+      return NextResponse.json({ error: eventsError.message }, { status: 500 });
     }
 
     const parentEvents = (rawParentEvents ?? []) as unknown as Record<string, unknown>[];
@@ -134,23 +125,14 @@ export async function GET(request: NextRequest) {
       children: childrenByRequestId.get(parent.request_id as string) ?? [],
     }));
 
-    const grants = (grantsData ?? []).map((g) => ({
-      id: g.client.id,
-      client_name: g.client.name,
-      redirect_uri: g.client.uri,
-      logo_uri: g.client.logo_uri,
-      scope: g.scopes?.join(" ") ?? "",
-      created_at: g.granted_at,
-    }));
-
     const mcpAssistantCallsTotal = count ?? 0;
     const exactTotalCalls = totalCountResult?.count ?? mcpAssistantCallsTotal;
 
     return NextResponse.json({
-      connections: connections ?? [],
-      grants,
+      connections: [],
+      grants: [],
       groups,
-      metricsEvents: metricsData ?? [],
+      metricsEvents: metricsResult ?? [],
       totalCount: exactTotalCalls,
       mcpAssistantCount: mcpAssistantCallsTotal,
       currentPage,

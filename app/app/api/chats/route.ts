@@ -1,14 +1,33 @@
 import { NextResponse } from "next/server";
 import { loadSidebarChats } from "@/lib/sidebar-chats.server";
+import { loadChat } from "@/lib/chat-store";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * GET /api/chats
- * Returns the authenticated user's recent chat list for the sidebar.
+ * Returns the authenticated user's recent chat list for the sidebar,
+ * or the messages for a specific chat if ?id=<chatId> is passed.
  */
-export async function GET() {
-  const chats = await loadSidebarChats();
-  return NextResponse.json({ chats });
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const chatId = searchParams.get("id");
+  if (chatId) {
+    const limitParam = searchParams.get("limit");
+    const beforeParam = searchParams.get("before");
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const before = beforeParam || undefined;
+
+    const result = await loadChat(chatId, { limit, before });
+    return NextResponse.json(result);
+  }
+
+  const limitParam = searchParams.get("limit");
+  const offsetParam = searchParams.get("offset");
+  const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+  const offset = offsetParam ? parseInt(offsetParam, 10) : undefined;
+
+  const result = await loadSidebarChats({ limit, offset });
+  return NextResponse.json(result);
 }
 
 /**
@@ -135,6 +154,9 @@ export async function PATCH(req: Request) {
   }
   if (typeof body.visibility === "string") {
     updates.visibility = body.visibility;
+  }
+  if ("project_id" in body || "projectId" in body) {
+    updates.project_id = body.project_id ?? body.projectId ?? null;
   }
 
   const { data: updatedRows, error } = await supabase

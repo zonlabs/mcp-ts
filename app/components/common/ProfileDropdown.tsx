@@ -110,6 +110,7 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
           </Link>
         </DropdownMenuItem>
 
+
         <DropdownMenuItem asChild className="cursor-pointer gap-2.5 rounded-xs px-2.5 py-1.5 text-xs text-foreground hover:bg-card">
           <Link
             href="/settings/data-controls"
