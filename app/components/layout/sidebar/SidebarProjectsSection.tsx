@@ -12,6 +12,7 @@ import {
   Pin,
   Users,
   Share2,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SimpleTooltip } from "@/components/ui/tooltip";
@@ -126,7 +127,17 @@ export function SidebarProjectsSection({
 
       {projectsOpen && (
         <div className="mt-1 space-y-0.5 px-0.5">
-          {projects.map((project) => {
+          {projects.length === 0 ? (
+            <button
+              type="button"
+              onClick={onOpenCreateProject}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors cursor-pointer select-none"
+            >
+              <Plus className="size-3.5 shrink-0" />
+              <span>Add project</span>
+            </button>
+          ) : (
+          projects.map((project) => {
             const projectChats = allChats
               .filter((c) => c.project_id === project.id)
               .sort(
@@ -261,7 +272,8 @@ export function SidebarProjectsSection({
                 )}
               </div>
             );
-          })}
+          }))
+          }
         </div>
       )}
     </div>
