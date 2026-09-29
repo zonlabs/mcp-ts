@@ -23,23 +23,26 @@ import { retrieveMemoryContext, addMemories } from '@/lib/memory/mem0';
 import type { MemoryScope } from '@/lib/projects';
 import { autoCompactChatHistory } from '@/lib/compaction';
 
-interface ChatRequestBody {
-  id?: string;
-  projectId?: string;
-  trigger?: 'submit-user-message' | 'regenerate-assistant-message';
-  messageId?: string;
-  message?: ChatUIMessage;
-  messages?: ChatUIMessage[];
-  llmConfig?: {
-    provider?: string;
-    apiKey?: string;
-    model?: string;
-    baseUrl?: string;
-  };
-  userPreferences?: Partial<UserPreferences>;
-}
-
+import { z } from 'zod';
 import { resolveChatAccess, hasProjectEditAccess } from '@/lib/chat-auth.server';
+
+const ChatRequestSchema = z.object({
+  id: z.string().uuid().optional(),
+  projectId: z.string().uuid().optional(),
+  trigger: z.enum(['submit-user-message', 'regenerate-assistant-message']).default('submit-user-message'),
+  messageId: z.string().optional(),
+  message: z.any().optional(),
+  messages: z.array(z.any()).default([]),
+  llmConfig: z.object({
+    provider: z.string().optional(),
+    apiKey: z.string().optional(),
+    model: z.string().optional(),
+    baseUrl: z.string().optional(),
+  }).optional(),
+  userPreferences: z.record(z.any()).optional(),
+});
+
+type ChatRequestBody = z.infer<typeof ChatRequestSchema>;
 
 async function assertChatPermission(
   supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
@@ -159,16 +162,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const rawJson = await req.json().catch(() => null);
+    const parsed = ChatRequestSchema.safeParse(rawJson);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request payload', details: parsed.error.format() },
+        { status: 400 }
+      );
+    }
+
     const {
       id: chatId,
       projectId,
-      trigger = 'submit-user-message',
+      trigger,
       message,
       messageId,
       messages,
       llmConfig,
       userPreferences,
-    } = (await req.json()) as ChatRequestBody;
+    } = parsed.data;
 
     // 1. Build messages list based on standard AI SDK trigger
     let chatMessages = Array.isArray(messages) ? [...messages] : [];
