@@ -19,8 +19,6 @@ import {
   FileCode,
   FileSpreadsheet,
   File,
-  Copy,
-  Check,
   X,
   Loader2,
   Share2,
@@ -35,13 +33,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { ProjectSettingsTab } from "@/components/projects/ProjectSettingsTab";
 import { ProjectWorkspaceSkeleton } from "@/components/projects/ProjectWorkspaceSkeleton";
 import { ShareDialog } from "@/components/chat/ShareDialog";
@@ -154,8 +145,7 @@ export default function ProjectWorkspacePage() {
     status: "uploading" | "error";
     errorMessage?: string;
   }[]>([]);
-  const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
-  const [copied, setCopied] = useState(false);
+
 
   const setProject = (updater: React.SetStateAction<Project | null>) => {
     setLocalProject(updater);
@@ -256,7 +246,6 @@ export default function ProjectWorkspacePage() {
     try {
       await deleteFile.mutateAsync({ projectId, fileId });
       setFiles((prev) => prev.filter((f) => f.id !== fileId));
-      if (previewFile?.id === fileId) setPreviewFile(null);
     } catch {
       // Handled by deleteFile mutation
     }
@@ -264,14 +253,6 @@ export default function ProjectWorkspacePage() {
 
   const handleDownloadFile = async (file: ProjectFile) => {
     downloadFile.mutate({ projectId, fileId: file.id });
-  };
-
-  const handleCopyContent = () => {
-    if (!previewFile?.content) return;
-    navigator.clipboard.writeText(previewFile.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    toast.success("Copied to clipboard");
   };
 
   const filteredChats = useMemo(() => {
@@ -571,15 +552,12 @@ export default function ProjectWorkspacePage() {
                         key={file.id}
                         className="group flex items-center justify-between p-3 hover:bg-secondary/30 transition-colors"
                       >
-                        <div
-                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
-                          onClick={() => setPreviewFile(file)}
-                        >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 select-text">
                           {getFileIcon(file.name)}
-                          <span className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                          <span className="text-xs font-medium text-foreground truncate select-text">
                             {file.name}
                           </span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
+                          <span className="text-[10px] text-muted-foreground font-mono select-text">
                             {formatBytes(file.size_bytes)}
                           </span>
                         </div>
@@ -609,40 +587,7 @@ export default function ProjectWorkspacePage() {
               </div>
             )}
 
-            {/* File Preview Modal */}
-            {previewFile && (
-              <Dialog open={Boolean(previewFile)} onOpenChange={(open) => !open && setPreviewFile(null)}>
-                <DialogContent className="sm:max-w-[650px] max-h-[85vh] flex flex-col font-sans">
-                  <DialogHeader className="flex flex-row items-center justify-between pr-6 border-b border-border pb-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {getFileIcon(previewFile.name)}
-                      <div>
-                        <DialogTitle className="text-sm font-semibold truncate">
-                          {previewFile.name}
-                        </DialogTitle>
-                        <DialogDescription className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                          {formatBytes(previewFile.size_bytes)} • {previewFile.mime_type}
-                        </DialogDescription>
-                      </div>
-                    </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyContent}
-                      className="gap-1.5 text-xs h-7.5 cursor-pointer shrink-0"
-                    >
-                      {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-                      <span>{copied ? "Copied" : "Copy"}</span>
-                    </Button>
-                  </DialogHeader>
-
-                  <div className="flex-1 overflow-y-auto max-h-[55vh] p-3 rounded-md bg-muted/40 border border-border/70 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-text">
-                    {previewFile.content || "No text content preview available."}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
 
             {/* Tab 3: Settings */}
             {activeTab === "settings" && (
