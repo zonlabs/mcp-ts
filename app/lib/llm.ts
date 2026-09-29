@@ -6,7 +6,17 @@ export type LlmConfig = {
   apiKey?: string;
   model?: string;
   baseUrl?: string;
+  maxTokens?: number;
 };
+
+export const DEFAULT_MAX_TOKENS = 2048;
+
+export function resolveMaxTokens(config?: LlmConfig): number {
+  if (typeof config?.maxTokens === 'number' && config.maxTokens > 0) {
+    return config.maxTokens;
+  }
+  return DEFAULT_MAX_TOKENS;
+}
 
 const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const AUTO_MODEL = 'openrouter/auto';
@@ -25,8 +35,9 @@ export function createOpenRouterProvider(config?: LlmConfig) {
 export function getModelConfig(config?: LlmConfig): LanguageModel {
   const provider = createOpenRouterProvider(config);
   const modelId = config?.model?.trim() || AUTO_MODEL;
+  const maxTokens = resolveMaxTokens(config);
   return wrapLanguageModel({
-    model: provider.chat(modelId),
+    model: provider.chat(modelId, { maxTokens } as any),
     middleware: extractReasoningMiddleware({ tagName: 'think' }),
   });
 }
@@ -34,5 +45,6 @@ export function getModelConfig(config?: LlmConfig): LanguageModel {
 export function getTitleModel(config?: LlmConfig): LanguageModel {
   const provider = createOpenRouterProvider(config);
   const modelId = config?.model?.trim() || AUTO_MODEL;
-  return provider.chat(modelId);
+  const maxTokens = resolveMaxTokens(config);
+  return provider.chat(modelId, { maxTokens } as any);
 }

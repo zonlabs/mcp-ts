@@ -1,7 +1,7 @@
 import { ToolLoopAgent, tool, stepCountIs, type ToolSet } from 'ai';
 import { z } from 'zod';
 import { createProjectFileTools } from '@/lib/projects/file-tools';
-import { getModelConfig, type LlmConfig } from '@/lib/llm';
+import { getModelConfig, resolveMaxTokens, type LlmConfig } from '@/lib/llm';
 
 export interface CreateFileAnalystToolOptions {
   projectId: string;
@@ -36,6 +36,7 @@ export function createFileAnalystTool({ projectId, llmConfig }: CreateFileAnalys
         try {
           const fileTools = createProjectFileTools(projectId);
           const model = getModelConfig(llmConfig);
+          const maxOutputTokens = resolveMaxTokens(llmConfig);
 
           const prompt = filenames && filenames.length > 0
             ? `${task}\n\nTarget files to inspect: ${filenames.join(', ')}`
@@ -55,6 +56,7 @@ Key Guidelines:
 `.trim(),
             tools: fileTools as ToolSet,
             stopWhen: stepCountIs(8),
+            maxOutputTokens,
           });
 
           const result = await fileAnalystAgent.generate({

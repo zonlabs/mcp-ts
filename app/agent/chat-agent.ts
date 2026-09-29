@@ -12,7 +12,7 @@ import { experimental_codeModeTool } from "@ai-sdk/code-mode";
 import { McpManager } from "@mcp-ts/client";
 import { AIAdapter } from "@mcp-ts/client/adapters/ai";
 import { buildChatAgentInstructions, PINNED_REMOTE_TOOLS } from "@/agent/chat-agent-instructions";
-import { getModelConfig } from "@/lib/llm";
+import { getModelConfig, resolveMaxTokens } from "@/lib/llm";
 import {
   type UserPreferences,
   normalizeUserPreferences,
@@ -36,6 +36,7 @@ export interface CreateChatAgentOptions {
     apiKey?: string;
     model?: string;
     baseUrl?: string;
+    maxTokens?: number;
   };
   abortSignal?: AbortSignal;
 }
@@ -123,12 +124,15 @@ export async function createChatAgent(options: CreateChatAgentOptions = {}) {
     return undefined;
   };
 
+  const maxOutputTokens = resolveMaxTokens(options.llmConfig);
+
   return new ToolLoopAgent({
     model,
     instructions,
     tools: tools as ToolSet,
     prepareStep: compactStepMessages,
     stopWhen: stepCountIs(30),
+    maxOutputTokens,
     onFinish: () => {
       manager.disconnect();
     },

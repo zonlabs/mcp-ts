@@ -85,17 +85,44 @@ export function LlmSettingsPanel() {
             </button>
           </div>
         </div>
+
+        {/* Max Tokens */}
+        <div className="w-[130px] min-w-[110px]">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-medium text-muted-foreground">
+              Max Tokens
+            </label>
+          </div>
+          <Input
+            type="number"
+            min={64}
+            max={65536}
+            step={128}
+            placeholder="2048"
+            value={config.maxTokens ?? 2048}
+            onChange={(e) => {
+              const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+              updateConfig({ maxTokens: val && !isNaN(val) ? val : undefined });
+            }}
+            className="h-9 rounded-md bg-transparent border border-hairline font-mono text-xs px-3 focus-visible:ring-1 focus-visible:ring-primary"
+          />
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full overflow-hidden shrink-0">
-          <img
-            src="/providers/openrouter.svg"
-            alt=""
-            className="h-3.5 w-3.5 object-contain"
-          />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-1">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full overflow-hidden shrink-0">
+            <img
+              src="/providers/openrouter.svg"
+              alt=""
+              className="h-3.5 w-3.5 object-contain"
+            />
+          </span>
+          <span>{t("browserKeyPrivacy")}</span>
+        </div>
+        <span className="text-[11px] text-muted-foreground/80">
+          Max tokens limits output length to avoid credit reservation limit errors.
         </span>
-        <span>{t("browserKeyPrivacy")}</span>
       </div>
     </div>
   );

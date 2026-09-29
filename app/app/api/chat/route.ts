@@ -16,7 +16,7 @@ import { createChatAgent, type ChatUIMessage } from '@/agent/chat-agent';
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { saveChat, deleteAllChatMessages } from '@/lib/chat-store';
-import { getTitleModel } from '@/lib/llm';
+import { getTitleModel, resolveMaxTokens } from '@/lib/llm';
 import type { UserPreferences } from '@/lib/user-preferences';
 import { normalizeMessagesForModel, sanitizeModelMessages } from '@/lib/chat-message-normalization';
 import { retrieveMemoryContext, addMemories } from '@/lib/memory/mem0';
@@ -38,6 +38,7 @@ const ChatRequestSchema = z.object({
     apiKey: z.string().optional(),
     model: z.string().optional(),
     baseUrl: z.string().optional(),
+    maxTokens: z.number().int().positive().optional(),
   }).optional(),
   userPreferences: z.record(z.any()).optional(),
 });
