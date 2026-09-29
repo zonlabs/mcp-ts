@@ -39,9 +39,11 @@ test.describe('ToolRouter benchmark script', () => {
     const clients = [
       {
         isConnected: () => true,
-        getServerName: () => 'exa',
-        getServerId: () => 'exa-server',
-        getSessionId: () => 'session-exa',
+        session: {
+          serverId: 'exa-server',
+          serverName: 'exa',
+          sessionId: 'session-exa',
+        },
         listTools: async () => ({
           tools: [
             {
@@ -59,9 +61,11 @@ test.describe('ToolRouter benchmark script', () => {
       },
       {
         isConnected: () => true,
-        getServerName: () => 'neon',
-        getServerId: () => 'neon-server',
-        getSessionId: () => 'session-neon',
+        session: {
+          serverId: 'neon-server',
+          serverName: 'neon',
+          sessionId: 'session-neon',
+        },
         listTools: async () => ({
           tools: [
             {

@@ -1,5 +1,5 @@
 import { ToolLoopAgent, InferAgentUIMessage, stepCountIs } from "ai";
-import { mcp, type McpUser } from "@mcp-ts/client";
+import { McpManager } from "@mcp-ts/client";
 import type { McpObservabilityEvent } from "@mcp-ts/client/shared";
 import { AIAdapter } from "@mcp-ts/client/adapters/ai";
 import { createDeepSeek } from "@ai-sdk/deepseek";
@@ -19,15 +19,15 @@ If the user denies a tool call, acknowledge their decision and suggest alternati
 // ----------------------------------------------------------------------
 // 2. Client Management (cached per user for long-running servers)
 // ----------------------------------------------------------------------
-// Reusing the `McpUser` instance across requests keeps live
+// Reusing the `McpManager` instance across requests keeps live
 // transport connections alive — `connect()` skips already-connected
 // sessions, so this is safe to call on every request.
-const mcpUserCache = new Map<string, McpUser>();
+const mcpManagerCache = new Map<string, McpManager>();
 
-function getMcpUser(userId: string): McpUser {
-  let connection = mcpUserCache.get(userId);
+function getMcpManager(userId: string): McpManager {
+  let connection = mcpManagerCache.get(userId);
   if (!connection) {
-    connection = mcp.user(userId, {
+    connection = new McpManager(userId, {
       onObservabilityEvent: (event: McpObservabilityEvent) => {
         // One handler for everything — DB reads/writes, client lifecycle, per-session progress.
         // Use event.type to filter: 'db:read' | 'db:write' | 'connect' | etc.
@@ -47,7 +47,7 @@ function getMcpUser(userId: string): McpUser {
         }
       },
     });
-    mcpUserCache.set(userId, connection);
+    mcpManagerCache.set(userId, connection);
   }
   return connection;
 }
@@ -84,10 +84,10 @@ function requiresApproval(tool: any, args: any, router: any): boolean {
 // 4. Agent Initialization
 // ----------------------------------------------------------------------
 export async function createMcpAgent(userId: string = process.env.NEXT_PUBLIC_MCP_USER_ID!) {
-  const connection = getMcpUser(userId);
+  const connection = getMcpManager(userId);
 
   // Always call connect to synchronize with the database.
-  // McpUser safely skips already-connected sessions.
+  // safely skips already-connected sessions.
   try {
     await connection.connect();
   } catch (error) {

@@ -1,4 +1,4 @@
-import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult } from './types.js';
+import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult, SessionFilter } from './types.js';
 import type { SessionStatus } from './types.js';
 import { DORMANT_SESSION_EXPIRATION_MS } from '../../shared/constants.js';
 import { generateSessionId } from '../../shared/utils.js';
@@ -309,6 +309,46 @@ export class NeonStorageBackend implements SessionStore {
         }
     }
 
+    async findOne(userId: string, filter: SessionFilter, options?: GetOptions): Promise<SessionResult | null> {
+        try {
+            const selection = options?.includeCredentials
+                ? '*'
+                : 'session_id, user_id, server_id, server_name, server_url, server_options, callback_url, created_at, updated_at, expires_at, headers, auth_url, status, tool_policy, enabled, metadata';
+
+            const conditions: string[] = ['user_id = $1'];
+            const params: unknown[] = [userId];
+            let paramIdx = 2;
+
+            if (filter.serverId) {
+                conditions.push(`server_id = $${paramIdx++}`);
+                params.push(filter.serverId);
+            }
+            if (filter.serverUrl) {
+                conditions.push(`server_url = $${paramIdx++}`);
+                params.push(filter.serverUrl);
+            }
+            if (filter.status) {
+                conditions.push(`status = $${paramIdx++}`);
+                params.push(filter.status);
+            }
+            if (filter.enabled !== undefined) {
+                conditions.push(`enabled = $${paramIdx++}`);
+                params.push(filter.enabled);
+            }
+
+            const rows = await this.sql.query(
+                `SELECT ${selection} FROM ${this.tableName} WHERE ${conditions.join(' AND ')} LIMIT 1`,
+                params
+            ) as NeonSessionRow[];
+
+            if (!rows[0]) return null;
+            return this.mapRowToSessionData(rows[0]);
+        } catch (error) {
+            console.error('[NeonStorage] Failed to find session:', error);
+            return null;
+        }
+    }
+
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         try {
             const rows = await this.sql.query(
@@ -335,12 +375,40 @@ export class NeonStorageBackend implements SessionStore {
         }
     }
 
-    async list(userId: string): Promise<Session[]> {
+    async list(userId: string, filter?: SessionFilter): Promise<Session[]> {
         try {
-            const rows = await this.sql.query(
-                `SELECT * FROM ${this.tableName} WHERE user_id = $1`,
-                [userId]
-            ) as NeonSessionRow[];
+            const conditions: string[] = ['user_id = $1'];
+            const params: unknown[] = [userId];
+            let paramIdx = 2;
+
+            if (filter?.serverId) {
+                conditions.push(`server_id = $${paramIdx++}`);
+                params.push(filter.serverId);
+            }
+            if (filter?.serverUrl) {
+                conditions.push(`server_url = $${paramIdx++}`);
+                params.push(filter.serverUrl);
+            }
+            if (filter?.status) {
+                conditions.push(`status = $${paramIdx++}`);
+                params.push(filter.status);
+            }
+            if (filter?.enabled !== undefined) {
+                conditions.push(`enabled = $${paramIdx++}`);
+                params.push(filter.enabled);
+            }
+
+            let sql = `SELECT * FROM ${this.tableName} WHERE ${conditions.join(' AND ')}`;
+            if (filter?.limit !== undefined) {
+                sql += ` LIMIT $${paramIdx++}`;
+                params.push(filter.limit);
+                if (filter?.offset !== undefined) {
+                    sql += ` OFFSET $${paramIdx++}`;
+                    params.push(filter.offset);
+                }
+            }
+
+            const rows = await this.sql.query(sql, params) as NeonSessionRow[];
             return rows.map((row) => this.mapRowToSessionData(row));
         } catch (error) {
             console.error(`[NeonStorage] Failed to get session data for ${userId}:`, error);

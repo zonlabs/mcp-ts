@@ -1,6 +1,6 @@
 {
   "name": "@mcp-ts/cli",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Connect local and remote MCP servers to ChatGPT, Claude Desktop, OpenCode, and other MCP clients, with progressive tool discovery, search, and a local MCP gateway.",
   "type": "module",
   "bin": {
@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.10.0",
-    "@mcp-ts/client": "^4.1.0",
+    "@mcp-ts/client": "^4.2.8",
     "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "picocolors": "^1.1.1",
@@ -35,7 +35,7 @@
   },
   "devDependencies": {
     "@mcp-ts/bridge-protocol": "0.1.0",
-    "@mcp-ts/tool-router": "0.5.1",
+    "@mcp-ts/tool-router": "0.5.4",
     "@types/node": "^25.0.10",
     "@types/ws": "^8.18.1",
     "tsup": "^8.5.1",

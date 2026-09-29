@@ -60,9 +60,33 @@ function OAuthCallbackContent() {
     finishAuth(oauthState, code, iss)
       .then(() => {
         setStatus("success");
+        const isPopup = Boolean(window.opener) || window.name === "mcp_oauth_popup";
+
+        try {
+          const channel = new BroadcastChannel("mcp-auth-channel");
+          channel.postMessage({ type: "MCP_AUTH_SUCCESS", state: oauthState });
+          channel.close();
+        } catch {}
+
+        if (window.opener) {
+          try {
+            window.opener.postMessage(
+              { type: "MCP_AUTH_SUCCESS", state: oauthState },
+              window.location.origin
+            );
+          } catch {}
+        }
+
+        if (isPopup) {
+          setTimeout(() => {
+            window.close();
+          }, 800);
+          return;
+        }
+
         setTimeout(() => {
-          router.push("/");
-        }, 2000);
+          router.push("/servers");
+        }, 1200);
       })
       .catch((err) => {
         setStatus("error");

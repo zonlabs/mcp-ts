@@ -11,7 +11,7 @@ import {
   createGetSchemaToolDefinition,
   createRegexSearchToolDefinition,
   createSearchToolDefinition,
-} from '../dist/shared/index.mjs';
+} from '../packages/client/dist/shared.mjs';
 import { estimateToolTokens, estimateToolsTokens } from './token-estimator.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

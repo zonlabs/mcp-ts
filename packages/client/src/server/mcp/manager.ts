@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/client';
 import { McpClient, type McpListChangedEvent } from './client.js';
 import { sessions, withDbObservability, type Session, type SessionStore } from '../storage/index.js';
-import type { BaseClient, BaseClientProvider, ToolClient, ToolClientProvider } from '../../shared/types.js';
+import type { BaseClient, BaseClientProvider, ToolClient, ToolClientProvider, SessionInfo } from '../../shared/types.js';
 import { createToolPolicyGateway } from './tool-policy-gateway.js';
 
 // ---------------------------------------------------------------------------
@@ -144,11 +144,11 @@ export class McpManager implements BaseClientProvider {
         const activeSessionIds = new Set(sessions.map(s => s.sessionId));
 
         for (const client of this.clients) {
-            if (!activeSessionIds.has(client.getSessionId())) {
-                this.options.onSessionEvicted?.(client.getSessionId());
+            if (!activeSessionIds.has(client.session.sessionId)) {
+                this.options.onSessionEvicted?.(client.session.sessionId);
             }
         }
-        this.clients = this.clients.filter(c => activeSessionIds.has(c.getSessionId()));
+        this.clients = this.clients.filter(c => activeSessionIds.has(c.session.sessionId));
 
         await this.connectInBatches(sessions);
     }
@@ -176,8 +176,17 @@ export class McpManager implements BaseClientProvider {
      */
     getClients(): BaseClient[] {
         return this.clients.map((client) =>
-            createToolPolicyGateway(this.userId, client.getSessionId(), client)
+            createToolPolicyGateway(this.userId, client.session.sessionId, client)
         );
+    }
+
+    /**
+     * Returns SessionInfo of currently connected sessions.
+     */
+    getSessions(): SessionInfo[] {
+        return this.clients
+            .map((client) => client.session)
+            .filter((s): s is SessionInfo => Boolean(s));
     }
 
     /**
@@ -189,7 +198,7 @@ export class McpManager implements BaseClientProvider {
             clients.map(async (client) => {
                 try {
                     const res = await client.listTools(options);
-                    const sessionId = client.getSessionId?.();
+                    const sessionId = client.session?.sessionId;
                     if (sessionId) {
                         for (const tool of res.tools) {
                             this.toolSessionMap.set(tool.name, sessionId);
@@ -218,7 +227,7 @@ export class McpManager implements BaseClientProvider {
         // 1. Fast O(1) path: check if session ownership is already known
         const cachedSessionId = this.toolSessionMap.get(name);
         if (cachedSessionId) {
-            const cachedClient = clients.find((c) => c.getSessionId?.() === cachedSessionId);
+            const cachedClient = clients.find((c) => c.session?.sessionId === cachedSessionId);
             if (cachedClient) {
                 try {
                     return await cachedClient.callTool(name, args);
@@ -235,7 +244,7 @@ export class McpManager implements BaseClientProvider {
                 try {
                     const { tools } = await client.listTools();
                     if (tools.some((t) => t.name === name)) {
-                        const sessionId = client.getSessionId?.();
+                        const sessionId = client.session?.sessionId;
                         if (sessionId) {
                             this.toolSessionMap.set(name, sessionId);
                         }
@@ -262,7 +271,7 @@ export class McpManager implements BaseClientProvider {
      * @returns `true` if the session was found and removed, `false` if not found.
      */
     async removeSession(sessionId: string): Promise<boolean> {
-        const idx = this.clients.findIndex(c => c.getSessionId() === sessionId);
+        const idx = this.clients.findIndex(c => c.session.sessionId === sessionId);
         if (idx === -1) return false;
         const [client] = this.clients.splice(idx, 1);
         await client.disconnect();
@@ -296,17 +305,19 @@ export class McpManager implements BaseClientProvider {
      * to querying the storage backend via `sessions.list(userId)`.
      */
     private async fetchActiveSessions(): Promise<Session[]> {
-        const sessionList = this.options.sessionProvider
-            ? await this.options.sessionProvider()
-            : await this._store.list(this.userId);
+        if (this.options.sessionProvider) {
+            const externalList = await this.options.sessionProvider();
+            return externalList.filter(s =>
+                s.serverId &&
+                s.serverUrl &&
+                s.callbackUrl &&
+                s.status === 'active' &&
+                s.enabled !== false
+            );
+        }
 
-        return sessionList.filter(s =>
-            s.serverId &&
-            s.serverUrl &&
-            s.callbackUrl &&
-            s.status === 'active' &&
-            s.enabled !== false
-        );
+        const sessionList = await this._store.list(this.userId, { status: 'active', enabled: true });
+        return sessionList.filter(s => s.serverId && s.serverUrl && s.callbackUrl);
     }
 
     /**
@@ -336,14 +347,14 @@ export class McpManager implements BaseClientProvider {
      *   the connectionPromises map.
      */
     private async connectSession(session: Session): Promise<void> {
-        const existing = this.clients.find(c => c.getSessionId() === session.sessionId);
+        const existing = this.clients.find(c => c.session.sessionId === session.sessionId);
 
         if (existing) {
             if (existing.isConnected()) {
                 return;
             }
 
-            this.options.onSessionEvicted?.(existing.getSessionId());
+            this.options.onSessionEvicted?.(existing.session.sessionId);
             this.clients = this.clients.filter(c => c !== existing);
         }
 
@@ -422,7 +433,7 @@ export class McpManager implements BaseClientProvider {
                     clearTimeout(timeoutTimer!);
                 }
 
-                this.clients = this.clients.filter(c => c.getSessionId() !== session.sessionId);
+                this.clients = this.clients.filter(c => c.session.sessionId !== session.sessionId);
                 this.clients.push(client);
                 this.options.onSessionConnected?.(session.sessionId, client);
                 return;

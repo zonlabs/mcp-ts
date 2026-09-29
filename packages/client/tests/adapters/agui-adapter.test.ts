@@ -12,12 +12,13 @@ class MockMCPClient {
     return this.connected;
   }
 
-  getServerId() {
-    return this.serverId;
-  }
-
-  getSessionId() {
-    return this.sessionId;
+  get session() {
+    return {
+      serverId: this.serverId,
+      serverName: this.serverId,
+      sessionId: this.sessionId,
+      serverUrl: 'http://test',
+    };
   }
 
   async listTools() {

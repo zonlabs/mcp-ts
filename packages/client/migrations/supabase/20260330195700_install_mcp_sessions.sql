@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS public.mcp_sessions (
 
 -- Add an index on user_id for faster lookups
 CREATE INDEX IF NOT EXISTS idx_mcp_sessions_user_id ON public.mcp_sessions(user_id);
+-- Add a partial unique index on (user_id, server_id) for fast O(1) server lookups and to prevent duplicate server configs per user
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_sessions_user_server_unique ON public.mcp_sessions(user_id, server_id) WHERE server_id IS NOT NULL;
+-- Add an index on (user_id, server_url) for fast URL lookups
+CREATE INDEX IF NOT EXISTS idx_mcp_sessions_user_url ON public.mcp_sessions(user_id, server_url);
 -- Add an index on expires_at to speed up the cleanup job
 CREATE INDEX IF NOT EXISTS idx_mcp_sessions_expires_at ON public.mcp_sessions(expires_at);
 

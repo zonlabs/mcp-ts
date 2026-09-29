@@ -35,9 +35,11 @@ function fakeClient(): ToolClient {
   return {
     listTools: async () => ({ tools }),
     callTool: async (name, args) => ({ name, args }),
-    getServerId: () => "example",
-    getServerName: () => "Example Server",
-    getServerUrl: () => "https://example.test/mcp",
+    session: {
+      serverId: "example",
+      serverName: "Example Server",
+      serverUrl: "https://example.test/mcp",
+    },
   };
 }
 
@@ -166,8 +168,10 @@ test("correctly parses search_mcp_tools payload with camelCase toolName and serv
       }
       return {};
     },
-    getServerId: () => "remote",
-    getServerName: () => "Remote Server",
+    session: {
+      serverId: "remote",
+      serverName: "Remote Server",
+    },
   };
 
   const router = await createRouter(metaClient);
@@ -187,8 +191,10 @@ test("propagates a selected gateway meta-search failure without router fallback"
     callTool: async () => {
       throw new Error("catalog offline");
     },
-    getServerId: () => "remote",
-    getServerName: () => "Remote Server",
+    session: {
+      serverId: "remote",
+      serverName: "Remote Server",
+    },
   };
 
   const router = await createRouter(metaClient);
@@ -223,8 +229,10 @@ test("propagates invalid JSON from a selected gateway meta-search", async () => 
       tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
     }),
     callTool: async () => ({ content: [{ type: "text", text: "not json" }] }),
-    getServerId: () => "remote",
-    getServerName: () => "Remote Server",
+    session: {
+      serverId: "remote",
+      serverName: "Remote Server",
+    },
   };
 
   const router = await createRouter(metaClient);
@@ -240,8 +248,10 @@ test("propagates an error envelope from a selected gateway meta-search", async (
       isError: true,
       content: [{ type: "text", text: "catalog offline" }],
     }),
-    getServerId: () => "remote",
-    getServerName: () => "Remote Server",
+    session: {
+      serverId: "remote",
+      serverName: "Remote Server",
+    },
   };
 
   const router = await createRouter(metaClient);
@@ -254,8 +264,10 @@ test("rejects missing text from a selected gateway meta-search", async () => {
       tools: [{ name: "search_mcp_tools", inputSchema: { type: "object" } }],
     }),
     callTool: async () => ({ content: [] }),
-    getServerId: () => "remote",
-    getServerName: () => "Remote Server",
+    session: {
+      serverId: "remote",
+      serverName: "Remote Server",
+    },
   };
 
   const router = await createRouter(metaClient);

@@ -15,11 +15,10 @@ import { embed } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 const router = new ToolRouter(client: MCPClient | McpManager, {
-  // 'all' (default), 'search' (exposes meta-tools only), or 'groups'
   // Tools always exposed directly without search lookup
   pinnedTools: ['slack_send_message'],
   
-  // Max tools to return from a search or group (default: 40)
+  // Max tools to return from a search (default: 40)
   maxTools: 5,
   
   // Optional embedding function for semantic search

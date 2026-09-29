@@ -1,8 +1,8 @@
 /**
  * Type definitions for MCP operations
  */
-import { Tool, CallToolResult } from "@modelcontextprotocol/client";
-import type { DiscoverResult, ProtocolEra } from "@modelcontextprotocol/client";
+import { Tool, CallToolResult, Prompt, Resource, ResourceTemplateType as ResourceTemplate, GetPromptResult, ReadResourceResult } from "@modelcontextprotocol/client";
+import type { DiscoverResult, ProtocolEra, Implementation } from "@modelcontextprotocol/client";
 
 // ---------------------------------------------------------------------------
 // Core Capability Interfaces
@@ -19,10 +19,7 @@ export interface BaseClient {
   isConnected(): boolean;
   listTools(options?: { filtered?: boolean }): Promise<{ tools: Tool[] }>;
   callTool(name: string, args: Record<string, unknown>): Promise<any>;
-  getServerId?(): string | undefined;
-  getServerName?(): string | undefined;
-  getServerUrl?(): string | undefined;
-  getSessionId?(): string;
+  readonly session?: SessionInfo;
 }
 
 /** Alias for `BaseClient` */
@@ -181,7 +178,7 @@ export type ToolPolicyMode = 'all' | 'allowlist' | 'denylist';
 export interface ToolPolicy {
   mode: ToolPolicyMode;
   toolIds: string[];
-  updatedAt: number;
+  updatedAt?: number;
 }
 
 // SSE/RPC types
@@ -306,20 +303,20 @@ export interface SessionInfo {
   sessionId: string;
   serverId?: string;
   serverName?: string;
-  serverUrl: string;
+  serverUrl?: string;
   transport?: TransportType;
   serverOptions?: {
     client?: unknown;
     transport?: { type?: TransportType; protocolVersion?: string };
     discoverResult?: DiscoverResult;
   } | null;
-  createdAt: number;
+  createdAt?: number;
   updatedAt?: number;
   /**
    * Session readiness for auto-restore.
    * `pending` means auth is in progress and should be resumed explicitly by user action.
    */
-  status: SessionStatus;
+  status?: SessionStatus;
   toolPolicy?: ToolPolicy;
   enabled?: boolean;
   protocolEra?: ProtocolEra | null;
@@ -327,6 +324,8 @@ export interface SessionInfo {
   discoverResult?: DiscoverResult | null;
   /** Caller-supplied metadata, stored and returned opaquely. */
   metadata?: Record<string, string>;
+  /** Server implementation metadata returned during MCP initialize (name, version, icons, etc.) */
+  serverInfo?: Implementation;
 }
 
 export interface SessionListResult {
@@ -416,3 +415,340 @@ export interface ListResourceTemplatesResult {
 }
 
 export type { CallToolResult };
+
+/**
+ * Model Context Protocol (MCP) Server Types
+ * Aligned with modern cloud API conventions.
+ */
+
+/**
+ * Connection status of an MCP server.
+ * Uses a discriminated union based on `state` (Smithery convention).
+ */
+export type McpServerConnectionStatus =
+  | {
+      state: 'connected';
+    }
+  | {
+      state: 'disconnected';
+    }
+  | {
+      state: 'auth_required';
+      authorizationUrl?: string;
+    }
+  | {
+      state: 'error';
+      message: string;
+    };
+
+/**
+/**
+ * Authentication configuration payload for creating or updating an MCP server.
+ * Callers provide credentials and client parameters in requests.
+ */
+export type McpServerAuthRequest =
+  | {
+      type: 'none';
+    }
+  | {
+      type: 'bearer';
+      /** Bearer authorization token. */
+      token: string;
+    }
+  | {
+      type: 'custom-headers';
+      /** Custom HTTP headers and secret values to send with MCP requests. */
+      headers: Record<string, string>;
+    }
+  | {
+      type: 'oauth';
+      /** OAuth 2.1 client configuration. */
+      config?: {
+        /** OAuth client identifier. */
+        clientId?: string;
+        /** OAuth client secret for confidential clients. Never returned in read responses. */
+        clientSecret?: string;
+        /** Client ID Metadata Document (CIMD) URL if using URL-based client IDs. */
+        clientMetadataUrl?: string;
+        /** Requested OAuth scopes. */
+        scopes?: string[];
+      };
+    };
+
+/**
+ * Public authentication state returned on an MCP server resource.
+ * Sensitive tokens and header values are strictly redacted from responses.
+ */
+export type McpServerAuth =
+  | {
+      type: 'none';
+    }
+  | {
+      type: 'bearer';
+    }
+  | {
+      type: 'custom-headers';
+      /** Header keys configured on this server with redacted values. */
+      headers: Record<string, string>;
+    }
+  | {
+      type: 'oauth';
+      /** Stable, persisted OAuth configuration. */
+      config?: {
+        /** Client ID Metadata Document (CIMD) URL if configured. */
+        clientMetadataUrl?: string;
+        /** Configured or granted OAuth scopes. */
+        scopes?: string[];
+      };
+    };
+
+/** Standardized MCP server entity representation. */
+export interface McpServer {
+  /** Unique identifier for the MCP server. */
+  id: string;
+  /** Fixed value identifying this object as an MCP server. */
+  object: 'mcp_server';
+  /** Display name of the MCP server. */
+  name: string;
+  /** URL endpoint of the MCP server. */
+  url: string;
+  /** Optional description of the MCP server. */
+  description?: string;
+  /** Whether the MCP server is enabled. */
+  enabled: boolean;
+  /** Live connection status of the server. */
+  status: McpServerConnectionStatus;
+  /** Authentication configuration for the MCP server. */
+  auth: McpServerAuth;
+  /** Active tool policy restricting or allowing tool access. */
+  toolPolicy?: ToolPolicy;
+  /** Arbitrary caller-supplied key-value metadata attached to this server. */
+  metadata?: Record<string, unknown>;
+  /** ISO timestamp when the server was created. */
+  createdAt: string;
+  /** ISO timestamp when the server was last updated. */
+  updatedAt?: string;
+}
+
+export interface McpServersFindParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Filter servers by enabled status. */
+  enabled?: boolean;
+  /** Case-insensitive text search matching name, url, or description. */
+  search?: string;
+}
+
+export interface McpServersFindResponse {
+  object: 'list';
+  data: McpServer[];
+}
+
+export interface McpServersCreateParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Display name for the MCP server. */
+  name: string;
+  /** URL endpoint of the MCP server. */
+  url: string;
+  /** Optional description of the MCP server. */
+  description?: string;
+  /** Whether the server should be enabled. Defaults to true. */
+  enabled?: boolean;
+  /** Authentication configuration request. */
+  auth?: McpServerAuthRequest;
+  /** Custom metadata key-values. */
+  metadata?: Record<string, unknown>;
+  /** Optional custom identifier override. Defaults to auto-generated ID. */
+  serverId?: string;
+  /** Optional OAuth callback URL. */
+  callbackUrl?: string;
+  /** Optional tool access policy. */
+  toolPolicy?: ToolPolicy;
+}
+
+export interface McpServersGetByIdParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** The unique identifier of the MCP server to retrieve. */
+  serverId: string;
+}
+
+export interface McpServersUpdateParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** The unique identifier of the MCP server to update. */
+  serverId: string;
+  /** Updated display name. */
+  name?: string;
+  /** Updated server URL endpoint. */
+  url?: string;
+  /** Updated description. */
+  description?: string;
+  /** Updated enabled state. */
+  enabled?: boolean;
+  /** Updated authentication configuration request. */
+  auth?: McpServerAuthRequest;
+  /** Updated or merged metadata. */
+  metadata?: Record<string, unknown>;
+  /** Updated tool access policy. */
+  toolPolicy?: ToolPolicy;
+}
+
+export interface McpServersDeleteParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** The unique identifier of the MCP server to delete. */
+  serverId: string;
+}
+
+export interface McpServersDeleteResponse {
+  object: 'mcp_server';
+  id: string;
+  deleted: boolean;
+}
+
+export interface McpServersCreateOAuthUrlParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** The unique identifier of the MCP server. */
+  serverId: string;
+  /** Callback URL to redirect to after OAuth authorization. */
+  callbackUrl?: string;
+  /** Optional Client ID Metadata Document (CIMD) URL override for OAuth authorization. */
+  clientMetadataUrl?: string;
+}
+
+export interface McpServerOAuthAuthorization {
+  /** Fixed value identifying this object as an MCP server OAuth authorization. */
+  object: 'mcp_server_oauth_authorization';
+
+  /** The MCP server being authorized. */
+  serverId: string;
+
+  /** The provider authorization URL to redirect the user to. */
+  url: string;
+
+  /** The OAuth state value. This expires after 10 minutes. */
+  state: string;
+
+  /** The ISO 8601 timestamp when the authorization URL expires. */
+  expiresAt: string;
+}
+
+export type McpServersCreateOAuthUrlResponse = McpServerOAuthAuthorization;
+
+export interface McpServersFinishAuthParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Authorization code received from the OAuth callback. */
+  code: string;
+  /** State parameter received from the OAuth callback. */
+  state: string;
+  /** Optional RFC 9207 issuer parameter. */
+  iss?: string;
+  /** Optional explicit server identifier override. */
+  serverId?: string;
+}
+
+export interface McpServersDiscoverOAuthParameters {
+  /** URL endpoint of the MCP server. */
+  url: string;
+}
+
+export interface McpServersDiscoverOAuthResponse {
+  /** Whether the MCP server supports OAuth. */
+  supported: boolean;
+  /** Discovered authorization server endpoint. */
+  authorizationUrl?: string;
+  /** Discovered token exchange endpoint. */
+  tokenUrl?: string;
+  /** Discovered dynamic client registration endpoint. */
+  registrationUrl?: string;
+  /** Protected resource URL as per RFC 9728. */
+  resourceUrl?: string;
+  /** Discovered OAuth scopes. */
+  scopes?: string[];
+  /** Whether Client ID Metadata Document (CIMD) is supported by the authorization server. */
+  clientIdMetadataDocumentSupported?: boolean;
+  /** Error message if discovery failed or server does not implement OAuth. */
+  error?: string;
+}
+
+export interface McpServersListToolsParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Server identifier. */
+  serverId: string;
+}
+
+export interface McpServersListToolsResponse {
+  tools: Tool[];
+}
+
+export interface McpServersCallToolParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Server identifier. */
+  serverId: string;
+  /** Name of the tool to execute. */
+  toolName: string;
+  /** Arguments to pass to the tool. */
+  args?: Record<string, unknown>;
+}
+
+export interface McpServersListPromptsParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Server identifier. */
+  serverId: string;
+}
+
+export interface McpServersListPromptsResponse {
+  prompts: Prompt[];
+}
+
+export interface McpServersGetPromptParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Server identifier. */
+  serverId: string;
+  /** Name of the prompt to retrieve. */
+  name: string;
+  /** Arguments for the prompt. */
+  args?: Record<string, string>;
+}
+
+export interface McpServersListResourcesParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Server identifier. */
+  serverId: string;
+}
+
+export interface McpServersListResourcesResponse {
+  resources: Resource[];
+}
+
+export interface McpServersReadResourceParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Server identifier. */
+  serverId: string;
+  /** URI of the resource to read. */
+  uri: string;
+}
+
+export interface McpServersListResourceTemplatesParameters {
+  /** User or tenant identifier. */
+  userId: string;
+  /** Server identifier. */
+  serverId: string;
+}
+
+export interface McpServersListResourceTemplatesResponse {
+  resourceTemplates: ResourceTemplate[];
+}
+
+
+

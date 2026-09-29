@@ -26,16 +26,75 @@ export {
   NeonStorageBackend,
   type SessionStore,
 } from './storage/index.js';
-export { StorageOAuthClientProvider } from './mcp/storage-oauth-provider.js';
 export {
-  Mcp,
-  mcp,
-  McpUser,
-  type McpOptions,
-  type McpUserOptions,
-  type AddMcpServerOptions,
-  type AddMcpServerResult,
-} from './mcp/mcp.js';
+  createToolId,
+  normalizeToolPolicy,
+  normalizeToolPolicyForUpdate,
+  isToolAllowed,
+  assertToolAllowed,
+  filterToolsByPolicy,
+  validateToolPolicyAgainstTools,
+  type ToolPolicyInput,
+} from './storage/tool-policy.js';
+export {
+  createToolPolicyGateway,
+  ToolPolicyGateway,
+} from './mcp/tool-policy-gateway.js';
+export { StorageOAuthClientProvider } from './mcp/storage-oauth-provider.js';
+import type { SessionStore } from './storage/types.js';
+import { sessions } from './storage/index.js';
+import {
+  McpServersResource,
+  type McpServersResourceOptions,
+} from './resources/mcp-servers-resource.js';
+
+export {
+  McpServersResource,
+  type McpServersResourceOptions,
+};
+
+export interface ClientOptions {
+  /**
+   * Storage backend for MCP server configurations and sessions.
+   * Defaults to global `sessions` store.
+   */
+  storage?: SessionStore;
+}
+
+/**
+ * Main client entry point for Model Context Protocol operations.
+ */
+export class Client {
+  public readonly storage: SessionStore;
+  public readonly mcpServers: McpServersResource;
+
+  constructor(options: ClientOptions = {}) {
+    this.storage = options.storage ?? sessions;
+    this.mcpServers = new McpServersResource({
+      storage: this.storage,
+    });
+  }
+}
+
+/**
+ * Creates a new configured Client instance.
+ */
+export function createClient(options: ClientOptions = {}): Client {
+  return new Client(options);
+}
+
+/**
+ * Default global client instance.
+ *
+ * @example
+ * ```ts
+ * import { client } from "@mcp-ts/client";
+ *
+ * await client.mcpServers.create({ userId: 'user_123', name: 'Tavily', url: '...' });
+ * const { data: servers } = await client.mcpServers.find({ userId: 'user_123' });
+ * ```
+ */
+export const client = createClient();
 export {
   McpManager,
   type McpManagerOptions,

@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult } from './types.js';
+import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult, SessionFilter } from './types.js';
 import { generateSessionId } from '../../shared/utils.js';
 import {
     mergeSessionUpdate,
@@ -135,6 +135,12 @@ export class FileStorageBackend implements SessionStore {
         return session;
     }
 
+    async findOne(userId: string, filter: SessionFilter, options?: GetOptions): Promise<SessionResult | null> {
+        const [session] = await this.list(userId, { ...filter, limit: 1 });
+        if (!session) return null;
+        return this.get(userId, session.sessionId, options);
+    }
+
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         await this.ensureInitialized();
         const sessionKey = this.getSessionKey(userId, sessionId);
@@ -163,9 +169,30 @@ export class FileStorageBackend implements SessionStore {
         });
     }
 
-    async list(userId: string): Promise<Session[]> {
+    async list(userId: string, filter?: SessionFilter): Promise<Session[]> {
         await this.ensureInitialized();
-        return Array.from(this.memoryCache!.values()).filter(s => s.userId === userId);
+        let sessions = Array.from(this.memoryCache!.values()).filter(s => s.userId === userId);
+
+        if (filter?.serverId) {
+            sessions = sessions.filter(s => s.serverId === filter.serverId);
+        }
+        if (filter?.serverUrl) {
+            sessions = sessions.filter(s => s.serverUrl === filter.serverUrl);
+        }
+        if (filter?.status) {
+            sessions = sessions.filter(s => s.status === filter.status);
+        }
+        if (filter?.enabled !== undefined) {
+            sessions = sessions.filter(s => s.enabled === filter.enabled);
+        }
+        if (filter?.offset) {
+            sessions = sessions.slice(filter.offset);
+        }
+        if (filter?.limit !== undefined) {
+            sessions = sessions.slice(0, filter.limit);
+        }
+
+        return sessions;
     }
 
     async listIds(userId: string): Promise<string[]> {

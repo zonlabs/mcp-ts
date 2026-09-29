@@ -58,7 +58,7 @@ export class MastraAdapter {
         await this.ensureZod();
 
         const result = await client.listTools();
-        const prefix = this.options.prefix ?? client.getServerId?.()?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
+        const prefix = this.options.prefix ?? client.session?.serverId?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
         const tools: Record<string, MastraTool> = {};
 
         for (const tool of result.tools) {
@@ -112,7 +112,7 @@ export class MastraAdapter {
                 try {
                     return await this.transformTools(client);
                 } catch (error) {
-                    console.error(`[MastraAdapter] Failed to fetch tools from ${client.getServerId?.() ?? "unknown"}:`, error);
+                    console.error(`[MastraAdapter] Failed to fetch tools from ${client.session?.serverId ?? "unknown"}:`, error);
                     return {};
                 }
             })

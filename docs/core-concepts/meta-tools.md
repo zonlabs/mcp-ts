@@ -4,7 +4,7 @@ sidebarTitle: "Meta Tools"
 description: "Reference for the Tool Router meta-tools that let LLMs search, list, and execute tools on demand to keep large MCP catalogs out of the context window."
 ---
 
-When the `ToolRouter` is set to the `search` strategy, it hides your real MCP tools and instead exposes a small set of **Meta-Tools**. 
+The `ToolRouter` hides your real MCP tools (except those explicitly declared in `pinnedTools`) and instead exposes a small set of **Meta-Tools**. 
 
 These tools follow the "Tool Search" pattern, allowing the LLM to autonomously find, inspect, and execute relevant capabilities from a massive catalog.
 

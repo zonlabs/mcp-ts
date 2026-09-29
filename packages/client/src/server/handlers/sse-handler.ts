@@ -797,8 +797,15 @@ export class SSEConnectionManager {
     serverId: string,
     serverUrl: string,
   ): Promise<Session | undefined> {
-    const all = await sessions.list(this.userId);
-    return all.find((s) => s.serverId === serverId || s.serverUrl === serverUrl);
+    if (sessions.findOne) {
+      const byServerId = await sessions.findOne(this.userId, { serverId });
+      if (byServerId) return byServerId;
+      return (await sessions.findOne(this.userId, { serverUrl })) ?? undefined;
+    }
+    const [byServerId] = await sessions.list(this.userId, { serverId });
+    if (byServerId) return byServerId;
+    const [byUrl] = await sessions.list(this.userId, { serverUrl });
+    return byUrl ?? undefined;
   }
 
   /** Normalizes a serverId to max 12 chars (DeepSeek/OpenAI 64-char tool-name limit). */

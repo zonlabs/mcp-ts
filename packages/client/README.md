@@ -8,63 +8,57 @@ npm install @mcp-ts/client @modelcontextprotocol/client @modelcontextprotocol/co
 
 ---
 
-## 🏗️ Architecture & Core Concepts
-
-```mermaid
-graph LR
-    subgraph Direct["Direct SDK Flow (TypeScript)"]
-        UI["Browser UI"]
-        Hook["useMcp Hook"]
-        API["Next.js /api/mcp"]
-        Mgr["McpManager"]
-        Store[("Redis / SQLite / File / Memory")]
-        MCP["MCP Servers"]
-
-        UI <--> Hook
-        Hook -- "HTTP RPC" --> API
-        API --> Mgr
-        Mgr -- "SSE events" --> Hook
-        Mgr <--> Store
-        Mgr <--> MCP
-    end
-```
-
-```
-┌────────────────────────────────────────────────────────┐
-│                          mcp                           │  App / Storage root
-│         (Configures durable storage & tenants)         │
-└───────────────────────────┬────────────────────────────┘
-                            │ .user(userId)
-┌───────────────────────────▼────────────────────────────┐
-│                        McpUser                         │  User / Tenant context
-│  (addMcpServer, listMcpServers, finishAuth, listTools) │
-└─────────────┬───────────────────────────┬──────────────┘
-              │                           │
-┌─────────────▼───────────────┐ ┌─────────▼──────────────┐
-│         McpManager          │ │       ToolRouter       │
-│  (Connection pool & cache)  │ │ (Context optimization) │
-└─────────────┬───────────────┘ └─────────┬──────────────┘
-              │                           │
-┌─────────────▼───────────────┐ ┌─────────▼──────────────┐
-│          McpClient          │ │      AI Adapters       │
-│   (OAuth 2.1, SSE/HTTP)     │ │ (AI SDK, LangChain...) │
-└─────────────────────────────┘ └────────────────────────┘
-```
-
-| Class / Module | Purpose | Primary Use Case |
-| :--- | :--- | :--- |
-| **`mcp` / `Mcp`** | App & Storage Root | Zero-config instance or app-wide database configuration |
-| **`McpUser`** | User Context | Adding/listing MCP servers and running tools per user |
-| **`McpClient`** | Single Connection | Direct connection to a single remote MCP server |
-| **`McpManager`** | Connection Pool | High-throughput batch connection management |
-| **`ToolRouter`** | Dynamic Optimization | 80–95% token savings using smart tool discovery |
-| **`AIAdapter`** | Framework Bindings | Turn MCP servers into tools for Vercel AI SDK, LangChain, etc. |
-
----
-
 ## 🚀 Quick Start
 
-### 1. Server-Side (Next.js App Router)
+### 1. Server Management & OAuth (`client.mcpServers`)
+
+Manage MCP server connections, discover OAuth metadata, and handle token flows with standard CRUD:
+
+```typescript
+import { client } from '@mcp-ts/client';
+
+// 1. Discover OAuth capabilities on-demand
+const discovery = await client.mcpServers.discoverOAuth({
+  url: 'https://mcp.exa.ai/mcp?login',
+});
+if (discovery.supported) {
+  console.log('Authorization endpoint:', discovery.authorizationUrl);
+  console.log('CIMD supported:', discovery.clientIdMetadataDocumentSupported);
+}
+
+// 2. Register an MCP server (auto-validates connectivity & auth)
+const server = await client.mcpServers.create({
+  userId: 'user_123',
+  name: 'Exa AI',
+  url: 'https://mcp.exa.ai/mcp?login',
+  auth: {
+    type: 'oauth',
+    config: {
+      clientMetadataUrl: 'https://myapp.com/oauth/client-metadata.json',
+      scopes: ['mcp:tools'],
+    },
+  },
+});
+
+// Check live connection status:
+// If OAuth is required: status = { state: 'auth_required', authorizationUrl: '...' }
+// If server is keyless / open (e.g. Firecrawl): auth auto-resolves to 'none' with state: 'connected'
+if (server.status.state === 'auth_required') {
+  console.log('Redirect user to authorize:', server.status.authorizationUrl);
+}
+
+// 3. Complete OAuth authorization code exchange in your callback route
+await client.mcpServers.finishAuth({
+  userId: 'user_123',
+  code: req.query.code,
+  state: req.query.state,
+});
+
+// 4. List user servers
+const { data } = await client.mcpServers.find({ userId: 'user_123' });
+```
+
+### 2. Server-Side RPC Route (Next.js App Router)
 
 Expose a full MCP endpoint with authentication in your Next.js application:
 
@@ -129,31 +123,42 @@ export function McpControlPanel() {
 
 ---
 
-### 3. Programmatic User-Scoped Management
+### 3. Programmatic Capabilities (`client.mcpServers`)
+
+Execute tools, fetch prompts, and read resources directly on user MCP servers with automatic connection pooling:
 
 ```typescript
-import { mcp } from '@mcp-ts/client';
+import { client } from '@mcp-ts/client';
 
-const user = mcp.user('user_123');
+// 1. List tools and execute directly
+const { tools } = await client.mcpServers.listTools({
+  userId: 'user_123',
+  serverId: 'tavily_search',
+});
 
-// Connect an MCP server (supports SSE & Streamable HTTP)
-const result = await user.addMcpServer('https://mcp.tavily.com/mcp');
+const response = await client.mcpServers.callTool({
+  userId: 'user_123',
+  serverId: 'tavily_search',
+  toolName: 'search',
+  args: { query: 'Model Context Protocol' },
+});
 
-if (result.authRequired) {
-  // Server requires OAuth 2.1 browser sign-in
-  console.log('Redirect user to:', result.authUrl);
-} else {
-  console.log('Server connected! Session ID:', result.sessionId);
-}
+// 2. Work with prompts
+const { prompts } = await client.mcpServers.listPrompts({ userId: 'user_123', serverId: 'assistant' });
+const prompt = await client.mcpServers.getPrompt({
+  userId: 'user_123',
+  serverId: 'assistant',
+  name: 'code_review',
+  args: { diff: '...' },
+});
 
-// In your OAuth callback route:
-await user.finishAuth(code, state, iss);
-
-// List all active user tools across connected servers
-const { tools } = await user.listTools();
-
-// Execute a tool directly
-const response = await user.callTool('tavily_search', { query: 'Model Context Protocol' });
+// 3. Work with resources
+const { resources } = await client.mcpServers.listResources({ userId: 'user_123', serverId: 'fs' });
+const content = await client.mcpServers.readResource({
+  userId: 'user_123',
+  serverId: 'fs',
+  uri: 'file:///workspace/README.md',
+});
 ```
 
 ### OAuth client registration and CIMD
@@ -207,16 +212,18 @@ Pass all user MCP servers seamlessly to `generateText` or `streamText`:
 
 ```typescript
 // app/api/chat/route.ts
-import { mcp } from '@mcp-ts/client';
+import { McpManager } from '@mcp-ts/client';
 import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 export async function POST(req: Request) {
   const { messages, userId } = await req.json();
-  const user = mcp.user(userId);
+  const manager = new McpManager(userId);
+  await manager.connect();
 
-  const tools = await AIAdapter.getTools(user);
+  const adapter = new AIAdapter(manager);
+  const tools = await adapter.getTools();
 
   const result = streamText({
     model: openai('gpt-4o'),
@@ -256,11 +263,14 @@ const tools = await MastraAdapter.getTools(client);
 ### LangChain Adapter
 
 ```typescript
-import { mcp } from '@mcp-ts/client';
+import { McpManager } from '@mcp-ts/client';
 import { LangChainAdapter } from '@mcp-ts/client/adapters/langchain';
 
-const user = mcp.user('user_123');
-const tools = await LangChainAdapter.getTools(user);
+const manager = new McpManager('user_123');
+await manager.connect();
+
+const adapter = new LangChainAdapter(manager);
+const tools = await adapter.getTools();
 ```
 
 ---
@@ -333,24 +343,23 @@ export function ToolRenderer() {
 For users with dozens or hundreds of tools, `ToolRouter` dynamically injects discovery meta-tools (`mcp_search_tools`, `mcp_execute_tool`) into the LLM context, reducing token usage by up to 95%:
 
 ```typescript
-import { mcp, ToolRouter } from '@mcp-ts/client';
-import { AIAdapter } from '@mcp-ts/client/adapters/ai-adapter';
+import { McpManager, ToolRouter } from '@mcp-ts/client';
+import { AIAdapter } from '@mcp-ts/client/adapters/ai';
 
-const user = mcp.user('user_123');
+const manager = new McpManager('user_123');
+await manager.connect();
 
 // 1. Dynamic discovery via ToolRouter (BM25 search + pinned tools):
-const router = new ToolRouter(user, {
+const router = new ToolRouter(manager, {
   pinnedTools: ['slack_send_message'],
 });
 
-const tools = await AIAdapter.getTools(user, {
-  toolRouter: router,
-});
+const adapter = new AIAdapter(manager, { toolRouter: router });
+const tools = await adapter.getTools();
 
 // 2. OR zero-token dynamic context via AI SDK v7 deferLoading:
-const deferredTools = await AIAdapter.getTools(user, {
-  deferLoading: true,
-});
+const deferredAdapter = new AIAdapter(manager, { deferLoading: true });
+const deferredTools = await deferredAdapter.getTools();
 ```
 
 ---
@@ -364,16 +373,14 @@ The library supports multiple durable storage backends out of the box. You can e
 ### Programmatic Configuration
 
 ```typescript
-import { Mcp, sessions } from '@mcp-ts/client';
+import { createClient, RedisStorageBackend } from '@mcp-ts/client';
+import { Redis } from 'ioredis';
 
-// Redis storage
-const mcp = new Mcp({
-  storage: sessions.use('redis', {
-    redisUrl: process.env.REDIS_URL,
-  }),
+// Custom Redis client
+const redis = new Redis(process.env.REDIS_URL!);
+const client = createClient({
+  storage: new RedisStorageBackend(redis),
 });
-
-const user = mcp.user('user_123');
 ```
 
 ### Environment Variable Setup
@@ -418,7 +425,7 @@ const user = mcp.user('user_123');
 
 | Entry Point | Description |
 | :--- | :--- |
-| **`@mcp-ts/client`** | Root exports: `mcp`, `Mcp`, `McpUser`, `McpClient`, `McpManager`, `ToolRouter` |
+| **`@mcp-ts/client`** | Root exports: `createClient`, `Client`, `McpClient`, `McpManager`, `ToolRouter` |
 | **`@mcp-ts/client/adapters/ai`** | Vercel AI SDK integration (`AIAdapter.getTools`) |
 | **`@mcp-ts/client/adapters/langchain`** | LangChain / LangGraph tool binding (`LangChainAdapter.getTools`) |
 | **`@mcp-ts/client/adapters/mastra`** | Mastra agent framework adapter (`MastraAdapter.getTools`) |
@@ -428,6 +435,36 @@ const user = mcp.user('user_123');
 | **`@mcp-ts/client/react`** | React hooks (`useMcp`, `useMcpApps`, `useMcpOAuthPopup`, `McpAppRenderer`) |
 | **`@mcp-ts/client/vue`** | Vue composables (`useMcp`) |
 | **`@mcp-ts/client/shared`** | Shared types, interfaces (`BaseClient`, `ToolClient`), and event emitters |
+
+---
+
+## 📖 `client.mcpServers` API Reference
+
+The `client.mcpServers` resource provides a complete CRUD and OAuth lifecycle manager for user MCP servers:
+
+| Method | Description | Return Type |
+| :--- | :--- | :--- |
+| `client.mcpServers.create(params)` | Registers an MCP server, auto-validates connectivity, and resolves auth. | `Promise<McpServer>` |
+| `client.mcpServers.discoverOAuth(params)` | Discovers OAuth 2.1 metadata (endpoints, CIMD support) for a URL on-demand. | `Promise<McpServersDiscoverOAuthResponse>` |
+| `client.mcpServers.find(params)` / `list(params)` | Lists and filters servers for a user by enabled status or search query. | `Promise<McpServersFindResponse>` |
+| `client.mcpServers.getById(params)` / `get(params)` | Retrieves a specific server configuration by ID. | `Promise<McpServer \| null>` |
+| `client.mcpServers.update(params)` | Applies partial updates to an existing server (name, url, enabled, auth, metadata). | `Promise<McpServer>` |
+| `client.mcpServers.delete(params)` | Removes a server and cleans up active sessions/tokens. | `Promise<McpServersDeleteResponse>` |
+| `client.mcpServers.createOAuthAuthorizationUrl(params)` | Generates a fresh OAuth 2.1 PKCE authorization URL for browser redirect. | `Promise<{ url: string }>` |
+| `client.mcpServers.finishAuth(params)` | Completes OAuth 2.1 PKCE authorization code exchange. | `Promise<McpServer>` |
+| `client.mcpServers.listTools(params)` | Lists available tools from an MCP server. | `Promise<{ tools: Tool[] }>` |
+| `client.mcpServers.callTool(params)` | Executes a tool on an MCP server with arguments. | `Promise<CallToolResult>` |
+| `client.mcpServers.listPrompts(params)` | Lists available prompts from an MCP server. | `Promise<{ prompts: Prompt[] }>` |
+| `client.mcpServers.getPrompt(params)` | Retrieves a specific prompt with parameter substitutions. | `Promise<GetPromptResult>` |
+| `client.mcpServers.listResources(params)` | Lists available resources from an MCP server. | `Promise<{ resources: Resource[] }>` |
+| `client.mcpServers.readResource(params)` | Reads a resource URI from an MCP server. | `Promise<ReadResourceResult>` |
+| `client.mcpServers.listResourceTemplates(params)` | Lists resource URI templates from an MCP server. | `Promise<{ resourceTemplates: ResourceTemplate[] }>` |
+
+### Authentication Modes & Response Redaction
+
+- **`none`**: Keyless servers. Automatically resolved if a server connects without requiring credentials.
+- **`bearer`**: Bearer token credentials. The `token` string is accepted on create/update and strictly omitted from all read responses.
+- **`oauth`**: OAuth 2.1 authentication with Dynamic Client Registration (DCR) and Client ID Metadata Document (CIMD) support. All discovered endpoints, scopes, and CIMD flags are grouped under `auth.config`.
 
 ---
 

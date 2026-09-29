@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult } from './types.js';
+import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult, SessionFilter } from './types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateSessionId } from '../../shared/utils.js';
@@ -49,6 +49,7 @@ export class SqliteStorage implements SessionStore {
                     expiresAt INTEGER
                 );
                 CREATE INDEX IF NOT EXISTS idx_${this.table}_userId ON ${this.table}(userId);
+                CREATE INDEX IF NOT EXISTS idx_${this.table}_user_server ON ${this.table}(userId, json_extract(data, '$.serverId'));
             `);
 
             this.initialized = true;
@@ -101,7 +102,7 @@ export class SqliteStorage implements SessionStore {
             throw new Error('userId and sessionId required');
         }
 
-        const currentSession = await this.get(userId, sessionId);
+        const currentSession = await this.get(userId, sessionId, { includeCredentials: true });
         if (!currentSession) {
             throw new Error(`Session ${sessionId} not found for userId ${userId}`);
         }
@@ -147,6 +148,12 @@ export class SqliteStorage implements SessionStore {
         return session;
     }
 
+    async findOne(userId: string, filter: SessionFilter, options?: GetOptions): Promise<SessionResult | null> {
+        const [session] = await this.list(userId, { ...filter, limit: 1 });
+        if (!session) return null;
+        return this.get(userId, session.sessionId, options);
+    }
+
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         this.ensureInitialized();
         const session = await this.get(userId, sessionId, { includeCredentials: true });
@@ -174,13 +181,41 @@ export class SqliteStorage implements SessionStore {
         });
     }
 
-    async list(userId: string): Promise<Session[]> {
+    async list(userId: string, filter?: SessionFilter): Promise<Session[]> {
         this.ensureInitialized();
 
-        const stmt = this.db!.prepare(
-            `SELECT data FROM ${this.table} WHERE userId = ?`
-        );
-        const rows = stmt.all(userId) as { data: string }[];
+        const conditions: string[] = ['userId = ?'];
+        const params: (string | number)[] = [userId];
+
+        if (filter?.serverId) {
+            conditions.push("json_extract(data, '$.serverId') = ?");
+            params.push(filter.serverId);
+        }
+        if (filter?.serverUrl) {
+            conditions.push("json_extract(data, '$.serverUrl') = ?");
+            params.push(filter.serverUrl);
+        }
+        if (filter?.status) {
+            conditions.push("json_extract(data, '$.status') = ?");
+            params.push(filter.status);
+        }
+        if (filter?.enabled !== undefined) {
+            conditions.push("json_extract(data, '$.enabled') = ?");
+            params.push(filter.enabled ? 1 : 0);
+        }
+
+        let sql = `SELECT data FROM ${this.table} WHERE ${conditions.join(' AND ')}`;
+        if (filter?.limit !== undefined) {
+            sql += ' LIMIT ?';
+            params.push(filter.limit);
+            if (filter?.offset !== undefined) {
+                sql += ' OFFSET ?';
+                params.push(filter.offset);
+            }
+        }
+
+        const stmt = this.db!.prepare(sql);
+        const rows = stmt.all(...params) as { data: string }[];
 
         return rows.map(row => normalizeStoredSession(JSON.parse(row.data) as Session));
     }

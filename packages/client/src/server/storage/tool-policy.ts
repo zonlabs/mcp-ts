@@ -120,14 +120,15 @@ export function normalizeToolPolicyForUpdate(input: ToolPolicyInput, now = Date.
  */
 export function isToolAllowed(policy: ToolPolicy | undefined, toolName: string, serverId?: string): boolean {
     if (!policy || policy.mode === 'all') return true;
-    if (!serverId) return false;
 
-    const toolId = createToolId(serverId, toolName);
+    const namespacedId = serverId ? createToolId(serverId, toolName) : undefined;
+    const matches = policy.toolIds.some((id) => id === toolName || (namespacedId !== undefined && id === namespacedId));
+
     if (policy.mode === 'allowlist') {
-        return policy.toolIds.includes(toolId);
+        return matches;
     }
 
-    return !policy.toolIds.includes(toolId);
+    return !matches;
 }
 
 /**
@@ -186,12 +187,13 @@ export function validateToolPolicyAgainstTools(
     serverId?: string
 ): void {
     if (policy.mode === 'all') return;
-    if (!serverId) {
-        throw new Error('Cannot validate MCP tool policy without a serverId');
-    }
 
-    const availableIds = new Set(tools.map((tool) => createToolId(serverId, tool.name)));
-    const unknownIds = policy.toolIds.filter((id) => !availableIds.has(id));
+    const availableNames = new Set(tools.map((t) => t.name));
+    const availableIds = serverId
+        ? new Set(tools.map((tool) => createToolId(serverId, tool.name)))
+        : new Set<string>();
+
+    const unknownIds = policy.toolIds.filter((id) => !availableNames.has(id) && !availableIds.has(id));
     if (unknownIds.length > 0) {
         throw new Error(`Unknown tool id(s) for this MCP session: ${unknownIds.join(', ')}`);
     }

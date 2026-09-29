@@ -9,12 +9,13 @@ A complete example of wiring MCP into a Next.js app: persistent session storage,
 
 ## 1. App Setup
 
-Create a shared `Mcp` instance backed by your session store. Storage backends are exported from `@mcp-ts/client` (or `@mcp-ts/client`).
+Create a shared client instance backed by your session store. Storage backends are exported from `@mcp-ts/client/storage`.
 
 ```typescript title="lib/mcp.ts"
-import { Mcp } from '@mcp-ts/client';
+import { createClient } from '@mcp-ts/client';
+import { SqliteStorage } from '@mcp-ts/client/storage';
 
-export const mcp = new Mcp({
+export const client = createClient({
   storage: new SqliteStorage({ path: './sessions.db' }),
 });
 ```
@@ -22,15 +23,16 @@ export const mcp = new Mcp({
 <AccordionGroup>
   <Accordion title="Supabase">
   ```typescript title="lib/mcp.ts"
-  import { Mcp } from '@mcp-ts/client';
-  import { createClient } from '@supabase/supabase-js';
+  import { createClient } from '@mcp-ts/client';
+  import { SupabaseStorageBackend } from '@mcp-ts/client/storage';
+  import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
-  const supabase = createClient(
+  const supabase = createSupabaseClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SECRET_KEY!,
   );
 
-  export const mcp = new Mcp({
+  export const client = createClient({
     storage: new SupabaseStorageBackend(supabase),
   });
   ```
@@ -38,19 +40,20 @@ export const mcp = new Mcp({
 
   <Accordion title="Redis">
   ```typescript title="lib/mcp.ts"
-  import { Mcp } from '@mcp-ts/client';
+  import { createClient } from '@mcp-ts/client';
+  import { RedisStorageBackend } from '@mcp-ts/client/storage';
   import { Redis } from 'ioredis';
 
   const redis = new Redis(process.env.REDIS_URL!);
 
-  export const mcp = new Mcp({
+  export const client = createClient({
     storage: new RedisStorageBackend(redis),
   });
   ```
   </Accordion>
 </AccordionGroup>
 
-If you don't configure storage, the exported `mcp` singleton uses in-memory storage (sessions are lost on restart).
+If you don't configure storage, the exported `client` singleton uses in-memory storage (sessions are lost on restart).
 
 ## 2. Server-Side Onboarding
 
@@ -58,21 +61,25 @@ If you don't configure storage, the exported `mcp` singleton uses in-memory stor
 
 ```typescript title="app/api/mcp/add/route.ts"
 import { NextResponse } from 'next/server';
-import { mcp } from '@/lib/mcp';
+import { client } from '@/lib/mcp';
 
 export async function POST(req: Request) {
-  const { userId, serverUrl } = await req.json();
+  const { userId, serverUrl, name } = await req.json();
 
-  const result = await mcp.user(userId).addMcpServer(serverUrl, {
+  const server = await client.mcpServers.create({
+    userId,
+    name: name || 'Custom MCP Server',
+    url: serverUrl,
+    auth: { type: 'oauth' },
     callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/mcp/callback?userId=${userId}`,
   });
 
-  if (result.authRequired) {
+  if (server.status.state === 'auth_required') {
     // Redirect the user to authorize the connection
-    return NextResponse.json({ authUrl: result.authUrl });
+    return NextResponse.json({ authUrl: server.status.authorizationUrl });
   }
 
-  return NextResponse.json({ success: true, sessionId: result.sessionId });
+  return NextResponse.json({ success: true, serverId: server.id });
 }
 ```
 
@@ -80,7 +87,7 @@ export async function POST(req: Request) {
 
 ```typescript title="app/api/mcp/callback/route.ts"
 import { NextResponse } from 'next/server';
-import { mcp } from '@/lib/mcp';
+import { client } from '@/lib/mcp';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -92,7 +99,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Missing required params' }, { status: 400 });
   }
 
-  await mcp.user(userId).finishAuth(code, state);
+  await client.mcpServers.finishAuth({
+    userId,
+    code,
+    state,
+  });
 
   return NextResponse.json({ success: true });
 }
@@ -103,18 +114,19 @@ export async function GET(req: Request) {
 Use `AIAdapter.getTools()` to expose the user's connected MCP tools to the [Vercel AI SDK](https://sdk.vercel.ai/docs).
 
 ```typescript title="app/api/chat/route.ts"
+import { McpManager } from '@mcp-ts/client';
 import { AIAdapter } from '@mcp-ts/client/adapters/ai';
-import { mcp } from '@/lib/mcp';
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 export async function POST(req: Request) {
   const { messages, userId } = await req.json();
 
-  const connection = mcp.user(userId);
-  await connection.connect();
+  const manager = new McpManager(userId);
+  await manager.connect();
 
-  const tools = await AIAdapter.getTools(connection);
+  const adapter = new AIAdapter(manager);
+  const tools = await adapter.getTools();
 
   const result = streamText({
     model: openai('gpt-4o'),

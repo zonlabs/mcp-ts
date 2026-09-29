@@ -10,33 +10,19 @@ When you connect to multiple MCP servers, the total number of tools can easily e
 
 The `ToolRouter` sits between your AI adapter and your MCP clients, allowing you to control exactly how and when tools are exposed to the model.
 
-## Strategies
+## How It Works
 
-The `ToolRouter` supports three primary strategies for tool filtering:
+By default, the `ToolRouter` provides **On-Demand Tool Discovery**: instead of injecting dozens or hundreds of tool schemas into the LLM context, it exposes a minimal set of system **Meta-Tools** (`mcp_search_tools`, `mcp_get_tool_schema`, `mcp_execute_tool`, `mcp_list_servers`, `mcp_search_tool_regex`). 
 
-### 1. The `all` Strategy (Default)
-In this strategy, every discovered tool is passed through to the LLM. 
-- **Pros**: Zero latency, simple configuration.
-- **Cons**: High token usage, limited by the model's context window.
-- **Best for**: Small projects with fewer than 10-15 tools.
+The LLM discovers tools dynamically via search and fetches schemas only when needed.
 
-### 2. The `search` Strategy (Scalability)
-This is the most advanced strategy. Instead of exposing your real tools, the SDK injects 5 system **Meta-Tools**. The LLM then "searches" for the tools it needs on-demand.
-- **Pros**: Virtually unlimited scalability (1000+ tools), minimal token usage, higher accuracy.
-- **Cons**: Requires a 2-turn flow for tool discovery.
-- **Best for**: Enterprise applications and deep tool catalogs.
-
-### 3. The `groups` Strategy (Contextual)
-Expose specific groups of tools based on the current application state or user intent.
-- **Pros**: Highly predictable, manageable token usage.
-- **Cons**: Requires manual group definitions.
-- **Best for**: UI-driven applications where only a subset of capabilities is relevant at a time.
+If certain high-frequency tools should always be immediately visible in the prompt without requiring search lookup, you can pass them in `pinnedTools`.
 
 ---
 
 ## Basic Usage
 
-To use the `ToolRouter`, initialize it with your `McpManager` and pass it to the `AIAdapter`.
+To use the `ToolRouter`, initialize it with your `McpManager` and pass it to your adapter (e.g. `AIAdapter`).
 
 ```typescript
 import { McpManager } from "@mcp-ts/client";
@@ -49,7 +35,7 @@ export async function createMcpAgent(userId: string = "user-123") {
   // Dynamic import for ToolRouter (shared SDK utility)
   const { ToolRouter } = await import("@mcp-ts/client/shared");
   
-  // Configure the router for high scalability (discovery strategy)
+  // Configure the router with pinned tools that are always directly visible
   const router = new ToolRouter(client, { pinnedTools: ["slack_send_message"] });
   
   // Initialize the adapter with the router
@@ -66,17 +52,15 @@ export async function createMcpAgent(userId: string = "user-123") {
 
 | Property | Type | Default | Description |
 | :-- | :-- | :-- | :-- |
-| `pinnedTools` | `string[]` | `[]` | Tools to expose directly alongside meta-tools. |
-| `maxTools` | `number` | `40` | Max tools to return in search results or groups. |
-| `groups` | `Record<string, string[]>` | `null` | Custom tool group definitions. |
-| `activeGroups`| `string[]` | `[]` | Groups to expose when using `groups` strategy. |
+| `pinnedTools` | `string[]` | `[]` | Tools to expose directly alongside meta-tools without search lookup. |
+| `maxTools` | `number` | `40` | Maximum tools to return in search results. |
 | `compactSchemas`| `boolean` | `false` | Strips inputSchemas from all tools to save space. |
 
 ---
 
 ## Advanced: Semantic Search
 
-By default, the `search` strategy uses keyword-based BM25 matching. For even better results, you can provide an `embedFn` to enable semantic search.
+By default, the `ToolRouter` uses keyword-based BM25 matching. For even better results, you can provide an `embedFn` to enable semantic search.
 
 ```typescript
 const router = new ToolRouter(client, {

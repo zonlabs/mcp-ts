@@ -1,7 +1,7 @@
 import type { JSONSchema7 } from 'json-schema';
 import type { ToolSet } from 'ai';
 import { ToolRouter } from '../shared/tool-router.js';
-import type { BaseClient, BaseClientProvider, ToolClient } from '../shared/types.js';
+import type { BaseClient, BaseClientProvider, ToolClient, SessionInfo } from '../shared/types.js';
 import { executeMetaTool, isMetaTool } from '../shared/meta-tools.js';
 
 export interface AIAdapterOptions {
@@ -32,6 +32,7 @@ export interface AIAdapterOptions {
      * If not provided, defaults to checking the tool's `destructiveHint` annotation.
      */
     needsApproval?: (tool: any, args: any) => boolean | Promise<boolean>;
+
 }
 
 /**
@@ -60,12 +61,14 @@ export class AIAdapter {
      */
     private async fetchTools(): Promise<Array<{
         tool: any;
+        session?: SessionInfo;
         serverId?: string;
         execute: (args: any) => Promise<any>;
     }>> {
         const isProvider = typeof (this.client as BaseClientProvider).getClients === 'function';
         if (isProvider) {
             const clients = (this.client as BaseClientProvider).getClients();
+
             const results = await Promise.all(
                 clients.map(async (client) => {
                     const isConnected = typeof client.isConnected === 'function' ? client.isConnected() : false;
@@ -73,36 +76,43 @@ export class AIAdapter {
 
                     try {
                         const res = await client.listTools();
-                        const serverId = client.getServerId?.();
+                        const session = client.session;
+                        const serverId = session?.serverId;
+
                         return (res.tools ?? []).map((tool) => ({
                             tool,
+                            session,
                             serverId,
                             execute: (args: any) => client.callTool(tool.name, args),
                         }));
                     } catch (error) {
-                        const serverId = client.getServerId?.() ?? 'unknown';
+                        const serverId = client.session?.serverId ?? 'unknown';
                         console.error(`[AIAdapter] Failed to fetch tools from ${serverId}:`, error);
                         return [];
                     }
                 })
             );
+
             return results.flat();
         }
 
-        const isConnected = typeof (this.client as BaseClient).isConnected === 'function'
-            ? (this.client as BaseClient).isConnected()
-            : false;
+        const client = this.client as BaseClient;
+        const isConnected = typeof client.isConnected === 'function' ? client.isConnected() : false;
         if (!isConnected) {
             return [];
         }
 
         try {
-            const res = await (this.client as BaseClient).listTools();
-            const serverId = (this.client as BaseClient).getServerId?.();
+            const res = await client.listTools();
+            const session = client.session;
+            const serverId = session?.serverId;
+
+
             return (res.tools ?? []).map((tool) => ({
                 tool,
+                session,
                 serverId,
-                execute: (args: any) => (this.client as BaseClient).callTool(tool.name, args),
+                execute: (args: any) => client.callTool(tool.name, args),
             }));
         } catch (error) {
             console.error('[AIAdapter] Failed to list tools from client:', error);
@@ -116,47 +126,47 @@ export class AIAdapter {
     private transformTools(
         tools: Array<{
             tool: any;
+            session?: SessionInfo;
             serverId?: string;
             execute: (args: any) => Promise<any>;
         }>
     ): ToolSet {
         const isDefer = Boolean(this.options.deferLoading ?? false);
 
-        // @ts-ignore: ToolSet type inference can be tricky with dynamic imports
-        return Object.fromEntries(
-            tools.map(({ tool, serverId, execute }) => {
-                let toolKey: string;
-                if (isDefer) {
-                    const safeName = tool.name.replace(/[^a-zA-Z0-9_-]/g, '_');
-                    toolKey = this.options.prefix ? `tool_${this.options.prefix}_${safeName}` : safeName;
-                } else {
-                    const prefix = this.options.prefix ?? serverId?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
-                    toolKey = `tool_${prefix}_${tool.name}`;
-                }
+        const entries = tools.map(({ tool, session, serverId, execute }) => {
+            let toolKey: string;
+            if (isDefer) {
+                const safeName = tool.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+                toolKey = this.options.prefix ? `tool_${this.options.prefix}_${safeName}` : safeName;
+            } else {
+                const prefix = this.options.prefix ?? serverId?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
+                toolKey = `tool_${prefix}_${tool.name}`;
+            }
 
-                return [
-                    toolKey,
-                    {
-                        description: tool.description || (isDefer ? `MCP Tool: ${tool.name}` : undefined),
-                        inputSchema: this.jsonSchema!((tool.inputSchema as JSONSchema7) ?? { type: 'object' }),
-                        ...(isDefer ? { deferLoading: true } : {}),
-                        execute: async (args: any) => {
-                            try {
-                                return await execute(args ?? {});
-                            } catch (error) {
-                                const errorMessage = error instanceof Error ? error.message : String(error);
-                                throw new Error(`Tool execution failed: ${errorMessage}`);
-                            }
-                        },
-                        needsApproval: this.options.needsApproval
-                            ? (args: any) => this.options.needsApproval!(tool, args)
-                            : (tool.annotations as any)?.destructiveHint === true
-                                ? () => true
-                                : undefined,
+            return [
+                toolKey,
+                {
+                    description: tool.description || (isDefer ? `MCP Tool: ${tool.name}` : undefined),
+                    inputSchema: this.jsonSchema!((tool.inputSchema as JSONSchema7) ?? { type: 'object' }),
+                    ...(isDefer ? { deferLoading: true } : {}),
+                    ...(session ? { mcp: session } : {}),
+                    execute: async (args: any) => {
+                        try {
+                            return await execute(args ?? {});
+                        } catch (error) {
+                            const errorMessage = error instanceof Error ? error.message : String(error);
+                            throw new Error(`Tool execution failed: ${errorMessage}`);
+                        }
                     },
-                ];
-            })
-        );
+                    needsApproval: this.options.needsApproval
+                        ? (args: any) => this.options.needsApproval!(tool, args)
+                        : (tool.annotations as any)?.destructiveHint === true,
+                },
+            ];
+        });
+
+        // @ts-ignore: ToolSet type inference can be tricky with dynamic imports
+        return Object.fromEntries(entries);
     }
 
     /**
@@ -185,76 +195,88 @@ export class AIAdapter {
         const filteredTools = await router.getFilteredTools();
         const isDefer = Boolean(this.options.deferLoading ?? false);
 
+
         const nameCounts = new Map<string, number>();
         for (const tool of filteredTools) {
             nameCounts.set(tool.name, (nameCounts.get(tool.name) ?? 0) + 1);
         }
 
-        // @ts-ignore: ToolSet type inference can be tricky with dynamic imports
-        return Object.fromEntries(
-            filteredTools.map((tool) => {
-                const routedTool = tool as typeof tool & {
-                    sessionId?: string;
-                    serverId?: string;
-                    serverName?: string;
-                    deferLoading?: boolean;
-                };
-                const namespace = routedTool.serverId ?? routedTool.sessionId;
-                const isDuplicate = (nameCounts.get(tool.name) ?? 0) > 1;
+        const entries = filteredTools.map((tool) => {
+            const routedTool = tool as typeof tool & {
+                sessionId?: string;
+                serverId?: string;
+                serverName?: string;
+                serverUrl?: string;
+                metadata?: Record<string, string>;
+                deferLoading?: boolean;
+            };
+            const namespace = routedTool.serverId ?? routedTool.sessionId;
+            const isDuplicate = (nameCounts.get(tool.name) ?? 0) > 1;
 
-                let toolKey: string;
-                if (isMetaTool(tool.name)) {
-                    toolKey = tool.name;
-                } else if (isDefer && !this.options.prefix && !isDuplicate) {
-                    toolKey = tool.name.replace(/[^a-zA-Z0-9_-]/g, '_');
-                } else {
-                    toolKey = this.getRouterToolKey(tool.name, routedTool.sessionId, routedTool.serverId);
-                }
+            let toolKey: string;
+            if (isMetaTool(tool.name)) {
+                toolKey = tool.name;
+            } else if (isDefer && !this.options.prefix && !isDuplicate) {
+                toolKey = tool.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+            } else {
+                toolKey = this.getRouterToolKey(tool.name, routedTool.sessionId, routedTool.serverId);
+            }
 
-                const isPinned = typeof (router as any).isPinned === 'function' ? (router as any).isPinned(tool.name) : false;
-                const deferValue = isPinned ? false : (isDefer && !isMetaTool(tool.name));
+            const isPinned = typeof (router as any).isPinned === 'function' ? (router as any).isPinned(tool.name) : false;
+            const deferValue = isPinned ? false : (isDefer && !isMetaTool(tool.name));
 
-                return [
-                    toolKey,
-                    {
-                        description: tool.description,
-                        inputSchema: this.jsonSchema!(tool.inputSchema as JSONSchema7),
-                        ...(isDefer ? { deferLoading: deferValue } : {}),
-                        execute: async (args: any) => {
-                            if (isMetaTool(tool.name)) {
-                                const result = await executeMetaTool(
-                                    tool.name,
-                                    args,
-                                    router,
-                                    (name, toolArgs, targetNamespace) => router.callTool(name, toolArgs, targetNamespace)
-                                );
-                                if (result) {
-                                    return result;
-                                }
+            const mcp = (routedTool.sessionId || routedTool.serverId) ? {
+                sessionId: routedTool.sessionId ?? '',
+                serverId: routedTool.serverId,
+                serverName: routedTool.serverName ?? routedTool.serverId,
+                serverUrl: routedTool.serverUrl,
+                metadata: routedTool.metadata,
+            } : undefined;
+
+            return [
+                toolKey,
+                {
+                    description: tool.description,
+                    inputSchema: this.jsonSchema!(tool.inputSchema as JSONSchema7),
+                    ...(isDefer ? { deferLoading: deferValue } : {}),
+                    ...(mcp ? { mcp } : {}),
+                    execute: async (args: any) => {
+                        if (isMetaTool(tool.name)) {
+                            const result = await executeMetaTool(
+                                tool.name,
+                                args,
+                                router,
+                                (name, toolArgs, targetNamespace) => router.callTool(name, toolArgs, targetNamespace)
+                            );
+                            if (result) {
+                                return result;
                             }
+                        }
 
-                            return await router.callTool(tool.name, args, namespace);
-                        },
-                        needsApproval: this.options.needsApproval
-                            ? (args: any) => this.options.needsApproval!(tool, args)
-                            : (args: any) => {
-                                if (tool.name === 'mcp_execute_tool') {
-                                    const targetToolName = String(args?.toolName ?? "");
-                                    const targetNamespace = String(args?.serverId ?? "") || undefined;
-                                    if (!targetToolName) return false;
-                                    try {
-                                        const targetTool = router.getToolSchema(targetToolName, targetNamespace);
-                                        return (targetTool as any)?.annotations?.destructiveHint === true;
-                                    } catch {
-                                        return false;
-                                    }
-                                }
-                                return (tool.annotations as any)?.destructiveHint === true;
-                            }
+                        return await router.callTool(tool.name, args, namespace);
                     },
-                ];
-            })
-        );
+                    needsApproval: this.options.needsApproval
+                        ? (args: any) => this.options.needsApproval!(tool, args)
+                        : (args: any) => {
+                            if (tool.name === 'mcp_execute_tool') {
+                                const targetToolName = String(args?.toolName ?? "");
+                                const targetNamespace = String(args?.serverId ?? "") || undefined;
+                                if (!targetToolName) return false;
+                                try {
+                                    const targetTool = router.getToolSchema(targetToolName, targetNamespace);
+                                    return (targetTool as any)?.annotations?.destructiveHint === true;
+                                } catch {
+                                    return false;
+                                }
+                            }
+                            return (tool.annotations as any)?.destructiveHint === true;
+                        }
+                },
+            ];
+        });
+
+        // @ts-ignore: ToolSet type inference can be tricky with dynamic imports
+        return Object.fromEntries(entries);
     }
 
     private getRouterToolKey(toolName: string, sessionId?: string, serverId?: string): string {

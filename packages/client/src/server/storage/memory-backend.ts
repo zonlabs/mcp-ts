@@ -1,4 +1,4 @@
-import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult } from './types.js';
+import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult, SessionFilter } from './types.js';
 import { generateSessionId } from '../../shared/utils.js';
 import { isSessionExpired, mergeSessionUpdate, normalizeNewSession } from './session-lifecycle.js';
 
@@ -81,6 +81,12 @@ export class MemoryStorageBackend implements SessionStore {
         return session;
     }
 
+    async findOne(userId: string, filter: SessionFilter, options?: GetOptions): Promise<SessionResult | null> {
+        const [session] = await this.list(userId, { ...filter, limit: 1 });
+        if (!session) return null;
+        return this.get(userId, session.sessionId, options);
+    }
+
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         const sessionKey = this.getSessionKey(userId, sessionId);
         const session = this.sessions.get(sessionKey);
@@ -113,16 +119,26 @@ export class MemoryStorageBackend implements SessionStore {
         return set ? Array.from(set) : [];
     }
 
-    async list(userId: string): Promise<Session[]> {
+    async list(userId: string, filter?: SessionFilter): Promise<Session[]> {
         const set = this.userIdSessions.get(userId);
         if (!set) return [];
 
-        const results: Session[] = [];
+        let results: Session[] = [];
         for (const sessionId of set) {
             const session = this.sessions.get(this.getSessionKey(userId, sessionId));
-            if (session) {
-                results.push(session);
-            }
+            if (!session) continue;
+            if (filter?.serverId && session.serverId !== filter.serverId) continue;
+            if (filter?.serverUrl && session.serverUrl !== filter.serverUrl) continue;
+            if (filter?.status && session.status !== filter.status) continue;
+            if (filter?.enabled !== undefined && session.enabled !== filter.enabled) continue;
+            results.push(session);
+        }
+
+        if (filter?.offset) {
+            results = results.slice(filter.offset);
+        }
+        if (filter?.limit !== undefined) {
+            results = results.slice(0, filter.limit);
         }
         return results;
     }

@@ -20,9 +20,12 @@ function createRouterClient(
 ) {
     return {
         isConnected: () => true,
-        getServerId: () => serverId,
-        getServerName: () => serverName,
-        getSessionId: () => `${serverId}-session`,
+        session: {
+            serverId,
+            serverName,
+            sessionId: `${serverId}-session`,
+            serverUrl: `http://${serverId}`,
+        },
         listTools: async () => ({
             tools: tools.map((tool) => ({
                 inputSchema: { type: 'object' as const, properties: {} },
@@ -155,7 +158,7 @@ test.describe('executeMetaTool', () => {
         }));
         const router = new ToolRouter([
             createRouterClient('database-server', 'Database MCP', databaseTools) as any,
-        ], { strategy: 'search' });
+        ]);
 
         const result = await executeMetaTool(
             'mcp_search_tools',
@@ -179,7 +182,7 @@ test.describe('executeMetaTool', () => {
             createRouterClient('web-server', 'Web Search', [
                 { name: 'web_search', description: 'Search the web' },
             ]) as any,
-        ], { strategy: 'search' });
+        ]);
 
         const result = await executeMetaTool(
             'mcp_search_tools',
@@ -207,7 +210,7 @@ test.describe('executeMetaTool', () => {
                     },
                 },
             ]) as any,
-        ], { strategy: 'search' });
+        ]);
 
         const result = await executeMetaTool(
             'mcp_search_tools',
@@ -228,7 +231,7 @@ test.describe('executeMetaTool', () => {
             createRouterClient('database-server', 'Database MCP', [
                 { name: 'list_tables', description: 'List tables' },
             ]) as any,
-        ], { strategy: 'search' });
+        ]);
 
         const result = await executeMetaTool(
             'mcp_list_servers',
@@ -248,7 +251,7 @@ test.describe('executeMetaTool', () => {
             createRouterClient('web-server', 'Web Search', [
                 { name: 'web_search', description: 'Search the web' },
             ]) as any,
-        ], { strategy: 'search' });
+        ]);
 
         const result = await executeMetaTool(
             'mcp_search_tools',
@@ -265,7 +268,7 @@ test.describe('executeMetaTool', () => {
             createRouterClient('database-server', 'Database MCP', [
                 { name: 'list_tables', description: 'List database tables' },
             ]) as any,
-        ], { strategy: 'search' });
+        ]);
 
         const result = await executeMetaTool(
             'mcp_search_tools',
@@ -285,7 +288,7 @@ test.describe('executeMetaTool', () => {
                 createRouterClient('database-server', 'Database MCP', [
                     { name: 'list_tables', description: 'List database tables' },
                 ]) as any,
-            ], { strategy: 'search' });
+            ]);
 
             const result = await executeMetaTool(
                 'mcp_search_tools',
@@ -339,7 +342,7 @@ test.describe('executeMetaTool', () => {
                 createRouterClient('database-server', 'Database MCP', [
                     { name: 'list_tables', description: 'List database tables' },
                 ]) as any,
-            ], { strategy: 'search' });
+            ]);
 
             const result = await executeMetaTool(
                 'mcp_search_tools',
@@ -357,7 +360,7 @@ test.describe('executeMetaTool', () => {
                 createRouterClient('database-server', 'Database MCP', [
                     { name: 'list_tables', description: 'List database tables' },
                 ]) as any,
-            ], { strategy: 'search' });
+            ]);
 
             const result = await executeMetaTool(
                 'mcp_search_tools',
@@ -404,7 +407,6 @@ test.describe('executeMetaTool', () => {
                     { name: 'workflow_status', description: 'Report workflow status' },
                 ]) as any,
             ], {
-                strategy: 'search',
                 pinnedTools: ['codemode_run'],
             });
 
@@ -451,7 +453,6 @@ test.describe('executeMetaTool', () => {
                     { name: 'web_status', description: 'Report current web search status' },
                 ]) as any,
             ], {
-                strategy: 'search',
                 pinnedTools: ['web_search'],
                 excludeTools: ['web_search'],
             });
@@ -523,9 +524,7 @@ test.describe('executeMetaTool', () => {
             createRouterClient('github-server', 'GitHub', [
                 { name: 'search_issues', description: 'Search issues' },
             ]) as any,
-        ], {
-            strategy: 'search',
-        });
+        ]);
 
         expect(router.getToolSchema('search_issues')).toBeUndefined();
 

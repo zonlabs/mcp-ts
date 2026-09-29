@@ -1,5 +1,5 @@
-import type { Tool, ListToolsResult, CallToolResult, Implementation } from "@modelcontextprotocol/client";
-import type { ToolClient } from '../../shared/types.js';
+import type { Tool, ListToolsResult, CallToolResult } from "@modelcontextprotocol/client";
+import type { ToolClient, SessionInfo } from '../../shared/types.js';
 import { sessions } from '../storage/index.js';
 import type { Session } from '../storage/types.js';
 import { assertToolAllowed, filterToolsByPolicy } from '../storage/tool-policy.js';
@@ -13,7 +13,6 @@ type RawToolClient = ToolClient & {
     fetchTools(): Promise<Tool[]>;
     listTools(): Promise<{ tools: Tool[] }>;
     callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult>;
-    getServerInfo?(): Implementation | undefined;
 };
 
 /**
@@ -41,41 +40,10 @@ export class ToolPolicyGateway implements ToolClient {
     }
 
     /**
-     * Returns the server ID from the underlying client, if available.
+     * Returns the safe session info from the underlying client.
      */
-    getServerId(): string | undefined {
-        return this.client.getServerId?.();
-    }
-
-    /**
-     * Returns the full server metadata from the underlying client, if available.
-     * Includes name, version, icons, title, description, and website URL.
-     * Available only after the client has connected and completed initialization.
-     */
-    getServerInfo(): Implementation | undefined {
-        return this.client.getServerInfo?.();
-    }
-
-    /**
-     * Returns the human-readable server name from the underlying client, if available.
-     */
-    getServerName(): string | undefined {
-        return this.client.getServerName?.();
-    }
-
-    /**
-     * Returns the server URL from the underlying client, if available.
-     */
-    getServerUrl(): string | undefined {
-        return this.client.getServerUrl?.();
-    }
-
-    /**
-     * Returns the session ID — prefers the value reported by the underlying
-     * client, falling back to the one injected at construction time.
-     */
-    getSessionId(): string {
-        return this.client.getSessionId?.() ?? this.sessionId;
+    get session(): SessionInfo | undefined {
+        return this.client.session;
     }
 
     /**
@@ -163,7 +131,7 @@ export class ToolPolicyGateway implements ToolClient {
      * to the server ID stored on the session record.
      */
     private getPolicyServerId(session: Session): string | undefined {
-        return this.client.getServerId?.() ?? session.serverId;
+        return this.client.session?.serverId ?? session.serverId;
     }
 }
 

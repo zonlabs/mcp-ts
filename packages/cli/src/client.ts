@@ -81,6 +81,14 @@ export class McpEndpointClient implements ToolClient {
   getServerName(): string { return this.endpoint.hostname; }
   getServerUrl(): string { return this.endpoint.toString(); }
   getSessionId(): string { return `cli:${this.serverId}`; }
+  get session() {
+    return {
+      sessionId: `cli:${this.serverId}`,
+      serverId: this.serverId,
+      serverName: this.endpoint.hostname,
+      serverUrl: this.endpoint.toString(),
+    };
+  }
 
   async close(): Promise<void> {
     const connection = this.connection;

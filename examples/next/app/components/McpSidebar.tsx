@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { nanoid } from "nanoid";
-import { PanelLeftClose } from "lucide-react";
+import { PanelLeftClose, Server } from "lucide-react";
 import { useState } from "react";
 import { useMcpOAuthPopup, type McpClient } from "@mcp-ts/client/react";
 import { Button } from "@/components/ui/button";
@@ -155,6 +156,14 @@ export default function McpSidebar({ mcpClient, onCollapse }: McpSidebarProps) {
             </span>
           </div>
         </div>
+        <Link
+          href="/servers"
+          className="flex items-center gap-1.5 text-[11px] font-medium text-violet-400 hover:text-violet-300 px-2 py-1 rounded-md border border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20 transition-colors shrink-0"
+          title="Manage MCP Servers API"
+        >
+          <Server className="size-3" />
+          <span>Servers</span>
+        </Link>
         <Button
           type="button"
           variant="ghost"

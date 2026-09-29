@@ -59,6 +59,33 @@ export type {
   ListToolsRpcResult,
   ListPromptsResult,
   ListResourcesResult,
+  McpServer,
+  McpServerAuth,
+  McpServerAuthRequest,
+  McpServersFindParameters,
+  McpServersFindResponse,
+  McpServersCreateParameters,
+  McpServersGetByIdParameters,
+  McpServersUpdateParameters,
+  McpServersDeleteParameters,
+  McpServersDeleteResponse,
+  McpServersCreateOAuthUrlParameters,
+  McpServersCreateOAuthUrlResponse,
+  McpServerOAuthAuthorization,
+  McpServersFinishAuthParameters,
+  McpServersDiscoverOAuthParameters,
+  McpServersDiscoverOAuthResponse,
+  McpServersListToolsParameters,
+  McpServersListToolsResponse,
+  McpServersCallToolParameters,
+  McpServersListPromptsParameters,
+  McpServersListPromptsResponse,
+  McpServersGetPromptParameters,
+  McpServersListResourcesParameters,
+  McpServersListResourcesResponse,
+  McpServersReadResourceParameters,
+  McpServersListResourceTemplatesParameters,
+  McpServersListResourceTemplatesResponse,
 } from './types';
 
 export {
@@ -82,7 +109,6 @@ export {
   ToolRouter,
   type ToolRouterOptions,
   type ToolRouterClientInput,
-  type ToolGroupInfo,
 } from './tool-router.js';
 
 export {

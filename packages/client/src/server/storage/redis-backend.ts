@@ -1,5 +1,5 @@
 import type { Redis } from 'ioredis';
-import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult } from './types.js';
+import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult, SessionFilter } from './types.js';
 import { generateSessionId } from '../../shared/utils.js';
 import {
     mergeSessionUpdate,
@@ -173,6 +173,12 @@ export class RedisStorageBackend implements SessionStore {
         }
     }
 
+    async findOne(userId: string, filter: SessionFilter, options?: GetOptions): Promise<SessionResult | null> {
+        const [session] = await this.list(userId, { ...filter, limit: 1 });
+        if (!session) return null;
+        return this.get(userId, session.sessionId, options);
+    }
+
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         const session = await this.get(userId, sessionId, { includeCredentials: true });
         if (!session) return null;
@@ -204,7 +210,7 @@ export class RedisStorageBackend implements SessionStore {
         return sessions.map((session) => session.sessionId);
     }
 
-    async list(userId: string): Promise<Session[]> {
+    async list(userId: string, filter?: SessionFilter): Promise<Session[]> {
         try {
             const userIdKey = this.getUserIdKey(userId);
             const sessionIds = await this.redis.smembers(userIdKey);
@@ -222,9 +228,30 @@ export class RedisStorageBackend implements SessionStore {
                 await this.redis.srem(userIdKey, ...staleSessionIds);
             }
 
-            return results
+            let sessions = results
                 .filter((session): session is Session => session !== null)
                 .map((session) => normalizeStoredSession(session));
+
+            if (filter?.serverId) {
+                sessions = sessions.filter(s => s.serverId === filter.serverId);
+            }
+            if (filter?.serverUrl) {
+                sessions = sessions.filter(s => s.serverUrl === filter.serverUrl);
+            }
+            if (filter?.status) {
+                sessions = sessions.filter(s => s.status === filter.status);
+            }
+            if (filter?.enabled !== undefined) {
+                sessions = sessions.filter(s => s.enabled === filter.enabled);
+            }
+            if (filter?.offset) {
+                sessions = sessions.slice(filter.offset);
+            }
+            if (filter?.limit !== undefined) {
+                sessions = sessions.slice(0, filter.limit);
+            }
+
+            return sessions;
         } catch (error) {
             console.error(`[RedisStorageBackend] Failed to get session data for ${userId}:`, error);
             return [];

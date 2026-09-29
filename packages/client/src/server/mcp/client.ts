@@ -6,6 +6,7 @@ import { isTransportNotImplemented } from './errors.js';
 import { Emitter, type McpConnectionEvent, type McpObservabilityEvent, type McpConnectionState } from '../../shared/events.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 import { sessions } from '../storage/index.js';
+import type { SessionInfo } from '../../shared/types.js';
 import type { Session, SessionStatus, SessionStore, StoredMcpSdkClientOptions, StoredMcpTransportOptions, StoredMcpServerOptions } from '../storage/types.js';
 import {
   MCP_CLIENT_NAME,
@@ -69,9 +70,9 @@ function mergeMcpSdkClientOptions(
   };
   const capabilities = persisted?.capabilities || override?.capabilities
     ? {
-        ...persisted?.capabilities,
-        ...override?.capabilities,
-      }
+      ...persisted?.capabilities,
+      ...override?.capabilities,
+    }
     : undefined;
 
   if (capabilities && Object.keys(extensions).length > 0) {
@@ -83,9 +84,9 @@ function mergeMcpSdkClientOptions(
     ...override,
     versionNegotiation: persisted?.versionNegotiation || override?.versionNegotiation
       ? {
-          ...persisted?.versionNegotiation,
-          ...override?.versionNegotiation,
-        }
+        ...persisted?.versionNegotiation,
+        ...override?.versionNegotiation,
+      }
       : undefined,
     capabilities,
   };
@@ -320,11 +321,11 @@ export class McpClient {
   private async closeRestoredListSubscription(): Promise<void> {
     const subscription = this._restoredListSubscription;
     this._restoredListSubscription = undefined;
-    await subscription?.close().catch(() => {});
+    await subscription?.close().catch(() => { });
   }
 
   /** Shared session-shaped data for ensureSession and saveSession */
-  private get session() {
+  private get storageSession() {
     return {
       sessionId: this.config.sessionId,
       userId: this.config.userId,
@@ -460,7 +461,7 @@ export class McpClient {
 
         try {
           const response = await fetch(url, { ...init, signal });
-          
+
           const hasSessionHeader = init?.headers && new Headers(init.headers as HeadersInit).has('mcp-session-id');
 
           if (response.status === 404 && hasSessionHeader) {
@@ -593,7 +594,7 @@ export class McpClient {
         id: nanoid(),
       });
       await this._store.create({
-        ...this.session,
+        ...this.storageSession,
         updatedAt,
         status: 'pending',
       });
@@ -631,7 +632,7 @@ export class McpClient {
         }
       }
       await this._store.update(this.config.userId, this.config.sessionId, {
-        ...this.session,
+        ...this.storageSession,
         status,
       });
       return;
@@ -640,12 +641,12 @@ export class McpClient {
     const existing = await this._store.get(this.config.userId, this.config.sessionId);
     if (!existing) {
       await this._store.create({
-        ...this.session,
+        ...this.storageSession,
         status,
       });
     } else {
       await this._store.update(this.config.userId, this.config.sessionId, {
-        ...this.session,
+        ...this.storageSession,
         status,
       });
     }
@@ -685,7 +686,7 @@ export class McpClient {
     } catch (connectError) {
       if (currentType === 'streamable-http' && isTransportNotImplemented(connectError)) {
         if (this.client.transport) {
-          try { await this.client.close(); } catch {}
+          try { await this.client.close(); } catch { }
         }
         const sseTransport = this.getTransport('sse');
         this.transport = sseTransport;
@@ -788,11 +789,11 @@ export class McpClient {
               : `OAuth authorization URL not available: ${detail}`;
           this.emitError(message, 'auth');
           this.emitStateChange('FAILED');
-          
+
           // Remove terminal setup failures immediately. Active sessions are not
           // deleted here because this branch only runs before OAuth is available.
           await this.deleteTransientSession();
-          
+
           throw new Error(message);
         }
 
@@ -889,13 +890,13 @@ export class McpClient {
       // or instantiate a fresh transport if none was previously initialized.
       const authTransport = this.transport ?? this.getTransport(currentType);
       await (authTransport as any).finishAuth(authCode, effectiveIss);
-      
+
       this.emitStateChange('AUTHENTICATED');
       this.emitStateChange('CONNECTING');
 
       // Detach any prior unauthenticated transport from the SDK Client
       if (this.client.transport) {
-        try { await this.client.close(); } catch {}
+        try { await this.client.close(); } catch { }
       }
 
       const { transport } = await this.tryConnect();
@@ -1281,7 +1282,7 @@ export class McpClient {
     } catch (error) {
       if (!(error instanceof Error && error.message.includes('MCP_SESSION_EXPIRED'))) throw error;
       if (this.client.transport) {
-        try { await this.client.close(); } catch {}
+        try { await this.client.close(); } catch { }
         this.transport = null;
       }
       await this.reconnect();
@@ -1364,7 +1365,7 @@ export class McpClient {
     }
 
     if (this.client.transport) {
-      try { await this.client.close(); } catch {}
+      try { await this.client.close(); } catch { }
     }
     this.oauthProvider = null;
     this.transport = null;
@@ -1409,14 +1410,6 @@ export class McpClient {
   }
 
   /**
-   * Gets the server URL
-   * @returns Server URL or empty string if not set
-   */
-  getServerUrl(): string {
-    return this.config.serverUrl || '';
-  }
-
-  /**
    * Gets the OAuth callback URL
    * @returns Callback URL or empty string if not set
    */
@@ -1432,14 +1425,6 @@ export class McpClient {
     return this.getConfiguredTransportType();
   }
 
-  /**
-   * Gets the full server metadata from the MCP initialize response.
-   * Includes name, version, icons, title, description, and website URL.
-   * Returns undefined if the client hasn't connected yet.
-   */
-  getServerInfo(): Implementation | undefined {
-    return this._serverInfo;
-  }
   /** Gets the MCP protocol version negotiated by the SDK connection. */
   getNegotiatedProtocolVersion(): string | undefined {
     return this._negotiatedProtocolVersion;
@@ -1455,32 +1440,15 @@ export class McpClient {
     return this._discoverResult;
   }
 
-  /**
-   * Gets the human-readable server name.
-   * Prefers the server's reported title/name from the initialize response,
-   * falling back to the name provided at construction or session metadata.
-   * @returns Server name or undefined
-   */
-  getServerName(): string | undefined {
-    // Temporarily avoid deriving serverName from serverVersion metadata.
-    // const info = (this.client as any)?.getServerVersion();
-    // return info?.title ?? info?.name ?? this.config.serverName;
-    return this.config.serverName;
-  }
-
-  /**
-   * Gets the server ID
-   * @returns Server ID or undefined
-   */
-  getServerId(): string | undefined {
-    return this.config.serverId;
-  }
-
-  /**
-   * Gets the session ID
-   * @returns Session ID
-   */
-  getSessionId(): string {
-    return this.config.sessionId;
+  /** Returns the current session. */
+  get session(): SessionInfo {
+    return {
+      sessionId: this.config.sessionId,
+      serverId: this.config.serverId,
+      serverName: this.config.serverName,
+      serverUrl: this.config.serverUrl,
+      metadata: this.config.metadata,
+      serverInfo: this._serverInfo,
+    };
   }
 }

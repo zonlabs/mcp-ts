@@ -23,9 +23,11 @@ function activeSession(overrides: Record<string, unknown> = {}) {
 function rawClient(overrides: Record<string, unknown> = {}) {
   return {
     isConnected: () => true,
-    getSessionId: () => 'policy-session',
-    getServerId: () => 'github',
-    getServerName: () => 'GitHub',
+    session: {
+      sessionId: 'policy-session',
+      serverId: 'github',
+      serverName: 'GitHub',
+    },
     fetchTools: async () => [
       { name: 'get_issue', description: 'Read issue' },
       { name: 'create_issue', description: 'Write issue' },

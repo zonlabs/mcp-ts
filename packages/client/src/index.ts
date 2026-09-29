@@ -1,21 +1,17 @@
 /**
  * MCP TS — Model Context Protocol Client & Multi-Server Manager
  *
- * High-performance MCP client with OAuth 2.1 (PKCE & DCR), durable multi-tenant session
- * management across Redis, Supabase, Neon, and SQLite, and dynamic context-window optimization.
- *
  * @packageDocumentation
  */
 
 export {
-  Mcp,
-  mcp,
-  McpUser,
-  type McpOptions,
-  type McpUserOptions,
-  type AddMcpServerOptions,
-  type AddMcpServerResult,
-} from './server/mcp/mcp.js';
+  client,
+  createClient,
+  Client,
+  type ClientOptions,
+  McpServersResource,
+  type McpServersResourceOptions,
+} from './server/index.js';
 
 export {
   McpClient,

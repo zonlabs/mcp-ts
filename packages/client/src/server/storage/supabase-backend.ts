@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult } from './types.js';
+import type { SessionStore, Session, SessionCredentials, GetOptions, SessionResult, SessionFilter } from './types.js';
 import { generateSessionId } from '../../shared/utils.js';
 import { encryptObject, decryptObject } from './crypto.js';
 import { resolveSessionExpiresAt } from './session-lifecycle.js';
@@ -220,6 +220,39 @@ export class SupabaseStorageBackend implements SessionStore {
         return this.mapRowToSessionData(data);
     }
 
+    async findOne(userId: string, filter: SessionFilter, options?: GetOptions): Promise<SessionResult | null> {
+        const selection = options?.includeCredentials
+            ? '*'
+            : 'session_id, user_id, server_id, server_name, server_url, server_options, callback_url, created_at, updated_at, expires_at, headers, auth_url, status, tool_policy, enabled, metadata';
+
+        let query = this.supabase
+            .from('mcp_sessions')
+            .select(selection)
+            .eq('user_id', userId);
+
+        if (filter.serverId) {
+            query = query.eq('server_id', filter.serverId);
+        }
+        if (filter.serverUrl) {
+            query = query.eq('server_url', filter.serverUrl);
+        }
+        if (filter.status) {
+            query = query.eq('status', filter.status);
+        }
+        if (filter.enabled !== undefined) {
+            query = query.eq('enabled', filter.enabled);
+        }
+
+        const { data, error } = await query.maybeSingle();
+        if (error) {
+            console.error('[SupabaseStorage] Failed to find session:', error);
+            return null;
+        }
+
+        if (!data) return null;
+        return this.mapRowToSessionData(data);
+    }
+
     async getCredentials(userId: string, sessionId: string): Promise<SessionCredentials | null> {
         const { data, error } = await this.supabase
             .from('mcp_sessions')
@@ -247,12 +280,31 @@ export class SupabaseStorageBackend implements SessionStore {
         };
     }
 
-    async list(userId: string): Promise<Session[]> {
-        const { data, error } = await this.supabase
+    async list(userId: string, filter?: SessionFilter): Promise<Session[]> {
+        let query = this.supabase
             .from('mcp_sessions')
             .select('*')
             .eq('user_id', userId);
 
+        if (filter?.serverId) {
+            query = query.eq('server_id', filter.serverId);
+        }
+        if (filter?.serverUrl) {
+            query = query.eq('server_url', filter.serverUrl);
+        }
+        if (filter?.status) {
+            query = query.eq('status', filter.status);
+        }
+        if (filter?.enabled !== undefined) {
+            query = query.eq('enabled', filter.enabled);
+        }
+        if (filter?.offset !== undefined && filter?.limit !== undefined) {
+            query = query.range(filter.offset, filter.offset + filter.limit - 1);
+        } else if (filter?.limit !== undefined) {
+            query = query.limit(filter.limit);
+        }
+
+        const { data, error } = await query;
         if (error) {
             console.error(`[SupabaseStorage] Failed to get session data for ${userId}:`, error);
             return [];

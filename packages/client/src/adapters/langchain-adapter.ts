@@ -65,7 +65,7 @@ export class LangChainAdapter {
         await this.ensureDependencies();
 
         const result = await client.listTools();
-        const prefix = this.options.prefix ?? client.getServerId?.()?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
+        const prefix = this.options.prefix ?? client.session?.serverId?.replace(/-/g, '').substring(0, 8) ?? 'mcp';
 
         return result.tools.map((tool) => {
             // In a real implementation, you would use a library like 'json-schema-to-zod'
@@ -126,7 +126,7 @@ export class LangChainAdapter {
                 try {
                     return await this.transformTools(client);
                 } catch (error) {
-                    console.error(`[LangChainAdapter] Failed to fetch tools from ${client.getServerId?.() ?? "unknown"}:`, error);
+                    console.error(`[LangChainAdapter] Failed to fetch tools from ${client.session?.serverId ?? "unknown"}:`, error);
                     return [];
                 }
             })
