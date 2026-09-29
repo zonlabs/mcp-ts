@@ -185,6 +185,8 @@ export async function PATCH(req: Request, context: RouteContext) {
 
 /**
  * DELETE /api/projects/:id/shares
+ * - Owner: can remove any collaborator by email param/body
+ * - Non-owner collaborator: can leave (removes their own share row, no email needed)
  */
 export async function DELETE(req: Request, context: RouteContext) {
   const { id: projectId } = await context.params;
@@ -211,10 +213,37 @@ export async function DELETE(req: Request, context: RouteContext) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.user_id !== user.id) {
-    return NextResponse.json({ error: "Only the project owner can remove collaborators" }, { status: 403 });
+  const isOwner = project.user_id === user.id;
+
+  // Non-owners can only leave (remove their own share)
+  if (!isOwner) {
+    const userEmail = user.email?.toLowerCase();
+    if (!userEmail) {
+      return NextResponse.json({ error: "Cannot determine your email" }, { status: 400 });
+    }
+
+    const { data: deleted, error: deleteError } = await supabase
+      .from("project_shares")
+      .delete()
+      .eq("project_id", projectId)
+      .ilike("email", userEmail)
+      .select("id");
+
+    if (deleteError) {
+      console.error("[api/projects/shares] Leave error:", deleteError);
+      return NextResponse.json({ error: "Failed to leave project" }, { status: 500 });
+    }
+
+    // RLS can silently filter deletes to zero rows — treat that as a failure
+    if (!deleted?.length) {
+      console.error("[api/projects/shares] Leave deleted no rows for project:", projectId);
+      return NextResponse.json({ error: "Failed to leave project" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, left: true });
   }
 
+  // Owner: remove a specific collaborator by email
   const body = await req.json().catch(() => ({}));
   const rawEmail = emailParam || (typeof body.email === "string" ? body.email : "");
   const email = rawEmail.trim().toLowerCase();

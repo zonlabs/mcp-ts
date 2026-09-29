@@ -410,3 +410,37 @@ export function useRenameProject() {
     },
   });
 }
+
+/**
+ * Mutation hook for a non-owner collaborator to leave (remove themselves from) a shared project.
+ * Calls DELETE /api/projects/:id/shares without a body — the server identifies the caller by session email.
+ *
+ * @returns TanStack Query mutation object for leaving a project.
+ */
+export function useLeaveProject() {
+  const queryClient = useQueryClient();
+  const { removeProject } = useSidebarProjects({ enabled: false });
+
+  return useMutation<{ success?: boolean; left?: boolean }, Error, string, { previousProjects?: { projects: Project[] }; previousProject?: any }>({
+    mutationFn: (projectId: string) => projectsApi.leaveShared(projectId),
+    onMutate: async (projectId) => {
+      const previousProjects = queryClient.getQueryData<{ projects: Project[] }>(SIDEBAR_PROJECTS_QUERY_KEY);
+      const previousProject = queryClient.getQueryData(["project", projectId]);
+      removeProject(projectId);
+      return { previousProjects, previousProject };
+    },
+    onSuccess: () => {
+      toast.success("You have left the project");
+    },
+    onError: (err: any, projectId, context) => {
+      if (context?.previousProjects) {
+        queryClient.setQueryData(SIDEBAR_PROJECTS_QUERY_KEY, context.previousProjects);
+      }
+      if (context?.previousProject) {
+        queryClient.setQueryData(["project", projectId], context.previousProject);
+      }
+      console.error("[useLeaveProject] Error:", err);
+      toast.error(err?.message || "Failed to leave project");
+    },
+  });
+}

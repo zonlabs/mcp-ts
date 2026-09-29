@@ -100,4 +100,11 @@ export const projectsApi = {
     }
     return res.download_url;
   },
+  /**
+   * Leave a shared project (non-owner self-removal from project_shares).
+   */
+  leaveShared: (projectId: string) =>
+    apiClient<{ success?: boolean; left?: boolean }>(`/api/projects/${projectId}/shares`, {
+      method: "DELETE",
+    }),
 };

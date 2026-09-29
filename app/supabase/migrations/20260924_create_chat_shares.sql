@@ -211,6 +211,7 @@ drop policy if exists "project_shares_owner_delete" on public.project_shares;
 create policy "project_shares_owner_delete" on public.project_shares
   for delete using (
     public.is_project_owner(project_id, auth.uid())
+    or lower(email) = lower(auth.jwt() ->> 'email')
   );
 
 -- Update chat_shares select to allow invited user

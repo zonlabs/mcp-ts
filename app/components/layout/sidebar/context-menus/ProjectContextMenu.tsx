@@ -12,9 +12,10 @@ import {
   PinOff,
   Pin,
   Trash2,
+  LogOut,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useUpdateProject, useDeleteProject } from "@/lib/hooks/use-projects";
+import { useUpdateProject, useDeleteProject, useLeaveProject } from "@/lib/hooks/use-projects";
 import type { Project } from "@/lib/projects";
 import {
   DropdownMenu,
@@ -59,11 +60,15 @@ export function ProjectContextMenu({
   const pathname = usePathname();
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();
+  const leaveProject = useLeaveProject();
 
   const [open, setOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [renameName, setRenameName] = useState(project.name);
+
+  const isCollaborator = Boolean(project.role && project.role !== "owner");
 
   const handleShare = async () => {
     try {
@@ -108,6 +113,19 @@ export function ProjectContextMenu({
       onProjectDeleted?.(project.id);
       if (pathname === `/projects/${project.id}` || pathname.startsWith(`/projects/${project.id}/`)) {
         router.push("/");
+      }
+    } catch {
+      // Handled by mutation toast
+    }
+  };
+
+  const handleLeave = async () => {
+    if (leaveProject.isPending) return;
+    try {
+      await leaveProject.mutateAsync(project.id);
+      setLeaveOpen(false);
+      if (pathname === `/projects/${project.id}` || pathname.startsWith(`/projects/${project.id}/`)) {
+        router.push("/mcp");
       }
     } catch {
       // Handled by mutation toast
@@ -191,17 +209,31 @@ export function ProjectContextMenu({
               <><Pin className="size-4 text-muted-foreground" /><span>Pin project</span></>
             )}
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              setOpen(false);
-              setDeleteOpen(true);
-            }}
-            className="gap-2.5 py-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-          >
-            <Trash2 className="size-4" />
-            <span>Delete project</span>
-          </DropdownMenuItem>
+          {isCollaborator ? (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setOpen(false);
+                setLeaveOpen(true);
+              }}
+              className="gap-2.5 py-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+            >
+              <LogOut className="size-4" />
+              <span>Leave project</span>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setOpen(false);
+                setDeleteOpen(true);
+              }}
+              className="gap-2.5 py-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+            >
+              <Trash2 className="size-4" />
+              <span>Delete project</span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -266,6 +298,29 @@ export function ProjectContextMenu({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
             >
               {deleteProject.isPending ? "Deleting..." : "Delete project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leave Project Confirmation Dialog */}
+      <AlertDialog open={leaveOpen} onOpenChange={(o) => !leaveProject.isPending && setLeaveOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave &ldquo;{project.name}&rdquo;? You will lose access
+              and will need to be re-invited to rejoin.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={leaveProject.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleLeave(); }}
+              disabled={leaveProject.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
+            >
+              {leaveProject.isPending ? "Leaving..." : "Leave project"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
