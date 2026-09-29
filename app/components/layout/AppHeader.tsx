@@ -36,22 +36,13 @@ export function AppHeader({
   return (
     <header className="h-10 flex items-center justify-between px-3 shrink-0 bg-background/95 backdrop-blur-xs select-none">
       <div className="flex items-center gap-2 min-w-0">
-        {/* Sidebar Toggle: Opens mobile/tablet drawer on <lg, or expands desktop sidebar on >=lg when collapsed */}
-        <SimpleTooltip content={sidebarOpen ? "Open menu" : "Open sidebar"} side="bottom">
+        {/* Mobile / Tablet Drawer Toggle (visible strictly when desktop sidebar is hidden: < lg) */}
+        <SimpleTooltip content="Open navigation menu" side="bottom">
           <button
             type="button"
-            onClick={() => {
-              if (typeof window !== "undefined" && window.innerWidth < 1024) {
-                onOpenMobileDrawer();
-              } else {
-                onToggleSidebar();
-              }
-            }}
-            className={cn(
-              "p-1.5 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer flex items-center justify-center shrink-0",
-              sidebarOpen ? "lg:hidden" : "flex"
-            )}
-            aria-label={sidebarOpen ? "Open navigation menu" : "Expand sidebar"}
+            onClick={onOpenMobileDrawer}
+            className="lg:hidden p-1.5 rounded-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer flex items-center justify-center shrink-0"
+            aria-label="Open navigation menu"
           >
             <PanelLeftOpen className="size-4" />
           </button>

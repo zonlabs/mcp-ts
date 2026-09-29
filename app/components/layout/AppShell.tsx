@@ -281,7 +281,7 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="flex h-screen w-full bg-sidebar text-foreground overflow-hidden font-sans select-none antialiased py-1.5 sm:py-2 pr-1.5 sm:pr-2 pl-0 gap-0">
+    <div className="flex h-screen w-full bg-sidebar text-foreground overflow-hidden font-sans select-none antialiased py-1.5 sm:py-2 px-1.5 sm:px-2 lg:pl-0 gap-0">
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} chats={allChats} />
 
       <AppSidebar
