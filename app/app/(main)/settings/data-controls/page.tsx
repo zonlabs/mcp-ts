@@ -27,6 +27,8 @@ import { DeleteAllChatsDialog } from "@/components/settings/DeleteAllChatsDialog
 import { DeleteMcpUsageEventsDialog } from "@/components/settings/DeleteMcpUsageEventsDialog";
 import { DeleteAllProjectsDialog } from "@/components/settings/DeleteAllProjectsDialog";
 import { DeleteAllFilesDialog } from "@/components/settings/DeleteAllFilesDialog";
+import { DeleteAllMemoriesDialog } from "@/components/settings/DeleteAllMemoriesDialog";
+import { memoriesApi } from "@/lib/api/memories";
 import type { SidebarChat } from "@/lib/sidebar-chats";
 import {
   useStorageUsage,
@@ -60,6 +62,7 @@ export default function DataControlsPage() {
   const [deleteUsageEventsDialogOpen, setDeleteUsageEventsDialogOpen] = useState(false);
   const [deleteProjectsDialogOpen, setDeleteProjectsDialogOpen] = useState(false);
   const [deleteFilesDialogOpen, setDeleteFilesDialogOpen] = useState(false);
+  const [deleteMemoriesDialogOpen, setDeleteMemoriesDialogOpen] = useState(false);
   const [copiedChatId, setCopiedChatId] = useState<string | null>(null);
 
   // Centralized TanStack Query hooks & mutations
@@ -128,6 +131,17 @@ export default function DataControlsPage() {
   // Delete MCP Usage Events Handler
   const handleDeleteMcpUsageEvents = async () => {
     await deleteMcpUsageMutation.mutateAsync();
+  };
+
+  // Delete All Memories Handler
+  const handleDeleteAllMemories = async () => {
+    try {
+      await memoriesApi.deleteAll();
+      toast.success("All memories deleted successfully");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete memories");
+      throw err;
+    }
   };
 
   return (
@@ -429,29 +443,7 @@ export default function DataControlsPage() {
 
               <div className="border-t border-destructive/20" />
 
-              {/* 3. Delete MCP Usage Events */}
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-0.5 min-w-0 flex-1">
-                  <p className="text-xs font-medium text-foreground">Delete MCP usage events</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Permanently remove MCP dashboard activity and usage metrics.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteUsageEventsDialogOpen(true)}
-                  className="h-8 px-3 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 rounded-sm shrink-0 transition-all"
-                >
-                  <Trash2 className="size-3.5 mr-1.5" />
-                  Delete usage events
-                </Button>
-              </div>
-
-              <div className="border-t border-destructive/20" />
-
-              {/* 4. Delete All Conversations */}
+              {/* 3. Delete All Conversations */}
               <div className="flex items-center justify-between gap-4">
                 <div className="space-y-0.5 min-w-0 flex-1">
                   <p className="text-xs font-medium text-foreground">Delete all conversations</p>
@@ -469,6 +461,50 @@ export default function DataControlsPage() {
                 >
                   <Trash2 className="size-3.5 mr-1.5" />
                   Delete all chats
+                </Button>
+              </div>
+
+              <div className="border-t border-destructive/20" />
+
+              {/* 4. Delete All Memories */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-medium text-foreground">Delete all memories</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Permanently remove all learned preferences, user facts, and remembered context.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteMemoriesDialogOpen(true)}
+                  className="h-8 px-3 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 rounded-sm shrink-0 transition-all"
+                >
+                  <Trash2 className="size-3.5 mr-1.5" />
+                  Delete all memories
+                </Button>
+              </div>
+
+              <div className="border-t border-destructive/20" />
+
+              {/* 5. Delete Activity Data (at the end) */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-medium text-foreground">Delete activity data</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Permanently remove tool execution logs, metrics, and activity history.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteUsageEventsDialogOpen(true)}
+                  className="h-8 px-3 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 rounded-sm shrink-0 transition-all"
+                >
+                  <Trash2 className="size-3.5 mr-1.5" />
+                  Delete activity data
                 </Button>
               </div>
             </div>
@@ -503,6 +539,11 @@ export default function DataControlsPage() {
           await deleteAllFilesMutation.mutateAsync();
         }}
         fileCount={storage?.file_count}
+      />
+      <DeleteAllMemoriesDialog
+        open={deleteMemoriesDialogOpen}
+        onOpenChange={setDeleteMemoriesDialogOpen}
+        onConfirm={handleDeleteAllMemories}
       />
     </div>
   );

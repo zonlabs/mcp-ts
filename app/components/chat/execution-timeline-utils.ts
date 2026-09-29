@@ -1,7 +1,14 @@
 import { isToolUIPart, getToolName, type UIMessagePart } from "ai";
 import type { McpServerMetadata } from "@/agent/chat-agent";
 
-export type ToolIconCategory = "search" | "read" | "write" | "terminal" | "tool";
+export type ToolIconCategory =
+  | "search"
+  | "read"
+  | "write"
+  | "terminal"
+  | "memory-search"
+  | "memory-remember"
+  | "tool";
 
 export interface ExecutionTimelineItem {
   id: string;
@@ -51,6 +58,11 @@ export function formatToolDisplayName(toolName: string): string {
  */
 export function resolveIconCategory(toolName: string): ToolIconCategory {
   const norm = toolName.toLowerCase();
+
+  // Exact tool names
+  if (norm === "search_memory") return "memory-search";
+  if (norm === "remember_fact") return "memory-remember";
+
   if (norm.includes("search") || norm.includes("find") || norm.includes("query")) return "search";
   if (norm.includes("read") || norm.includes("fetch") || norm.includes("open") || norm.includes("get")) return "read";
   if (norm.includes("write") || norm.includes("create") || norm.includes("update") || norm.includes("save")) return "write";

@@ -7,7 +7,6 @@ import {
   KeyRound,
   ShieldOff,
   SlidersHorizontal,
-  Brain,
   Database,
   FileText,
   LogOut,
@@ -111,18 +110,6 @@ export function ProfileDropdown({ user, trigger }: ProfileDropdownProps) {
           </Link>
         </DropdownMenuItem>
 
-        <DropdownMenuItem asChild className="cursor-pointer gap-2.5 rounded-xs px-2.5 py-1.5 text-xs text-foreground hover:bg-card">
-          <Link
-            href="/settings/memories"
-            className={cn(
-              pathname.startsWith("/settings/memories") &&
-                "bg-card font-medium text-foreground"
-            )}
-          >
-            <Brain className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} />
-            <span>Memories</span>
-          </Link>
-        </DropdownMenuItem>
 
         <DropdownMenuItem asChild className="cursor-pointer gap-2.5 rounded-xs px-2.5 py-1.5 text-xs text-foreground hover:bg-card">
           <Link

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Wrench,
+  Files,
   Globe,
   Search,
   ChevronRight,
@@ -11,6 +11,8 @@ import {
   Terminal,
   CheckCircle2,
   XCircle,
+  History,
+  Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ServerIcon } from '@/components/common/ServerIcon';
@@ -33,7 +35,9 @@ const ICON_MAP: Record<ToolIconCategory, React.ComponentType<{ className?: strin
   read: Globe,
   write: FileText,
   terminal: Terminal,
-  tool: Wrench,
+  'memory-search': History,
+  'memory-remember': Brain,
+  tool: Files,
 };
 
 function toTitleCase(str: string): string {
@@ -81,7 +85,7 @@ function getToolArgs(input: unknown): Record<string, unknown> | null {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         record = parsed as Record<string, unknown>;
       }
-    } catch {}
+    } catch { }
   } else if (record.params && typeof record.params === 'object' && !Array.isArray(record.params)) {
     record = record.params as Record<string, unknown>;
   } else if (record.input && typeof record.input === 'object' && !Array.isArray(record.input)) {
@@ -118,7 +122,7 @@ function formatArgValue(value: unknown): string {
 
 function ToolTimelineItem({ task }: { task: ExecutionTimelineItem }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const Icon = ICON_MAP[task.iconCategory] || Wrench;
+  const Icon = ICON_MAP[task.iconCategory] || Files;
   const mcp = task.mcp;
   const serverId = mcp?.serverId;
   const serverName = mcp?.serverName;
@@ -254,12 +258,11 @@ export function WorkedTimelineSection({
     }
   };
 
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(() => persistedDuration || 0);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(() => (persistedDuration || (isStreaming ? 1 : 0)));
   const startTimeRef = useRef<number | null>(null);
 
   // Live timer while streaming; sync to persistedDuration when done.
-  // IMPORTANT: use Math.floor, not Math.ceil — setInterval fires a few ms late
-  // so ceil(1.003) = 2, skipping "1s" entirely.
+  // Starts directly at 1s so the user never sees an uninformative "Working..." placeholder.
   useEffect(() => {
     if (isStreaming) {
       if (startTimeRef.current === null) {
@@ -267,7 +270,7 @@ export function WorkedTimelineSection({
       }
       const interval = window.setInterval(() => {
         const start = startTimeRef.current ?? Date.now();
-        setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
+        setElapsedSeconds(Math.max(1, Math.floor((Date.now() - start) / 1000) + 1));
       }, 1000);
       return () => window.clearInterval(interval);
     } else {
@@ -280,7 +283,7 @@ export function WorkedTimelineSection({
 
   // When not streaming, prefer persistedDuration directly to avoid a render gap
   // between isStreaming flipping false and the effect updating elapsedSeconds.
-  const displaySeconds = !isStreaming ? (persistedDuration || elapsedSeconds) : elapsedSeconds;
+  const displaySeconds = isStreaming ? Math.max(1, elapsedSeconds) : (persistedDuration || elapsedSeconds);
 
   const hasTasks = tasks.length > 0;
   const hasReasoning = Boolean(reasoningText && reasoningText.trim().length > 0);
@@ -288,7 +291,7 @@ export function WorkedTimelineSection({
 
   const durationStr = formatDuration(displaySeconds);
   const headerTitle = isStreaming
-    ? (durationStr ? `Working for ${durationStr}` : 'Working...')
+    ? `Working for ${durationStr || '1s'}`
     : (durationStr ? `Worked for ${durationStr}` : 'Worked');
 
   return (
@@ -324,7 +327,7 @@ export function WorkedTimelineSection({
                 className="group/thinking flex items-center gap-2 text-muted-foreground hover:text-foreground font-medium text-[13px] transition-colors cursor-pointer select-none py-0.5"
                 aria-expanded={isThinkingOpen}
               >
-                <Brain className="size-3.5 shrink-0 text-muted-foreground group-hover/thinking:text-foreground transition-colors" />
+                <Lightbulb className="size-3.5 shrink-0 text-muted-foreground group-hover/thinking:text-foreground transition-colors" />
                 {isStreaming ? (
                   <Shimmer as="span" duration={1.6}>
                     Thinking Process

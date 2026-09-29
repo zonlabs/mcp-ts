@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
   AlertCircle,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Streamdown } from 'streamdown';
@@ -162,7 +163,7 @@ export function MemoryEventCard({
             memories.length > 0 ? 'cursor-pointer hover:text-foreground' : 'cursor-default'
           )}
         >
-          <Search className="size-3.5 shrink-0 text-muted-foreground" />
+          <History className="size-3.5 shrink-0 text-muted-foreground" />
           <span>
             {isExecuting
               ? 'Searching memory...'

@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@/components/chat/LoadingSpinner';
 import { ChatEmptyState } from '@/components/chat/ChatEmptyState';
 import { ActiveMcpAppOverlay, type ActiveMcpApp } from '@/components/chat/ActiveMcpAppOverlay';
 import { MessagePartsRenderer } from '@/components/chat/MessagePartsRenderer';
+import { CompactionEventNotice } from '@/components/chat/ChatEvents';
 import { readUserPreferencesFromStorage } from '@/lib/user-preferences';
 import { normalizeLlmConfig, readLlmConfigFromStorage } from '@/components/chat/llmConfig';
 import type { ChatUIMessage } from '@/agent/chat-agent';
@@ -54,9 +55,27 @@ interface MessageRowProps {
 
 const MessageRow = memo(function MessageRow({ m, isLastMessage, thoughtOpen, onEdit, renderParts }: MessageRowProps) {
   const text = m.parts
-    .filter((p: any) => p.type === 'text')
+    ?.filter((p: any) => p.type === 'text')
     .map((p: any) => p.text)
-    .join(' ');
+    .join(' ') || '';
+
+  const isCompaction =
+    Boolean(m.metadata?.isCompactedSummary) ||
+    (m.role === 'system' && text.startsWith('[Previous Conversation Context Summary'));
+
+  if (isCompaction) {
+    const summaryText =
+      (m.metadata as any)?.summary ||
+      text.replace(/^\[Previous Conversation Context Summary\]:\s*/i, '');
+    const compactedCount = (m.metadata as any)?.compactedCount;
+    return (
+      <CompactionEventNotice
+        compactedCount={compactedCount}
+        summary={summaryText}
+      />
+    );
+  }
+
   return (
     <div className={cn('group flex flex-col gap-1.5 w-full', m.role === 'user' ? 'items-end' : 'items-start')}>
       {m.role === 'user' ? (
