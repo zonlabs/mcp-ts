@@ -82,10 +82,8 @@ export function treeNote(lines: string | string[]): void {
   }
 }
 
-/** Start a tree-aligned blank line while an active spinner owns the current line. */
-export function treeSpacer(): void {
-  process.stdout.write(`\n${pc.dim("│")}\n`);
-}
+/** Tree spacer (deprecated, preserved for backwards compatibility). */
+export function treeSpacer(): void {}
 
 /** Print a structured section with bullet points connected to Clack's tree. */
 export function treeSummary(
@@ -146,7 +144,8 @@ export function serverLog(server: string, line: string, verbose = false): void {
   for (const part of line.split(/\r?\n/)) {
     const trimmed = part.trim();
     if (trimmed) {
-      process.stdout.write(`${pc.dim(`│  [${server}]`)} ${pc.dim(trimmed)}\n`);
+      const prefix = server === "bridge" ? pc.magenta(`│  [${server}]`) : pc.dim(`│  [${server}]`);
+      process.stdout.write(`${prefix} ${pc.dim(trimmed)}\n`);
     }
   }
   reflowTicker();

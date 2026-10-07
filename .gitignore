@@ -47,7 +47,7 @@ docs/superpowers/
 /.worktrees/
 
 # Local gateway runtime state
-.mcpassistant/
+.mcpa/
 gateway-state.json
 
 # E2E / scratch test artifacts

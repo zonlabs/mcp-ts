@@ -112,7 +112,7 @@ if (results.some((result) => result.status === "rejected")) process.exitCode = 1
 
 ## Configuration
 
-The CLI searches upward for `.mcpassistant/mcp.json` or `mcp.json`. `MCP_CONFIG_PATH` selects a file explicitly. `REMOTE_GATEWAY_URL` selects the remote gateway. `MCPA_CONFIG_DIR` selects the auth/session/daemon state directory.
+The CLI searches upward for `.mcpa/mcp.json` or `mcp.json`. `MCP_CONFIG_PATH` selects a file explicitly. `REMOTE_GATEWAY_URL` selects the remote gateway. `MCPA_CONFIG_DIR` selects the auth/session/daemon state directory.
 
 ```json
 {
@@ -124,6 +124,8 @@ The CLI searches upward for `.mcpassistant/mcp.json` or `mcp.json`. `MCP_CONFIG_
   }
 }
 ```
+
+- **`timeoutMs`** *(optional, default `30000`)*: Per-server startup timeout in milliseconds.
 
 ## Common mistakes
 

@@ -21,7 +21,7 @@ import { assertKnownOptions, parsePortOption } from "./cli-options.js";
 
 const HELP = `${renderBanner()}
 Usage:
-  mcpa serve [--host h] [--port p] [--mode <all|search>] [--verbose]
+  mcpa serve [--host h] [--port p] [--mode <all|search>] [--verbose] [--timeout s]
                                                 Run the local MCP gateway
   mcpa daemon <start|stop|status|logs>          Manage persistent background daemon
   mcpa call <tool> [jsonArgs] [--json]          Execute an MCP tool through the gateway
@@ -171,7 +171,13 @@ export async function runCli(
         "--remote": "value",
         "--mode": "value",
         "--verbose": "boolean",
+        "--timeout": "value",
       });
+      const timeoutOption = option(commandArgs, "--timeout");
+      const timeout = timeoutOption ? Number(timeoutOption) : undefined;
+      if (timeout !== undefined && (!Number.isFinite(timeout) || timeout <= 0)) {
+        throw new Error("--timeout must be a positive number");
+      }
       await cmdServe({
         host: option(commandArgs, "--host"),
         port: parsePortOption(option(commandArgs, "--port")),
@@ -179,6 +185,7 @@ export async function runCli(
         remote: option(commandArgs, "--remote"),
         mode,
         verbose,
+        timeout,
       });
       return 0;
     }

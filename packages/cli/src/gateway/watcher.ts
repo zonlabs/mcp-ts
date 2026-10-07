@@ -9,7 +9,7 @@ export interface McpConfigWatcherOptions {
 }
 
 /**
- * Watches mcp.json (or .mcpassistant/mcp.json) on disk and triggers
+ * Watches mcp.json (or .mcpa/mcp.json) on disk and triggers
  * a debounced callback whenever configuration changes occur.
  */
 export class McpConfigWatcher {

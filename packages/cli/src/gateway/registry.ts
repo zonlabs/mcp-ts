@@ -20,6 +20,17 @@ import {
 } from "./http-mcp-client.js";
 import { CLI_VERSION, error as uxError, serverLog } from "../ux.js";
 import { Traffic } from "../traffic.js";
+import { DEFAULT_LOCAL_SERVER_STARTUP_TIMEOUT_MS } from "../constants.js";
+
+export function resolveServerStartupTimeout(
+  config?: McpServerConfig,
+  fallbackTimeoutMs: number = DEFAULT_LOCAL_SERVER_STARTUP_TIMEOUT_MS,
+): number {
+  if (config && typeof config.timeoutMs === "number" && config.timeoutMs > 0) {
+    return config.timeoutMs;
+  }
+  return fallbackTimeoutMs;
+}
 
 function isHttpServerConfig(config: McpServerConfig): config is HttpServerConfig {
   return "url" in config;
@@ -283,7 +294,7 @@ export class McpGatewayRegistry {
     }
   }
 
-  async start(timeoutMs = 10_000): Promise<void> {
+  async start(timeoutMs = DEFAULT_LOCAL_SERVER_STARTUP_TIMEOUT_MS): Promise<void> {
     await Promise.allSettled(
       Object.entries(this.configs).map(async ([name, config]) => {
         if (config.disabled) {
@@ -299,7 +310,8 @@ export class McpGatewayRegistry {
         );
         this.localConnections.set(id, connection);
         try {
-          await this.startConnection(connection, timeoutMs);
+          const serverTimeout = resolveServerStartupTimeout(config, timeoutMs);
+          await this.startConnection(connection, serverTimeout);
           this.localServerStartupErrors.delete(id);
         } catch (error) {
           this.localConnections.delete(id);
@@ -429,7 +441,7 @@ export class McpGatewayRegistry {
    * Preserves active connections for unchanged servers, shuts down removed/disabled
    * servers, and starts up newly added/enabled servers.
    */
-  async reload(newConfigs: Record<string, McpServerConfig>, timeoutMs = 10_000): Promise<{
+  async reload(newConfigs: Record<string, McpServerConfig>, timeoutMs = DEFAULT_LOCAL_SERVER_STARTUP_TIMEOUT_MS): Promise<{
     added: string[];
     removed: string[];
     updated: string[];
@@ -460,7 +472,8 @@ export class McpGatewayRegistry {
         );
         attempted.add(id);
         try {
-          await this.startConnection(newConn, timeoutMs);
+          const serverTimeout = resolveServerStartupTimeout(newCfg, timeoutMs);
+          await this.startConnection(newConn, serverTimeout);
           this.localConnections.set(id, newConn);
           this.localServerStartupErrors.delete(id);
           updated.push(id);
@@ -491,7 +504,8 @@ export class McpGatewayRegistry {
         );
         attempted.add(id);
         try {
-          await this.startConnection(connection, timeoutMs);
+          const serverTimeout = resolveServerStartupTimeout(config, timeoutMs);
+          await this.startConnection(connection, serverTimeout);
           this.localConnections.set(id, connection);
           this.localServerStartupErrors.delete(id);
           added.push(id);

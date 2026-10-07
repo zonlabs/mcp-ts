@@ -1,5 +1,6 @@
 export interface BaseServerConfig {
   disabled?: boolean;
+  timeoutMs?: number;
 }
 
 export interface StdioServerConfig extends BaseServerConfig {

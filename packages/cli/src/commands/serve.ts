@@ -28,7 +28,6 @@ import {
   success,
   ticker,
   treeNote,
-  treeSpacer,
   treeSummary,
   warn,
 } from "../ux.js";
@@ -50,12 +49,14 @@ export interface ServeArgs {
   remote?: string;
   verbose?: boolean;
   mode?: "all" | "search";
+  timeout?: number;
 }
 
 import {
   DEFAULT_LOCAL_MCP_PORT,
   DEFAULT_REMOTE_GATEWAY_URL,
   DEFAULT_BRIDGE_READY_TIMEOUT_MS,
+  DEFAULT_LOCAL_SERVER_STARTUP_TIMEOUT_MS,
 } from "../constants.js";
 
 export { DEFAULT_LOCAL_MCP_PORT };
@@ -346,9 +347,12 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   }
 
   // Claim the local gateway before starting any remote bridge work.
+  const defaultStartupTimeout = args.timeout
+    ? args.timeout * 1000
+    : DEFAULT_LOCAL_SERVER_STARTUP_TIMEOUT_MS;
   const localStartTime = performance.now();
   const localTask = (async () => {
-    await localRegistry.start();
+    await localRegistry.start(defaultStartupTimeout);
     const url = await localHttpMcp.start();
     const health = localHttpMcp.getHealth();
     writeGatewayProcess({
@@ -394,12 +398,16 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
   const startupSummary = configuredServerCount === 0
     ? `No MCP servers configured in ${configSource}`
     : `${pc.bold(String(localServers.length))} of ${pc.bold(String(configuredServerCount))} ${configuredLabel} ready ${pc.dim(`in ${localDuration}s`)}`;
-  treeSpacer();
   startSpin.stop(startupSummary);
 
   if (localServers.length > 0) {
     const timings = localRegistry.getLocalServerTimings();
     renderServerList(localServers, 5, timings);
+  } else if (configuredServerCount === 0) {
+    const hint = localConfigPath
+      ? `${pc.dim("Tip: run")} ${pc.cyan("mcpa connect")} ${pc.dim(`or edit ${configSource} to add servers.`)}`
+      : `${pc.dim("Tip: run")} ${pc.cyan("mcpa init")} ${pc.dim("or")} ${pc.cyan("mcpa connect")} ${pc.dim("to configure local servers.")}`;
+    treeNote(hint);
   }
   for (const [serverName, message] of localRegistry.getLocalServerStartupErrors()) {
     if (message === "auth required") {

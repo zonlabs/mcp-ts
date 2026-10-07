@@ -68,15 +68,33 @@ For automation, pass arguments without a shell, serialize complex payloads with 
 ## Gateway operations
 
 ```bash
-mcpa init                    # write a default mcp.json
+mcpa init                    # write a default .mcpa/mcp.json
 mcpa serve                   # foreground gateway with live logs
+mcpa serve --timeout 45      # override default 30s server startup timeout
 mcpa daemon start            # background managed gateway
 mcpa daemon status           # state, PID/owner, port, and health
 mcpa daemon logs             # managed gateway logs
 mcpa daemon stop             # stop only the managed daemon
 ```
 
-The gateway watches `mcp.json`. Connecting, removing, enabling, disabling, or editing configured servers updates routes and search indexes without replacing the gateway.
+The gateway searches upward for `.mcpa/mcp.json` or `mcp.json` and watches it on disk. Connecting, removing, enabling, disabling, or editing configured servers updates routes and search indexes without replacing the gateway.
+
+### Server Configuration
+
+Local servers are configured in `.mcpa/mcp.json` (or root `mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  }
+}
+```
+
+* **`timeoutMs`** *(optional, default `30000`)*: Startup timeout in milliseconds. Configure per-server when initialization requires extra time.
 
 Point local MCP clients at the gateway:
 

@@ -329,4 +329,34 @@ describe("McpGatewayRegistry", () => {
       process.off("unhandledRejection", onUnhandled);
     }
   });
+
+  it("uses server-specific timeoutMs if configured on the server config", async () => {
+    const connectHttp = vi.fn(async () => new Promise<never>(() => undefined));
+    const registry = new McpGatewayRegistry(
+      {
+        "custom-timed": {
+          url: "https://custom.example/mcp",
+          timeoutMs: 25,
+        },
+      },
+      undefined,
+      { connectHttp } as never,
+    );
+
+    // Call start with default timeout (which would be 30s), but custom-timed should time out after 25ms
+    await registry.start();
+
+    expect(registry.getServerStatuses()).toEqual([
+      {
+        serverId: "custom-timed",
+        serverName: "custom-timed",
+        source: "local",
+        toolCount: 0,
+        discoveryState: "timeout",
+        error: "startup timed out after 25ms",
+      },
+    ]);
+  });
 });
+
+

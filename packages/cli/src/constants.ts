@@ -40,6 +40,11 @@ export const DEFAULT_LOCAL_MCP_PATH = "/mcp";
  */
 export const DEFAULT_REMOTE_GATEWAY_URL = "https://mcp.linkos.in";
 
+/**
+ * Default startup timeout in milliseconds for local MCP server connections.
+ */
+export const DEFAULT_LOCAL_SERVER_STARTUP_TIMEOUT_MS = 30_000;
+
 // ============================================================================
 // File: packages/cli/src/gateway/config.ts
 // ============================================================================
@@ -50,9 +55,9 @@ export const DEFAULT_REMOTE_GATEWAY_URL = "https://mcp.linkos.in";
 export const CONFIG_FILENAME = "mcp.json";
 
 /**
- * Default folder name for global/local LinkOS configuration directory.
+ * Default folder name for local configuration directory.
  */
-export const DEFAULT_CONFIG_DIR = ".mcpassistant";
+export const DEFAULT_CONFIG_DIR = ".mcpa";
 
 // ============================================================================
 // File: packages/cli/src/gateway/auth-store.ts

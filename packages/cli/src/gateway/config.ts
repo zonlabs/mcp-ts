@@ -64,7 +64,7 @@ export function writeDefaultMcpJson(dir: string): string {
 }
 
 /**
- * Add or update an MCP server configuration in mcp.json (or .mcpassistant/mcp.json).
+ * Add or update an MCP server configuration in mcp.json (or .mcpa/mcp.json).
  */
 export function addOrUpdateServerConfig(
   name: string,
@@ -96,7 +96,7 @@ export function addOrUpdateServerConfig(
 }
 
 /**
- * Remove an MCP server configuration from mcp.json (or .mcpassistant/mcp.json).
+ * Remove an MCP server configuration from mcp.json (or .mcpa/mcp.json).
  */
 export function removeServerConfig(
   name: string,
@@ -125,7 +125,7 @@ export function removeServerConfig(
 }
 
 /**
- * Toggle or explicitly set the enabled state for an MCP server in mcp.json (or .mcpassistant/mcp.json).
+ * Toggle or explicitly set the enabled state for an MCP server in mcp.json (or .mcpa/mcp.json).
  * If `enabled` is omitted, the state is automatically inverted.
  */
 export function toggleServerConfig(
@@ -163,7 +163,7 @@ export function toggleServerConfig(
 }
 
 /**
- * Enable an MCP server configuration in mcp.json (or .mcpassistant/mcp.json).
+ * Enable an MCP server configuration in mcp.json (or .mcpa/mcp.json).
  */
 export function enableServerConfig(
   name: string,
@@ -173,7 +173,7 @@ export function enableServerConfig(
 }
 
 /**
- * Disable an MCP server configuration in mcp.json (or .mcpassistant/mcp.json).
+ * Disable an MCP server configuration in mcp.json (or .mcpa/mcp.json).
  */
 export function disableServerConfig(
   name: string,

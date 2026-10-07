@@ -275,7 +275,6 @@ describe("configured MCP startup status", () => {
 
     expect(serveMocks.fileLink).toHaveBeenCalledWith("mcp.json", "C:/workspace/mcp.json");
     expect(serveMocks.spinnerStart).toHaveBeenCalledWith("Connecting to 3 MCP servers from mcp.json...");
-    expect(serveMocks.treeSpacer).toHaveBeenCalledOnce();
     expect(serveMocks.treeNote).toHaveBeenCalledWith(expect.stringContaining("supermemory"));
     expect(serveMocks.treeNote).toHaveBeenCalledWith(expect.stringContaining("mem0"));
     expect(serveMocks.treeNote).toHaveBeenCalledWith(expect.stringContaining("auth required"));

@@ -82,14 +82,16 @@ export class Traffic {
   recordIncoming(kind: string | IncomingTrafficInfo, detail = "", ms?: number, status = 200): void {
     this.requests++;
     const time = pc.dim(formatTime());
-    const arrow = pc.green("←");
+    const isBridge = typeof kind === "object" && kind.protocol === "BRIDGE";
+    const arrow = isBridge ? pc.magenta("←") : pc.green("←");
 
     if (typeof kind === "object") {
       const info = kind;
       const ok = info.ok !== undefined ? info.ok : (info.status === undefined || (info.status >= 200 && info.status < 300));
       if (!ok) this.errors++;
 
-      const protocol = pc.bold(pc.cyan((info.protocol ?? "JSON-RPC").padEnd(8)));
+      const protocolColor = info.protocol === "BRIDGE" ? pc.magenta : pc.cyan;
+      const protocol = pc.bold(protocolColor((info.protocol ?? "JSON-RPC").padEnd(8)));
       const opText = info.target ? `${info.method} (${info.target})` : info.method;
       const opPadded = opText.padEnd(32);
       const statusBadge = info.latencyMs !== undefined ? formatStatus(info.status, ok) : "";
