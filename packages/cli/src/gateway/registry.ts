@@ -645,6 +645,10 @@ export class McpGatewayRegistry {
     return [...this.routes.values()].map((route) => this.getTool(route.exposedName)!).filter(Boolean);
   }
 
+  getTraffic(): Traffic {
+    return this.traffic;
+  }
+
   async callLocalTool(params: ToolCallParams): Promise<unknown> {
     const connection = this.localConnections.get(params.serverId);
     if (!connection) {

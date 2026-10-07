@@ -545,11 +545,15 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+let daemonLoggingInitialized = false;
+
 /**
  * If running in background daemon mode (MCPA_DAEMON === "1"), redirects stdout and stderr to daemon.log.
  */
 export function setupDaemonLogging(): void {
   if (process.env.MCPA_DAEMON !== "1") return;
+  if (daemonLoggingInitialized) return;
+  daemonLoggingInitialized = true;
   ensureDaemonDir();
   const logStream = createWriteStream(getDaemonLogPath(), { flags: "a" });
   const writeOut = (chunk: unknown, encoding?: unknown, callback?: unknown) => {

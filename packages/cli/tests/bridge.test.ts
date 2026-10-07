@@ -15,6 +15,7 @@ import {
   type BridgeSocketFactory,
   type RemoteBridgeClientOptions,
 } from "../src/gateway/bridge-client.js";
+import { Traffic } from "../src/traffic.js";
 
 class FakeSocket extends EventEmitter implements BridgeSocket {
   readyState = 0;
@@ -474,5 +475,138 @@ describe("RemoteBridgeClient", () => {
     await state.bridge.stop();
     const result = await waitPromise;
     expect(result).toBe(false);
+  });
+
+  it("records incoming BRIDGE traffic and tool execution logs when remote calls local tools", async () => {
+    const lines: string[] = [];
+    const traffic = new Traffic({
+      verbose: true,
+      onLine: (line) => lines.push(line),
+    });
+    const state = setup({ traffic, verbose: true });
+    await state.bridge.start();
+    state.socket.open();
+    const initialize = JSON.parse(state.socket.sent[0]);
+    state.socket.receive(
+      createSuccessResponse(initialize.id, {
+        protocolVersion: BRIDGE_PROTOCOL_VERSION,
+        serverInfo: { name: "linkos", version: "1.0.0" },
+        remoteCatalog: { servers: [] },
+      }),
+    );
+
+    state.socket.receive(
+      createRequest("remote-req-1", BRIDGE_METHODS.callTool, {
+        serverId: "local-files",
+        toolName: "read_file",
+        arguments: { path: "hello.txt" },
+      }),
+    );
+
+    await vi.waitFor(() => expect(state.calls).toHaveLength(1));
+    expect(traffic.requests).toBe(1);
+    expect(traffic.calls).toBe(1);
+    expect(traffic.errors).toBe(0);
+
+    const incomingLine = lines.find((l) => l.includes("BRIDGE") && l.includes("tools/call"));
+    expect(incomingLine).toBeDefined();
+    expect(incomingLine).toContain("local-files::read_file");
+    expect(incomingLine).toContain("200 OK");
+
+    const executeLine = lines.find((l) => l.includes("EXECUTE") && l.includes("local-files::read_file"));
+    expect(executeLine).toBeDefined();
+    expect(executeLine).toContain("200 OK");
+
+    const verboseArgs = lines.find((l) => l.includes("hello.txt"));
+    expect(verboseArgs).toBeDefined();
+
+    const response = JSON.parse(state.socket.sent.at(-1)!);
+    expect(response).toMatchObject({
+      id: "remote-req-1",
+      result: { content: [{ type: "text", text: "local-result" }] },
+    });
+  });
+
+  it("records incoming BRIDGE traffic and tool execution errors when remote call fails", async () => {
+    const lines: string[] = [];
+    const traffic = new Traffic({
+      onLine: (line) => lines.push(line),
+    });
+    const state = setup({ traffic });
+    state.manager.callLocalTool.mockRejectedValueOnce(new Error("File not found: secret.key"));
+
+    await state.bridge.start();
+    state.socket.open();
+    const initialize = JSON.parse(state.socket.sent[0]);
+    state.socket.receive(
+      createSuccessResponse(initialize.id, {
+        protocolVersion: BRIDGE_PROTOCOL_VERSION,
+        serverInfo: { name: "linkos", version: "1.0.0" },
+        remoteCatalog: { servers: [] },
+      }),
+    );
+
+    state.socket.receive(
+      createRequest("remote-req-err", BRIDGE_METHODS.callTool, {
+        serverId: "local-files",
+        toolName: "read_file",
+        arguments: { path: "secret.key" },
+      }),
+    );
+
+    await vi.waitFor(() => expect(traffic.errors).toBeGreaterThan(0));
+    expect(traffic.requests).toBe(1);
+    expect(traffic.calls).toBe(1);
+
+    const incomingLine = lines.find((l) => l.includes("BRIDGE") && l.includes("tools/call"));
+    expect(incomingLine).toBeDefined();
+    expect(incomingLine).toContain("500 ERR");
+    expect(incomingLine).toContain("File not found: secret.key");
+
+    const executeLine = lines.find((l) => l.includes("EXECUTE") && l.includes("local-files::read_file"));
+    expect(executeLine).toBeDefined();
+    expect(executeLine).toContain("500 ERR");
+    expect(executeLine).toContain("File not found: secret.key");
+
+    const response = JSON.parse(state.socket.sent.at(-1)!);
+    expect(response).toMatchObject({
+      id: "remote-req-err",
+      error: { message: "File not found: secret.key" },
+    });
+  });
+
+  it("obtains traffic instance from registry getTraffic() if not passed directly in options", async () => {
+    const lines: string[] = [];
+    const traffic = new Traffic({ onLine: (line) => lines.push(line) });
+    const state = setup();
+    (state.manager as any).getTraffic = vi.fn(() => traffic);
+
+    const bridgeWithRegistryTraffic = new RemoteBridgeClient(state.manager as any, {
+      remoteUrl: "https://mcp.linkos.in/mcp",
+      getAccessToken: async () => "access-secret",
+      socketFactory: state.socketFactory,
+    });
+
+    await bridgeWithRegistryTraffic.start();
+    state.socket.open();
+    const initialize = JSON.parse(state.socket.sent[0]);
+    state.socket.receive(
+      createSuccessResponse(initialize.id, {
+        protocolVersion: BRIDGE_PROTOCOL_VERSION,
+        serverInfo: { name: "linkos", version: "1.0.0" },
+        remoteCatalog: { servers: [] },
+      }),
+    );
+
+    state.socket.receive(
+      createRequest("req-via-registry-traffic", BRIDGE_METHODS.callTool, {
+        serverId: "local-files",
+        toolName: "read_file",
+        arguments: {},
+      }),
+    );
+
+    await vi.waitFor(() => expect(traffic.calls).toBe(1));
+    expect(lines.some((l) => l.includes("BRIDGE"))).toBe(true);
   });
 });

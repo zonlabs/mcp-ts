@@ -254,6 +254,8 @@ export async function cmdServe(args: ServeArgs): Promise<void> {
 
         bridge = new RemoteBridgeClient(localRegistry, {
           remoteUrl: remote,
+          traffic,
+          verbose: args.verbose,
           getAccessToken: async () => (await ensureFreshAuthSession(remote)).accessToken,
           onRemoteCatalogChanged: (catalog) => {
             for (const message of describeRemoteCatalogChanges(previousRemoteCatalog, catalog)) {

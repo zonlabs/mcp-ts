@@ -16,6 +16,7 @@ import {
   type ToolCallParams,
 } from "@mcp-ts/bridge-protocol";
 import { serverLog } from "../ux.js";
+import type { Traffic } from "../traffic.js";
 import {
   CLI_VERSION,
   DEFAULT_BRIDGE_RECONNECT_INITIAL_DELAY_MS,
@@ -44,6 +45,7 @@ export interface BridgeGatewayRegistry {
     invoke: (params: ToolCallParams) => Promise<unknown>,
   ): Promise<void>;
   callLocalTool(params: ToolCallParams): Promise<unknown>;
+  getTraffic?(): Traffic;
 }
 
 export interface RemoteBridgeClientOptions {
@@ -56,6 +58,8 @@ export interface RemoteBridgeClientOptions {
   onRemoteCatalogChanged?: (catalog: CatalogSnapshot) => void;
   onTerminalClose?: (code: number) => void;
   onReplaced?: () => void;
+  traffic?: Traffic;
+  verbose?: boolean;
 }
 
 interface PendingRequest {
@@ -76,12 +80,16 @@ export class RemoteBridgeClient {
   private ready = false;
   private readyResolver: (() => void) | null = null;
   private readyPromise!: Promise<void>;
+  private readonly traffic?: Traffic;
+  private readonly verbose: boolean;
 
   constructor(
     private readonly registry: BridgeGatewayRegistry,
     private readonly options: RemoteBridgeClientOptions,
   ) {
     this.reconnectDelay = options.reconnectInitialDelayMs ?? 1_000;
+    this.traffic = options.traffic ?? registry.getTraffic?.() ?? (registry as any).traffic;
+    this.verbose = Boolean(options.verbose);
     this.resetReadyPromise();
   }
 
@@ -152,20 +160,20 @@ export class RemoteBridgeClient {
         if (this.socket !== socket || this.closed) return;
         this.reconnectDelay = this.options.reconnectInitialDelayMs ?? 1_000;
         void this.initialize(socket).catch((error) => {
-          serverLog("bridge", `initialization failed: ${error.message}`);
+          serverLog("bridge", `initialization failed: ${error.message}`, this.verbose);
           socket.close(BRIDGE_CLOSE_CODES.incompatibleProtocol, "initialization failed");
         });
       });
       socket.on("message", (data) => {
         if (this.socket !== socket || this.closed) return;
         void this.handleMessage(socket, data).catch((error) =>
-          serverLog("bridge", `message handling failed: ${error.message}`),
+          serverLog("bridge", `message handling failed: ${error.message}`, this.verbose),
         );
       });
       socket.on("close", (code) => this.handleClose(socket, code));
-      socket.on("error", (error) => serverLog("bridge", `websocket error: ${error.message}`));
+      socket.on("error", (error) => serverLog("bridge", `websocket error: ${error.message}`, this.verbose));
     } catch (error) {
-      serverLog("bridge", `connection failed: ${(error as Error).message}`);
+      serverLog("bridge", `connection failed: ${(error as Error).message}`, this.verbose);
       this.scheduleReconnect();
     }
   }
@@ -270,10 +278,50 @@ export class RemoteBridgeClient {
     }
     if (message.method !== BRIDGE_METHODS.callTool) return;
 
+    const started = Date.now();
     try {
       const result = await this.registry.callLocalTool(message.params);
+      const latencyMs = Date.now() - started;
+      this.traffic?.recordIncoming({
+        protocol: "BRIDGE",
+        method: BRIDGE_METHODS.callTool,
+        target: `${message.params.serverId}::${message.params.toolName}`,
+        latencyMs,
+        status: 200,
+        ok: true,
+        args: message.params.arguments,
+      });
+      this.traffic?.recordCall(
+        message.params.serverId,
+        message.params.toolName,
+        latencyMs,
+        true,
+        undefined,
+        message.params.arguments,
+        result,
+      );
       socket.send(JSON.stringify(createSuccessResponse(message.id, result)));
     } catch (error) {
+      const latencyMs = Date.now() - started;
+      const errMsg = error instanceof Error ? error.message : "Local tool call failed";
+      this.traffic?.recordIncoming({
+        protocol: "BRIDGE",
+        method: BRIDGE_METHODS.callTool,
+        target: `${message.params.serverId}::${message.params.toolName}`,
+        latencyMs,
+        status: 500,
+        ok: false,
+        error: errMsg,
+        args: message.params.arguments,
+      });
+      this.traffic?.recordCall(
+        message.params.serverId,
+        message.params.toolName,
+        latencyMs,
+        false,
+        errMsg,
+        message.params.arguments,
+      );
       const code = error instanceof BridgeProtocolError
         ? error.code
         : JSON_RPC_ERROR_CODES.internalError;
@@ -282,7 +330,7 @@ export class RemoteBridgeClient {
           createErrorResponse(
             message.id,
             code,
-            error instanceof Error ? error.message : "Local tool call failed",
+            errMsg,
           ),
         ),
       );
