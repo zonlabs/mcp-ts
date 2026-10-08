@@ -103,7 +103,7 @@ export function McpHomeSkeleton() {
                 key={idx}
                 className="bg-card border border-border rounded-md p-4 flex items-start gap-3.5"
               >
-                <Skeleton className="size-9 rounded-sm shrink-0" />
+                <Skeleton className="size-11 sm:size-12 rounded-sm shrink-0" />
                 <div className="min-w-0 flex-1 space-y-2">
                   <Skeleton className="h-4 w-28 rounded-xs" />
                   <Skeleton className="h-3 w-full rounded-xs" />

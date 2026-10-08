@@ -279,12 +279,12 @@ export function HomeView({
                   onClick={() => onSelectApp(server)}
                   className="group bg-card hover:bg-card/90 border border-border hover:border-body-strong/40 rounded-md p-4 flex items-start gap-3.5 cursor-pointer transition-colors duration-150"
                 >
-                  <div className="size-9 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border p-1">
+                  <div className="size-11 sm:size-12 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-1.5 shadow-2xs">
                     <ServerIcon
                       serverName={server.name}
                       serverUrl={server.url}
                       icon={server.icon || (server as any).icon}
-                      size={28}
+                      size={34}
                     />
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
