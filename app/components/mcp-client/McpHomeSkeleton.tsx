@@ -25,7 +25,7 @@ export function McpHomeSkeleton() {
               {Array.from({ length: 364 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-[12px] w-[12px] sm:h-[13px] sm:w-[13px] rounded-[2px] bg-muted/40 animate-pulse"
+                  className="h-[12px] w-[12px] sm:h-[13px] sm:w-[13px] rounded-[2px] bg-muted-foreground/15 dark:bg-white/10 animate-pulse"
                   style={{ animationDelay: `${(i % 50) * 15}ms` }}
                 />
               ))}

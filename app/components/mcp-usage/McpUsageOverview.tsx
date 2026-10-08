@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { McpAnalyticsDashboard } from "@/components/mcp-usage/McpAnalyticsDashboard";
 
 const RECENT_ACTIVITY_PAGE_SIZE = 10;
@@ -210,7 +211,7 @@ export function McpUsageOverview({
               Tool Calls
             </p>
             {isLoading ? (
-              <div className="h-4 sm:h-5 w-20 bg-muted/60 animate-pulse rounded-sm mt-1" />
+              <Skeleton className="h-4 sm:h-5 w-20 rounded-sm mt-1" />
             ) : (
               <p className="text-lg sm:text-xl lg:text-2xl font-semibold font-mono text-foreground tracking-tight">
                 {summary.toolCallsTotal.toLocaleString()}
@@ -223,7 +224,7 @@ export function McpUsageOverview({
               LinkOS
             </p>
             {isLoading ? (
-              <div className="h-4 sm:h-5 w-20 bg-muted/60 animate-pulse rounded-sm mt-1" />
+              <Skeleton className="h-4 sm:h-5 w-20 rounded-sm mt-1" />
             ) : (
               <p className="text-lg sm:text-xl lg:text-2xl font-semibold font-mono text-foreground tracking-tight">
                 {resolvedMcpAssistantCount.toLocaleString()}
@@ -236,7 +237,7 @@ export function McpUsageOverview({
               Streak
             </p>
             {isLoading ? (
-              <div className="h-4 sm:h-5 w-20 bg-muted/60 animate-pulse rounded-sm mt-1" />
+              <Skeleton className="h-4 sm:h-5 w-20 rounded-sm mt-1" />
             ) : (
               <p className="text-lg sm:text-xl lg:text-2xl font-semibold font-mono text-foreground flex items-baseline gap-1.5">
                 <span>{summary.streakDays}</span>
@@ -250,7 +251,7 @@ export function McpUsageOverview({
               Most Used App
             </p>
             {isLoading ? (
-              <div className="h-4 sm:h-5 w-28 bg-muted/60 animate-pulse rounded-sm mt-1" />
+              <Skeleton className="h-4 sm:h-5 w-28 rounded-sm mt-1" />
             ) : (
               <div className="text-sm sm:text-base lg:text-lg font-medium text-foreground truncate flex items-center gap-2 pt-0.5">
                 {summary.mostUsedApp ? (
@@ -290,13 +291,13 @@ export function McpUsageOverview({
         {isLoading ? (
           <div className="bg-card border border-border rounded-md overflow-hidden p-4 space-y-3">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between gap-4 animate-pulse py-2">
+              <div key={i} className="flex items-center justify-between gap-4 py-2">
                 <div className="flex items-center gap-3">
-                  <div className="size-4 bg-muted/60 rounded-xs" />
-                  <div className="h-3.5 w-16 bg-muted/60 rounded-xs" />
-                  <div className="h-3.5 w-32 bg-muted/60 rounded-xs" />
+                  <Skeleton className="size-4 rounded-xs" />
+                  <Skeleton className="h-3.5 w-16 rounded-xs" />
+                  <Skeleton className="h-3.5 w-32 rounded-xs" />
                 </div>
-                <div className="h-3.5 w-20 bg-muted/60 rounded-xs" />
+                <Skeleton className="h-3.5 w-20 rounded-xs" />
               </div>
             ))}
           </div>
@@ -407,7 +408,15 @@ function RecentActivityRow({
         </div>
 
         <div className="flex min-w-0 items-center gap-2">
-          <ServerIcon serverName={appName} serverUrl={serverUrl} size={18} className="shrink-0 rounded-xs" />
+          <div className="size-6 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-0.5 shadow-2xs">
+            <ServerActivityIcon
+              icons={event.server_icons}
+              serverName={appName}
+              serverUrl={serverUrl}
+              size={16}
+              className="size-4 object-contain"
+            />
+          </div>
           {event.server_id || serverUrl ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -494,7 +503,15 @@ function RecentActivityRow({
         {/* Top line: Server Icon + Name + Time on left, Status on right */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <ServerIcon serverName={appName} serverUrl={serverUrl} size={16} className="shrink-0 rounded-xs" />
+            <div className="size-5.5 shrink-0 flex items-center justify-center rounded-sm bg-background border border-border dark:bg-white dark:border-white/20 p-0.5 shadow-2xs">
+              <ServerActivityIcon
+                icons={event.server_icons}
+                serverName={appName}
+                serverUrl={serverUrl}
+                size={14}
+                className="size-3.5 object-contain"
+              />
+            </div>
             <span className="truncate font-medium text-foreground">{appName}</span>
             <span className="text-muted-foreground/40">•</span>
             <span className="flex items-center gap-1 text-muted-foreground font-mono text-[11px] sm:text-xs shrink-0">
@@ -548,7 +565,7 @@ function RecentActivityRow({
 }
 
 function getHeatmapColorClass(count: number, maxCount: number): string {
-  if (count <= 0 || maxCount <= 0) return "bg-border/50 dark:bg-border/30";
+  if (count <= 0 || maxCount <= 0) return "bg-border/50 dark:bg-white/[0.06]";
   const ratio = count / maxCount;
   if (ratio <= 0.25) return "bg-emerald-300 dark:bg-emerald-950";
   if (ratio <= 0.5) return "bg-emerald-400 dark:bg-emerald-800";
